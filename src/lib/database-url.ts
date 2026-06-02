@@ -1,7 +1,4 @@
-import "dotenv/config";
-import { defineConfig } from "prisma/config";
-
-function getDatabaseUrl() {
+export function getDatabaseUrl() {
   if (process.env.DATABASE_URL) {
     return process.env.DATABASE_URL;
   }
@@ -14,14 +11,3 @@ function getDatabaseUrl() {
 
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${name}`;
 }
-
-export default defineConfig({
-  schema: "prisma/schema.prisma",
-  migrations: {
-    path: "prisma/migrations",
-    seed: "tsx prisma/seed.ts",
-  },
-  datasource: {
-    url: getDatabaseUrl(),
-  },
-});

@@ -6,15 +6,15 @@ services:
       - app
       - seed
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: rollfinder
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-rollfinder}
     ports:
-      - "54322:5432"
+      - "${DB_PORT:-54322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rollfinder"]
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -27,7 +27,11 @@ services:
       - app
       - seed
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/rollfinder
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
     depends_on:
       db:
         condition: service_healthy
@@ -40,7 +44,11 @@ services:
       - seed
     command: ["npx", "prisma", "db", "seed"]
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/rollfinder
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -52,7 +60,11 @@ services:
     profiles:
       - app
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@db:5432/rollfinder
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-rollfinder-secret-for-compose}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}

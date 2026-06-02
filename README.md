@@ -52,9 +52,21 @@ docker compose --profile seed up --build seed
 
 The seed profile is opt-in because the MVP seed adds open mat events.
 
+Database settings are split into individual variables:
+
+```bash
+DB_NAME=rollfinder
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_HOST=127.0.0.1
+DB_PORT=54322
+```
+
+The app and Prisma derive the PostgreSQL connection string from those values. You can still set `DATABASE_URL` directly if a hosted provider gives you a single connection string.
+
 ## Supabase
 
-Create a Supabase project, copy the pooled PostgreSQL connection string into `DATABASE_URL`, and set `NEXT_PUBLIC_SUPABASE_URL` plus `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Supabase Storage is ready to use through `src/lib/supabase.ts`.
+Create a Supabase project, copy the database connection details into `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT`, then set `NEXT_PUBLIC_SUPABASE_URL` plus `NEXT_PUBLIC_SUPABASE_ANON_KEY`. If Supabase gives you a pooled connection string, you can set `DATABASE_URL` instead. Supabase Storage is ready to use through `src/lib/supabase.ts`.
 
 ## Deployment
 
