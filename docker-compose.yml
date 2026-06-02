@@ -1,0 +1,72 @@
+services:
+  db:
+    image: postgres:16-alpine
+    profiles:
+      - db
+      - app
+      - seed
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rollfinder
+    ports:
+      - "54322:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rollfinder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build:
+      context: .
+      target: migrator
+    profiles:
+      - app
+      - seed
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/rollfinder
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    build:
+      context: .
+      target: migrator
+    profiles:
+      - seed
+    command: ["npx", "prisma", "db", "seed"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/rollfinder
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  app:
+    build:
+      context: .
+      target: runner
+    profiles:
+      - app
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/rollfinder
+      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-rollfinder-secret-for-compose}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}
+      NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
+      NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:

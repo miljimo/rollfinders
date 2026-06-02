@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RollFinder
 
-## Getting Started
+RollFinder is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open mats in London.
 
-First, run the development server:
+## Stack
+
+- Next.js App Router, TypeScript, Tailwind CSS
+- Supabase-hosted PostgreSQL and storage-ready client
+- Prisma migrations and seed data
+- NextAuth credentials provider
+
+## Local Setup
 
 ```bash
+cp .env.example .env
+docker compose --profile db up -d
+npm install
+npm run db:generate
+npm run db:dev
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Seed admin:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Email: `admin@rollfinder.local`
+- Password: `rollfinder-admin`
 
-## Learn More
+## Docker Compose Profiles
 
-To learn more about Next.js, take a look at the following resources:
+Run only the database:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker compose --profile db up -d
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run the production application container and database:
 
-## Deploy on Vercel
+```bash
+docker compose --profile app up --build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The `app` profile starts Postgres, waits for it to become healthy, runs Prisma migrations, and then starts Next.js at http://localhost:3000.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Seed the Docker database when needed:
+
+```bash
+docker compose --profile seed up --build seed
+```
+
+The seed profile is opt-in because the MVP seed adds open mat events.
+
+## Supabase
+
+Create a Supabase project, copy the pooled PostgreSQL connection string into `DATABASE_URL`, and set `NEXT_PUBLIC_SUPABASE_URL` plus `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Supabase Storage is ready to use through `src/lib/supabase.ts`.
+
+## Deployment
+
+Set the environment variables from `.env.example` in Vercel, then run:
+
+```bash
+npm run db:migrate
+npm run db:seed
+```
+
+## MVP Coverage
+
+- Academy directory and profiles
+- Open mat listings and event detail pages
+- Search by academy, city, postcode, and session text
+- Map page with Google Maps embed support
+- Academy claim requests
+- Admin portal with academy CRUD and claim approval/rejection
+- Prisma migration, seed data, Docker support, and CI

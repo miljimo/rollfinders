@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  USER
+  ACADEMY_OWNER
+  ADMIN
+}
+
+enum GiType {
+  GI
+  NO_GI
+  BOTH
+}
+
+enum ClaimStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String?
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role     @default(USER)
+  disabled     Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+model Academy {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  description String
+  affiliation String?
+  website     String?
+  email       String?
+  phone       String?
+  address     String
+  city        String
+  postcode    String
+  country     String         @default("United Kingdom")
+  latitude    Float
+  longitude   Float
+  logoUrl     String?        @map("logo_url")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  events      Event[]
+  claims      ClaimRequest[]
+
+  @@index([city])
+  @@index([postcode])
+  @@map("academies")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  academyId   String   @map("academy_id")
+  title       String
+  description String
+  eventDate   DateTime @map("event_date")
+  startTime   String   @map("start_time")
+  endTime     String   @map("end_time")
+  giType      GiType   @map("gi_type")
+  price       Decimal  @db.Decimal(8, 2)
+  capacity    Int?
+  createdAt   DateTime @default(now()) @map("created_at")
+  academy     Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  @@index([eventDate])
+  @@map("events")
+}
+
+model ClaimRequest {
+  id             String      @id @default(cuid())
+  academyId      String      @map("academy_id")
+  requesterName  String      @map("requester_name")
+  requesterEmail String      @map("requester_email")
+  status         ClaimStatus @default(PENDING)
+  createdAt      DateTime    @default(now()) @map("created_at")
+  academy        Academy     @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("claim_requests")
+}

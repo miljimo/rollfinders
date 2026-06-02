@@ -1,0 +1,36 @@
+import { notFound } from "next/navigation";
+import { PageShell } from "@/components/shell";
+import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
+
+export const dynamic = "force-dynamic";
+
+export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const event = await prisma.event.findUnique({ where: { id }, include: { academy: true } });
+  if (!event) notFound();
+
+  const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
+
+  return (
+    <PageShell>
+      <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <p className="text-sm font-bold uppercase tracking-wide text-teal-800">{event.giType.replace("_", "-")}</p>
+        <h1 className="mt-2 text-4xl font-black text-stone-950">{event.title}</h1>
+        <p className="mt-2 text-lg font-semibold text-stone-700">{event.academy.name}</p>
+        <dl className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-700 sm:grid-cols-2">
+          <div><dt className="font-bold text-stone-950">Date</dt><dd>{formatDate(event.eventDate)}</dd></div>
+          <div><dt className="font-bold text-stone-950">Time</dt><dd>{event.startTime}-{event.endTime}</dd></div>
+          <div><dt className="font-bold text-stone-950">Cost</dt><dd>{formatMoney(event.price)}</dd></div>
+          <div><dt className="font-bold text-stone-950">Capacity</dt><dd>{event.capacity ?? "Check with academy"}</dd></div>
+          <div className="sm:col-span-2"><dt className="font-bold text-stone-950">Location</dt><dd>{address}</dd></div>
+        </dl>
+        <p className="mt-6 text-lg leading-8 text-stone-700">{event.description}</p>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <a href={directionsUrl(address)} target="_blank" rel="noreferrer" className="rounded-md bg-stone-950 px-4 py-3 text-sm font-bold text-white">Directions</a>
+          <a href={event.academy.website ?? `/academies/${event.academy.slug}`} className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Academy Details</a>
+        </div>
+      </section>
+    </PageShell>
+  );
+}

@@ -1,0 +1,24 @@
+import { z } from "zod";
+
+export const claimRequestSchema = z.object({
+  academyId: z.string().min(1),
+  requesterName: z.string().min(2).max(120),
+  requesterEmail: z.string().email().max(160),
+});
+
+export const academySchema = z.object({
+  name: z.string().min(2),
+  slug: z.string().min(2).regex(/^[a-z0-9-]+$/),
+  description: z.string().min(10),
+  affiliation: z.string().optional().nullable(),
+  website: z.string().url().optional().or(z.literal("")),
+  email: z.string().email().optional().or(z.literal("")),
+  phone: z.string().optional().nullable(),
+  address: z.string().min(4),
+  city: z.string().min(2),
+  postcode: z.string().min(3),
+  country: z.string().min(2),
+  latitude: z.coerce.number(),
+  longitude: z.coerce.number(),
+  logoUrl: z.string().url().optional().or(z.literal("")),
+});
