@@ -75,7 +75,7 @@ output "ecs_task_definition_arn" {
 
 output "ecs_security_group_id" {
   description = "Security group used by ECS tasks."
-  value       = aws_security_group.ecs.id
+  value       = module.ecs_security_group.id
 }
 
 output "private_subnet_ids" {

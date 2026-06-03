@@ -1,7 +1,8 @@
 # create a bastion host/ jump server
 resource "aws_security_group" "security" {
-  vpc_id = var.vpc_id
-  name   = "${var.environment_name}-${var.name}"
+  vpc_id      = var.vpc_id
+  name        = "${var.environment_name}-${var.name}"
+  description = var.description
 
   dynamic "ingress" {
     for_each = var.inbound_rules
@@ -11,7 +12,7 @@ resource "aws_security_group" "security" {
       protocol        = lookup(ingress.value, "protocol", "-1")
       cidr_blocks     = lookup(ingress.value, "cidr_blocks", [])
       security_groups = lookup(ingress.value, "security_groups", [])
-      description     = lookup(ingress.value, "description", "Terrform managed inbound rule")
+      description     = lookup(ingress.value, "description", "Terraform managed inbound rule")
       prefix_list_ids = lookup(ingress.value, "prefix_list_ids", [])
     }
   }
@@ -26,7 +27,7 @@ resource "aws_security_group" "security" {
       cidr_blocks     = lookup(egress.value, "cidr_blocks", [])
       security_groups = lookup(egress.value, "security_groups", [])
       prefix_list_ids = lookup(egress.value, "prefix_list_ids", [])
-      description     = lookup(egress.value, "description", "Terrform managed outbound rule")
+      description     = lookup(egress.value, "description", "Terraform managed outbound rule")
     }
   }
 
@@ -40,4 +41,3 @@ resource "aws_security_group" "security" {
     EgressCount  = length(var.outbound_rules)
   }
 }
-

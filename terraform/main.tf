@@ -5,22 +5,21 @@ data "aws_route53_zone" "public" {
   private_zone = false
 }
 
-resource "aws_vpc" "main" {
-  cidr_block           = var.vpc_cidr_block
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-vpc" })
+module "vpc" {
+  source           = "./modules/vpc"
+  environment_name = var.environment_name
+  name             = "${local.name_prefix}-vpc"
+  cidr_block       = var.vpc_cidr_block
 }
 
 resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = module.vpc.id
   tags   = merge(local.common_tags, { Name = "${local.name_prefix}-igw" })
 }
 
 resource "aws_subnet" "public" {
   count                   = length(var.availability_zones)
-  vpc_id                  = aws_vpc.main.id
+  vpc_id                  = module.vpc.id
   cidr_block              = cidrsubnet(var.vpc_cidr_block, 8, count.index)
   availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
@@ -30,7 +29,7 @@ resource "aws_subnet" "public" {
 
 resource "aws_subnet" "private" {
   count             = length(var.availability_zones)
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = module.vpc.id
   cidr_block        = cidrsubnet(var.vpc_cidr_block, 8, count.index + 10)
   availability_zone = var.availability_zones[count.index]
 
@@ -39,7 +38,7 @@ resource "aws_subnet" "private" {
 
 resource "aws_subnet" "database" {
   count             = length(var.availability_zones)
-  vpc_id            = aws_vpc.main.id
+  vpc_id            = module.vpc.id
   cidr_block        = cidrsubnet(var.vpc_cidr_block, 8, count.index + 20)
   availability_zone = var.availability_zones[count.index]
 
@@ -60,7 +59,7 @@ resource "aws_nat_gateway" "main" {
 }
 
 resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = module.vpc.id
 
   route {
     cidr_block = "0.0.0.0/0"
@@ -71,7 +70,7 @@ resource "aws_route_table" "public" {
 }
 
 resource "aws_route_table" "private" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = module.vpc.id
 
   route {
     cidr_block     = "0.0.0.0/0"
@@ -82,7 +81,7 @@ resource "aws_route_table" "private" {
 }
 
 resource "aws_route_table" "database" {
-  vpc_id = aws_vpc.main.id
+  vpc_id = module.vpc.id
   tags   = merge(local.common_tags, { Name = "${local.name_prefix}-database-rt" })
 }
 
@@ -104,77 +103,87 @@ resource "aws_route_table_association" "database" {
   route_table_id = aws_route_table.database.id
 }
 
-resource "aws_security_group" "alb" {
-  name        = "${local.name_prefix}-alb"
-  description = "Allow public web traffic to the RollFinder ALB"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-alb-sg" })
+module "alb_security_group" {
+  source           = "./modules/security_groups"
+  environment_name = var.environment_name
+  name             = "${var.project_name}-alb"
+  description      = "Allow public web traffic to the RollFinders ALB"
+  vpc_id           = module.vpc.id
+  inbound_rules = [
+    {
+      from        = 80
+      to          = 80
+      protocol    = "tcp"
+      description = "HTTP"
+      cidr_blocks = ["0.0.0.0/0"]
+    },
+    {
+      from        = 443
+      to          = 443
+      protocol    = "tcp"
+      description = "HTTPS"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+  outbound_rules = [
+    {
+      from        = 0
+      to          = 0
+      protocol    = "-1"
+      description = "All outbound traffic"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
 }
 
-resource "aws_security_group" "ecs" {
-  name        = "${local.name_prefix}-ecs"
-  description = "Allow ALB traffic to RollFinder ECS tasks"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-ecs-sg" })
+module "ecs_security_group" {
+  source           = "./modules/security_groups"
+  environment_name = var.environment_name
+  name             = "${var.project_name}-ecs"
+  description      = "Allow ALB traffic to RollFinders ECS tasks"
+  vpc_id           = module.vpc.id
+  inbound_rules = [
+    {
+      from            = 3000
+      to              = 3000
+      protocol        = "tcp"
+      description     = "App traffic from ALB"
+      security_groups = [module.alb_security_group.id]
+    }
+  ]
+  outbound_rules = [
+    {
+      from        = 0
+      to          = 0
+      protocol    = "-1"
+      description = "All outbound traffic"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
 }
 
-resource "aws_security_group" "database" {
-  name        = "${local.name_prefix}-database"
-  description = "Allow ECS tasks to connect to PostgreSQL"
-  vpc_id      = aws_vpc.main.id
-
-  ingress {
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ecs.id]
-  }
-
-  tags = merge(local.common_tags, { Name = "${local.name_prefix}-database-sg" })
+module "database_security_group" {
+  source           = "./modules/security_groups"
+  environment_name = var.environment_name
+  name             = "${var.project_name}-database"
+  description      = "Allow ECS tasks to connect to PostgreSQL"
+  vpc_id           = module.vpc.id
+  inbound_rules = [
+    {
+      from            = 5432
+      to              = 5432
+      protocol        = "tcp"
+      description     = "PostgreSQL from ECS"
+      security_groups = [module.ecs_security_group.id]
+    }
+  ]
 }
 
 resource "aws_lb" "app" {
   name               = "${local.name_prefix}-alb"
   load_balancer_type = "application"
   internal           = false
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [module.alb_security_group.id]
   subnets            = aws_subnet.public[*].id
 
   tags = local.common_tags
@@ -185,7 +194,7 @@ resource "aws_lb_target_group" "app" {
   port        = 3000
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = module.vpc.id
 
   health_check {
     enabled             = true
@@ -351,7 +360,7 @@ resource "aws_db_instance" "app" {
   username                  = var.db_username
   password                  = random_password.db.result
   db_subnet_group_name      = aws_db_subnet_group.app.name
-  vpc_security_group_ids    = [aws_security_group.database.id]
+  vpc_security_group_ids    = [module.database_security_group.id]
   storage_encrypted         = true
   backup_retention_period   = local.is_production ? 14 : 7
   deletion_protection       = local.is_production
@@ -389,49 +398,40 @@ resource "aws_cloudwatch_log_group" "app" {
   tags              = local.common_tags
 }
 
-resource "aws_iam_role" "task_execution" {
-  name = "${local.name_prefix}-task-execution"
+module "task_execution_role" {
+  source      = "./modules/roles"
+  environment = var.environment_name
+  name        = "${var.project_name}-task-execution"
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
-    }]
-  })
+  assume_role_principals = [
+    {
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  ]
 
-  tags = local.common_tags
+  external_policies_arn = [
+    "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  ]
+
+  statements = [
+    {
+      id        = "secrets"
+      actions   = ["secretsmanager:GetSecretValue"]
+      resources = [aws_secretsmanager_secret.app.arn]
+    }
+  ]
 }
 
-resource "aws_iam_role_policy_attachment" "task_execution" {
-  role       = aws_iam_role.task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
+module "task_role" {
+  source      = "./modules/roles"
+  environment = var.environment_name
+  name        = "${var.project_name}-task"
 
-resource "aws_iam_role_policy" "task_execution_secrets" {
-  name = "${local.name_prefix}-task-execution-secrets"
-  role = aws_iam_role.task_execution.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "secretsmanager:GetSecretValue"
-      ]
-      Resource = aws_secretsmanager_secret.app.arn
-    }]
-  })
-}
-
-resource "aws_iam_role" "task" {
-  name = "${local.name_prefix}-task"
-
-  assume_role_policy = aws_iam_role.task_execution.assume_role_policy
-  tags               = local.common_tags
+  assume_role_principals = [
+    {
+      identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  ]
 }
 
 resource "aws_ecs_cluster" "app" {
@@ -445,8 +445,8 @@ resource "aws_ecs_task_definition" "app" {
   network_mode             = "awsvpc"
   cpu                      = var.container_cpu
   memory                   = var.container_memory
-  execution_role_arn       = aws_iam_role.task_execution.arn
-  task_role_arn            = aws_iam_role.task.arn
+  execution_role_arn       = module.task_execution_role.arn
+  task_role_arn            = module.task_role.arn
 
   container_definitions = jsonencode([
     {
@@ -497,7 +497,7 @@ resource "aws_ecs_service" "app" {
 
   network_configuration {
     subnets          = aws_subnet.private[*].id
-    security_groups  = [aws_security_group.ecs.id]
+    security_groups  = [module.ecs_security_group.id]
     assign_public_ip = false
   }
 
@@ -548,6 +548,12 @@ module "assets_bucket" {
   acl                = "private"
   use_actual_name    = false
   sse_algorithm      = "AES256"
+}
+
+module "events" {
+  source           = "./modules/event_bridge"
+  environment_name = var.environment_name
+  name             = "events"
 }
 
 resource "aws_cloudfront_origin_access_control" "assets" {
