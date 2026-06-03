@@ -51,7 +51,6 @@ export function AcademyCard({ academy }: { academy: AcademyWithEvents }) {
       </div>
       <div className="mt-4 flex gap-2">
         <Link href={`/academies/${academy.slug}`} className="rounded-md bg-stone-950 px-3 py-2 text-sm font-semibold text-white">Details</Link>
-        <Link href={`/claim?academy=${academy.id}`} className="rounded-md border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-800">Claim</Link>
       </div>
     </article>
   );

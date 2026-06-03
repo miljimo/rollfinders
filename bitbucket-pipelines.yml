@@ -1,0 +1,13 @@
+image: node:22
+
+pipelines:
+  default:
+    - step:
+        name: Verify
+        caches:
+          - node
+        script:
+          - npm ci
+          - npm run db:generate
+          - npm run lint
+          - npm run build

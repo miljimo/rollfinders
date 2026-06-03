@@ -66,10 +66,10 @@ export default async function Home() {
       <section className="bg-stone-950 text-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-black">Own an academy?</h2>
-            <p className="mt-1 text-stone-300">Claim your listing and keep visitor details accurate.</p>
+            <h2 className="text-2xl font-black">Know a London open mat?</h2>
+            <p className="mt-1 text-stone-300">Send it to the RollFinder admin so the radar stays useful.</p>
           </div>
-          <Link href="/claim" className="rounded-md bg-teal-500 px-4 py-3 text-sm font-bold text-stone-950">Claim Academy</Link>
+          <Link href="/open-mats" className="rounded-md bg-teal-500 px-4 py-3 text-sm font-bold text-stone-950">Open Mat Radar</Link>
         </div>
       </section>
     </PageShell>

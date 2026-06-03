@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GiType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
 
@@ -30,4 +31,17 @@ export const academySchema = z.object({
   beginnerFriendly: checkboxSchema,
   competitionFocused: checkboxSchema,
   verified: checkboxSchema,
+});
+
+export const eventSchema = z.object({
+  academyId: z.string().min(1),
+  title: z.string().min(2).max(160),
+  description: z.string().min(10),
+  eventDate: z.coerce.date(),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/),
+  giType: z.enum(GiType),
+  price: z.coerce.number().nonnegative(),
+  capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
+  active: checkboxSchema,
 });

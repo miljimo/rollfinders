@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/shell";
-import { canDeleteAcademy, canManageAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
+import { canDeleteAcademy, requireAcademyEditor } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
 import { AcademyForm } from "../form";
@@ -17,11 +17,6 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
     <PageShell>
       <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-black text-stone-950">Edit Academy</h1>
-        {canManageAcademyTeam(access) ? (
-          <a href={`/admin/academies/${academy.id}/team`} className="mt-4 inline-flex rounded-md border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-800">
-            Manage Team
-          </a>
-        ) : null}
         <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} />
         {canDeleteAcademy(access) ? (
           <form action={`/api/admin/academies/${academy.id}`} method="post" className="mt-4">

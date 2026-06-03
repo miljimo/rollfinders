@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/shell";
 import { EventCard } from "@/components/ui";
@@ -59,7 +58,6 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
           </div>
           <div className="mt-4 flex flex-col gap-2">
             <a href={`https://www.google.com/maps/search/?api=1&query=${academy.latitude},${academy.longitude}`} target="_blank" rel="noreferrer" className="rounded-md bg-stone-950 px-3 py-2 text-center text-sm font-semibold text-white">Open Map</a>
-            <Link href={`/claim?academy=${academy.id}`} className="rounded-md border border-stone-300 px-3 py-2 text-center text-sm font-semibold text-stone-800">Claim Academy</Link>
           </div>
         </aside>
       </section>
