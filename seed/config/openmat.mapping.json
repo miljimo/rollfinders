@@ -1,0 +1,13 @@
+{
+  "academyName": "academy_name",
+  "academySlug": "academy_slug",
+  "title": "title",
+  "description": "description",
+  "eventDate": "event_date",
+  "startTime": "start_time",
+  "endTime": "end_time",
+  "giType": "gi_type",
+  "price": "drop_in_cost",
+  "capacity": "capacity",
+  "active": "active"
+}

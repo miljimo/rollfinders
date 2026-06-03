@@ -1,0 +1,8 @@
+{
+  "name": "name",
+  "email": "email",
+  "password": "password",
+  "role": "role",
+  "status": "status",
+  "isProtected": "is_protected"
+}

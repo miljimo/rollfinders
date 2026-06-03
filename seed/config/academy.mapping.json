@@ -1,0 +1,23 @@
+{
+  "name": "name",
+  "slug": "slug",
+  "description": "description",
+  "affiliation": "affiliation",
+  "website": "website",
+  "email": "email",
+  "phone": "phone",
+  "address": "address",
+  "city": "city",
+  "postcode": "postcode",
+  "borough": "borough",
+  "country": "country",
+  "latitude": "latitude",
+  "longitude": "longitude",
+  "logoUrl": "logo_url",
+  "dropInPrice": "drop_in_price",
+  "giAvailable": "gi_available",
+  "nogiAvailable": "nogi_available",
+  "beginnerFriendly": "beginner_friendly",
+  "competitionFocused": "competition_focused",
+  "verified": "verified"
+}

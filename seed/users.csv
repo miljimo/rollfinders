@@ -1,0 +1,3 @@
+name,email,password,role,status,is_protected
+RollFinder Admin,admin@rollfinder.local,rollfinder-admin,SUPER_ADMIN,ACTIVE,true
+Ops Admin,ops@rollfinder.local,rollfinder-admin,PLATFORM_ADMIN,ACTIVE,false

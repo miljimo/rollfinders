@@ -1,0 +1,11 @@
+academy_name,academy_slug,title,description,event_date,start_time,end_time,gi_type,drop_in_cost,capacity,active
+Shoreditch BJJ Club,shoreditch-bjj-club,Sunday Open Mat,"Open to experienced visitors. Bring a clean gi or rashguard and water.",2026-06-07,2026-06-07 12:00,2026-06-07 14:00,BOTH,10,30,true
+Camden Grappling Academy,camden-grappling-academy,No-Gi Open Mat,"Fast-paced no-gi rounds for visitors and regular members.",2026-06-08,2026-06-08 18:30,2026-06-08 20:00,NO_GI,12,24,true
+Brixton Jiu-Jitsu,brixton-jiu-jitsu,Gi Sparring Session,"Gi open mat with positional rounds and free sparring.",2026-06-09,2026-06-09 19:00,2026-06-09 20:30,GI,8,20,true
+Hackney No-Gi Lab,hackney-no-gi-lab,Competition Rounds,"No-gi rounds for intermediate and competition-focused grapplers.",2026-06-10,2026-06-10 18:30,2026-06-10 20:00,NO_GI,10,22,true
+Wimbledon BJJ,wimbledon-bjj,Beginner Friendly Open Mat,"Relaxed rounds suitable for newer practitioners and visitors.",2026-06-11,2026-06-11 18:00,2026-06-11 19:30,BOTH,10,18,true
+Islington Grappling Club,islington-grappling-club,Weekend Open Mat,"Saturday open mat with gi and no-gi rounds.",2026-06-13,2026-06-13 11:00,2026-06-13 13:00,BOTH,12,28,true
+Clapham Combat Jiu-Jitsu,clapham-combat-jiu-jitsu,Comp Class Open Mat,"Higher intensity rounds for active competitors.",2026-06-14,2026-06-14 10:30,2026-06-14 12:00,NO_GI,15,20,true
+Ealing BJJ Collective,ealing-bjj-collective,Friday Open Mat,"Visitor-friendly Friday evening rounds.",2026-06-12,2026-06-12 18:30,2026-06-12 20:00,BOTH,10,25,true
+Greenwich Roll House,greenwich-roll-house,Gi Open Mat,"Gi rounds close to Greenwich for local and travelling grapplers.",2026-06-15,2026-06-15 19:00,2026-06-15 20:30,GI,12,20,true
+Kingston Submission Academy,kingston-submission-academy,Sunday Submission Rounds,"Weekend no-gi rounds with clear drop-in pricing.",2026-06-16,2026-06-16 12:00,2026-06-16 14:00,NO_GI,10,24,true

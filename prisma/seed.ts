@@ -2,7 +2,14 @@ import "dotenv/config";
 import { PrismaClient, GiType, Role, UserStatus } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import { readFile } from "fs/promises";
+import path from "path";
 import { Pool } from "pg";
+
+type CsvRow = Record<string, string>;
+type Mapping = Record<string, string>;
+
+const seedRoot = path.join(process.cwd(), "seed");
 
 function getDatabaseUrl() {
   if (process.env.DATABASE_URL) {
@@ -21,98 +28,248 @@ function getDatabaseUrl() {
 const adapter = new PrismaPg(new Pool({ connectionString: getDatabaseUrl() }));
 const prisma = new PrismaClient({ adapter });
 
-const affiliations = ["Roger Gracie", "Gracie Barra", "Checkmat", "Alliance", "FightZone", "Independent"];
-const areas: Array<[string, string, number, number]> = [
-  ["Shoreditch", "E1", 51.5245, -0.0769],
-  ["Camden", "NW1", 51.539, -0.1426],
-  ["Brixton", "SW9", 51.4626, -0.1149],
-  ["Hackney", "E8", 51.545, -0.0553],
-  ["Wimbledon", "SW19", 51.4214, -0.2064],
-  ["Islington", "N1", 51.5362, -0.103],
-  ["Clapham", "SW4", 51.4622, -0.1384],
-  ["Ealing", "W5", 51.513, -0.3089],
-  ["Greenwich", "SE10", 51.4826, -0.0077],
-  ["Kingston", "KT1", 51.4123, -0.3007],
-];
+function parseCsv(content: string): CsvRow[] {
+  const rows: string[][] = [];
+  let field = "";
+  let row: string[] = [];
+  let quoted = false;
+
+  for (let index = 0; index < content.length; index += 1) {
+    const char = content[index];
+    const next = content[index + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      field += '"';
+      index += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      row.push(field);
+      field = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && next === "\n") index += 1;
+      row.push(field);
+      if (row.some((value) => value.trim() !== "")) rows.push(row);
+      field = "";
+      row = [];
+    } else {
+      field += char;
+    }
+  }
+
+  row.push(field);
+  if (row.some((value) => value.trim() !== "")) rows.push(row);
+  const [headers = [], ...dataRows] = rows;
+
+  return dataRows.map((dataRow) =>
+    Object.fromEntries(headers.map((header, index) => [header.trim(), (dataRow[index] ?? "").trim()])),
+  );
+}
+
+async function readCsv(fileName: string) {
+  const file = await readFile(path.join(seedRoot, fileName), "utf8");
+  return parseCsv(file);
+}
+
+async function readMapping(fileName: string): Promise<Mapping> {
+  const file = await readFile(path.join(seedRoot, "config", fileName), "utf8");
+  return JSON.parse(file) as Mapping;
+}
+
+function mappedValue(row: CsvRow, mapping: Mapping, field: string) {
+  const column = mapping[field];
+  return column ? row[column] : "";
+}
+
+function optionalString(value: string) {
+  return value || null;
+}
+
+function numberValue(value: string, fallback = 0) {
+  if (!value) return fallback;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function optionalNumber(value: string) {
+  if (!value) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function booleanValue(value: string, fallback = false) {
+  if (!value) return fallback;
+  return ["true", "1", "yes", "y", "on"].includes(value.toLowerCase());
+}
 
 function slugify(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-async function main() {
-  const passwordHash = await bcrypt.hash("rollfinder-admin", 10);
+function enumValue<T extends Record<string, string>>(values: T, value: string, fallback: T[keyof T]) {
+  const normalized = value.trim().toUpperCase().replace(/[-\s]+/g, "_");
+  return Object.values(values).includes(normalized) ? (normalized as T[keyof T]) : fallback;
+}
 
-  await prisma.user.upsert({
-    where: { email: "admin@rollfinder.local" },
-    update: { role: Role.SUPER_ADMIN, status: UserStatus.ACTIVE, disabled: false, isProtected: true },
-    create: {
-      name: "RollFinder Admin",
-      email: "admin@rollfinder.local",
-      passwordHash,
-      role: Role.SUPER_ADMIN,
-      status: UserStatus.ACTIVE,
-      isProtected: true,
-    },
-  });
+function dateOnly(value: string) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
 
+function timeOnly(value: string, fallback: string) {
+  if (!value) return fallback;
+  const match = value.match(/(\d{2}:\d{2})/);
+  return match?.[1] ?? fallback;
+}
+
+async function seedReferenceCsv(fileName: string) {
+  const rows = await readCsv(fileName);
+  console.log(`Loaded ${rows.length} ${fileName} reference rows`);
+}
+
+async function seedUsers() {
+  const [rows, mapping] = await Promise.all([readCsv("users.csv"), readMapping("user.mapping.json")]);
+
+  for (const row of rows) {
+    const email = mappedValue(row, mapping, "email").toLowerCase();
+    if (!email) continue;
+
+    const role = enumValue(Role, mappedValue(row, mapping, "role"), Role.STANDARD_USER);
+    const status = enumValue(UserStatus, mappedValue(row, mapping, "status"), UserStatus.ACTIVE);
+    const isProtected = booleanValue(mappedValue(row, mapping, "isProtected"), false);
+    const password = mappedValue(row, mapping, "password") || "rollfinder-user";
+    const existing = await prisma.user.findUnique({ where: { email } });
+
+    await prisma.user.upsert({
+      where: { email },
+      update: {
+        name: optionalString(mappedValue(row, mapping, "name")) ?? existing?.name,
+        role,
+        status,
+        disabled: status === UserStatus.DISABLED,
+        isProtected,
+      },
+      create: {
+        name: optionalString(mappedValue(row, mapping, "name")),
+        email,
+        passwordHash: await bcrypt.hash(password, 10),
+        role,
+        status,
+        disabled: status === UserStatus.DISABLED,
+        isProtected,
+      },
+    });
+  }
+}
+
+async function seedAcademies() {
+  const [rows, mapping] = await Promise.all([readCsv("academies.csv"), readMapping("academy.mapping.json")]);
   const academies = [];
 
-  for (let index = 1; index <= 50; index += 1) {
-    const area = areas[(index - 1) % areas.length];
-    const name = `${area[0]} BJJ Club ${index}`;
-    const latJitter = ((index % 7) - 3) * 0.004;
-    const lngJitter = ((index % 5) - 2) * 0.006;
+  for (const row of rows) {
+    const name = mappedValue(row, mapping, "name");
+    if (!name) continue;
+    const slug = mappedValue(row, mapping, "slug") || slugify(name);
 
     const academy = await prisma.academy.upsert({
-      where: { slug: slugify(name) },
-      update: {},
+      where: { slug },
+      update: {
+        name,
+        description: mappedValue(row, mapping, "description") || "Brazilian Jiu-Jitsu academy listed on RollFinder.",
+        affiliation: optionalString(mappedValue(row, mapping, "affiliation")),
+        website: optionalString(mappedValue(row, mapping, "website")),
+        email: optionalString(mappedValue(row, mapping, "email")),
+        phone: optionalString(mappedValue(row, mapping, "phone")),
+        address: mappedValue(row, mapping, "address"),
+        city: mappedValue(row, mapping, "city") || "London",
+        postcode: mappedValue(row, mapping, "postcode"),
+        borough: optionalString(mappedValue(row, mapping, "borough")),
+        country: mappedValue(row, mapping, "country") || "United Kingdom",
+        latitude: numberValue(mappedValue(row, mapping, "latitude"), 51.5072),
+        longitude: numberValue(mappedValue(row, mapping, "longitude"), -0.1276),
+        logoUrl: optionalString(mappedValue(row, mapping, "logoUrl")),
+        dropInPrice: optionalNumber(mappedValue(row, mapping, "dropInPrice")),
+        giAvailable: booleanValue(mappedValue(row, mapping, "giAvailable"), true),
+        nogiAvailable: booleanValue(mappedValue(row, mapping, "nogiAvailable"), true),
+        beginnerFriendly: booleanValue(mappedValue(row, mapping, "beginnerFriendly"), true),
+        competitionFocused: booleanValue(mappedValue(row, mapping, "competitionFocused"), false),
+        verified: booleanValue(mappedValue(row, mapping, "verified"), false),
+      },
       create: {
         name,
-        slug: slugify(name),
-        description:
-          "A welcoming London Brazilian Jiu-Jitsu academy offering fundamentals, sparring, and open mat sessions for visitors and regulars.",
-        affiliation: affiliations[index % affiliations.length],
-        website: `https://example.com/${slugify(name)}`,
-        email: `hello+${index}@rollfinder.local`,
-        phone: `+44 20 7946 ${String(1000 + index)}`,
-        address: `${index} Tatami Street`,
-        city: "London",
-        postcode: `${area[1]} ${index}RF`,
-        borough: area[0],
-        latitude: Number((area[2] + latJitter).toFixed(6)),
-        longitude: Number((area[3] + lngJitter).toFixed(6)),
-        logoUrl: null,
-        dropInPrice: index % 4 === 0 ? 0 : 12 + (index % 4) * 3,
-        giAvailable: index % 3 !== 1,
-        nogiAvailable: index % 3 !== 2,
-        beginnerFriendly: index % 5 !== 0,
-        competitionFocused: index % 6 === 0,
-        verified: index <= 12,
+        slug,
+        description: mappedValue(row, mapping, "description") || "Brazilian Jiu-Jitsu academy listed on RollFinder.",
+        affiliation: optionalString(mappedValue(row, mapping, "affiliation")),
+        website: optionalString(mappedValue(row, mapping, "website")),
+        email: optionalString(mappedValue(row, mapping, "email")),
+        phone: optionalString(mappedValue(row, mapping, "phone")),
+        address: mappedValue(row, mapping, "address"),
+        city: mappedValue(row, mapping, "city") || "London",
+        postcode: mappedValue(row, mapping, "postcode"),
+        borough: optionalString(mappedValue(row, mapping, "borough")),
+        country: mappedValue(row, mapping, "country") || "United Kingdom",
+        latitude: numberValue(mappedValue(row, mapping, "latitude"), 51.5072),
+        longitude: numberValue(mappedValue(row, mapping, "longitude"), -0.1276),
+        logoUrl: optionalString(mappedValue(row, mapping, "logoUrl")),
+        dropInPrice: optionalNumber(mappedValue(row, mapping, "dropInPrice")),
+        giAvailable: booleanValue(mappedValue(row, mapping, "giAvailable"), true),
+        nogiAvailable: booleanValue(mappedValue(row, mapping, "nogiAvailable"), true),
+        beginnerFriendly: booleanValue(mappedValue(row, mapping, "beginnerFriendly"), true),
+        competitionFocused: booleanValue(mappedValue(row, mapping, "competitionFocused"), false),
+        verified: booleanValue(mappedValue(row, mapping, "verified"), false),
       },
     });
     academies.push(academy);
   }
 
-  for (let index = 0; index < 100; index += 1) {
-    const academy = academies[index % academies.length];
-    const eventDate = new Date();
-    eventDate.setDate(eventDate.getDate() + (index % 28) + 1);
-    eventDate.setHours(0, 0, 0, 0);
+  return academies;
+}
 
-    await prisma.event.create({
-      data: {
-        academyId: academy.id,
-        title: index % 3 === 0 ? "Sunday Open Mat" : index % 3 === 1 ? "No-Gi Open Mat" : "Gi Sparring Session",
-        description: "Open to experienced visitors. Bring a clean gi or rashguard, water, and proof of club membership if requested.",
-        eventDate,
-        startTime: index % 2 === 0 ? "12:00" : "18:30",
-        endTime: index % 2 === 0 ? "14:00" : "20:00",
-        giType: index % 3 === 0 ? GiType.BOTH : index % 3 === 1 ? GiType.NO_GI : GiType.GI,
-        price: index % 4 === 0 ? 0 : 10 + (index % 5) * 2,
-        capacity: 20 + (index % 4) * 5,
-      },
+async function seedOpenMats() {
+  const [rows, mapping] = await Promise.all([readCsv("open_mats.csv"), readMapping("openmat.mapping.json")]);
+
+  for (const row of rows) {
+    const academyName = mappedValue(row, mapping, "academyName");
+    const academySlug = mappedValue(row, mapping, "academySlug") || slugify(academyName);
+    const academy = await prisma.academy.findFirst({
+      where: { OR: [{ slug: academySlug }, { name: academyName }] },
     });
+    if (!academy) continue;
+
+    const title = mappedValue(row, mapping, "title");
+    const eventDate = dateOnly(mappedValue(row, mapping, "eventDate") || mappedValue(row, mapping, "startTime"));
+    const startTime = timeOnly(mappedValue(row, mapping, "startTime"), "18:30");
+    const existing = await prisma.event.findFirst({
+      where: { academyId: academy.id, title, eventDate, startTime },
+    });
+    const data = {
+      academyId: academy.id,
+      title,
+      description: mappedValue(row, mapping, "description") || "Open mat listed on RollFinder.",
+      eventDate,
+      startTime,
+      endTime: timeOnly(mappedValue(row, mapping, "endTime"), "20:00"),
+      giType: enumValue(GiType, mappedValue(row, mapping, "giType"), GiType.BOTH),
+      price: numberValue(mappedValue(row, mapping, "price"), 0),
+      capacity: optionalNumber(mappedValue(row, mapping, "capacity")),
+      active: booleanValue(mappedValue(row, mapping, "active"), true),
+    };
+
+    if (existing) {
+      await prisma.event.update({ where: { id: existing.id }, data });
+    } else {
+      await prisma.event.create({ data });
+    }
   }
+}
+
+async function main() {
+  await seedReferenceCsv("boroughs.csv");
+  await seedReferenceCsv("gi_types.csv");
+  await seedUsers();
+  await seedAcademies();
+  await seedOpenMats();
 }
 
 main()
