@@ -87,3 +87,23 @@ output "secrets_manager_secret_arn" {
   description = "Secrets Manager secret ARN used by the ECS task."
   value       = module.app_secrets.arn
 }
+
+output "email_sending_domain" {
+  description = "SES-verified RollFinders sending domain."
+  value       = module.email.sending_domain
+}
+
+output "email_from_address" {
+  description = "Default backend sender address."
+  value       = "no-reply@${module.email.sending_domain}"
+}
+
+output "email_smtp_host" {
+  description = "SMTP host configured for backend applications."
+  value       = module.email.smtp_host
+}
+
+output "email_mailbox_link" {
+  description = "Mailbox link exposed to backend/admin users."
+  value       = "https://${module.email.mail_from_domain}"
+}

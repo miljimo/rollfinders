@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Role } from "@prisma/client";
 import { PageShell } from "@/components/shell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { createUser, toggleUserDisabled, updateUserRole } from "./actions";
@@ -21,6 +22,7 @@ export default async function AdminPage() {
 
   if (!isPlatformAdminRole(currentUser.role)) redirect("/login");
   const isSuperAdmin = isSuperAdminRole(currentUser.role);
+  const emailConfig = getEmailProvisioningConfig();
 
   const [academies, events, users] = await Promise.all([
     prisma.academy.findMany({ take: 20, orderBy: { name: "asc" } }),
@@ -42,6 +44,23 @@ export default async function AdminPage() {
           </div>
         </div>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <AdminPanel title="Email Provisioning">
+            <div className="grid gap-3 text-sm">
+              <ConfigRow label="Provider" value={emailConfig.provider} />
+              <ConfigRow label="Sending domain" value={emailConfig.domain} />
+              <ConfigRow label="Default sender" value={emailConfig.fromAddress} />
+              <ConfigRow label="Reply-to" value={emailConfig.replyToAddress} />
+              <ConfigRow label="SMTP server" value={`${emailConfig.smtpHost}:${emailConfig.smtpPort}`} />
+              <ConfigRow label="AWS region" value={emailConfig.region} />
+              <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
+                <p className="text-xs font-bold uppercase text-teal-800">Mailbox link</p>
+                <a href={emailConfig.mailboxLink} className="mt-1 block break-all font-semibold text-teal-900 underline">
+                  {emailConfig.mailboxLink}
+                </a>
+              </div>
+              <p className="text-xs text-stone-500">Backend services can also read this configuration from /api/admin/email-provisioning.</p>
+            </div>
+          </AdminPanel>
           <AdminPanel title="Academies">
             {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
           </AdminPanel>
@@ -100,6 +119,15 @@ export default async function AdminPage() {
 
 function AdminPanel({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm"><h2 className="text-xl font-black text-stone-950">{title}</h2><div className="mt-3">{children}</div></section>;
+}
+
+function ConfigRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 border-b border-stone-100 pb-2 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
+      <p className="break-all font-semibold text-stone-950">{value}</p>
+    </div>
+  );
 }
 
 function Row({ primary, secondary, href }: { primary: string; secondary: string; href: string }) {

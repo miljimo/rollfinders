@@ -134,6 +134,14 @@ module "database" {
   is_production      = local.is_production
 }
 
+module "email" {
+  source          = "./modules/ses_email"
+  domain_name     = var.hosted_zone_name
+  zone_id         = data.aws_route53_zone.public.zone_id
+  aws_region      = var.aws_region
+  dmarc_rua_email = "postmaster@${var.hosted_zone_name}"
+}
+
 module "app_secrets" {
   source = "./modules/app_secrets"
   name   = "${local.name_prefix}/app"
@@ -148,6 +156,12 @@ module "app_secrets" {
     DB_USER         = var.db_username
     DB_PASSWORD     = random_password.db.result
     DB_NAME         = var.db_name
+    EMAIL_FROM      = "no-reply@${module.email.sending_domain}"
+    EMAIL_REPLY_TO  = "support@${module.email.sending_domain}"
+    EMAIL_REGION    = var.aws_region
+    SMTP_HOST       = module.email.smtp_host
+    SMTP_PORT       = "587"
+    MAILBOX_LINK    = "https://${module.email.mail_from_domain}"
   }
 }
 
@@ -159,6 +173,14 @@ module "task_role" {
   assume_role_principals = [
     {
       identifiers = ["ecs-tasks.amazonaws.com"]
+    }
+  ]
+
+  statements = [
+    {
+      id        = "ses-send-email"
+      actions   = ["ses:SendEmail", "ses:SendRawEmail"]
+      resources = [module.email.domain_identity_arn]
     }
   ]
 }
@@ -202,12 +224,19 @@ module "app_service" {
       environments = [
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = "3000" },
-        { name = "HOSTNAME", value = "0.0.0.0" }
+        { name = "HOSTNAME", value = "0.0.0.0" },
+        { name = "EMAIL_DOMAIN", value = module.email.sending_domain },
+        { name = "EMAIL_REGION", value = var.aws_region }
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
         { name = "NEXTAUTH_SECRET", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_SECRET::" },
-        { name = "NEXTAUTH_URL", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_URL::" }
+        { name = "NEXTAUTH_URL", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_URL::" },
+        { name = "EMAIL_FROM", valueFrom = "${module.app_secrets.arn}:EMAIL_FROM::" },
+        { name = "EMAIL_REPLY_TO", valueFrom = "${module.app_secrets.arn}:EMAIL_REPLY_TO::" },
+        { name = "SMTP_HOST", valueFrom = "${module.app_secrets.arn}:SMTP_HOST::" },
+        { name = "SMTP_PORT", valueFrom = "${module.app_secrets.arn}:SMTP_PORT::" },
+        { name = "MAILBOX_LINK", valueFrom = "${module.app_secrets.arn}:MAILBOX_LINK::" }
       ]
       ports = [
         {
