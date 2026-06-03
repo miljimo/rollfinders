@@ -27,7 +27,17 @@ function addAcademyDistances<T extends { latitude: number; longitude: number; ve
     .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || Number(b.verified) - Number(a.verified));
 }
 
-export async function getFeaturedData() {
+function addEventDistances<T extends { eventDate: Date; academy: { latitude: number; longitude: number; verified?: boolean } }>(items: T[], location?: LocationInput) {
+  const origin = searchLocation(location);
+  return items
+    .map((item) => ({
+      ...item,
+      distanceMiles: distanceMiles(origin, { latitude: item.academy.latitude, longitude: item.academy.longitude }),
+    }))
+    .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime() || (a.distanceMiles ?? 0) - (b.distanceMiles ?? 0) || Number(b.academy.verified) - Number(a.academy.verified));
+}
+
+export async function getFeaturedData(location?: LocationInput) {
   const [academies, events] = await Promise.all([
     prisma.academy.findMany({ take: 6, orderBy: { createdAt: "desc" } }),
     prisma.event.findMany({
@@ -38,7 +48,10 @@ export async function getFeaturedData() {
     }),
   ]);
 
-  return { academies, events };
+  return {
+    academies: addAcademyDistances(academies, location),
+    events: addEventDistances(events, location),
+  };
 }
 
 export async function searchAcademies(query = "", location?: LocationInput) {
@@ -149,12 +162,7 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
   const location = { latitude: filters.latitude, longitude: filters.longitude };
   const origin = searchLocation(location);
 
-  return events
-    .map((event) => ({
-      ...event,
-      distanceMiles: distanceMiles(origin, { latitude: event.academy.latitude, longitude: event.academy.longitude }),
-    }))
-    .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime() || (a.distanceMiles ?? 0) - (b.distanceMiles ?? 0) || Number(b.academy.verified) - Number(a.academy.verified));
+  return addEventDistances(events, origin);
 }
 
 export async function getMapItems() {

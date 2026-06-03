@@ -28,6 +28,18 @@ function validationError(formData: FormData, fieldErrors: Record<string, string[
   };
 }
 
+function duplicateOpenMatError(formData: FormData): EventFormState {
+  return {
+    message: "An open mat with this academy, title, date, and start time already exists.",
+    fieldErrors: {
+      title: ["Use the existing open mat or choose a different title/time."],
+      eventDate: ["This date already has a matching open mat."],
+      startTime: ["This start time already has a matching open mat."],
+    },
+    values: getFormValues(formData),
+  };
+}
+
 function eventData(data: {
   academyId: string;
   title: string;
@@ -46,6 +58,31 @@ function eventData(data: {
   };
 }
 
+async function findDuplicateOpenMat({
+  id,
+  academyId,
+  title,
+  eventDate,
+  startTime,
+}: {
+  id?: string;
+  academyId: string;
+  title: string;
+  eventDate: Date;
+  startTime: string;
+}) {
+  return prisma.event.findFirst({
+    where: {
+      ...(id ? { id: { not: id } } : {}),
+      academyId,
+      title: { equals: title.trim(), mode: "insensitive" },
+      eventDate,
+      startTime,
+    },
+    select: { id: true },
+  });
+}
+
 export async function createOpenMat(_state: EventFormState, formData: FormData): Promise<EventFormState> {
   const parsed = eventSchema.safeParse(getFormValues(formData));
 
@@ -54,6 +91,11 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
   }
 
   await requireAcademyEditor(parsed.data.academyId);
+  const duplicate = await findDuplicateOpenMat(parsed.data);
+  if (duplicate) {
+    return duplicateOpenMatError(formData);
+  }
+
   await prisma.event.create({ data: eventData(parsed.data) });
   revalidatePath("/admin");
   revalidatePath("/open-mats");
@@ -68,6 +110,11 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
   }
 
   await requireAcademyEditor(parsed.data.academyId);
+  const duplicate = await findDuplicateOpenMat({ id, ...parsed.data });
+  if (duplicate) {
+    return duplicateOpenMatError(formData);
+  }
+
   await prisma.event.update({ where: { id }, data: eventData(parsed.data) });
   revalidatePath("/admin");
   revalidatePath("/open-mats");

@@ -47,8 +47,42 @@ function duplicateSlugError(formData: FormData): AcademyFormState {
   };
 }
 
+function duplicateAcademyError(formData: FormData): AcademyFormState {
+  return {
+    message: "An academy with this name, address, and postcode already exists.",
+    fieldErrors: {
+      name: ["Check the existing academy before creating a duplicate."],
+      address: ["This address is already used by an academy with the same name."],
+      postcode: ["This postcode is already used by an academy with the same name."],
+    },
+    values: getFormValues(formData),
+  };
+}
+
 function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
+async function findDuplicateAcademy({
+  id,
+  name,
+  address,
+  postcode,
+}: {
+  id?: string;
+  name: string;
+  address: string;
+  postcode: string;
+}) {
+  return prisma.academy.findFirst({
+    where: {
+      ...(id ? { id: { not: id } } : {}),
+      name: { equals: name.trim(), mode: "insensitive" },
+      address: { equals: address.trim(), mode: "insensitive" },
+      postcode: { equals: postcode.trim(), mode: "insensitive" },
+    },
+    select: { id: true },
+  });
 }
 
 export async function createAcademy(_state: AcademyFormState, formData: FormData): Promise<AcademyFormState> {
@@ -60,6 +94,10 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   }
 
   const data = parsed.data;
+  const duplicateAcademy = await findDuplicateAcademy(data);
+  if (duplicateAcademy) {
+    return duplicateAcademyError(formData);
+  }
 
   try {
     await prisma.academy.create({
@@ -96,6 +134,10 @@ export async function updateAcademy(
   }
 
   const data = parsed.data;
+  const duplicateAcademy = await findDuplicateAcademy({ id, ...data });
+  if (duplicateAcademy) {
+    return duplicateAcademyError(formData);
+  }
 
   try {
     await prisma.academy.update({

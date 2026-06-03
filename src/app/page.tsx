@@ -7,8 +7,10 @@ import { getFeaturedData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function Home() {
-  const { academies, events } = await getFeaturedData();
+export default async function Home({ searchParams }: { searchParams: Promise<{ lat?: string; lng?: string }> }) {
+  const { lat, lng } = await searchParams;
+  const location = lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : undefined;
+  const { academies, events } = await getFeaturedData(location);
 
   return (
     <PageShell>
