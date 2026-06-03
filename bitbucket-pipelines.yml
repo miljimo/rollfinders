@@ -55,6 +55,7 @@ definitions:
           - chmod +x scripts/cicd/*.sh
           - scripts/cicd/deploy.sh
           - scripts/cicd/migrate.sh
+          - scripts/cicd/ensure-super-admin.sh
           - scripts/cicd/smoke.sh
 
 pipelines:
@@ -131,6 +132,7 @@ pipelines:
             - chmod +x scripts/cicd/*.sh
             - scripts/cicd/deploy.sh
             - scripts/cicd/migrate.sh
+            - scripts/cicd/ensure-super-admin.sh
             - scripts/cicd/smoke.sh
     staging:
       - step: *validate
@@ -160,6 +162,7 @@ pipelines:
             - chmod +x scripts/cicd/*.sh
             - scripts/cicd/deploy.sh
             - scripts/cicd/migrate.sh
+            - scripts/cicd/ensure-super-admin.sh
             - scripts/cicd/smoke.sh
     main:
       - step: *validate
@@ -191,4 +194,5 @@ pipelines:
             - chmod +x scripts/cicd/*.sh
             - scripts/cicd/deploy.sh
             - scripts/cicd/migrate.sh
+            - scripts/cicd/ensure-super-admin.sh
             - scripts/cicd/smoke.sh

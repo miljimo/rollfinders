@@ -53,8 +53,10 @@ Run the full local CI path:
 
 Seed admin:
 
-- Email: `admin@rollfinder.local`
-- Password: `rollfinder-admin`
+- Email: `admin@rollfinder.com`
+- Password: `admin`
+
+Deployments also run `npm run ensure-super-admin` after migrations in every environment. Override the default credentials with `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, and `SUPER_ADMIN_NAME` in the task environment when needed.
 
 ## Docker Compose Profiles
 
