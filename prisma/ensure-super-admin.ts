@@ -22,9 +22,11 @@ const adapter = new PrismaPg(new Pool({ connectionString: getDatabaseUrl() }));
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
-  const email = (process.env.SUPER_ADMIN_EMAIL ?? "admin@rollfinder.com").trim().toLowerCase();
-  const password = process.env.SUPER_ADMIN_PASSWORD ?? "admin";
-  const name = process.env.SUPER_ADMIN_NAME ?? "RollFinder Admin";
+  const email = (process.env.SUPER_ADMIN_EMAIL ?? process.env.DEFAULT_SUPER_ADMIN_EMAIL ?? "admin@rollfinder.com")
+    .trim()
+    .toLowerCase();
+  const password = process.env.SUPER_ADMIN_PASSWORD ?? process.env.DEFAULT_SUPER_ADMIN_PASSWORD ?? "admin";
+  const name = process.env.SUPER_ADMIN_NAME ?? process.env.DEFAULT_SUPER_ADMIN_NAME ?? "RollFinder Admin";
 
   if (!email) {
     throw new Error("SUPER_ADMIN_EMAIL cannot be empty.");
