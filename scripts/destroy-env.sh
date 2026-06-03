@@ -7,6 +7,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TERRAFORM_DIR="${ROOT_DIR}/terraform"
 TFVARS="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/common.tfvars"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
+source "${ROOT_DIR}/scripts/cicd/terraform-backend.sh"
 
 case "${ENVIRONMENT_NAME}" in
   dev|staging|production) ;;
@@ -31,7 +32,8 @@ fi
 "${ROOT_DIR}/scripts/cicd/bootstrap-state.sh"
 
 cd "${TERRAFORM_DIR}"
-"${TERRAFORM_BIN}" init -backend-config="${BACKEND_CONFIG}" -reconfigure
+terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
+"${TERRAFORM_BIN}" init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 
 if [[ "${ENVIRONMENT_NAME}" == "staging" ]]; then
   confirmation="${CONFIRM_DESTROY:-}"

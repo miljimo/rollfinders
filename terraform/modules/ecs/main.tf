@@ -1,5 +1,5 @@
 resource "aws_ecs_cluster" "cluster" {
-  name = "${var.environment}-${var.name}-custom-cluster"
+  name = coalesce(var.cluster_name, "${var.environment}-${var.name}-custom-cluster")
   tags = {
     Name        = var.name
     Environment = var.environment
@@ -9,4 +9,3 @@ resource "aws_ecs_cluster" "cluster" {
     value = "enabled"
   }
 }
-

@@ -4,13 +4,13 @@
   https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_Container.html
 */
 resource "aws_cloudwatch_log_group" "log_group" {
-  name              = "/${var.environment}/ecs/${var.name}"
-  retention_in_days = 30
+  name              = coalesce(var.log_group_name, "/${var.environment}/ecs/${var.name}")
+  retention_in_days = var.log_retention_in_days
 }
 
 resource "aws_ecs_task_definition" "task" {
   count                    = (length(var.task_definitions) > 0) ? 1 : 0
-  family                   = "${var.environment}-${var.name}-task"
+  family                   = coalesce(var.task_family, "${var.environment}-${var.name}-task")
   cpu                      = var.cpu
   memory                   = var.memory
   requires_compatibilities = ["FARGATE"]
@@ -61,6 +61,13 @@ resource "aws_ecs_task_definition" "task" {
           value = env.value
         }
       ] : null
+
+      secrets = [
+        for secret in task.secrets : {
+          name      = secret.name
+          valueFrom = secret.valueFrom
+        }
+      ]
   }])
 
   tags = {

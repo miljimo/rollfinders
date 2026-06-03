@@ -1,6 +1,6 @@
 resource "aws_ecs_service" "service" {
   count                  = length(var.task_definitions) > 0 ? 1 : 0
-  name                   = var.task_definitions[count.index].name
+  name                   = coalesce(var.service_name, var.task_definitions[count.index].name)
   cluster                = aws_ecs_cluster.cluster.id
   task_definition        = aws_ecs_task_definition.task[count.index].arn
   desired_count          = var.desired_count

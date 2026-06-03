@@ -50,8 +50,8 @@ variable "targets" {
 }
 
 
-variable "rules"{
-  type  = list(object({
+variable "rules" {
+  type = list(object({
 
   }))
 

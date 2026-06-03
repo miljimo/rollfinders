@@ -6,6 +6,7 @@ AWS_REGION="${AWS_REGION:-eu-west-2}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TERRAFORM_DIR="${ROOT_DIR}/terraform"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
+source "${ROOT_DIR}/scripts/cicd/terraform-backend.sh"
 
 case "${ENVIRONMENT_NAME}" in
   dev|staging|production) ;;
@@ -23,7 +24,8 @@ else
 fi
 
 cd "${TERRAFORM_DIR}"
-"${TERRAFORM_BIN}" init -backend-config="${BACKEND_CONFIG}" -reconfigure >/dev/null
+terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
+"${TERRAFORM_BIN}" init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure >/dev/null
 
 cluster="$("${TERRAFORM_BIN}" output -raw ecs_cluster_name 2>/dev/null || true)"
 service="$("${TERRAFORM_BIN}" output -raw ecs_service_name 2>/dev/null || true)"
@@ -59,7 +61,7 @@ CloudFront Distributions
 ${cloudfront}
 
 S3 Buckets
-rollfinder-${ENVIRONMENT_NAME}-terraform-state
+${BACKEND_BUCKET}
 
 Secrets
 ${secret}

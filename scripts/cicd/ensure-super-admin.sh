@@ -5,12 +5,14 @@ ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/aws-oidc.sh"
+source "${SCRIPT_DIR}/terraform-backend.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TERRAFORM_DIR="${PROJECT_DIR}/terraform"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
 
 cd "${TERRAFORM_DIR}"
-terraform init -backend-config="${BACKEND_CONFIG}" -reconfigure
+terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
+terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 
 CLUSTER="$(terraform output -raw ecs_cluster_name)"
 TASK_DEFINITION="$(terraform output -raw ecs_task_definition_arn)"

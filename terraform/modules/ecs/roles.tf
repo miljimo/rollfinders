@@ -20,7 +20,7 @@ module "ecs_execution_role" {
   # external_policies_arn = [
   #   "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"
   # ]
-  statements = [
+  statements = concat([
     {
       id = "AllowECRandImagePull"
       actions = [
@@ -50,7 +50,14 @@ module "ecs_execution_role" {
       ]
       resources = ["*"]
     }
-  ]
+    ],
+    length(var.execution_role_secret_arns) > 0 ? [
+      {
+        id        = "AllowSecretsManagerRead"
+        actions   = ["secretsmanager:GetSecretValue"]
+        resources = var.execution_role_secret_arns
+      }
+  ] : [])
 }
 
 

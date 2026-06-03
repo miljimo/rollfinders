@@ -1,11 +1,11 @@
 output "alb_dns_name" {
   description = "Application Load Balancer DNS name."
-  value       = aws_lb.app.dns_name
+  value       = module.alb.dns_name
 }
 
 output "rds_instance_identifier" {
   description = "RDS PostgreSQL instance identifier."
-  value       = aws_db_instance.app.identifier
+  value       = module.database.identifier
 }
 
 output "application_url" {
@@ -35,7 +35,7 @@ output "api_url" {
 
 output "certificate_arn" {
   description = "ACM certificate ARN."
-  value       = aws_acm_certificate_validation.app.certificate_arn
+  value       = module.certificate.certificate_arn
 }
 
 output "hosted_zone_id" {
@@ -45,32 +45,32 @@ output "hosted_zone_id" {
 
 output "cloudfront_assets_url" {
   description = "CloudFront URL for static assets."
-  value       = "https://${aws_cloudfront_distribution.assets.domain_name}"
+  value       = "https://${module.assets_cdn.domain_name}"
 }
 
 output "cloudfront_distribution_id" {
   description = "CloudFront distribution ID for static assets."
-  value       = aws_cloudfront_distribution.assets.id
+  value       = module.assets_cdn.distribution_id
 }
 
 output "ecr_repository_url" {
   description = "ECR repository URL for application images."
-  value       = aws_ecr_repository.app.repository_url
+  value       = module.ecr.repository_url
 }
 
 output "ecs_cluster_name" {
   description = "ECS cluster name."
-  value       = aws_ecs_cluster.app.name
+  value       = module.app_service.cluster_name
 }
 
 output "ecs_service_name" {
   description = "ECS service name."
-  value       = aws_ecs_service.app.name
+  value       = module.app_service.service_name
 }
 
 output "ecs_task_definition_arn" {
   description = "ECS task definition ARN."
-  value       = aws_ecs_task_definition.app.arn
+  value       = module.app_service.task_definition_arn
 }
 
 output "ecs_security_group_id" {
@@ -80,10 +80,10 @@ output "ecs_security_group_id" {
 
 output "private_subnet_ids" {
   description = "Private subnet IDs used by ECS tasks."
-  value       = aws_subnet.private[*].id
+  value       = module.networking.private_subnet_ids
 }
 
 output "secrets_manager_secret_arn" {
   description = "Secrets Manager secret ARN used by the ECS task."
-  value       = aws_secretsmanager_secret.app.arn
+  value       = module.app_secrets.arn
 }

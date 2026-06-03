@@ -2,7 +2,7 @@
 
 resource "aws_lb_target_group" "default" {
   count       = var.default_group_enabled ? 1 : 0
-  name        = lower(substr("${var.environment}-${var.target_group.name}"), 0,30)
+  name        = lower(substr("${var.environment}-${var.target_group.name}"), 0, 30)
   port        = var.target_group.port
   protocol    = var.target_group.protocol
   vpc_id      = var.target_group.vpc_id

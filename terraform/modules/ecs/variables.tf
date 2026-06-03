@@ -8,6 +8,30 @@ variable "name" {
   description = "the name of the ecs cluster"
 }
 
+variable "cluster_name" {
+  type        = string
+  description = "Optional explicit ECS cluster name. Defaults to the module naming convention."
+  default     = null
+}
+
+variable "task_family" {
+  type        = string
+  description = "Optional explicit ECS task definition family. Defaults to the module naming convention."
+  default     = null
+}
+
+variable "log_group_name" {
+  type        = string
+  description = "Optional explicit CloudWatch log group name. Defaults to the module naming convention."
+  default     = null
+}
+
+variable "service_name" {
+  type        = string
+  description = "Optional explicit ECS service name. Defaults to the first task definition name."
+  default     = null
+}
+
 variable "launch_type" {
   type    = string
   default = "FARGATE"
@@ -27,6 +51,12 @@ variable "memory" {
   default     = 2048
   description = "The number of memory for the whole container"
 }
+
+variable "log_retention_in_days" {
+  type        = number
+  description = "CloudWatch log retention in days."
+  default     = 30
+}
 variable "task_definitions" {
   type = list(object({
     name       = string
@@ -40,6 +70,10 @@ variable "task_definitions" {
       name  = string
       value = string
     })), null)
+    secrets = optional(list(object({
+      name      = string
+      valueFrom = string
+    })), [])
     ports = optional(list(object({
       container_port = optional(number, 80)
       host_port      = optional(number, 80)
@@ -72,7 +106,7 @@ variable "task_role_arn" {
 }
 
 variable "desired_count" {
-  type        = string
+  type        = number
   description = "desire count"
   default     = 1
 }
@@ -129,4 +163,10 @@ variable "use_default_task_role" {
   type        = bool
   description = "true to create and use a default task role otherwise false"
   default     = false
+}
+
+variable "execution_role_secret_arns" {
+  type        = list(string)
+  description = "Secrets Manager secret ARNs the ECS task execution role can read for container secrets."
+  default     = []
 }

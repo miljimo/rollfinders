@@ -30,6 +30,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
+COPY --chown=nextjs:nodejs seed ./seed
 COPY --chown=nextjs:nodejs prisma.config.ts ./
 USER nextjs
 EXPOSE 3000

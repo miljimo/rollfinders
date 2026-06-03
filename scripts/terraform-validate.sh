@@ -6,6 +6,9 @@ TERRAFORM_DIR="${ROOT_DIR}/terraform"
 TERRAFORM_VERSION="${TERRAFORM_VERSION:-1.10.5}"
 LOCAL_BIN_DIR="${ROOT_DIR}/.bin"
 TERRAFORM_BIN="${TERRAFORM_BIN:-${LOCAL_BIN_DIR}/terraform}"
+TERRAFORM_VALIDATE_DATA_DIR="$(mktemp -d)"
+
+trap 'rm -rf "${TERRAFORM_VALIDATE_DATA_DIR}"' EXIT
 
 if ! command -v "${TERRAFORM_BIN}" >/dev/null 2>&1; then
   if command -v terraform >/dev/null 2>&1; then
@@ -25,12 +28,14 @@ echo "==> Checking Terraform formatting"
 
 echo "==> Validating application Terraform"
 cd "${TERRAFORM_DIR}"
-"${TERRAFORM_BIN}" init -backend=false
+export TF_DATA_DIR="${TERRAFORM_VALIDATE_DATA_DIR}/app"
+"${TERRAFORM_BIN}" init -backend=false -reconfigure
 "${TERRAFORM_BIN}" validate
 
 echo "==> Validating Terraform bootstrap"
 cd "${TERRAFORM_DIR}/bootstrap"
-"${TERRAFORM_BIN}" init -backend=false
+export TF_DATA_DIR="${TERRAFORM_VALIDATE_DATA_DIR}/bootstrap"
+"${TERRAFORM_BIN}" init -backend=false -reconfigure
 "${TERRAFORM_BIN}" validate
 
 echo "Terraform validation completed."
