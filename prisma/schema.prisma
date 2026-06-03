@@ -8,7 +8,10 @@ datasource db {
 
 enum Role {
   USER
+  STANDARD_USER
   ACADEMY_OWNER
+  PLATFORM_ADMIN
+  SUPER_ADMIN
   ADMIN
 }
 
@@ -24,6 +27,18 @@ enum ClaimStatus {
   REJECTED
 }
 
+enum AcademyMemberRole {
+  OWNER
+  ADMIN
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
+  EXPIRED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String?
@@ -32,6 +47,10 @@ model User {
   role         Role     @default(USER)
   disabled     Boolean  @default(false)
   createdAt    DateTime @default(now()) @map("created_at")
+  academyMemberships AcademyMember[]
+  academyInvitations AcademyInvitation[] @relation("AcademyInvitationInviter")
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogActor")
+  targetedAdminAuditLogs AdminAuditLog[] @relation("AdminAuditLogTarget")
 
   @@map("users")
 }
@@ -63,6 +82,8 @@ model Academy {
   updatedAt   DateTime       @updatedAt @map("updated_at")
   events      Event[]
   claims      ClaimRequest[]
+  members     AcademyMember[]
+  invitations AcademyInvitation[]
 
   @@index([city])
   @@index([postcode])
@@ -99,4 +120,52 @@ model ClaimRequest {
 
   @@index([status])
   @@map("claim_requests")
+}
+
+model AcademyMember {
+  id        String            @id @default(cuid())
+  academyId String           @map("academy_id")
+  userId    String           @map("user_id")
+  role      AcademyMemberRole
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  academy   Academy          @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([academyId, userId])
+  @@index([userId])
+  @@map("academy_members")
+}
+
+model AcademyInvitation {
+  id           String           @id @default(cuid())
+  academyId    String          @map("academy_id")
+  invitedEmail String          @map("invited_email")
+  invitedById  String          @map("invited_by")
+  token        String          @unique
+  status       InvitationStatus @default(PENDING)
+  expiresAt    DateTime        @map("expires_at")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  academy      Academy         @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  invitedBy    User            @relation("AcademyInvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([academyId])
+  @@index([invitedEmail])
+  @@map("academy_invitations")
+}
+
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String   @map("actor_user_id")
+  targetUserId String?  @map("target_user_id")
+  action       String
+  metadata     Json?
+  createdAt    DateTime @default(now()) @map("created_at")
+  actor        User     @relation("AdminAuditLogActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+  target       User?    @relation("AdminAuditLogTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId])
+  @@index([targetUserId])
+  @@index([action])
+  @@map("admin_audit_logs")
 }

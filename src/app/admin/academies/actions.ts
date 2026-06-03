@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminPage } from "@/lib/admin";
+import { AcademyMemberRole, InvitationStatus } from "@prisma/client";
+import { randomBytes } from "crypto";
+import { getCurrentUser, requireAdminPage } from "@/lib/admin";
+import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -85,7 +88,7 @@ export async function updateAcademy(
   _state: AcademyFormState,
   formData: FormData,
 ): Promise<AcademyFormState> {
-  await requireAdminPage();
+  await requireAcademyEditor(id);
 
   const parsed = academySchema.safeParse(getFormValues(formData));
   if (!parsed.success) {
@@ -116,4 +119,108 @@ export async function updateAcademy(
   revalidatePath("/admin");
   revalidatePath(`/admin/academies/${id}`);
   redirect("/admin");
+}
+
+function invitationExpiry() {
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 14);
+  return expiresAt;
+}
+
+function invitationToken() {
+  return randomBytes(24).toString("hex");
+}
+
+export async function inviteAcademyAdmin(academyId: string, formData: FormData) {
+  const access = await requireAcademyOwner(academyId);
+  const invitedEmail = String(formData.get("invitedEmail") ?? "").trim().toLowerCase();
+  if (!invitedEmail || !invitedEmail.includes("@")) redirect(`/admin/academies/${academyId}/team?error=invalid-email`);
+
+  await prisma.academyInvitation.create({
+    data: {
+      academyId,
+      invitedEmail,
+      invitedById: access.userId,
+      token: invitationToken(),
+      expiresAt: invitationExpiry(),
+    },
+  });
+
+  revalidatePath(`/admin/academies/${academyId}/team`);
+  redirect(`/admin/academies/${academyId}/team?invited=1`);
+}
+
+export async function cancelAcademyInvitation(academyId: string, invitationId: string) {
+  await requireAcademyOwner(academyId);
+  await prisma.academyInvitation.update({
+    where: { id: invitationId, academyId },
+    data: { status: InvitationStatus.CANCELLED },
+  });
+  revalidatePath(`/admin/academies/${academyId}/team`);
+}
+
+export async function resendAcademyInvitation(academyId: string, invitationId: string) {
+  await requireAcademyOwner(academyId);
+  await prisma.academyInvitation.update({
+    where: { id: invitationId, academyId },
+    data: { token: invitationToken(), status: InvitationStatus.PENDING, expiresAt: invitationExpiry() },
+  });
+  revalidatePath(`/admin/academies/${academyId}/team`);
+}
+
+export async function removeAcademyMember(academyId: string, memberId: string) {
+  const access = await requireAcademyOwner(academyId);
+  const member = await prisma.academyMember.findUnique({ where: { id: memberId } });
+  if (!member || member.academyId !== academyId) return;
+  if (!access.platformAdmin && member.role === AcademyMemberRole.OWNER) return;
+
+  await prisma.academyMember.delete({ where: { id: memberId } });
+  revalidatePath(`/admin/academies/${academyId}/team`);
+}
+
+export async function transferAcademyOwnership(academyId: string, memberId: string) {
+  const access = await requireAcademyOwner(academyId);
+  const nextOwner = await prisma.academyMember.findUnique({ where: { id: memberId } });
+  if (!nextOwner || nextOwner.academyId !== academyId) return;
+
+  await prisma.$transaction([
+    prisma.academyMember.updateMany({
+      where: { academyId, role: AcademyMemberRole.OWNER },
+      data: { role: AcademyMemberRole.ADMIN },
+    }),
+    prisma.academyMember.update({
+      where: { id: memberId },
+      data: { role: AcademyMemberRole.OWNER },
+    }),
+  ]);
+
+  if (!access.platformAdmin) redirect(`/admin/academies/${academyId}/team`);
+  revalidatePath(`/admin/academies/${academyId}/team`);
+}
+
+export async function acceptAcademyInvitation(token: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect(`/login`);
+
+  const invitation = await prisma.academyInvitation.findUnique({ where: { token } });
+  if (!invitation || invitation.status !== InvitationStatus.PENDING || invitation.expiresAt < new Date()) {
+    redirect("/admin?error=invalid-invitation");
+  }
+  if (invitation.invitedEmail.toLowerCase() !== user.email.toLowerCase()) {
+    redirect("/admin?error=wrong-invitation-user");
+  }
+
+  await prisma.$transaction([
+    prisma.academyMember.upsert({
+      where: { academyId_userId: { academyId: invitation.academyId, userId: user.id } },
+      update: { role: AcademyMemberRole.ADMIN },
+      create: { academyId: invitation.academyId, userId: user.id, role: AcademyMemberRole.ADMIN },
+    }),
+    prisma.academyInvitation.update({
+      where: { id: invitation.id },
+      data: { status: InvitationStatus.ACCEPTED },
+    }),
+  ]);
+
+  redirect(`/admin/academies/${invitation.academyId}`);
 }

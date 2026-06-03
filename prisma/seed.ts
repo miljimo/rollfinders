@@ -44,12 +44,12 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "admin@rollfinder.local" },
-    update: { role: Role.ADMIN, disabled: false },
+    update: { role: Role.SUPER_ADMIN, disabled: false },
     create: {
       name: "RollFinder Admin",
       email: "admin@rollfinder.local",
       passwordHash,
-      role: Role.ADMIN,
+      role: Role.SUPER_ADMIN,
     },
   });
 
