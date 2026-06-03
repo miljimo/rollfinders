@@ -48,10 +48,17 @@ model Academy {
   address     String
   city        String
   postcode    String
+  borough     String?
   country     String         @default("United Kingdom")
   latitude    Float
   longitude   Float
   logoUrl     String?        @map("logo_url")
+  dropInPrice Float?         @map("drop_in_price")
+  giAvailable Boolean        @default(true) @map("gi_available")
+  nogiAvailable Boolean      @default(true) @map("nogi_available")
+  beginnerFriendly Boolean   @default(true) @map("beginner_friendly")
+  competitionFocused Boolean @default(false) @map("competition_focused")
+  verified    Boolean        @default(false)
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
   events      Event[]
@@ -73,6 +80,7 @@ model Event {
   giType      GiType   @map("gi_type")
   price       Decimal  @db.Decimal(8, 2)
   capacity    Int?
+  active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   academy     Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
 

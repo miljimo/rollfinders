@@ -76,9 +76,16 @@ async function main() {
         address: `${index} Tatami Street`,
         city: "London",
         postcode: `${area[1]} ${index}RF`,
+        borough: area[0],
         latitude: Number((area[2] + latJitter).toFixed(6)),
         longitude: Number((area[3] + lngJitter).toFixed(6)),
         logoUrl: null,
+        dropInPrice: index % 4 === 0 ? 0 : 12 + (index % 4) * 3,
+        giAvailable: index % 3 !== 1,
+        nogiAvailable: index % 3 !== 2,
+        beginnerFriendly: index % 5 !== 0,
+        competitionFocused: index % 6 === 0,
+        verified: index <= 12,
       },
     });
     academies.push(academy);

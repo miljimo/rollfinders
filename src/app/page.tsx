@@ -22,7 +22,7 @@ export default async function Home() {
               Search Brazilian Jiu-Jitsu academies, visitor-friendly classes, and open mats across London.
             </p>
             <div className="mt-7 max-w-2xl">
-              <SearchForm action="/academies" placeholder="Search by academy, city, or postcode" />
+              <SearchForm action="/open-mats" placeholder="Search open mats by academy, borough, postcode, gi, or no-gi" />
             </div>
           </div>
           <div className="map-grid min-h-[320px] rounded-lg border border-teal-200 bg-white p-4">

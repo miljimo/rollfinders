@@ -1,0 +1,11 @@
+ALTER TABLE "academies"
+ADD COLUMN "borough" TEXT,
+ADD COLUMN "drop_in_price" DOUBLE PRECISION,
+ADD COLUMN "gi_available" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "nogi_available" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "beginner_friendly" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN "competition_focused" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "verified" BOOLEAN NOT NULL DEFAULT false;
+
+ALTER TABLE "events"
+ADD COLUMN "active" BOOLEAN NOT NULL DEFAULT true;

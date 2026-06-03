@@ -23,9 +23,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     where: { id },
     data: {
       ...data,
+      borough: data.borough || null,
       website: data.website || null,
       email: data.email || null,
       logoUrl: data.logoUrl || null,
+      dropInPrice: data.dropInPrice === "" ? null : data.dropInPrice,
     },
   });
 

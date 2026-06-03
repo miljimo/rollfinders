@@ -15,9 +15,11 @@ export async function POST(request: Request) {
   await prisma.academy.create({
     data: {
       ...data,
+      borough: data.borough || null,
       website: data.website || null,
       email: data.email || null,
       logoUrl: data.logoUrl || null,
+      dropInPrice: data.dropInPrice === "" ? null : data.dropInPrice,
     },
   });
 

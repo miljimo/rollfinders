@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarDays, MapPin, PoundSterling } from "lucide-react";
+import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
 import type { AcademyWithEvents, EventWithAcademy } from "@/lib/data";
 import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
 
@@ -24,16 +24,24 @@ export function AcademyCard({ academy }: { academy: AcademyWithEvents }) {
     <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-stone-950">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-stone-950">
             <Link href={`/academies/${academy.slug}`}>{academy.name}</Link>
+            {academy.verified ? <CheckCircle2 size={16} className="text-teal-700" aria-label="Verified" /> : null}
           </h2>
           <p className="mt-1 flex items-center gap-1 text-sm text-stone-600">
-            <MapPin size={15} aria-hidden /> {academy.city}, {academy.postcode}
+            <MapPin size={15} aria-hidden /> {academy.borough ?? academy.city}, {academy.postcode}
           </p>
         </div>
         {academy.affiliation ? <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">{academy.affiliation}</span> : null}
       </div>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-700">{academy.description}</p>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-stone-700">
+        {academy.giAvailable ? <span className="rounded-md bg-stone-100 px-2 py-1">Gi</span> : null}
+        {academy.nogiAvailable ? <span className="rounded-md bg-stone-100 px-2 py-1">No-Gi</span> : null}
+        {academy.beginnerFriendly ? <span className="rounded-md bg-stone-100 px-2 py-1">Beginner friendly</span> : null}
+        {academy.competitionFocused ? <span className="rounded-md bg-stone-100 px-2 py-1">Competition</span> : null}
+        {academy.dropInPrice !== null ? <span className="rounded-md bg-teal-50 px-2 py-1 text-teal-900">Drop-in {formatMoney(academy.dropInPrice)}</span> : null}
+      </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {academy.events.slice(0, 2).map((event) => (
           <Link key={event.id} href={`/open-mats/${event.id}`} className="rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
@@ -61,7 +69,7 @@ export function EventCard({ event }: { event: EventWithAcademy }) {
       <dl className="mt-4 grid grid-cols-1 gap-2 text-sm text-stone-700 sm:grid-cols-3">
         <div className="flex items-center gap-2"><CalendarDays size={16} aria-hidden />{formatDate(event.eventDate)}</div>
         <div>{event.startTime}-{event.endTime}</div>
-        <div className="flex items-center gap-1"><PoundSterling size={15} aria-hidden />{formatMoney(event.price)}</div>
+        <div>{formatMoney(event.price)}</div>
       </dl>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-700">{event.description}</p>
       <div className="mt-4 flex gap-2">

@@ -10,7 +10,7 @@ export default async function AdminPage() {
   await requireAdminPage();
   const [academies, events, claims, users] = await Promise.all([
     prisma.academy.findMany({ take: 20, orderBy: { name: "asc" } }),
-    prisma.event.findMany({ take: 20, include: { academy: true }, orderBy: { eventDate: "asc" } }),
+    prisma.event.findMany({ take: 20, where: { active: true }, include: { academy: true }, orderBy: { eventDate: "asc" } }),
     prisma.claimRequest.findMany({ take: 20, include: { academy: true }, orderBy: { createdAt: "desc" } }),
     prisma.user.findMany({ take: 20, orderBy: { createdAt: "desc" } }),
   ]);
@@ -27,7 +27,7 @@ export default async function AdminPage() {
         </div>
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <AdminPanel title="Academies">
-            {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.city}, ${academy.postcode}`} href={`/admin/academies/${academy.id}`} />)}
+            {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
           </AdminPanel>
           <AdminPanel title="Events">
             {events.map((event) => <Row key={event.id} primary={event.title} secondary={`${event.academy.name} · ${formatDate(event.eventDate)}`} href={`/open-mats/${event.id}`} />)}

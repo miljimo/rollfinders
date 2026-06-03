@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
+
 export const claimRequestSchema = z.object({
   academyId: z.string().min(1),
   requesterName: z.string().min(2).max(120),
@@ -17,8 +19,15 @@ export const academySchema = z.object({
   address: z.string().min(4),
   city: z.string().min(2),
   postcode: z.string().min(3),
+  borough: z.string().optional().or(z.literal("")),
   country: z.string().min(2),
   latitude: z.coerce.number(),
   longitude: z.coerce.number(),
   logoUrl: z.string().url().optional().or(z.literal("")),
+  dropInPrice: z.coerce.number().nonnegative().optional().or(z.literal("")),
+  giAvailable: checkboxSchema,
+  nogiAvailable: checkboxSchema,
+  beginnerFriendly: checkboxSchema,
+  competitionFocused: checkboxSchema,
+  verified: checkboxSchema,
 });

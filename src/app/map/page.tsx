@@ -37,7 +37,7 @@ export default async function MapPage() {
             {academies.map((academy) => (
               <Link key={academy.id} href={`/academies/${academy.slug}`} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
                 <p className="font-bold text-stone-950">{academy.name}</p>
-                <p className="text-sm text-stone-600">{academy.city}, {academy.postcode}</p>
+                <p className="text-sm text-stone-600">{academy.borough ?? academy.city}, {academy.postcode}</p>
                 {academy.events[0] ? <p className="mt-2 text-xs font-semibold text-teal-800">{academy.events[0].title} · {formatDate(academy.events[0].eventDate)}</p> : null}
               </Link>
             ))}
