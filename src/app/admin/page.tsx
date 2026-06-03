@@ -1,13 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Role } from "@prisma/client";
 import { PageShell } from "@/components/shell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
-import { createUser, deleteInvalidEmailRecord, deleteInvalidEmailUser, toggleUserDisabled, updateUserRole } from "./actions";
+import { deleteInvalidEmailRecord, deleteInvalidEmailUser } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +63,6 @@ export default async function AdminPage({
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
-  const userPage = pageFromParams(params, "usersPage");
   const emailPage = pageFromParams(params, "emailsPage");
   const invalidEmailPage = pageFromParams(params, "invalidEmailsPage");
 
@@ -92,14 +90,12 @@ export default async function AdminPage({
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
   const currentEventPage = clampPage(eventPage, eventCount);
-  const currentUserPage = clampPage(userPage, userCount);
   const currentEmailPage = clampPage(emailPage, queuedEmailCount);
   const currentInvalidEmailPage = clampPage(invalidEmailPage, invalidEmailCount);
 
   const [
     academies,
     events,
-    users,
     recentEmails,
     invalidEmails,
     recentAuditLogs,
@@ -115,11 +111,6 @@ export default async function AdminPage({
       where: { active: true },
       include: { academy: true },
       orderBy: { eventDate: "asc" },
-    }),
-    prisma.user.findMany({
-      skip: (currentUserPage - 1) * pageSize,
-      take: pageSize,
-      orderBy: { createdAt: "desc" },
     }),
     prisma.outboundEmail.findMany({
       skip: (currentEmailPage - 1) * pageSize,
@@ -168,7 +159,7 @@ export default async function AdminPage({
         <div className="mt-6 grid gap-4 lg:grid-cols-4">
           <ModuleCard title="Academy Management" description="Search, filter, verify, feature, and edit academy records." href="/admin/academies" action="Manage academies" />
           <ModuleCard title="Open Mats" description="Create and maintain active open mat events." href="/admin/open-mats/new" action="Create open mat" />
-          <ModuleCard title="Users" description="Review recent accounts and manage platform access." href="#users" action="Review users" />
+          <ModuleCard title="Users" description="Search, edit, disable, promote, delete, and send password emails." href="/admin/users" action="Manage users" />
           <ModuleCard title="Email Operations" description="Monitor delivery status, invalid emails, and backend mail settings." href="#email-operations" action="Review email" />
         </div>
 
@@ -264,53 +255,6 @@ export default async function AdminPage({
           <AdminPanel title="Open Mats" description="Active open mat events ordered by event date." id="open-mats">
             {events.map((event) => <Row key={event.id} primary={event.title} secondary={`${event.academy.name} · ${formatDate(event.eventDate)}`} href={`/admin/open-mats/${event.id}`} />)}
             <Pagination currentPage={currentEventPage} totalItems={eventCount} pageKey="eventsPage" searchParams={params} />
-          </AdminPanel>
-
-          <AdminPanel title="Users" description="Recent users with account controls for super admins." id="users">
-            {isSuperAdmin ? (
-              <form action={createUser} className="mb-4 grid gap-2 rounded-md border border-stone-200 bg-stone-50 p-3">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <input name="name" placeholder="Name" className="min-h-10 rounded-md border border-stone-300 px-3 text-sm" />
-                  <input name="email" type="email" required placeholder="Email" className="min-h-10 rounded-md border border-stone-300 px-3 text-sm" />
-                  <input name="password" type="password" placeholder="Temporary password" className="min-h-10 rounded-md border border-stone-300 px-3 text-sm" />
-                  <select name="role" defaultValue={Role.STANDARD_USER} className="min-h-10 rounded-md border border-stone-300 px-3 text-sm">
-                    <option value={Role.STANDARD_USER}>Standard user</option>
-                    <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
-                  </select>
-                </div>
-                <button className="min-h-10 rounded-md bg-stone-950 px-3 text-sm font-bold text-white">Create User</button>
-              </form>
-            ) : null}
-            {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between gap-2 border-b border-stone-100 py-3">
-                <div>
-                  <p className="font-semibold text-stone-950">{user.name ?? user.email}</p>
-                  <p className="break-all text-sm text-stone-600">{user.email}</p>
-                  <p className="text-xs font-semibold text-stone-500">
-                    {user.role}{user.status === "DISABLED" || user.disabled ? " · disabled" : ""}{isProtectedSuperAdmin(user) ? " · protected" : ""}
-                    {user.emailStatus === "INVALID" ? " · invalid email" : ""}
-                    {user.lastLoginAt ? ` · last login ${formatDate(user.lastLoginAt)}` : ""}
-                  </p>
-                </div>
-                {isSuperAdmin && !isProtectedSuperAdmin(user) ? (
-                  <div className="flex flex-col gap-2">
-                    <form action={updateUserRole.bind(null, user.id)} className="flex gap-1">
-                      <select name="role" defaultValue={user.role} className="rounded-md border border-stone-300 px-2 py-1 text-xs">
-                        <option value={Role.STANDARD_USER}>Standard</option>
-                        <option value={Role.PLATFORM_ADMIN}>Platform</option>
-                      </select>
-                      <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Save</button>
-                    </form>
-                    <form action={toggleUserDisabled.bind(null, user.id)}>
-                      <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">
-                        {user.status === "DISABLED" || user.disabled ? "Enable" : "Disable"}
-                      </button>
-                    </form>
-                  </div>
-                ) : null}
-              </div>
-            ))}
-            <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
           </AdminPanel>
 
           {isSuperAdmin ? (
