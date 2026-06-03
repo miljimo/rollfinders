@@ -34,7 +34,7 @@ export default function TermsPage() {
             <p>RollFinders provides discovery information and does not control academy operations, coaching, safety procedures, or attendance decisions.</p>
           </Section>
           <Section title="Contact">
-            <p>Questions about these terms can be sent to support@rollfinder.local.</p>
+            <p>Questions about these terms can be sent to support@rollfinders.com.</p>
           </Section>
         </div>
       </section>

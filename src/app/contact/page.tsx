@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 };
 
 const contacts = [
-  ["General contact", "hello@rollfinder.local"],
-  ["Support", "support@rollfinder.local"],
-  ["Business enquiries", "business@rollfinder.local"],
+  ["General contact", "hello@rollfinders.com"],
+  ["Support", "support@rollfinders.com"],
+  ["Business enquiries", "business@rollfinders.com"],
 ];
 
 export default function ContactPage() {

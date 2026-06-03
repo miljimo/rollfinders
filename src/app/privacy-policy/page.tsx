@@ -28,7 +28,7 @@ export default function PrivacyPolicyPage() {
           <p>Users in the UK and EEA may request access, correction, deletion, restriction, portability, or objection to processing of their personal data, subject to legal limits.</p>
         </Section>
         <Section title="Contact">
-          <p>For privacy requests, contact support@rollfinder.local.</p>
+          <p>For privacy requests, contact support@rollfinders.com.</p>
         </Section>
       </LegalPage>
     </StaticPageShell>
