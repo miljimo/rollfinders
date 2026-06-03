@@ -15,27 +15,17 @@ if [[ "${ENVIRONMENT_NAME}" == "production" && "${PRODUCTION_APPROVED:-}" != "tr
   exit 1
 fi
 
+if [[ ! -f "${PROJECT_DIR}/image.env" ]]; then
+  echo "Missing image.env artifact. Run scripts/cicd/build.sh before deploy."
+  exit 1
+fi
+
+source "${PROJECT_DIR}/image.env"
+
 "${SCRIPT_DIR}/bootstrap-state.sh"
 
 cd "${TERRAFORM_DIR}"
 terraform init -backend-config="${BACKEND_CONFIG}" -reconfigure
-
-terraform plan \
-  -target=aws_ecr_repository.app \
-  -target=aws_ecr_lifecycle_policy.app \
-  -var-file="${TFVARS}" \
-  -var="image_uri=bootstrap-placeholder" \
-  -out=ecr.tfplan
-
-terraform apply \
-  -auto-approve \
-  ecr.tfplan
-
-cd "${PROJECT_DIR}"
-"${SCRIPT_DIR}/build.sh"
-source "${PROJECT_DIR}/image.env"
-
-cd "${TERRAFORM_DIR}"
 terraform plan \
   -var-file="${TFVARS}" \
   -var="image_uri=${IMAGE_URI}" \

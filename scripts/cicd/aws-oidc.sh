@@ -7,8 +7,8 @@ export AWS_DEFAULT_REGION="${AWS_DEFAULT_REGION:-${AWS_REGION}}"
 
 if [[ -n "${BITBUCKET_STEP_OIDC_TOKEN:-}" ]]; then
   if [[ -z "${AWS_ROLE_ARN:-}" ]]; then
-    echo "AWS_ROLE_ARN must be set when using Bitbucket OIDC."
-    exit 1
+    echo "BITBUCKET_STEP_OIDC_TOKEN is present, but AWS_ROLE_ARN is not set. Falling back to existing AWS credentials."
+    return 0 2>/dev/null || exit 0
   fi
 
   oidc_token_file="${BITBUCKET_CLONE_DIR:-$(pwd)}/.bitbucket-oidc-token"

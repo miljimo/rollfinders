@@ -8,6 +8,23 @@ Ensure deployment quality through automated validation and provide controlled de
 
 The platform must support safe infrastructure cleanup while preventing accidental production outages.
 
+Bitbucket environment note:
+
+```text
+There is no Bitbucket "test" deployment environment.
+Development deploys run without a Bitbucket deployment label and use ENVIRONMENT_NAME=dev.
+Staging uses the Bitbucket "staging" deployment environment.
+Production uses the Bitbucket "production" deployment environment.
+```
+
+Docker artefact note:
+
+```text
+The Docker image build is a separate pipeline stage.
+The build stage writes image.env as an artifact.
+Environment deployment stages consume image.env and pass IMAGE_URI to Terraform.
+```
+
 ---
 
 # Pre-Deployment Validation Requirements

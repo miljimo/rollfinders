@@ -14,7 +14,6 @@ cd "${BOOTSTRAP_DIR}"
 
 for env in "${ENVIRONMENTS[@]}"; do
   bucket="rollfinder-${env}-terraform-state"
-  table="rollfinder-${env}-terraform-locks"
 
   if aws s3api head-bucket --bucket "${bucket}" 2>/dev/null; then
     "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket.bucket" "${bucket}" 2>/dev/null || true
@@ -24,9 +23,6 @@ for env in "${ENVIRONMENTS[@]}"; do
     "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket_request_payment_configuration.request_payment_configuration" "${bucket}" 2>/dev/null || true
   fi
 
-  if aws dynamodb describe-table --region "${AWS_REGION}" --table-name "${table}" >/dev/null 2>&1; then
-    "${TERRAFORM_BIN}" import "aws_dynamodb_table.locks[\"${env}\"]" "${table}" 2>/dev/null || true
-  fi
 done
 
 "${TERRAFORM_BIN}" apply -auto-approve

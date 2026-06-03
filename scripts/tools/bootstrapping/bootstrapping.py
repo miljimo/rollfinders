@@ -1,7 +1,6 @@
 """
   The script will be used to create terraform state bucket if does not exists
 """
-import time
 import os
 from typing import Optional, Any, Tuple
 from enum import IntEnum
@@ -102,66 +101,6 @@ def create_terraform_state_bucket(
             logger.exception(err)
     return False
 
-def dynamodb_table_exists(session: boto3.Session, table_name:str):
-    dynamodb = session.client('dynamodb')
-    try:
-        dynamodb.describe_table(TableName=table_name)
-        return True
-    except dynamodb.exceptions.ResourceNotFoundException:
-        return False
-    except Exception as e:
-        print(f"Error checking table existence: {e}")
-        raise e
-
-
-def create_terraform_dynamodb_state_table(session: boto3.Session, table_name:str):
-    dynamodb = session.client('dynamodb')
-    attribute_definitions = [
-        {
-            'AttributeName': 'LockID',
-            'AttributeType': 'S'
-        }
-    ]
-
-    key_schema = [
-        {
-            'AttributeName': 'LockID',
-            'KeyType': 'HASH'
-        }
-    ]
-
-    provisioned_throughput = {
-        'ReadCapacityUnits': 5,
-        'WriteCapacityUnits': 5
-    }
-    try:
-        dynamodb.create_table(
-            TableName=table_name,
-            AttributeDefinitions=attribute_definitions,
-            KeySchema=key_schema,
-            ProvisionedThroughput=provisioned_throughput
-        )
-        return True
-    except dynamodb.exceptions.ResourceInUseException:
-        print(f"Table '{table_name}' already exists.")
-        return True
-    except Exception as e:
-        print(f"error creating table: {e}")
-    return False
-
-def delete_dynamodb_table(session:boto3.Session, table_name:str):
-    dynamodb = session.client('dynamodb')
-    try:
-        dynamodb.delete_table(TableName=table_name)
-        time.sleep(2)
-        return True
-    except dynamodb.exceptions.ResourceNotFoundException:
-        print(f"Table '{table_name}' does not exist.")
-    except Exception as e:
-        print(f"Error deleting table: {e}")
-        raise e
-    return False
-
 def initial_terraform():
     session = boto3.Session()
     bucket_name = os.environ.get(TerraformTypes.TERRAFORM_ARTEFACT_BUCKET.name, None)
@@ -170,12 +109,4 @@ def initial_terraform():
     
     if status:
         print("Bucket created successfully")
-        dynamodb_terraform_table =  os.environ['TERRAFORM_STATES_TABLE']
-        if dynamodb_table_exists(session, dynamodb_terraform_table):
-            print(f"deleting dynamodb table = {dynamodb_terraform_table}")
-            delete_dynamodb_table(session, dynamodb_terraform_table)
-
-        status = create_terraform_dynamodb_state_table(session , table_name=dynamodb_terraform_table)
-        if status:
-            print(f"Table '{dynamodb_terraform_table}' created successfully.")
-            print("BUCKET_NAME  = ", os.environ.get(TerraformTypes.TERRAFORM_ARTEFACT_BUCKET.name))
+        print("BUCKET_NAME  = ", os.environ.get(TerraformTypes.TERRAFORM_ARTEFACT_BUCKET.name))

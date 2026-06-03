@@ -17,15 +17,16 @@ definitions:
           - npm run lint
           - npm run typecheck
           - npm run test
+          - npm run build
           - apt-get update && apt-get install -y unzip curl
-          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
           - unzip terraform.zip -d /usr/local/bin
           - cd terraform
           - terraform fmt -check
           - terraform init -backend=false
           - terraform validate
-    - step: &deploy
-        name: Terraform Deploy
+    - step: &build-image
+        name: Build Docker Image
         oidc: true
         services:
           - docker
@@ -33,7 +34,22 @@ definitions:
           - node
         script:
           - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+          - unzip terraform.zip -d /usr/local/bin
+          - pip3 install awscli --break-system-packages
+          - chmod +x scripts/cicd/*.sh
+          - scripts/cicd/prepare-ecr.sh
+          - scripts/cicd/build.sh
+        artifacts:
+          - image.env
+    - step: &deploy
+        name: Terraform Deploy
+        oidc: true
+        caches:
+          - node
+        script:
+          - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
           - unzip terraform.zip -d /usr/local/bin
           - pip3 install awscli --break-system-packages
           - chmod +x scripts/cicd/*.sh
@@ -50,10 +66,9 @@ pipelines:
       - step:
           <<: *deploy
           name: Destroy Dev
-          # deployment: test , this should be using the default environments which does not required a deployment environments.
           script:
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
             - unzip terraform.zip -d /usr/local/bin
             - pip3 install awscli --break-system-packages
             - chmod +x scripts/cicd/*.sh scripts/*.sh
@@ -66,7 +81,7 @@ pipelines:
           script:
             - export CONFIRM_DESTROY="destroy staging"
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
             - unzip terraform.zip -d /usr/local/bin
             - pip3 install awscli --break-system-packages
             - chmod +x scripts/cicd/*.sh scripts/*.sh
@@ -83,7 +98,7 @@ pipelines:
           deployment: production
           script:
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
             - unzip terraform.zip -d /usr/local/bin
             - pip3 install awscli --break-system-packages
             - chmod +x scripts/cicd/*.sh scripts/*.sh
@@ -93,13 +108,24 @@ pipelines:
     "feature/*":
       - step: *validate
       - step:
-          <<: *deploy
-          name: Build Image And Deploy Dev
-          # deployment: test
+          <<: *build-image
+          name: Build Docker Image For Dev
           script:
             - export ENVIRONMENT_NAME=dev
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/prepare-ecr.sh
+            - scripts/cicd/build.sh
+      - step:
+          <<: *deploy
+          name: Deploy Dev
+          script:
+            - export ENVIRONMENT_NAME=dev
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
             - unzip terraform.zip -d /usr/local/bin
             - pip3 install awscli --break-system-packages
             - chmod +x scripts/cicd/*.sh
@@ -109,14 +135,26 @@ pipelines:
     staging:
       - step: *validate
       - step:
+          <<: *build-image
+          name: Build Docker Image For Staging
+          script:
+            - export ENVIRONMENT_NAME=staging
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/prepare-ecr.sh
+            - scripts/cicd/build.sh
+      - step:
           <<: *deploy
-          name: Build Image And Deploy Staging
+          name: Deploy Staging
           deployment: staging
           trigger: manual
           script:
             - export ENVIRONMENT_NAME=staging
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
             - unzip terraform.zip -d /usr/local/bin
             - pip3 install awscli --break-system-packages
             - chmod +x scripts/cicd/*.sh
@@ -126,8 +164,20 @@ pipelines:
     main:
       - step: *validate
       - step:
+          <<: *build-image
+          name: Build Docker Image For Production
+          script:
+            - export ENVIRONMENT_NAME=production
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/prepare-ecr.sh
+            - scripts/cicd/build.sh
+      - step:
           <<: *deploy
-          name: Build Image And Deploy Production
+          name: Deploy Production
           deployment: production
           trigger: manual
           script:
@@ -135,7 +185,7 @@ pipelines:
             - export PRODUCTION_APPROVED=true
             - export PRODUCTION_MIGRATION_APPROVED=true
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
-            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
             - unzip terraform.zip -d /usr/local/bin
             - pip3 install awscli --break-system-packages
             - chmod +x scripts/cicd/*.sh

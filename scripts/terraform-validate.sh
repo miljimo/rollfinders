@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TERRAFORM_DIR="${ROOT_DIR}/terraform"
-TERRAFORM_VERSION="${TERRAFORM_VERSION:-1.8.2}"
+TERRAFORM_VERSION="${TERRAFORM_VERSION:-1.10.5}"
 LOCAL_BIN_DIR="${ROOT_DIR}/.bin"
 TERRAFORM_BIN="${TERRAFORM_BIN:-${LOCAL_BIN_DIR}/terraform}"
 

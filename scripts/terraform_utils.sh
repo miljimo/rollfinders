@@ -2,7 +2,7 @@
 chmod +x ./scripts/utils.sh && . ./scripts/utils.sh
 chmod +x ./scripts/git_utils.sh && . ./scripts/git_utils.sh
 chmod +x ./scripts/aws_utils.sh && . ./scripts/aws_utils.sh
-export TERRAFORM_VERSION='1.8.2'
+export TERRAFORM_VERSION='1.10.5'
 export TERRAFORM_CXX=terraform
 export TERRAFORM_ZIP_FILENAME="terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
 export TERRAFORM_REMOTE_PATH="https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/${TERRAFORM_ZIP_FILENAME}"

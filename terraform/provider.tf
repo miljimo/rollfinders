@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">=1.8.2"
+  required_version = ">=1.10.5"
 
   required_providers {
     aws = {
@@ -13,9 +13,10 @@ terraform {
   }
 
   backend "s3" {
-    key     = "rollfinder/tfstate.json"
-    region  = "eu-west-2"
-    encrypt = true
+    key          = "rollfinder/tfstate.json"
+    region       = "eu-west-2"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 
