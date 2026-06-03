@@ -1,15 +1,20 @@
 import Link from "next/link";
+import { getServerSession } from "next-auth";
 import { MapPin, Search } from "lucide-react";
+import { authOptions } from "@/lib/auth";
+import { LogoutButton } from "./logout-button";
 
 const navItems = [
   ["Home", "/"],
   ["Academies", "/academies"],
   ["Open Mats", "/open-mats"],
   ["Map", "/map"],
-  ["Login", "/login"],
 ];
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  const session = await getServerSession(authOptions);
+  const isLoggedIn = Boolean(session?.user);
+
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -25,6 +30,18 @@ export function SiteHeader() {
               {label}
             </Link>
           ))}
+          {isLoggedIn ? (
+            <>
+              <Link href="/admin" className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+                Admin
+              </Link>
+              <LogoutButton />
+            </>
+          ) : (
+            <Link href="/login" className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+              Login
+            </Link>
+          )}
         </nav>
         <Link href="/academies" className="inline-flex size-10 items-center justify-center rounded-md bg-stone-950 text-white md:hidden" aria-label="Search academies">
           <Search size={18} aria-hidden />
