@@ -4,16 +4,25 @@ import { distanceMiles } from "./utils";
 
 export type LocationInput = { latitude?: number; longitude?: number };
 
+const defaultSearchLocation = {
+  latitude: 51.5072,
+  longitude: -0.1276,
+};
+
 function hasLocation(location?: LocationInput): location is { latitude: number; longitude: number } {
   return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude);
 }
 
+function searchLocation(location?: LocationInput) {
+  return hasLocation(location) ? location : defaultSearchLocation;
+}
+
 function addAcademyDistances<T extends { latitude: number; longitude: number; verified?: boolean }>(items: T[], location?: LocationInput) {
-  if (!hasLocation(location)) return items.map((item) => ({ ...item, distanceMiles: null as number | null }));
+  const origin = searchLocation(location);
   return items
     .map((item) => ({
       ...item,
-      distanceMiles: distanceMiles(location, { latitude: item.latitude, longitude: item.longitude }),
+      distanceMiles: distanceMiles(origin, { latitude: item.latitude, longitude: item.longitude }),
     }))
     .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || Number(b.verified) - Number(a.verified));
 }
@@ -138,12 +147,12 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
   const location = { latitude: filters.latitude, longitude: filters.longitude };
-  if (!hasLocation(location)) return events.map((event) => ({ ...event, distanceMiles: null as number | null }));
+  const origin = searchLocation(location);
 
   return events
     .map((event) => ({
       ...event,
-      distanceMiles: distanceMiles(location, { latitude: event.academy.latitude, longitude: event.academy.longitude }),
+      distanceMiles: distanceMiles(origin, { latitude: event.academy.latitude, longitude: event.academy.longitude }),
     }))
     .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime() || (a.distanceMiles ?? 0) - (b.distanceMiles ?? 0) || Number(b.academy.verified) - Number(a.academy.verified));
 }

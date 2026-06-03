@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { ArrowRight, MapPinned } from "lucide-react";
+import { LocationSearchForm } from "@/components/location-search-form";
 import { PageShell } from "@/components/shell";
-import { AcademyCard, EventCard, SearchForm } from "@/components/ui";
+import { AcademyCard, EventCard } from "@/components/ui";
 import { getFeaturedData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export default async function Home() {
               Search Brazilian Jiu-Jitsu academies, visitor-friendly classes, and open mats across London.
             </p>
             <div className="mt-7 max-w-2xl">
-              <SearchForm action="/open-mats" placeholder="Search open mats by academy, borough, postcode, gi, or no-gi" />
+              <LocationSearchForm action="/open-mats" placeholder="Search open mats by academy, borough, postcode, gi, or no-gi" />
             </div>
           </div>
           <div className="map-grid min-h-[320px] rounded-lg border border-teal-200 bg-white p-4">
