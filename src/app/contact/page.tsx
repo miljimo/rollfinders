@@ -3,8 +3,8 @@ import { Mail } from "lucide-react";
 import { StaticPageShell } from "@/components/shell";
 
 export const metadata: Metadata = {
-  title: "Contact RollFinder | Support and business enquiries",
-  description: "Contact RollFinder for support, academy listing updates, partnerships, and business enquiries.",
+  title: "Contact RollFinders | Support and business enquiries",
+  description: "Contact RollFinders for support, academy listing updates, partnerships, and business enquiries.",
   alternates: { canonical: "/contact" },
 };
 
@@ -19,7 +19,7 @@ export default function ContactPage() {
     <StaticPageShell>
       <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Contact</p>
-        <h1 className="mt-3 text-4xl font-black text-stone-950">Get in touch with RollFinder.</h1>
+        <h1 className="mt-3 text-4xl font-black text-stone-950">Get in touch with RollFinders.</h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-stone-700">
           Send listing corrections, open mat updates, academy claim questions, partnership ideas, or support requests to the relevant inbox below.
         </p>

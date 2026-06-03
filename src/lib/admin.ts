@@ -52,7 +52,10 @@ export async function requireSuperAdminApi() {
 }
 
 export function isProtectedSuperAdmin(user: { email: string; isProtected?: boolean | null }) {
-  return user.isProtected === true || user.email.toLowerCase() === "admin@rollfinder.local";
+  return (
+    user.isProtected === true ||
+    ["admin@rollfinder.com", "admin@rollfinder.local"].includes(user.email.toLowerCase())
+  );
 }
 
 export async function writeAdminAuditLog({

@@ -24,3 +24,6 @@ output "hosted_zone_id" {
   value = aws_s3_bucket.bucket.hosted_zone_id
 }
 
+output "bucket_regional_domain_name" {
+  value = aws_s3_bucket.bucket.bucket_regional_domain_name
+}

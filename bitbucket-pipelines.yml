@@ -1,13 +1,198 @@
 image: node:22
 
-pipelines:
-  default:
-    - step:
-        name: Verify
+definitions:
+  services:
+    docker:
+      memory: 3072
+  caches:
+    node: ~/.npm
+  steps:
+    - step: &validate
+        name: Static Code Analysis
         caches:
           - node
         script:
           - npm ci
           - npm run db:generate
           - npm run lint
+          - npm run typecheck
+          - npm run test
           - npm run build
+          - apt-get update && apt-get install -y unzip curl
+          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+          - unzip terraform.zip -d /usr/local/bin
+          - cd terraform
+          - terraform fmt -check
+          - terraform init -backend=false
+          - terraform validate
+    - step: &build-image
+        name: Build Docker Image
+        oidc: true
+        services:
+          - docker
+        caches:
+          - node
+        script:
+          - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+          - unzip terraform.zip -d /usr/local/bin
+          - pip3 install awscli --break-system-packages
+          - chmod +x scripts/cicd/*.sh
+          - scripts/cicd/prepare-ecr.sh
+          - scripts/cicd/build.sh
+        artifacts:
+          - image.env
+    - step: &deploy
+        name: Terraform Deploy
+        oidc: true
+        caches:
+          - node
+        script:
+          - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+          - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+          - unzip terraform.zip -d /usr/local/bin
+          - pip3 install awscli --break-system-packages
+          - chmod +x scripts/cicd/*.sh
+          - scripts/cicd/deploy.sh
+          - scripts/cicd/migrate.sh
+          - scripts/cicd/ensure-super-admin.sh
+          - scripts/cicd/smoke.sh
+
+pipelines:
+  default:
+    - step: *validate
+
+  custom:
+    destroy-dev:
+      - step:
+          <<: *deploy
+          name: Destroy Dev
+          script:
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh scripts/*.sh
+            - ./scripts/destroy-env.sh dev
+    destroy-staging:
+      - step:
+          <<: *deploy
+          name: Destroy Staging
+          deployment: staging
+          script:
+            - export CONFIRM_DESTROY="destroy staging"
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh scripts/*.sh
+            - ./scripts/destroy-env.sh staging
+    destroy-production:
+      - variables:
+          - name: ALLOW_PRODUCTION_DESTROY
+            default: "false"
+          - name: PRODUCTION_DESTROY_CONFIRMATION
+            default: ""
+      - step:
+          <<: *deploy
+          name: Destroy Production
+          deployment: production
+          script:
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh scripts/*.sh
+            - ./scripts/destroy-env.sh production
+
+  branches:
+    "feature/*":
+      - step: *validate
+      - step:
+          <<: *build-image
+          name: Build Docker Image For Dev
+          script:
+            - export ENVIRONMENT_NAME=dev
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/prepare-ecr.sh
+            - scripts/cicd/build.sh
+      - step:
+          <<: *deploy
+          name: Deploy Dev
+          script:
+            - export ENVIRONMENT_NAME=dev
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/deploy.sh
+            - scripts/cicd/migrate.sh
+            - scripts/cicd/ensure-super-admin.sh
+            - scripts/cicd/smoke.sh
+    staging:
+      - step: *validate
+      - step:
+          <<: *build-image
+          name: Build Docker Image For Staging
+          script:
+            - export ENVIRONMENT_NAME=staging
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/prepare-ecr.sh
+            - scripts/cicd/build.sh
+      - step:
+          <<: *deploy
+          name: Deploy Staging
+          deployment: staging
+          trigger: manual
+          script:
+            - export ENVIRONMENT_NAME=staging
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/deploy.sh
+            - scripts/cicd/migrate.sh
+            - scripts/cicd/ensure-super-admin.sh
+            - scripts/cicd/smoke.sh
+    main:
+      - step: *validate
+      - step:
+          <<: *build-image
+          name: Build Docker Image For Production
+          script:
+            - export ENVIRONMENT_NAME=production
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/prepare-ecr.sh
+            - scripts/cicd/build.sh
+      - step:
+          <<: *deploy
+          name: Deploy Production
+          deployment: production
+          trigger: manual
+          script:
+            - export ENVIRONMENT_NAME=production
+            - export PRODUCTION_APPROVED=true
+            - export PRODUCTION_MIGRATION_APPROVED=true
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.10.5/terraform_1.10.5_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh
+            - scripts/cicd/deploy.sh
+            - scripts/cicd/migrate.sh
+            - scripts/cicd/ensure-super-admin.sh
+            - scripts/cicd/smoke.sh

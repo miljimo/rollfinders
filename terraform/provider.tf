@@ -1,20 +1,29 @@
 terraform {
-  required_version = ">=1.4.6"
+  required_version = ">=1.10.5"
+
   required_providers {
     aws = {
+      source  = "hashicorp/aws"
       version = ">=5"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">=3.6"
+    }
   }
+
   backend "s3" {
-    key                  = "tquest/tfstate.json"
-    region               = "eu-west-2"
-    workspace_key_prefix = "workspaces"
-    encrypt              = true
-    use_lockfile         = true
+    key          = "rollfinder/tfstate.json"
+    region       = "eu-west-2"
+    encrypt      = true
+    use_lockfile = true
   }
 }
 
 provider "aws" {
-  region = "eu-west-2"
-}
+  region = var.aws_region
 
+  default_tags {
+    tags = local.common_tags
+  }
+}

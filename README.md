@@ -1,11 +1,11 @@
-# RollFinder
+# RollFinders
 
-RollFinder is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open mats in London.
+RollFinders is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open mats in London.
 
 ## Stack
 
 - Next.js App Router, TypeScript, Tailwind CSS
-- Supabase-hosted PostgreSQL and storage-ready client
+- PostgreSQL
 - Prisma migrations and seed data
 - NextAuth credentials provider
 
@@ -23,10 +23,40 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Local Build Scripts
+
+Linux engineers can run the same core checks used by CI:
+
+```bash
+./scripts/build.sh
+```
+
+Build the production Docker image locally:
+
+```bash
+./scripts/docker-build.sh
+```
+
+Validate Terraform locally:
+
+```bash
+./scripts/terraform-validate.sh
+```
+
+If Terraform is not installed, the script downloads the pinned Linux binary into `.bin/`.
+
+Run the full local CI path:
+
+```bash
+./scripts/local-ci.sh
+```
+
 Seed admin:
 
-- Email: `admin@rollfinder.local`
-- Password: `rollfinder-admin`
+- Email: `admin@rollfinder.com`
+- Password: `admin`
+
+Deployments also run `npm run ensure-super-admin` after migrations in every environment. Override the default credentials with `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, and `SUPER_ADMIN_NAME` in the task environment when needed.
 
 ## Docker Compose Profiles
 
@@ -64,18 +94,9 @@ DB_PORT=54322
 
 The app and Prisma derive the PostgreSQL connection string from those values. You can still set `DATABASE_URL` directly if a hosted provider gives you a single connection string.
 
-## Supabase
-
-Create a Supabase project, copy the database connection details into `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT`, then set `NEXT_PUBLIC_SUPABASE_URL` plus `NEXT_PUBLIC_SUPABASE_ANON_KEY`. If Supabase gives you a pooled connection string, you can set `DATABASE_URL` instead. Supabase Storage is ready to use through `src/lib/supabase.ts`.
-
 ## Deployment
 
-Set the environment variables from `.env.example` in Vercel, then run:
-
-```bash
-npm run db:migrate
-npm run db:seed
-```
+Deployment is handled by Bitbucket Pipelines and Terraform. See `docs/features/deployment.requirements.md` and `terraform/README.md`.
 
 ## MVP Coverage
 

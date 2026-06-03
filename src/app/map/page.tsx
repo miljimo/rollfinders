@@ -7,8 +7,8 @@ import { formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinder | Map - London BJJ locations",
-  description: "Browse Brazilian Jiu-Jitsu academy and open mat locations across London on the RollFinder map.",
+  title: "RollFinders | Map - London BJJ locations",
+  description: "Browse nearby London BJJ academies and open mat locations with upcoming training sessions and directions.",
 };
 
 export default async function MapPage() {
@@ -20,7 +20,7 @@ export default async function MapPage() {
     <PageShell>
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-black text-stone-950">Map</h1>
-        <p className="mt-2 text-stone-700">Browse academy and open mat locations across London.</p>
+        <p className="mt-2 max-w-3xl text-stone-700">Scan London by training opportunity, not just club location. See nearby academies, upcoming open mats, and details before you travel.</p>
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_380px]">
           <div className="min-h-[480px] overflow-hidden rounded-lg border border-stone-200 bg-white">
             {googleKey ? (

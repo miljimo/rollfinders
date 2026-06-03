@@ -7,8 +7,8 @@ import { getOpenMatRadar } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinder | Open Mats - Find training today",
-  description: "Find upcoming BJJ open mats in London, including today's sessions, tomorrow's sessions, and weekend training.",
+  title: "RollFinders | Open Mats - Find training today",
+  description: "Find today's, tomorrow's, and weekend BJJ open mats in London with gi type, drop-in cost, location, and directions.",
 };
 
 export default async function OpenMatsPage({ searchParams }: { searchParams: Promise<{ q?: string; when?: string; gi?: string; lat?: string; lng?: string }> }) {
@@ -26,7 +26,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
     <PageShell>
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-black text-stone-950">Open Mats</h1>
-        <p className="mt-2 text-stone-700">Find visitor-friendly training sessions today, tomorrow, and this weekend.</p>
+        <p className="mt-2 max-w-3xl text-stone-700">Open Mat Radar puts visitor-friendly BJJ sessions first, with today, tomorrow, and weekend training filtered by location, gi type, and drop-in cost.</p>
         <div className="mt-5">
           <OpenMatLocationFilterForm q={q} when={when} gi={gi} />
         </div>
@@ -35,7 +35,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
           <RadarCount label="Tomorrow" count={tomorrow.length} href={`/open-mats?when=tomorrow${locationQuery}`} />
           <RadarCount label="This Weekend" count={weekend.length} href={`/open-mats?when=weekend${locationQuery}`} />
         </div>
-        <p className="mt-5 text-sm font-medium text-stone-600">{events.length} upcoming sessions · nearest available distances shown</p>
+        <p className="mt-5 text-sm font-medium text-stone-600">{events.length} upcoming sessions · nearest available distances shown · directions ready</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {events.map((event) => <EventCard key={event.id} event={event} />)}
           {events.length === 0 ? <p className="text-stone-600">No open mats match those filters yet.</p> : null}

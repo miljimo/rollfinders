@@ -8,7 +8,7 @@
 
 
 resource "aws_s3_bucket" "bucket" {
-  bucket              = local.unique_name
+  bucket              = var.use_actual_name ? var.name : local.unique_name
   object_lock_enabled = var.lock_enabled
   force_destroy       = var.force_deletion
 
@@ -19,7 +19,7 @@ resource "aws_s3_bucket" "bucket" {
 
   tags = {
     BranchName = var.environment_name
-    Name       = local.unique_name
+    Name       = var.use_actual_name ? var.name : local.unique_name
   }
 }
 

@@ -23,6 +23,7 @@ variable "inbound_rules" {
     from            = number
     to              = number
     protocol        = string
+    description     = optional(string, "Terraform managed inbound rule")
     cidr_blocks     = optional(list(string))
     security_groups = optional(list(string), [])
     prefix_list_ids = optional(list(string), [])
@@ -36,6 +37,7 @@ variable "outbound_rules" {
     from            = number
     to              = number
     protocol        = string
+    description     = optional(string, "Terraform managed outbound rule")
     cidr_blocks     = optional(list(string))
     security_groups = optional(list(string), [])
     # Prefix list ids
