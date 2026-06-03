@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { MapPin, Search } from "lucide-react";
 import { authOptions } from "@/lib/auth";
+import { NavLink } from "./nav-link";
 import { LogoutButton } from "./logout-button";
 
 const navItems = [
@@ -26,21 +27,21 @@ export async function SiteHeader() {
         </Link>
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
           {navItems.map(([label, href]) => (
-            <Link key={href} href={href} className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+            <NavLink key={href} href={href}>
               {label}
-            </Link>
+            </NavLink>
           ))}
           {isLoggedIn ? (
             <>
-              <Link href="/admin" className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+              <NavLink href="/admin">
                 Admin
-              </Link>
+              </NavLink>
               <LogoutButton />
             </>
           ) : (
-            <Link href="/login" className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+            <NavLink href="/login">
               Login
-            </Link>
+            </NavLink>
           )}
         </nav>
         <Link href="/academies" className="inline-flex size-10 items-center justify-center rounded-md bg-stone-950 text-white md:hidden" aria-label="Search academies">
@@ -79,13 +80,13 @@ export function StaticSiteHeader() {
         </Link>
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
           {navItems.map(([label, href]) => (
-            <Link key={href} href={href} className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+            <NavLink key={href} href={href}>
               {label}
-            </Link>
+            </NavLink>
           ))}
-          <Link href="/login" className="rounded-md px-3 py-2 text-sm font-medium text-stone-700 hover:bg-white hover:text-stone-950">
+          <NavLink href="/login">
             Login
-          </Link>
+          </NavLink>
         </nav>
         <Link href="/academies" className="inline-flex size-10 items-center justify-center rounded-md bg-stone-950 text-white md:hidden" aria-label="Search academies">
           <Search size={18} aria-hidden />

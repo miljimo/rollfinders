@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { PageShell } from "@/components/shell";
 import { LocationSearchForm } from "@/components/location-search-form";
 import { AcademyCard } from "@/components/ui";
 import { searchAcademies } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "RollFinder | Academies - Browse London BJJ gyms",
+  description: "Search London Brazilian Jiu-Jitsu academies by name, borough, postcode, affiliation, gi, no-gi, and beginner-friendly options.",
+};
 
 export default async function AcademiesPage({ searchParams }: { searchParams: Promise<{ q?: string; lat?: string; lng?: string }> }) {
   const { q = "", lat, lng } = await searchParams;

@@ -1,9 +1,15 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { PageShell } from "@/components/shell";
 import { getMapItems } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "RollFinder | Map - London BJJ locations",
+  description: "Browse Brazilian Jiu-Jitsu academy and open mat locations across London on the RollFinder map.",
+};
 
 export default async function MapPage() {
   const academies = await getMapItems();

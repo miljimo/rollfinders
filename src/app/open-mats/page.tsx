@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { PageShell } from "@/components/shell";
 import { OpenMatLocationFilterForm } from "@/components/location-search-form";
 import { EventCard } from "@/components/ui";
 import { getOpenMatRadar } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "RollFinder | Open Mats - Find training today",
+  description: "Find upcoming BJJ open mats in London, including today's sessions, tomorrow's sessions, and weekend training.",
+};
 
 export default async function OpenMatsPage({ searchParams }: { searchParams: Promise<{ q?: string; when?: string; gi?: string; lat?: string; lng?: string }> }) {
   const { q = "", when = "", gi = "", lat, lng } = await searchParams;

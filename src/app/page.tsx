@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { ArrowRight, MapPinned } from "lucide-react";
 import { LocationSearchForm } from "@/components/location-search-form";
 import { PageShell } from "@/components/shell";
@@ -6,6 +7,11 @@ import { AcademyCard, EventCard } from "@/components/ui";
 import { getFeaturedData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "RollFinder | Home - London BJJ open mats and academies",
+  description: "Find Brazilian Jiu-Jitsu academies, open mats, and visitor-friendly training sessions across London.",
+};
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ lat?: string; lng?: string }> }) {
   const { lat, lng } = await searchParams;
