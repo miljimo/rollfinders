@@ -1,58 +1,24 @@
-#!/usr/bin/bash
-# Bucket deployment of lambda function code and utils
-# https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-package.html
+#!/usr/bin/env bash
+set -euo pipefail
 
+IMAGE_TAG="${IMAGE_TAG:-${BITBUCKET_COMMIT:-$(git rev-parse --short HEAD)}}"
+ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
+AWS_REGION="${AWS_REGION:-eu-west-2}"
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
+ECR_REPOSITORY="${ECR_REPOSITORY:-rollfinder/${ENVIRONMENT_NAME}/app}"
+IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}"
 
+aws ecr get-login-password --region "${AWS_REGION}" \
+  | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-chmod +x ./scripts/zip_utils.sh && . ./scripts/zip_utils.sh
+docker build --target runner -t "${IMAGE_URI}:${IMAGE_TAG}" -t "${IMAGE_URI}:latest" .
+docker push "${IMAGE_URI}:${IMAGE_TAG}"
+docker push "${IMAGE_URI}:latest"
 
-export APP_DISTRIBUTION_FOLDER=dist
-export PROJECT_BIN_FOLDER=./bin
-export PACKAGED_FOLDER=package
-export APPLICATION_DEPLOYMENT_PACKAGE_FILE="packaged_file.zip"
+if [[ -n "${BITBUCKET_TAG:-}" ]]; then
+  docker tag "${IMAGE_URI}:${IMAGE_TAG}" "${IMAGE_URI}:${BITBUCKET_TAG}"
+  docker push "${IMAGE_URI}:${BITBUCKET_TAG}"
+fi
 
-
-function create_zip_package_file(){
-  local folder="$1"
-  local msg=$(folder_exists $folder)
-  local status=$?
-  # check if the application has distributed folders or not.
-  if [ $status != $SUCCESS ]; then 
-    return $status
-  fi
-
-
-  local project_zip_folder="$PROJECT_BIN_FOLDER/$PACKAGED_FOLDER"
-
-  $(folder_exists "$project_zip_folder")
-  local status=$?
-  if [ $status == $SUCCESS ] ; then
-      echo "deleting project folder $project_zip_folder"
-      rm -r "$project_zip_folder"
-  fi
-
-  mkdir -p "$project_zip_folder"
-
-  root_dir=$(pwd)
-  pushd $project_zip_folder
-    local current_dir=$(pwd)
-    ln -sf  "${root_dir}/$folder"
-   
-    pushd "${current_dir}/${folder}"
-      local dist_current_dir=$(pwd)
-      zip -r  "${APPLICATION_DEPLOYMENT_PACKAGE_FILE}" .
-    popd
-  popd
-
-  local zip_filename="${project_zip_folder}/${APP_DISTRIBUTION_FOLDER}/${APPLICATION_DEPLOYMENT_PACKAGE_FILE}"
-  file_exists "$zip_filename"
-  status=$?
-  if [ $status == $SUCCESS ] ; then
-    mv  "$zip_filename" "${PROJECT_BIN_FOLDER}"
-    echo "Zip packaged file save to:  ${PROJECT_BIN_FOLDER}/${APPLICATION_DEPLOYMENT_PACKAGE_FILE}"
-  fi
-  rm -r "$project_zip_folder"
-  export PACKAGED_ZIP_FILENAME="${PROJECT_BIN_FOLDER}/${APPLICATION_DEPLOYMENT_PACKAGE_FILE}"
-  return $SUCCESS
-}
-
+echo "IMAGE_URI=${IMAGE_URI}:${IMAGE_TAG}" > image.env
+echo "${IMAGE_URI}:${IMAGE_TAG}"

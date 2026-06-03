@@ -1,9 +1,12 @@
 .git
-.github
 .next
 node_modules
 npm-debug.log
 Dockerfile
-docker-compose.yml
+.dockerignore
 .env
-.env*.local
+.env.*
+terraform
+docs
+scripts/tools
+README.md
