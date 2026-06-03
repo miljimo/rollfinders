@@ -34,5 +34,5 @@ COPY --chown=nextjs:nodejs seed ./seed
 COPY --chown=nextjs:nodejs prisma.config.ts ./
 USER nextjs
 EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD curl -fsS http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD curl -fsS "http://${HOSTNAME}:3000/api/health" || exit 1
 CMD ["node", "server.js"]
