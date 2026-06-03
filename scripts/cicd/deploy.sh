@@ -4,6 +4,7 @@ set -euo pipefail
 ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/aws-oidc.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TERRAFORM_DIR="${PROJECT_DIR}/terraform"
 TFVARS="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/common.tfvars"
@@ -14,6 +15,8 @@ if [[ "${ENVIRONMENT_NAME}" == "production" && "${PRODUCTION_APPROVED:-}" != "tr
   exit 1
 fi
 
+"${SCRIPT_DIR}/bootstrap-state.sh"
+
 cd "${TERRAFORM_DIR}"
 terraform init -backend-config="${BACKEND_CONFIG}" -reconfigure
 
@@ -21,6 +24,7 @@ terraform plan \
   -target=aws_ecr_repository.app \
   -target=aws_ecr_lifecycle_policy.app \
   -var-file="${TFVARS}" \
+  -var="image_uri=bootstrap-placeholder" \
   -out=ecr.tfplan
 
 terraform apply \
@@ -34,7 +38,7 @@ source "${PROJECT_DIR}/image.env"
 cd "${TERRAFORM_DIR}"
 terraform plan \
   -var-file="${TFVARS}" \
-  -var="container_image=${IMAGE_URI}" \
+  -var="image_uri=${IMAGE_URI}" \
   -out=deploy.tfplan
 
 terraform apply \

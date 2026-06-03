@@ -4,6 +4,7 @@ set -euo pipefail
 ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/aws-oidc.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 TERRAFORM_DIR="${PROJECT_DIR}/terraform"
 TFVARS="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/common.tfvars"

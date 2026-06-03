@@ -3,6 +3,11 @@ output "alb_dns_name" {
   value       = aws_lb.app.dns_name
 }
 
+output "rds_instance_identifier" {
+  description = "RDS PostgreSQL instance identifier."
+  value       = aws_db_instance.app.identifier
+}
+
 output "application_url" {
   description = "Primary application URL."
   value       = "https://${local.canonical_domain}"

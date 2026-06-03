@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+AWS_REGION="${AWS_REGION:-eu-west-2}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/aws-oidc.sh"
+PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+BOOTSTRAP_DIR="${PROJECT_DIR}/terraform/bootstrap"
+ENVIRONMENTS=("dev" "staging" "production")
+TERRAFORM_BIN="${TERRAFORM_BIN:-terraform}"
+
+cd "${BOOTSTRAP_DIR}"
+"${TERRAFORM_BIN}" init -backend=false
+
+for env in "${ENVIRONMENTS[@]}"; do
+  bucket="rollfinder-${env}-terraform-state"
+  table="rollfinder-${env}-terraform-locks"
+
+  if aws s3api head-bucket --bucket "${bucket}" 2>/dev/null; then
+    "${TERRAFORM_BIN}" import "aws_s3_bucket.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "aws_s3_bucket_versioning.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "aws_s3_bucket_server_side_encryption_configuration.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "aws_s3_bucket_public_access_block.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
+  fi
+
+  if aws dynamodb describe-table --region "${AWS_REGION}" --table-name "${table}" >/dev/null 2>&1; then
+    "${TERRAFORM_BIN}" import "aws_dynamodb_table.locks[\"${env}\"]" "${table}" 2>/dev/null || true
+  fi
+done
+
+"${TERRAFORM_BIN}" apply -auto-approve

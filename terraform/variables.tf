@@ -32,10 +32,9 @@ variable "vpc_cidr_block" {
   default     = "10.40.0.0/16"
 }
 
-variable "container_image" {
+variable "image_uri" {
   type        = string
-  description = "Fully qualified container image to deploy to ECS."
-  default     = "public.ecr.aws/docker/library/node:22-alpine"
+  description = "Immutable ECR image URI pushed by the deployment pipeline."
 }
 
 variable "desired_count" {

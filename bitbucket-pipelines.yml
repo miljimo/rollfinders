@@ -26,6 +26,7 @@ definitions:
           - terraform validate
     - step: &deploy
         name: Terraform Deploy
+        oidc: true
         services:
           - docker
         caches:
@@ -44,12 +45,57 @@ pipelines:
   default:
     - step: *validate
 
+  custom:
+    destroy-dev:
+      - step:
+          <<: *deploy
+          name: Destroy Dev
+          deployment: test
+          script:
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh scripts/*.sh
+            - ./scripts/destroy-env.sh dev
+    destroy-staging:
+      - step:
+          <<: *deploy
+          name: Destroy Staging
+          deployment: staging
+          script:
+            - export CONFIRM_DESTROY="destroy staging"
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh scripts/*.sh
+            - ./scripts/destroy-env.sh staging
+    destroy-production:
+      - variables:
+          - name: ALLOW_PRODUCTION_DESTROY
+            default: "false"
+          - name: PRODUCTION_DESTROY_CONFIRMATION
+            default: ""
+      - step:
+          <<: *deploy
+          name: Destroy Production
+          deployment: production
+          script:
+            - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
+            - curl -fsSLo terraform.zip https://releases.hashicorp.com/terraform/1.8.2/terraform_1.8.2_linux_amd64.zip
+            - unzip terraform.zip -d /usr/local/bin
+            - pip3 install awscli --break-system-packages
+            - chmod +x scripts/cicd/*.sh scripts/*.sh
+            - ./scripts/destroy-env.sh production
+
   branches:
     "feature/*":
       - step: *validate
       - step:
           <<: *deploy
-          name: Deploy Terrafornm
+          name: Build Image And Deploy Dev
+          deployment: test
           script:
             - export ENVIRONMENT_NAME=dev
             - apt-get update && apt-get install -y unzip curl jq python3 python3-pip
@@ -64,7 +110,7 @@ pipelines:
       - step: *validate
       - step:
           <<: *deploy
-          name: Deploy To Staging
+          name: Build Image And Deploy Staging
           deployment: staging
           trigger: manual
           script:
@@ -81,7 +127,7 @@ pipelines:
       - step: *validate
       - step:
           <<: *deploy
-          name: Deploy Production
+          name: Build Image And Deploy Production
           deployment: production
           trigger: manual
           script:

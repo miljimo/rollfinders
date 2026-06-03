@@ -1,239 +1,22 @@
-# deployment-platform.md
+# Deployment Platform Enhancement
 
-# RollFinder Deployment Platform
+## Resource Validation & Environment Destruction
 
-## AI Agent Functional Requirements
+### Objective
 
-Version: 1.0
+Ensure deployment quality through automated validation and provide controlled destruction capabilities for all environments.
 
----
-
-# Objective
-
-Build a fully automated deployment platform for RollFinder.
-
-The platform must:
-
-1. Build the application.
-2. Execute automated testing.
-3. Build Docker images.
-4. Provision AWS infrastructure using Terraform.
-5. Deploy application containers to ECS Fargate.
-6. Deploy frontend assets.
-7. Execute database migrations safely.
-8. Perform smoke testing.
-9. Output deployment URLs.
-10. Support rollback.
-11. Support multiple environments.
-12. Be production-ready.
-
-The AI Agent is responsible for implementing all required functionality.
+The platform must support safe infrastructure cleanup while preventing accidental production outages.
 
 ---
 
-# Success Criteria
+# Pre-Deployment Validation Requirements
 
-A developer should be able to execute:
+Before any deployment occurs, the platform must validate:
 
-```bash
-git push
-```
+## Application Validation
 
-and the platform should:
-
-```text
-Validate
-Build
-Test
-Provision Infrastructure
-Deploy
-Verify
-Publish URLs
-```
-
-without manual intervention for non-production environments.
-
----
-
-# Deployment Environments
-
-Supported environments:
-
-```text
-dev
-staging
-production
-```
-
-Environment behaviour:
-
-| Environment | Auto Deploy | Manual Approval |
-| ----------- | ----------- | --------------- |
-| dev         | Yes         | No              |
-| staging     | Yes         | No              |
-| production  | No          | Yes             |
-
----
-
-# AWS Services
-
-The deployment platform shall provision and manage:
-
-```text
-VPC
-Subnets
-Route Tables
-Internet Gateway
-NAT Gateway
-
-Application Load Balancer
-
-ECS Cluster
-ECS Services
-ECS Task Definitions
-
-ECR Repositories
-
-RDS PostgreSQL
-
-CloudWatch
-
-Secrets Manager
-
-Route53
-
-ACM Certificates
-
-CloudFront
-
-S3
-
-IAM Roles
-```
-
-Terraform must manage all resources.
-
-Manual AWS resource creation is prohibited.
-
----
-
-# Terraform Requirements
-
-Terraform shall be the single source of truth.
-
-All resources must be managed through Terraform.
-
-Requirements:
-
-```text
-terraform fmt
-terraform validate
-terraform plan
-terraform apply
-```
-
-must execute successfully.
-
----
-
-# Terraform State
-
-Terraform state must be remote.
-
-Backend:
-
-```text
-AWS S3
-AWS DynamoDB Lock Table
-```
-
-Requirements:
-
-* State locking enabled
-* State versioning enabled
-* Encryption enabled
-
-State separation:
-
-```text
-dev
-staging
-production
-```
-
-Each environment must have isolated state.
-
----
-
-# Existing Terraform Modules
-
-The AI Agent shall inspect existing modules.
-
-Validation requirements:
-
-## Module Exists
-
-Verify:
-
-* Inputs
-* Outputs
-* Security
-* Tagging
-* Reusability
-
----
-
-## Module Missing
-
-If a module is missing:
-
-Create it.
-
----
-
-## Module Incomplete
-
-If functionality is missing:
-
-Enhance the module.
-
----
-
-# Required Terraform Modules
-
-Required modules:
-
-```text
-network
-security-groups
-ecs-cluster
-ecs-service
-ecr
-alb
-rds-postgres
-iam
-secrets-manager
-cloudwatch
-route53
-acm
-s3
-cloudfront
-```
-
----
-
-# Build Requirements
-
-The deployment system shall support:
-
-```text
-Node.js
-Next.js
-TypeScript
-Docker
-```
-
-Build process:
+Execute:
 
 ```bash
 npm ci
@@ -243,269 +26,68 @@ npm run test
 npm run build
 ```
 
-All commands must pass before deployment.
+All steps must succeed.
+
+Deployment must fail immediately if any validation fails.
 
 ---
 
-# Docker Requirements
-
-The AI Agent shall create:
-
-```text
-Dockerfile
-.dockerignore
-```
-
-Requirements:
-
-* Multi-stage builds
-* Minimal image size
-* Non-root user
-* Health checks
-
-Image tagging:
-
-```text
-latest
-commit-sha
-release-tag
-```
-
----
-
-# Container Registry
-
-Use:
-
-```text
-Amazon ECR
-```
-
-The pipeline shall:
-
-```text
-Build image
-Tag image
-Push image
-```
-
-Image scanning must be enabled.
-
-Lifecycle policies must exist.
-
----
-
-# ECS Requirements
-
-Application shall run on:
-
-```text
-ECS Fargate
-```
-
-Requirements:
-
-* ECS Cluster
-* Task Definition
-* ECS Service
-* Auto Scaling
-
-Containers must:
-
-* Receive secrets from Secrets Manager
-* Publish logs to CloudWatch
-* Support health checks
-
----
-
-# Load Balancer Requirements
-
-Use:
-
-```text
-Application Load Balancer
-```
-
-Requirements:
-
-* HTTPS listener
-* HTTP redirect
-* Health checks
-* TLS via ACM
-
-Public traffic must only enter through ALB.
-
----
-
-# Database Requirements
-
-Use:
-
-```text
-RDS PostgreSQL
-```
-
-Requirements:
-
-* Private subnet
-* Encryption enabled
-* Automated backups
-* Final snapshot enabled
-* Deletion protection enabled
-
-Production:
-
-```text
-Multi-AZ
-```
-
-must be enabled.
-
----
-
-# Database Migration Requirements
-
-Migration execution must be separate from deployment.
-
-Environment behaviour:
-
-## Dev
-
-Automatic migrations allowed.
-
-## Staging
-
-Automatic migrations allowed.
-
-## Production
-
-Manual approval required.
-
----
-
-# Production Database Protection
-
-The AI Agent must prevent:
-
-```text
-terraform destroy
-database drop
-schema reset
-force migrations
-```
-
-Production requirements:
-
-```hcl
-deletion_protection = true
-skip_final_snapshot = false
-```
-
----
-
-# AWS Secrets Manager
-
-All secrets must be stored in:
-
-```text
-AWS Secrets Manager
-```
-
-Examples:
-
-```text
-DATABASE_URL
-JWT_SECRET
-API_KEYS
-THIRD_PARTY_SECRETS
-```
-
-Secrets must never be committed to source control.
-
----
-
-# Bitbucket Pipelines
-
-Use:
-
-```text
-Bitbucket Pipelines
-```
-
-The AI Agent shall create:
-
-```text
-bitbucket-pipelines.yml
-```
-
----
-
-# Pipeline Stages
-
-## Validate
+## Terraform Validation
 
 Execute:
 
 ```bash
-npm ci
-npm run lint
-npm run typecheck
-npm run test
+terraform fmt -check
 
-terraform fmt
 terraform validate
+
+terraform plan
 ```
+
+Requirements:
+
+* No syntax errors
+* No provider errors
+* No module validation errors
+* No missing variables
+
+Deployment must stop if validation fails.
 
 ---
 
-## Build
+## Docker Validation
 
 Execute:
 
 ```bash
 docker build
+
+docker run
 ```
 
----
+Validate:
 
-## Push
-
-Execute:
-
-```bash
-docker push
-```
+* Container starts successfully
+* Health endpoint responds
+* Required environment variables exist
 
 ---
 
-## Provision
+## Infrastructure Validation
 
-Execute:
+Verify:
 
-```bash
-terraform plan
-terraform apply
-```
-
----
-
-## Deploy
-
-Deploy containers to ECS.
-
-Wait for service stabilisation.
+* ECR repository exists
+* ECS cluster exists
+* Secrets Manager secrets exist
+* Route53 zones exist
+* Required IAM permissions exist
 
 ---
 
-## Migrate
+# Post Deployment Validation
 
-Execute migrations.
-
-Environment specific behaviour applies.
-
----
-
-## Smoke Test
+After deployment:
 
 Validate:
 
@@ -513,234 +95,280 @@ Validate:
 Health Endpoint
 API Endpoint
 Database Connectivity
+ECS Service Stability
+ALB Health Checks
+```
+
+Deployment is successful only if all checks pass.
+
+---
+
+# Environment Destruction Support
+
+The platform must provide controlled destruction capabilities.
+
+Supported environments:
+
+```text
+dev
+staging
+production
 ```
 
 ---
 
-# AWS Authentication
+# Destruction Scripts
 
-The deployment system shall use:
-
-```text
-Bitbucket OIDC
-```
-
-Variable:
-
-```text
-AWS_CICD_ROLE_ARN
-```
-
-The role shall be injected by Bitbucket Deployment Environments.
-
-The deployment code must never contain hardcoded IAM role ARNs.
-
----
-
-# Deployment Variables
-
-Required variables:
-
-```text
-ENVIRONMENT
-
-AWS_REGION
-
-AWS_CICD_ROLE_ARN
-
-TF_STATE_BUCKET
-
-TF_STATE_KEY
-
-APP_NAME
-```
-
----
-
-# Deployment Scripts
-
-The AI Agent shall implement:
+Implement:
 
 ```text
 scripts/
 
-build.sh
-test.sh
-docker-build.sh
-docker-push.sh
-
-terraform-init.sh
-terraform-plan.sh
-terraform-apply.sh
-
-deploy.sh
-
-migrate.sh
-
-smoke-test.sh
-
-rollback.sh
+destroy.sh
+destroy-env.sh
 ```
 
-Scripts must be reusable across environments.
-
-Environment-specific scripts are prohibited.
-
----
-
-# Deployment Outputs
-
-After successful deployment the pipeline must display:
-
-## Frontend URL
-
-Example:
-
-```text
-Frontend URL:
-https://rollfinder.com
-```
-
----
-
-## API URL
-
-Example:
-
-```text
-API URL:
-https://api.rollfinder.com
-```
-
----
-
-## ALB URL
-
-Example:
-
-```text
-Load Balancer:
-https://rollfinder-prod-alb.amazonaws.com
-```
-
----
-
-## CloudFront URL
-
-Example:
-
-```text
-CloudFront:
-https://d123456.cloudfront.net
-```
-
----
-
-## ECS Information
-
-Example:
-
-```text
-Cluster:
-rollfinder-production
-
-Service:
-rollfinder-api
-```
-
----
-
-## Database Endpoint
-
-Production:
-
-Only display:
-
-```text
-Database deployed successfully.
-```
-
-Database hostname must not be printed.
-
----
-
-# Rollback Requirements
-
-The AI Agent shall implement:
+Usage:
 
 ```bash
-scripts/rollback.sh
-```
+./scripts/destroy-env.sh dev
 
-Capabilities:
+./scripts/destroy-env.sh staging
 
-* Previous ECS task definition
-* Previous container image
-* Previous application version
-
-Rollback must complete without Terraform changes.
-
----
-
-# Monitoring Requirements
-
-CloudWatch must capture:
-
-```text
-Application Logs
-Container Logs
-Deployment Logs
-Migration Logs
+./scripts/destroy-env.sh production
 ```
 
 ---
 
-# Alarm Requirements
+# Development Environment Destruction
 
-Create alarms for:
+Allowed:
 
 ```text
-ECS Task Failure
-
-ALB 5xx
-
-High CPU
-
-High Memory
-
-RDS CPU
-
-RDS Storage
+Terraform Destroy
+Database Destroy
+ECS Destroy
+ECR Destroy
+S3 Destroy
 ```
+
+Execution:
+
+```bash
+terraform destroy
+```
+
+No approval required.
+
+---
+
+# Staging Environment Destruction
+
+Allowed:
+
+```text
+Terraform Destroy
+Database Destroy
+ECS Destroy
+ECR Destroy
+S3 Destroy
+```
+
+Requirements:
+
+* Manual confirmation
+* Environment validation
+
+---
+
+# Production Environment Destruction
+
+Production must be protected.
+
+Default Behaviour:
+
+```text
+Destroy Disabled
+```
+
+---
+
+# Production Protection Requirements
+
+The platform must prevent:
+
+```text
+Accidental Destroy
+
+Pipeline Destroy
+
+Automated Destroy
+
+Single-Step Destroy
+```
+
+---
+
+# Production Destroy Process
+
+Production destruction requires:
+
+## Step 1
+
+Explicit flag:
+
+```bash
+ALLOW_PRODUCTION_DESTROY=true
+```
+
+---
+
+## Step 2
+
+Environment confirmation:
+
+```bash
+I_UNDERSTAND_THIS_WILL_DESTROY_PRODUCTION
+```
+
+---
+
+## Step 3
+
+Database Snapshot
+
+Create snapshot:
+
+```text
+Production Backup Snapshot
+```
+
+before destruction.
+
+---
+
+## Step 4
+
+Manual Approval
+
+Deployment platform approval required.
+
+---
+
+## Step 5
+
+Terraform Destroy
+
+Execute:
+
+```bash
+terraform destroy
+```
+
+---
+
+# Database Protection
+
+Production RDS configuration:
+
+```hcl
+deletion_protection = true
+
+skip_final_snapshot = false
+```
+
+Destroy script must temporarily disable protection before destroy.
+
+---
+
+# Environment Discovery
+
+The platform must support:
+
+```bash
+./scripts/list-environments.sh
+```
+
+Output:
+
+```text
+dev
+staging
+production
+```
+
+---
+
+# Resource Inventory
+
+The platform must support:
+
+```bash
+./scripts/inventory.sh production
+```
+
+Output:
+
+```text
+ECS Cluster
+
+ECS Services
+
+ECR Repositories
+
+RDS Instances
+
+ALBs
+
+Route53 Records
+
+CloudFront Distributions
+
+S3 Buckets
+
+Secrets
+```
+
+---
+
+# Cost Management
+
+The platform must support:
+
+```bash
+./scripts/cost-summary.sh
+```
+
+Purpose:
+
+Identify active resources and estimated monthly costs.
 
 ---
 
 # Acceptance Criteria
 
-Deployment platform is complete when:
+Feature is complete when:
 
-✓ Infrastructure provisions successfully
+✓ Deployment validation executes successfully
 
-✓ ECS service starts successfully
+✓ Terraform validation executes successfully
 
-✓ Database provisions successfully
+✓ Docker validation executes successfully
 
-✓ Application passes health checks
+✓ Smoke tests execute successfully
 
-✓ Frontend accessible
+✓ Development environment can be destroyed
 
-✓ API accessible
+✓ Staging environment can be destroyed
 
-✓ Terraform state remote
+✓ Production destruction is protected
 
-✓ Bitbucket OIDC authentication working
+✓ Database snapshots created before production destruction
 
-✓ Production database protected
+✓ Resource inventory available
 
-✓ Deployment URLs displayed automatically
+✓ Environment listing available
 
-✓ Rollback operational
+✓ Cost reporting available
 
-✓ Smoke tests pass
-
-✓ No manual AWS resource creation required
+✓ No accidental production destruction possible
