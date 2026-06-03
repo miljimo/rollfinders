@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AcademyMemberRole, AcademyVerificationStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
-import { getCurrentUser, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { queueEmail } from "@/lib/reliable-email";
@@ -87,7 +87,7 @@ async function findDuplicateAcademy({
 }
 
 export async function createAcademy(_state: AcademyFormState, formData: FormData): Promise<AcademyFormState> {
-  await requireAdminPage();
+  await requireSuperAdminPage();
   const actor = await getCurrentUser();
 
   const parsed = academySchema.safeParse(getFormValues(formData));

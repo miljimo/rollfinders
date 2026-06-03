@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, isProtectedSuperAdmin, requireAdminApi, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value?: string) {
@@ -10,6 +10,13 @@ function normalizeRole(value?: string) {
 
 function normalizeStatus(value?: string) {
   return value === UserStatus.DISABLED ? UserStatus.DISABLED : UserStatus.ACTIVE;
+}
+
+function canManageTarget(actorRole: string | undefined, target: { role: Role; email: string; isProtected?: boolean | null }) {
+  if (isSuperAdminRole(actorRole)) return true;
+  if (!isPlatformAdminRole(actorRole)) return false;
+  if (isProtectedSuperAdmin(target)) return false;
+  return target.role !== Role.SUPER_ADMIN && target.role !== Role.ADMIN && target.role !== Role.PLATFORM_ADMIN;
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -27,19 +34,22 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { response, user: actor } = await requireSuperAdminApi();
-  if (response) return response;
+  const forbidden = await requireAdminApi();
+  if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const { id } = await params;
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!canManageTarget(actor.role, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
 
   const body = await request.json().catch(() => null) as { name?: string; email?: string; role?: string; status?: string } | null;
   const email = body?.email?.trim().toLowerCase();
   if (!email || !email.includes("@")) return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
 
   const protectedUser = isProtectedSuperAdmin(target);
-  const role = protectedUser ? target.role : normalizeRole(body?.role);
+  const role = protectedUser || !isSuperAdminRole(actor.role) ? target.role : normalizeRole(body?.role);
   const status = protectedUser ? target.status : normalizeStatus(body?.status);
   const updated = await prisma.user.update({
     where: { id },
@@ -54,7 +64,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   });
 
   await writeAdminAuditLog({
-    actorUserId: actor!.id,
+    actorUserId: actor.id,
     targetUserId: id,
     action: "USER_EDITED",
     metadata: {
@@ -67,8 +77,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { response, user: actor } = await requireSuperAdminApi();
-  if (response) return response;
+  const forbidden = await requireAdminApi();
+  if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const { id } = await params;
   const current = await getCurrentUser();
@@ -76,11 +88,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (isProtectedSuperAdmin(target)) return NextResponse.json({ error: "Protected super admin cannot be deleted" }, { status: 400 });
+  if (!canManageTarget(actor.role, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
 
   await prisma.user.delete({ where: { id } });
   await writeAdminAuditLog({
-    actorUserId: actor!.id,
+    actorUserId: actor.id,
     targetUserId: null,
     action: "USER_DELETED",
     metadata: { email: target.email, deletedUserId: id },

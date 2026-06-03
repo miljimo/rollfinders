@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import type { Prisma } from "@prisma/client";
+import { UserStatus, type Prisma } from "@prisma/client";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
 
@@ -9,7 +9,12 @@ export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
   const user = session?.user as { id?: string; role?: string; email?: string } | undefined;
   if (!user?.id || !user.email) return null;
-  return { id: user.id, role: user.role, email: user.email };
+  const account = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, role: true, email: true, status: true, disabled: true },
+  });
+  if (!account || account.status === UserStatus.DISABLED || account.disabled) return null;
+  return { id: account.id, role: account.role, email: account.email };
 }
 
 export function isSuperAdminRole(role?: string) {
@@ -18,6 +23,10 @@ export function isSuperAdminRole(role?: string) {
 
 export function isPlatformAdminRole(role?: string) {
   return isSuperAdminRole(role) || role === "PLATFORM_ADMIN";
+}
+
+export function canManageNonPlatformUsers(role?: string) {
+  return isPlatformAdminRole(role);
 }
 
 export async function requireAdminPage() {

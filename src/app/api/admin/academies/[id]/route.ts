@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { getCurrentUser, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, requireAdminApi, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -84,8 +84,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const forbidden = await requireAdminApi();
-  if (forbidden) return forbidden;
+  const { response } = await requireSuperAdminApi();
+  if (response) return response;
 
   const { id } = await params;
   const actor = await getCurrentUser();
@@ -109,6 +109,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const formData = await request.formData();
 
   if (formData.get("_method") === "DELETE") {
+    const { response } = await requireSuperAdminApi();
+    if (response) return response;
     const actor = await getCurrentUser();
     const academy = await prisma.academy.delete({ where: { id } });
     if (actor) {

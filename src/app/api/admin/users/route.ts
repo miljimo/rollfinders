@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
-import { requireAdminApi, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 const supportedPageSizes = [20, 50, 100];
@@ -73,8 +73,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { response, user: actor } = await requireSuperAdminApi();
-  if (response) return response;
+  const forbidden = await requireAdminApi();
+  if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const body = await request.json().catch(() => null) as { name?: string; email?: string; password?: string; role?: string } | null;
   const email = body?.email?.trim().toLowerCase();
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
   }
 
-  const role = body?.role === Role.PLATFORM_ADMIN ? Role.PLATFORM_ADMIN : Role.STANDARD_USER;
+  const role = isSuperAdminRole(actor.role) && body?.role === Role.PLATFORM_ADMIN ? Role.PLATFORM_ADMIN : Role.STANDARD_USER;
   const passwordHash = await bcrypt.hash(body?.password || "rollfinder-user", 10);
   const created = await prisma.user.create({
     data: {
@@ -96,7 +98,7 @@ export async function POST(request: Request) {
   });
 
   await writeAdminAuditLog({
-    actorUserId: actor!.id,
+    actorUserId: actor.id,
     targetUserId: created.id,
     action: "USER_CREATED",
     metadata: { email, role },

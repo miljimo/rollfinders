@@ -32,6 +32,26 @@ export async function requireAcademyEditor(academyId: string) {
   return access;
 }
 
+export async function requireAcademyOpenMatCreator(academyId: string) {
+  return requireAcademyEditor(academyId);
+}
+
+export async function canManageOpenMat(event: { academyId: string; createdById?: string | null }, action: "edit" | "delete") {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  if (action === "edit" && event.createdById === user.id) return true;
+
+  const access = await getAcademyAccess(event.academyId);
+  if (!access) return false;
+  if (access.platformAdmin || access.memberRole === AcademyMemberRole.OWNER || access.memberRole === AcademyMemberRole.ADMIN) return true;
+  return false;
+}
+
+export async function requireOpenMatAccess(event: { academyId: string; createdById?: string | null }, action: "edit" | "delete") {
+  const allowed = await canManageOpenMat(event, action);
+  if (!allowed) redirect("/admin/open-mats");
+}
+
 export async function requireAcademyOwner(academyId: string) {
   const access = await getAcademyAccess(academyId);
   if (!access || (!access.platformAdmin && access.memberRole !== AcademyMemberRole.OWNER)) {

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
 import { PageShell } from "@/components/shell";
-import { requireAdminPage } from "@/lib/admin";
+import { getCurrentUser, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
@@ -68,6 +68,8 @@ export default async function AcademyManagementPage({
   searchParams: Promise<AcademySearchParams>;
 }) {
   await requireAdminPage();
+  const currentUser = await getCurrentUser();
+  const superAdmin = isSuperAdminRole(currentUser?.role);
   const params = await searchParams;
 
   const page = parsePositiveInt(firstParam(params.page), 1);
@@ -121,7 +123,7 @@ export default async function AcademyManagementPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
-            <Link href="/admin/academies/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New Academy</Link>
+            {superAdmin ? <Link href="/admin/academies/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New Academy</Link> : null}
           </div>
         </div>
 
@@ -201,10 +203,12 @@ export default async function AcademyManagementPage({
                       <div className="flex flex-wrap gap-2">
                         <Link href={`/academies/${academy.slug}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
                         <Link href={`/admin/academies/${academy.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
-                        <form action={`/api/admin/academies/${academy.id}`} method="post">
-                          <input type="hidden" name="_method" value="DELETE" />
-                          <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
-                        </form>
+                        {superAdmin ? (
+                          <form action={`/api/admin/academies/${academy.id}`} method="post">
+                            <input type="hidden" name="_method" value="DELETE" />
+                            <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
+                          </form>
+                        ) : null}
                       </div>
                     </td>
                   </tr>

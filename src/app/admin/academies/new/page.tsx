@@ -1,10 +1,10 @@
 import { PageShell } from "@/components/shell";
-import { requireAdminPage } from "@/lib/admin";
+import { requireSuperAdminPage } from "@/lib/admin";
 import { createAcademy } from "../actions";
 import { AcademyForm } from "../form";
 
 export default async function NewAcademyPage() {
-  await requireAdminPage();
+  await requireSuperAdminPage();
 
   return (
     <PageShell>

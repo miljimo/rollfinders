@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 import { Role, UserStatus } from "@prisma/client";
-import { isProtectedSuperAdmin, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 export async function mutateUser(
   id: string,
   mutation: "disable" | "enable" | "promote" | "demote",
 ) {
-  const { response, user: actor } = await requireSuperAdminApi();
-  if (response) return response;
+  const forbidden = await requireAdminApi();
+  if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (isProtectedSuperAdmin(target)) return NextResponse.json({ error: "Protected super admin cannot be modified" }, { status: 400 });
+  const platformCanManage = isPlatformAdminRole(actor.role) && target.role !== Role.SUPER_ADMIN && target.role !== Role.ADMIN && target.role !== Role.PLATFORM_ADMIN;
+  const superCanManage = isSuperAdminRole(actor.role);
+  if (!superCanManage && (!platformCanManage || mutation === "promote" || mutation === "demote")) {
+    return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
+  }
 
   const data =
     mutation === "disable" ? { status: UserStatus.DISABLED, disabled: true } :
@@ -28,7 +35,7 @@ export async function mutateUser(
     "USER_DEMOTED";
 
   await writeAdminAuditLog({
-    actorUserId: actor!.id,
+    actorUserId: actor.id,
     targetUserId: id,
     action,
     metadata: { email: target.email, previousRole: target.role, role: updated.role, status: updated.status },

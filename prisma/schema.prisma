@@ -87,6 +87,7 @@ model User {
   outboundEmails OutboundEmail[]
   invalidEmailAddresses InvalidEmailAddress[]
   passwordResetTokens PasswordResetToken[]
+  createdEvents Event[] @relation("EventCreator")
 
   @@map("users")
 }
@@ -155,6 +156,7 @@ model Academy {
 model Event {
   id          String   @id @default(cuid())
   academyId   String   @map("academy_id")
+  createdById String?  @map("created_by_id")
   title       String
   description String
   eventDate   DateTime @map("event_date")
@@ -166,8 +168,11 @@ model Event {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at")
   academy     Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  createdBy   User?    @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([eventDate])
+  @@index([academyId])
+  @@index([createdById])
   @@map("events")
 }
 

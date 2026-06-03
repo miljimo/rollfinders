@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/shell";
-import { requireAcademyEditor } from "@/lib/academy-access";
+import { requireOpenMatAccess } from "@/lib/academy-access";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { deleteOpenMat, updateOpenMat } from "../actions";
@@ -23,7 +23,7 @@ export default async function EditOpenMatPage({ params }: { params: Promise<{ id
   ]);
 
   if (!event) notFound();
-  await requireAcademyEditor(event.academyId);
+  await requireOpenMatAccess(event, "edit");
 
   return (
     <PageShell>

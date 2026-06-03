@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { GiType, type Prisma } from "@prisma/client";
 import { PageShell } from "@/components/shell";
-import { requireAdminPage } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
@@ -79,8 +79,35 @@ export default async function OpenMatManagementPage({
 }: {
   searchParams: Promise<OpenMatSearchParams>;
 }) {
-  await requireAdminPage();
+  const user = await getCurrentUser();
+  if (!user) {
+    return (
+      <PageShell>
+        <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+          <h1 className="text-3xl font-black text-stone-950">Open Mats</h1>
+          <p className="mt-2 text-stone-700">Please log in to manage open mats.</p>
+          <Link href="/login" className="mt-4 inline-flex rounded-md bg-stone-950 px-4 py-3 text-sm font-bold text-white">Log in</Link>
+        </section>
+      </PageShell>
+    );
+  }
   const params = await searchParams;
+  const platformAdmin = isPlatformAdminRole(user.role);
+  const academyMemberships = platformAdmin
+    ? []
+    : await prisma.academyMember.findMany({
+        where: { userId: user.id },
+        select: { academyId: true },
+      });
+  const academyIds = academyMemberships.map((membership) => membership.academyId);
+  const accessWhere: Prisma.EventWhereInput = !platformAdmin
+    ? {
+        OR: [
+          ...(academyIds.length ? [{ academyId: { in: academyIds } }] : []),
+          { createdById: user.id },
+        ],
+      }
+    : {};
 
   const page = parsePositiveInt(firstParam(params.page), 1);
   const pageSize = selectedPageSize(firstParam(params.pageSize));
@@ -92,6 +119,7 @@ export default async function OpenMatManagementPage({
   const dateTo = (firstParam(params.dateTo) ?? "").trim();
 
   const where: Prisma.EventWhereInput = {
+    ...accessWhere,
     ...(search ? { title: { contains: search, mode: "insensitive" } } : {}),
     ...(academy ? { academy: { name: { contains: academy, mode: "insensitive" } } } : {}),
     ...(giType !== "all" ? { giType: giType as GiType } : {}),
@@ -110,10 +138,10 @@ export default async function OpenMatManagementPage({
   const now = new Date();
   const [totalItems, totalOpenMats, activeOpenMats, upcomingOpenMats, inactiveOpenMats] = await Promise.all([
     prisma.event.count({ where }),
-    prisma.event.count(),
-    prisma.event.count({ where: { active: true } }),
-    prisma.event.count({ where: { active: true, eventDate: { gte: now } } }),
-    prisma.event.count({ where: { active: false } }),
+    prisma.event.count({ where: accessWhere }),
+    prisma.event.count({ where: { ...accessWhere, active: true } }),
+    prisma.event.count({ where: { ...accessWhere, active: true, eventDate: { gte: now } } }),
+    prisma.event.count({ where: { ...accessWhere, active: false } }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = Math.min(page, totalPages);

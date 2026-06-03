@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
 import { PageShell } from "@/components/shell";
-import { getCurrentUser, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
@@ -89,6 +89,7 @@ export default async function UserManagementPage({
   await requireAdminPage();
   const currentUser = await getCurrentUser();
   const superAdmin = isSuperAdminRole(currentUser?.role);
+  const platformAdmin = isPlatformAdminRole(currentUser?.role);
   const params = await searchParams;
 
   const page = parsePositiveInt(firstParam(params.page), 1);
@@ -150,15 +151,19 @@ export default async function UserManagementPage({
           <Metric label="Platform Admins" value={platformAdmins} />
         </div>
 
-        {superAdmin ? (
+        {platformAdmin ? (
           <form action={createManagedUser} className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm lg:grid-cols-5">
             <input name="name" placeholder="Name" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
             <input name="email" type="email" required placeholder="Email" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
             <input name="password" type="password" placeholder="Temporary password" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            <select name="role" defaultValue={Role.STANDARD_USER} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-              <option value={Role.STANDARD_USER}>Standard user</option>
-              <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
-            </select>
+            {superAdmin ? (
+              <select name="role" defaultValue={Role.STANDARD_USER} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
+                <option value={Role.STANDARD_USER}>Standard user</option>
+                <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
+              </select>
+            ) : (
+              <input type="hidden" name="role" value={Role.STANDARD_USER} />
+            )}
             <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Create User</button>
           </form>
         ) : null}
@@ -223,10 +228,11 @@ export default async function UserManagementPage({
               <tbody>
                 {users.map((user) => {
                   const protectedUser = isProtectedSuperAdmin(user);
+                  const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
                   return (
                     <tr key={user.id} className="border-t border-stone-100 align-top">
                       <td className="px-4 py-3">
-                        {superAdmin && !protectedUser ? (
+                        {canManage ? (
                           <form id={`edit-${user.id}`} action={updateManagedUser.bind(null, user.id)} className="grid gap-2">
                             <input name="name" defaultValue={user.name ?? ""} placeholder="Name" className="min-h-9 rounded-md border border-stone-300 px-2 text-xs" />
                             <input name="email" type="email" defaultValue={user.email} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs" />
@@ -240,15 +246,19 @@ export default async function UserManagementPage({
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {superAdmin && !protectedUser ? (
-                          <select form={`edit-${user.id}`} name="role" defaultValue={user.role} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs">
-                            <option value={Role.STANDARD_USER}>Standard</option>
-                            <option value={Role.PLATFORM_ADMIN}>Platform</option>
-                          </select>
+                        {canManage ? (
+                          superAdmin ? (
+                            <select form={`edit-${user.id}`} name="role" defaultValue={user.role} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs">
+                              <option value={Role.STANDARD_USER}>Standard</option>
+                              <option value={Role.PLATFORM_ADMIN}>Platform</option>
+                            </select>
+                          ) : (
+                            <Badge>{user.role}</Badge>
+                          )
                         ) : <Badge>{user.role}</Badge>}
                       </td>
                       <td className="px-4 py-3">
-                        {superAdmin && !protectedUser ? (
+                        {canManage ? (
                           <select form={`edit-${user.id}`} name="status" defaultValue={user.status} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs">
                             <option value={UserStatus.ACTIVE}>Active</option>
                             <option value={UserStatus.DISABLED}>Disabled</option>
@@ -259,15 +269,17 @@ export default async function UserManagementPage({
                       <td className="px-4 py-3 text-stone-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
                       <td className="px-4 py-3 text-stone-600">{formatDate(user.createdAt)}</td>
                       <td className="px-4 py-3">
-                        {superAdmin && !protectedUser ? (
+                        {canManage ? (
                           <div className="flex flex-wrap gap-2">
                             <button form={`edit-${user.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Save</button>
                             <form action={toggleManagedUserDisabled.bind(null, user.id)}>
                               <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.status === UserStatus.DISABLED || user.disabled ? "Enable" : "Disable"}</button>
                             </form>
-                            <form action={(user.role === Role.PLATFORM_ADMIN ? demoteManagedUser : promoteManagedUser).bind(null, user.id)}>
-                              <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.role === Role.PLATFORM_ADMIN ? "Demote" : "Promote"}</button>
-                            </form>
+                            {superAdmin ? (
+                              <form action={(user.role === Role.PLATFORM_ADMIN ? demoteManagedUser : promoteManagedUser).bind(null, user.id)}>
+                                <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.role === Role.PLATFORM_ADMIN ? "Demote" : "Promote"}</button>
+                              </form>
+                            ) : null}
                             <form action={sendPasswordChangeEmail.bind(null, user.id)}>
                               <button className="rounded-md border border-teal-300 px-2 py-1 text-xs font-bold text-teal-800">Send Password Email</button>
                             </form>

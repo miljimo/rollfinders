@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { Role, UserStatus } from "@prisma/client";
-import { isProtectedSuperAdmin, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 
@@ -20,11 +20,26 @@ async function targetUser(userId: string) {
   return prisma.user.findUnique({ where: { id: userId } });
 }
 
+async function requireUserManager() {
+  await requireAdminPage();
+  const actor = await getCurrentUser();
+  if (!actor) throw new Error("Admin access required");
+  return actor;
+}
+
+function canManageUser(actorRole: string | undefined, target: { role: Role; email: string; isProtected?: boolean | null }) {
+  if (isSuperAdminRole(actorRole)) return true;
+  if (!isPlatformAdminRole(actorRole)) return false;
+  if (isProtectedSuperAdmin(target)) return false;
+  return target.role !== Role.SUPER_ADMIN && target.role !== Role.ADMIN && target.role !== Role.PLATFORM_ADMIN;
+}
+
 export async function createManagedUser(formData: FormData) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const role = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
+  const requestedRole = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
+  const role = isSuperAdminRole(actor.role) ? requestedRole : Role.STANDARD_USER;
   const password = String(formData.get("password") ?? "rollfinder-user");
 
   if (!email || !email.includes("@")) return;
@@ -52,14 +67,14 @@ export async function createManagedUser(formData: FormData) {
 }
 
 export async function updateManagedUser(userId: string, formData: FormData) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user) return;
+  if (!user || !canManageUser(actor.role, user)) return;
   const protectedUser = isProtectedSuperAdmin(user);
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const role = protectedUser ? user.role : normalizeRole(String(formData.get("role") ?? user.role));
+  const role = protectedUser || !isSuperAdminRole(actor.role) ? user.role : normalizeRole(String(formData.get("role") ?? user.role));
   const status = protectedUser ? user.status : normalizeStatus(String(formData.get("status") ?? user.status));
 
   if (!email || !email.includes("@")) return;
@@ -90,9 +105,9 @@ export async function updateManagedUser(userId: string, formData: FormData) {
 }
 
 export async function toggleManagedUserDisabled(userId: string) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || isProtectedSuperAdmin(user)) return;
+  if (!user || !canManageUser(actor.role, user)) return;
 
   const disabled = user.status !== UserStatus.DISABLED;
   await prisma.user.update({
@@ -111,9 +126,9 @@ export async function toggleManagedUserDisabled(userId: string) {
 }
 
 export async function promoteManagedUser(userId: string) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || isProtectedSuperAdmin(user)) return;
+  if (!user || !canManageUser(actor.role, user) || !isSuperAdminRole(actor.role)) return;
 
   await prisma.user.update({ where: { id: userId }, data: { role: Role.PLATFORM_ADMIN } });
   await writeAdminAuditLog({
@@ -128,9 +143,9 @@ export async function promoteManagedUser(userId: string) {
 }
 
 export async function demoteManagedUser(userId: string) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || isProtectedSuperAdmin(user)) return;
+  if (!user || !canManageUser(actor.role, user) || !isSuperAdminRole(actor.role)) return;
 
   await prisma.user.update({ where: { id: userId }, data: { role: Role.STANDARD_USER } });
   await writeAdminAuditLog({
@@ -145,11 +160,11 @@ export async function demoteManagedUser(userId: string) {
 }
 
 export async function deleteManagedUser(userId: string) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   if (actor.id === userId) return;
 
   const user = await targetUser(userId);
-  if (!user || isProtectedSuperAdmin(user)) return;
+  if (!user || !canManageUser(actor.role, user)) return;
 
   await prisma.user.delete({ where: { id: userId } });
   await writeAdminAuditLog({
@@ -164,9 +179,9 @@ export async function deleteManagedUser(userId: string) {
 }
 
 export async function sendPasswordChangeEmail(userId: string) {
-  const actor = await requireSuperAdminPage();
+  const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user) return;
+  if (!user || !canManageUser(actor.role, user)) return;
 
   const { expiresAt } = await queuePasswordResetEmail(user);
   await writeAdminAuditLog({

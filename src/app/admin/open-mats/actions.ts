@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAcademyEditor } from "@/lib/academy-access";
+import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { eventSchema } from "@/lib/validators";
 
@@ -90,13 +90,13 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
     return validationError(formData, parsed.error.flatten().fieldErrors);
   }
 
-  await requireAcademyEditor(parsed.data.academyId);
+  const access = await requireAcademyOpenMatCreator(parsed.data.academyId);
   const duplicate = await findDuplicateOpenMat(parsed.data);
   if (duplicate) {
     return duplicateOpenMatError(formData);
   }
 
-  await prisma.event.create({ data: eventData(parsed.data) });
+  await prisma.event.create({ data: { ...eventData(parsed.data), createdById: access.userId } });
   revalidatePath("/admin");
   revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");
@@ -110,7 +110,12 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
     return validationError(formData, parsed.error.flatten().fieldErrors);
   }
 
-  await requireAcademyEditor(parsed.data.academyId);
+  const existing = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true } });
+  if (!existing) redirect("/admin/open-mats");
+  await requireOpenMatAccess(existing, "edit");
+  if (parsed.data.academyId !== existing.academyId) {
+    await requireAcademyOpenMatCreator(parsed.data.academyId);
+  }
   const duplicate = await findDuplicateOpenMat({ id, ...parsed.data });
   if (duplicate) {
     return duplicateOpenMatError(formData);
@@ -125,9 +130,9 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
 }
 
 export async function deleteOpenMat(id: string) {
-  const event = await prisma.event.findUnique({ where: { id } });
+  const event = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true } });
   if (!event) return;
-  await requireAcademyEditor(event.academyId);
+  await requireOpenMatAccess(event, "delete");
   await prisma.event.delete({ where: { id } });
   revalidatePath("/admin");
   revalidatePath("/admin/open-mats");

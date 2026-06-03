@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
-import { requireAdminApi } from "@/lib/admin";
+import { requireAdminApi, requireSuperAdminApi } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -87,8 +87,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const forbidden = await requireAdminApi();
-  if (forbidden) return forbidden;
+  const { response } = await requireSuperAdminApi();
+  if (response) return response;
 
   const formData = await request.formData();
   const parsed = academySchema.safeParse(Object.fromEntries(formData));
