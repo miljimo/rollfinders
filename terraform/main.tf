@@ -321,20 +321,19 @@ resource "aws_secretsmanager_secret" "app" {
 
 resource "aws_secretsmanager_secret_version" "app" {
   secret_id = aws_secretsmanager_secret.app.id
-  secret_string = jsonencode(merge({
-    NEXTAUTH_SECRET               = random_password.nextauth.result
+  secret_string = jsonencode({
+    NEXTAUTH_SECRET               = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
     NEXTAUTH_URL                  = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.app.dns_name}"
-    NEXT_PUBLIC_SUPABASE_URL      = ""
-    NEXT_PUBLIC_SUPABASE_ANON_KEY = ""
-    SUPABASE_SERVICE_ROLE_KEY     = ""
-    }, var.app_secrets, {
-    DATABASE_URL = "postgresql://${var.db_username}:${random_password.db.result}@${aws_db_instance.app.address}:5432/${var.db_name}"
-    DB_HOST      = aws_db_instance.app.address
-    DB_PORT      = "5432"
-    DB_USER      = var.db_username
-    DB_PASSWORD  = random_password.db.result
-    DB_NAME      = var.db_name
-  }))
+    NEXT_PUBLIC_SUPABASE_URL      = var.next_public_supabase_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY = var.next_public_supabase_anon_key
+    SUPABASE_SERVICE_ROLE_KEY     = var.supabase_service_role_key
+    DATABASE_URL                  = "postgresql://${var.db_username}:${random_password.db.result}@${aws_db_instance.app.address}:5432/${var.db_name}"
+    DB_HOST                       = aws_db_instance.app.address
+    DB_PORT                       = "5432"
+    DB_USER                       = var.db_username
+    DB_PASSWORD                   = random_password.db.result
+    DB_NAME                       = var.db_name
+  })
 }
 
 resource "aws_cloudwatch_log_group" "app" {

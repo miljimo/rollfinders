@@ -92,9 +92,29 @@ variable "db_instance_class" {
   default     = "db.t4g.micro"
 }
 
-variable "app_secrets" {
-  type        = map(string)
-  description = "Application secrets written to Secrets Manager as a JSON object."
+variable "nextauth_secret" {
+  type        = string
+  description = "NextAuth signing secret. If empty, Terraform generates one."
   sensitive   = true
-  default     = {}
+  default     = ""
+}
+
+variable "next_public_supabase_url" {
+  type        = string
+  description = "Public Supabase project URL."
+  default     = ""
+}
+
+variable "next_public_supabase_anon_key" {
+  type        = string
+  description = "Public Supabase anon key."
+  sensitive   = true
+  default     = ""
+}
+
+variable "supabase_service_role_key" {
+  type        = string
+  description = "Supabase service role key."
+  sensitive   = true
+  default     = ""
 }
