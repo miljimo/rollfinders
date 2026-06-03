@@ -98,8 +98,9 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
 
   await prisma.event.create({ data: eventData(parsed.data) });
   revalidatePath("/admin");
+  revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");
-  redirect("/admin");
+  redirect("/admin/open-mats");
 }
 
 export async function updateOpenMat(id: string, _state: EventFormState, formData: FormData): Promise<EventFormState> {
@@ -117,9 +118,10 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
 
   await prisma.event.update({ where: { id }, data: eventData(parsed.data) });
   revalidatePath("/admin");
+  revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");
   revalidatePath(`/open-mats/${id}`);
-  redirect("/admin");
+  redirect("/admin/open-mats");
 }
 
 export async function deleteOpenMat(id: string) {
@@ -128,6 +130,7 @@ export async function deleteOpenMat(id: string) {
   await requireAcademyEditor(event.academyId);
   await prisma.event.delete({ where: { id } });
   revalidatePath("/admin");
+  revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");
-  redirect("/admin");
+  redirect("/admin/open-mats");
 }

@@ -144,7 +144,7 @@ export default async function AdminPage({
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/admin/academies" className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-bold text-white">Academies</Link>
-            <Link href="/admin/open-mats/new" className="rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-bold text-white">New Open Mat</Link>
+            <Link href="/admin/open-mats" className="rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-bold text-white">Open Mats</Link>
           </div>
         </div>
 
@@ -158,7 +158,7 @@ export default async function AdminPage({
 
         <div className="mt-6 grid gap-4 lg:grid-cols-4">
           <ModuleCard title="Academy Management" description="Search, filter, verify, feature, and edit academy records." href="/admin/academies" action="Manage academies" />
-          <ModuleCard title="Open Mats" description="Create and maintain active open mat events." href="/admin/open-mats/new" action="Create open mat" />
+          <ModuleCard title="Open Mats" description="Search, filter, edit, and maintain open mat events." href="/admin/open-mats" action="Manage open mats" />
           <ModuleCard title="Users" description="Search, edit, disable, promote, delete, and send password emails." href="/admin/users" action="Manage users" />
           <ModuleCard title="Email Operations" description="Monitor delivery status, invalid emails, and backend mail settings." href="#email-operations" action="Review email" />
         </div>
