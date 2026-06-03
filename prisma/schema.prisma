@@ -48,6 +48,12 @@ enum ClaimStatus {
   REJECTED
 }
 
+enum AcademyVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 enum AcademyMemberRole {
   OWNER
   ADMIN
@@ -101,11 +107,18 @@ model Academy {
   latitude    Float
   longitude   Float
   logoUrl     String?        @map("logo_url")
+  coverImageUrl String?      @map("cover_image_url")
+  categories  String?
+  facebookUrl String?        @map("facebook_url")
+  instagramUrl String?       @map("instagram_url")
+  xUrl        String?        @map("x_url")
   dropInPrice Float?         @map("drop_in_price")
   giAvailable Boolean        @default(true) @map("gi_available")
   nogiAvailable Boolean      @default(true) @map("nogi_available")
   beginnerFriendly Boolean   @default(true) @map("beginner_friendly")
   competitionFocused Boolean @default(false) @map("competition_focused")
+  verificationStatus AcademyVerificationStatus @default(PENDING) @map("verification_status")
+  featured    Boolean        @default(false)
   verified    Boolean        @default(false)
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
@@ -116,6 +129,11 @@ model Academy {
 
   @@index([city])
   @@index([postcode])
+  @@index([name])
+  @@index([verificationStatus])
+  @@index([featured])
+  @@index([createdAt])
+  @@index([updatedAt])
   @@map("academies")
 }
 

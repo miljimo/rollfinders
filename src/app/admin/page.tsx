@@ -68,8 +68,11 @@ export default async function AdminPage({
   const emailPage = pageFromParams(params, "emailsPage");
   const invalidEmailPage = pageFromParams(params, "invalidEmailsPage");
 
-  const [academyCount, eventCount, userCount, queuedEmailCount, invalidEmailCount] = await Promise.all([
+  const [academyCount, verifiedAcademyCount, pendingAcademyCount, featuredAcademyCount, eventCount, userCount, queuedEmailCount, invalidEmailCount] = await Promise.all([
     prisma.academy.count(),
+    prisma.academy.count({ where: { verificationStatus: "VERIFIED" } }),
+    prisma.academy.count({ where: { verificationStatus: "PENDING" } }),
+    prisma.academy.count({ where: { featured: true } }),
     prisma.event.count({ where: { active: true } }),
     prisma.user.count(),
     prisma.outboundEmail.count(),
@@ -136,14 +139,26 @@ export default async function AdminPage({
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label="Academies" value={academyCount} />
-          <Metric label="Open mats" value={eventCount} />
-          <Metric label="Users" value={userCount} />
-          <Metric label="Outbound emails" value={queuedEmailCount} />
-          <Metric label="Invalid emails" value={invalidEmailCount} />
+          <Metric label="Total Academies" value={academyCount} />
+          <Metric label="Verified Academies" value={verifiedAcademyCount} />
+          <Metric label="Pending Verification" value={pendingAcademyCount} />
+          <Metric label="Featured Academies" value={featuredAcademyCount} />
+          <Metric label="Active Open Mats" value={eventCount} />
         </div>
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <AdminPanel title="Academy Management" description="Dedicated module for academy search, filtering, pagination, and editing.">
+            <div className="grid gap-3 text-sm">
+              <ConfigRow label="Total academies" value={academyCount.toLocaleString()} />
+              <ConfigRow label="Verified" value={verifiedAcademyCount.toLocaleString()} />
+              <ConfigRow label="Pending verification" value={pendingAcademyCount.toLocaleString()} />
+              <ConfigRow label="Featured" value={featuredAcademyCount.toLocaleString()} />
+              <Link href="/admin/academies" className="inline-flex min-h-11 items-center justify-center rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
+                Open Academy Management
+              </Link>
+            </div>
+          </AdminPanel>
+
           <AdminPanel title="Email Provisioning" description="Backend configuration for transactional email.">
             <div className="grid gap-3 text-sm">
               <ConfigRow label="Provider" value={emailConfig.provider} />

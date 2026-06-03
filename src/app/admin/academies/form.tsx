@@ -1,6 +1,7 @@
 "use client";
 
 import type { Academy } from "@prisma/client";
+import { AcademyVerificationStatus } from "@prisma/client";
 import { useActionState } from "react";
 import type { AcademyFormState } from "./actions";
 
@@ -39,13 +40,28 @@ export function AcademyForm({ action, academy }: { action: AcademyAction; academ
         <Field name="longitude" label="Longitude" value={state.values.longitude ?? academy?.longitude.toString() ?? "-0.1276"} errors={state.fieldErrors.longitude} />
         <Field name="dropInPrice" label="Drop-in Price" value={state.values.dropInPrice ?? academy?.dropInPrice?.toString() ?? ""} required={false} errors={state.fieldErrors.dropInPrice} />
         <Field name="logoUrl" label="Logo URL" value={state.values.logoUrl ?? academy?.logoUrl ?? ""} required={false} errors={state.fieldErrors.logoUrl} />
+        <Field name="coverImageUrl" label="Cover Image URL" value={state.values.coverImageUrl ?? academy?.coverImageUrl ?? ""} required={false} errors={state.fieldErrors.coverImageUrl} />
+        <Field name="categories" label="Categories" value={state.values.categories ?? academy?.categories ?? ""} required={false} errors={state.fieldErrors.categories} />
+        <Field name="facebookUrl" label="Facebook URL" value={state.values.facebookUrl ?? academy?.facebookUrl ?? ""} required={false} errors={state.fieldErrors.facebookUrl} />
+        <Field name="instagramUrl" label="Instagram URL" value={state.values.instagramUrl ?? academy?.instagramUrl ?? ""} required={false} errors={state.fieldErrors.instagramUrl} />
+        <Field name="xUrl" label="X URL" value={state.values.xUrl ?? academy?.xUrl ?? ""} required={false} errors={state.fieldErrors.xUrl} />
+        <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          Verification Status
+          <select name="verificationStatus" defaultValue={state.values.verificationStatus ?? academy?.verificationStatus ?? AcademyVerificationStatus.PENDING} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+            <option value={AcademyVerificationStatus.PENDING}>Pending</option>
+            <option value={AcademyVerificationStatus.VERIFIED}>Verified</option>
+            <option value={AcademyVerificationStatus.REJECTED}>Rejected</option>
+          </select>
+          <FieldError errors={state.fieldErrors.verificationStatus} />
+        </label>
       </div>
       <div className="grid gap-3 rounded-md border border-stone-200 p-3 sm:grid-cols-2">
         <Checkbox name="giAvailable" label="Gi available" checked={state.values.giAvailable ? state.values.giAvailable === "on" : academy?.giAvailable ?? true} />
         <Checkbox name="nogiAvailable" label="No-Gi available" checked={state.values.nogiAvailable ? state.values.nogiAvailable === "on" : academy?.nogiAvailable ?? true} />
         <Checkbox name="beginnerFriendly" label="Beginner friendly" checked={state.values.beginnerFriendly ? state.values.beginnerFriendly === "on" : academy?.beginnerFriendly ?? true} />
         <Checkbox name="competitionFocused" label="Competition focused" checked={state.values.competitionFocused ? state.values.competitionFocused === "on" : academy?.competitionFocused ?? false} />
-        <Checkbox name="verified" label="Verified listing" checked={state.values.verified ? state.values.verified === "on" : academy?.verified ?? false} />
+        <Checkbox name="featured" label="Featured academy" checked={state.values.featured ? state.values.featured === "on" : academy?.featured ?? false} />
+        <Checkbox name="verified" label="Legacy verified flag" checked={state.values.verified ? state.values.verified === "on" : academy?.verified ?? false} />
       </div>
       <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
         {isPending ? "Saving..." : "Save Academy"}

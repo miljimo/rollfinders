@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GiType } from "@prisma/client";
+import { AcademyVerificationStatus, GiType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
 
@@ -25,11 +25,18 @@ export const academySchema = z.object({
   latitude: z.coerce.number(),
   longitude: z.coerce.number(),
   logoUrl: z.string().url().optional().or(z.literal("")),
+  coverImageUrl: z.string().url().optional().or(z.literal("")),
+  categories: z.string().optional().or(z.literal("")),
+  facebookUrl: z.string().url().optional().or(z.literal("")),
+  instagramUrl: z.string().url().optional().or(z.literal("")),
+  xUrl: z.string().url().optional().or(z.literal("")),
   dropInPrice: z.coerce.number().nonnegative().optional().or(z.literal("")),
   giAvailable: checkboxSchema,
   nogiAvailable: checkboxSchema,
   beginnerFriendly: checkboxSchema,
   competitionFocused: checkboxSchema,
+  verificationStatus: z.enum(AcademyVerificationStatus).default(AcademyVerificationStatus.PENDING),
+  featured: checkboxSchema,
   verified: checkboxSchema,
 });
 

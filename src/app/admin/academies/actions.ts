@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { AcademyMemberRole, InvitationStatus } from "@prisma/client";
+import { AcademyMemberRole, AcademyVerificationStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
-import { getCurrentUser, requireAdminPage } from "@/lib/admin";
+import { getCurrentUser, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { queueEmail } from "@/lib/reliable-email";
@@ -88,6 +88,7 @@ async function findDuplicateAcademy({
 
 export async function createAcademy(_state: AcademyFormState, formData: FormData): Promise<AcademyFormState> {
   await requireAdminPage();
+  const actor = await getCurrentUser();
 
   const parsed = academySchema.safeParse(getFormValues(formData));
   if (!parsed.success) {
@@ -101,16 +102,29 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   }
 
   try {
-    await prisma.academy.create({
+    const academy = await prisma.academy.create({
       data: {
         ...data,
         borough: toNullable(data.borough),
         website: toNullable(data.website),
         email: toNullable(data.email),
         logoUrl: toNullable(data.logoUrl),
+        coverImageUrl: toNullable(data.coverImageUrl),
+        categories: toNullable(data.categories),
+        facebookUrl: toNullable(data.facebookUrl),
+        instagramUrl: toNullable(data.instagramUrl),
+        xUrl: toNullable(data.xUrl),
         dropInPrice: toNullableNumber(data.dropInPrice),
+        verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
       },
     });
+    if (actor) {
+      await writeAdminAuditLog({
+        actorUserId: actor.id,
+        action: "ACADEMY_CREATED",
+        metadata: { academyId: academy.id, academyName: academy.name },
+      });
+    }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       return duplicateSlugError(formData);
@@ -119,7 +133,8 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   }
 
   revalidatePath("/admin");
-  redirect("/admin");
+  revalidatePath("/admin/academies");
+  redirect("/admin/academies");
 }
 
 export async function updateAcademy(
@@ -128,6 +143,7 @@ export async function updateAcademy(
   formData: FormData,
 ): Promise<AcademyFormState> {
   await requireAcademyEditor(id);
+  const actor = await getCurrentUser();
 
   const parsed = academySchema.safeParse(getFormValues(formData));
   if (!parsed.success) {
@@ -141,7 +157,7 @@ export async function updateAcademy(
   }
 
   try {
-    await prisma.academy.update({
+    const academy = await prisma.academy.update({
       where: { id },
       data: {
         ...data,
@@ -149,9 +165,22 @@ export async function updateAcademy(
         website: toNullable(data.website),
         email: toNullable(data.email),
         logoUrl: toNullable(data.logoUrl),
+        coverImageUrl: toNullable(data.coverImageUrl),
+        categories: toNullable(data.categories),
+        facebookUrl: toNullable(data.facebookUrl),
+        instagramUrl: toNullable(data.instagramUrl),
+        xUrl: toNullable(data.xUrl),
         dropInPrice: toNullableNumber(data.dropInPrice),
+        verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
       },
     });
+    if (actor) {
+      await writeAdminAuditLog({
+        actorUserId: actor.id,
+        action: "ACADEMY_UPDATED",
+        metadata: { academyId: academy.id, academyName: academy.name },
+      });
+    }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       return duplicateSlugError(formData);
@@ -160,8 +189,9 @@ export async function updateAcademy(
   }
 
   revalidatePath("/admin");
+  revalidatePath("/admin/academies");
   revalidatePath(`/admin/academies/${id}`);
-  redirect("/admin");
+  redirect("/admin/academies");
 }
 
 function invitationExpiry() {
