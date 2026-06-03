@@ -539,27 +539,15 @@ resource "aws_appautoscaling_policy" "cpu" {
   }
 }
 
-resource "aws_s3_bucket" "assets" {
-  bucket = "${local.name_prefix}-assets-${data.aws_caller_identity.current.account_id}"
-  tags   = local.common_tags
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "assets" {
-  bucket = aws_s3_bucket.assets.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_versioning" "assets" {
-  bucket = aws_s3_bucket.assets.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
+module "assets_bucket" {
+  source             = "./modules/s3"
+  environment_name   = var.environment_name
+  name               = "assets"
+  enabled_versioning = true
+  force_deletion     = !local.is_production
+  acl                = "private"
+  use_actual_name    = false
+  sse_algorithm      = "AES256"
 }
 
 resource "aws_cloudfront_origin_access_control" "assets" {
@@ -576,7 +564,7 @@ resource "aws_cloudfront_distribution" "assets" {
   comment         = "${local.name_prefix} static assets"
 
   origin {
-    domain_name              = aws_s3_bucket.assets.bucket_regional_domain_name
+    domain_name              = module.assets_bucket.bucket_regional_domain_name
     origin_id                = "assets"
     origin_access_control_id = aws_cloudfront_origin_access_control.assets.id
   }

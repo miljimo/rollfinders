@@ -17,10 +17,11 @@ for env in "${ENVIRONMENTS[@]}"; do
   table="rollfinder-${env}-terraform-locks"
 
   if aws s3api head-bucket --bucket "${bucket}" 2>/dev/null; then
-    "${TERRAFORM_BIN}" import "aws_s3_bucket.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
-    "${TERRAFORM_BIN}" import "aws_s3_bucket_versioning.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
-    "${TERRAFORM_BIN}" import "aws_s3_bucket_server_side_encryption_configuration.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
-    "${TERRAFORM_BIN}" import "aws_s3_bucket_public_access_block.state[\"${env}\"]" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket.bucket" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket_versioning.versioning[0]" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket_server_side_encryption_configuration.encryption" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket_public_access_block.access_block[0]" "${bucket}" 2>/dev/null || true
+    "${TERRAFORM_BIN}" import "module.state_bucket[\"${env}\"].aws_s3_bucket_request_payment_configuration.request_payment_configuration" "${bucket}" 2>/dev/null || true
   fi
 
   if aws dynamodb describe-table --region "${AWS_REGION}" --table-name "${table}" >/dev/null 2>&1; then

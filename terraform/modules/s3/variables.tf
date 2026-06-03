@@ -38,6 +38,12 @@ variable "use_actual_name" {
   default = false
 }
 
+variable "block_public_access" {
+  type        = bool
+  description = "Block all public access to the bucket."
+  default     = true
+}
+
 
 variable "acl" {
   default = "public-read"

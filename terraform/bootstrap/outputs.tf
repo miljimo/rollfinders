@@ -1,6 +1,6 @@
 output "state_buckets" {
   description = "Terraform state bucket names by environment."
-  value       = { for env, bucket in aws_s3_bucket.state : env => bucket.bucket }
+  value       = { for env, bucket in module.state_bucket : env => bucket.name }
 }
 
 output "lock_tables" {

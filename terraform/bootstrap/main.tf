@@ -1,41 +1,14 @@
-resource "aws_s3_bucket" "state" {
+module "state_bucket" {
   for_each = var.environments
-  bucket   = "${var.project_name}-${each.key}-terraform-state"
 
-  tags = {
-    Project     = var.project_name
-    Environment = each.key
-    ManagedBy   = "terraform"
-  }
-}
-
-resource "aws_s3_bucket_versioning" "state" {
-  for_each = aws_s3_bucket.state
-  bucket   = each.value.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "state" {
-  for_each = aws_s3_bucket.state
-  bucket   = each.value.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "state" {
-  for_each                = aws_s3_bucket.state
-  bucket                  = each.value.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+  source             = "../modules/s3"
+  environment_name   = each.key
+  name               = "${var.project_name}-${each.key}-terraform-state"
+  use_actual_name    = true
+  enabled_versioning = true
+  force_deletion     = false
+  acl                = "private"
+  sse_algorithm      = "AES256"
 }
 
 resource "aws_dynamodb_table" "locks" {
