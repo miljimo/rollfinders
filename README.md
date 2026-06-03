@@ -5,7 +5,7 @@ RollFinder is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open m
 ## Stack
 
 - Next.js App Router, TypeScript, Tailwind CSS
-- Supabase-hosted PostgreSQL and storage-ready client
+- PostgreSQL
 - Prisma migrations and seed data
 - NextAuth credentials provider
 
@@ -91,10 +91,6 @@ DB_PORT=54322
 ```
 
 The app and Prisma derive the PostgreSQL connection string from those values. You can still set `DATABASE_URL` directly if a hosted provider gives you a single connection string.
-
-## Supabase
-
-Create a Supabase project, copy the database connection details into `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, and `DB_PORT`, then set `NEXT_PUBLIC_SUPABASE_URL` plus `NEXT_PUBLIC_SUPABASE_ANON_KEY`. If Supabase gives you a pooled connection string, you can set `DATABASE_URL` instead. Supabase Storage is ready to use through `src/lib/supabase.ts`.
 
 ## Deployment
 

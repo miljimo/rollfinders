@@ -514,3 +514,26 @@ If not, defer it.
 Feature Status:
 
 APPROVED FOR MVP IMPLEMENTATION
+
+
+# Competitive Advantage
+
+RollFinder is not intended to be a generic martial arts directory.
+
+The platform differentiates itself by focusing on:
+
+- Open Mat Discovery
+- Location-Based Search
+- Nearby Academy Discovery
+- Nearby Open Mat Discovery
+- BJJ-Specific Search Experience
+- Academy Claiming
+- Mobile-First Training Discovery
+
+The primary question RollFinder answers is:
+
+> Where can I train today?
+
+rather than:
+
+> Where are martial arts clubs located?

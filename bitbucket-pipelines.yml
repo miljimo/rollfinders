@@ -8,7 +8,7 @@ definitions:
     node: ~/.npm
   steps:
     - step: &validate
-        name: Validate
+        name: Static Code Analysis
         caches:
           - node
         script:
@@ -25,7 +25,7 @@ definitions:
           - terraform init -backend=false
           - terraform validate
     - step: &deploy
-        name: Deploy
+        name: Terraform Deploy
         services:
           - docker
         caches:
@@ -49,7 +49,7 @@ pipelines:
       - step: *validate
       - step:
           <<: *deploy
-          name: Deploy Feature To Dev
+          name: Deploy to Development
           deployment: Development
           script:
             - export ENVIRONMENT_NAME=dev
@@ -65,7 +65,7 @@ pipelines:
       - step: *validate
       - step:
           <<: *deploy
-          name: Deploy Dev
+          name: Deploy to Development
           deployment: Development
           script:
             - export ENVIRONMENT_NAME=dev
@@ -81,7 +81,7 @@ pipelines:
       - step: *validate
       - step:
           <<: *deploy
-          name: Deploy Staging
+          name: Deploy To Staging
           deployment: Staging
           trigger: manual
           script:

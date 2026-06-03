@@ -56,22 +56,16 @@ variable "container_memory" {
   default     = 1024
 }
 
-variable "certificate_arn" {
-  type        = string
-  description = "ACM certificate ARN for HTTPS. Leave empty to create only HTTP listener."
-  default     = ""
-}
-
 variable "domain_name" {
   type        = string
-  description = "Optional DNS name for the app, such as dev.rollfinder.example.com."
+  description = "DNS name for the app, such as dev.rollfinders.com."
   default     = ""
 }
 
-variable "route53_zone_id" {
+variable "hosted_zone_name" {
   type        = string
-  description = "Optional Route53 hosted zone ID for domain_name."
-  default     = ""
+  description = "Existing Route53 hosted zone name to discover."
+  default     = "rollfinders.com"
 }
 
 variable "db_name" {
@@ -95,26 +89,6 @@ variable "db_instance_class" {
 variable "nextauth_secret" {
   type        = string
   description = "NextAuth signing secret. If empty, Terraform generates one."
-  sensitive   = true
-  default     = ""
-}
-
-variable "next_public_supabase_url" {
-  type        = string
-  description = "Public Supabase project URL."
-  default     = ""
-}
-
-variable "next_public_supabase_anon_key" {
-  type        = string
-  description = "Public Supabase anon key."
-  sensitive   = true
-  default     = ""
-}
-
-variable "supabase_service_role_key" {
-  type        = string
-  description = "Supabase service role key."
   sensitive   = true
   default     = ""
 }

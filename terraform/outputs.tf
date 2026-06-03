@@ -5,12 +5,47 @@ output "alb_dns_name" {
 
 output "application_url" {
   description = "Primary application URL."
-  value       = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.app.dns_name}"
+  value       = "https://${local.canonical_domain}"
+}
+
+output "frontend_url" {
+  description = "Frontend URL."
+  value       = "https://${local.canonical_domain}"
+}
+
+output "frontend_domain" {
+  description = "Frontend domain."
+  value       = local.canonical_domain
+}
+
+output "www_url" {
+  description = "Production WWW URL. Empty outside production."
+  value       = local.www_domain == "" ? "" : "https://${local.www_domain}"
+}
+
+output "api_url" {
+  description = "Prepared API URL."
+  value       = "https://${local.api_domain}"
+}
+
+output "certificate_arn" {
+  description = "ACM certificate ARN."
+  value       = aws_acm_certificate_validation.app.certificate_arn
+}
+
+output "hosted_zone_id" {
+  description = "Discovered Route53 hosted zone ID."
+  value       = data.aws_route53_zone.public.zone_id
 }
 
 output "cloudfront_assets_url" {
   description = "CloudFront URL for static assets."
   value       = "https://${aws_cloudfront_distribution.assets.domain_name}"
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for static assets."
+  value       = aws_cloudfront_distribution.assets.id
 }
 
 output "ecr_repository_url" {

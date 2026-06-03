@@ -17,25 +17,59 @@ fi
 cd "${TERRAFORM_DIR}"
 terraform init -backend-config="${BACKEND_CONFIG}" -reconfigure
 
-terraform apply \
+terraform plan \
   -target=aws_ecr_repository.app \
   -target=aws_ecr_lifecycle_policy.app \
   -var-file="${TFVARS}" \
-  -auto-approve
+  -out=ecr.tfplan
+
+terraform apply \
+  -auto-approve \
+  ecr.tfplan
 
 cd "${PROJECT_DIR}"
 "${SCRIPT_DIR}/build.sh"
 source "${PROJECT_DIR}/image.env"
 
 cd "${TERRAFORM_DIR}"
-terraform apply \
+terraform plan \
   -var-file="${TFVARS}" \
   -var="container_image=${IMAGE_URI}" \
-  -auto-approve
+  -out=deploy.tfplan
+
+terraform apply \
+  -auto-approve \
+  deploy.tfplan
 
 aws ecs wait services-stable \
   --region "${AWS_REGION}" \
   --cluster "$(terraform output -raw ecs_cluster_name)" \
   --services "$(terraform output -raw ecs_service_name)"
 
-terraform output application_url
+FRONTEND_URL="$(terraform output -raw frontend_url)"
+WWW_URL="$(terraform output -raw www_url)"
+API_URL="$(terraform output -raw api_url)"
+CERTIFICATE_ARN="$(terraform output -raw certificate_arn)"
+
+cat <<EOF
+================================================
+
+Deployment Successful
+
+Environment:
+${ENVIRONMENT_NAME}
+
+Frontend URL:
+${FRONTEND_URL}
+
+WWW URL:
+${WWW_URL}
+
+API URL:
+${API_URL}
+
+Certificate ARN:
+${CERTIFICATE_ARN}
+
+================================================
+EOF

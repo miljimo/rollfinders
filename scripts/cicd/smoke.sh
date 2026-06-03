@@ -9,7 +9,7 @@ BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars
 
 cd "${TERRAFORM_DIR}"
 terraform init -backend-config="${BACKEND_CONFIG}" -reconfigure
-APPLICATION_URL="$(terraform output -raw application_url)"
+APPLICATION_URL="$(terraform output -raw frontend_url)"
 
 curl -fsS "${APPLICATION_URL}/api/health"
 curl -fsS "${APPLICATION_URL}/api/health?deep=1"

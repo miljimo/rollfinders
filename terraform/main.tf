@@ -1,5 +1,10 @@
 data "aws_caller_identity" "current" {}
 
+data "aws_route53_zone" "public" {
+  name         = var.hosted_zone_name
+  private_zone = false
+}
+
 resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr_block
   enable_dns_hostnames = true
@@ -195,20 +200,41 @@ resource "aws_lb_target_group" "app" {
   tags = local.common_tags
 }
 
-resource "aws_lb_listener" "http_forward" {
-  count             = var.certificate_arn == "" ? 1 : 0
-  load_balancer_arn = aws_lb.app.arn
-  port              = 80
-  protocol          = "HTTP"
+resource "aws_acm_certificate" "app" {
+  domain_name               = local.canonical_domain
+  subject_alternative_names = local.is_production ? ["*.${var.hosted_zone_name}"] : ["*.${local.canonical_domain}"]
+  validation_method         = "DNS"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+  lifecycle {
+    create_before_destroy = true
   }
+
+  tags = local.common_tags
+}
+
+resource "aws_route53_record" "certificate_validation" {
+  for_each = {
+    for option in aws_acm_certificate.app.domain_validation_options : option.domain_name => {
+      name   = option.resource_record_name
+      record = option.resource_record_value
+      type   = option.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = data.aws_route53_zone.public.zone_id
+}
+
+resource "aws_acm_certificate_validation" "app" {
+  certificate_arn         = aws_acm_certificate.app.arn
+  validation_record_fqdns = [for record in aws_route53_record.certificate_validation : record.fqdn]
 }
 
 resource "aws_lb_listener" "http_redirect" {
-  count             = var.certificate_arn == "" ? 0 : 1
   load_balancer_arn = aws_lb.app.arn
   port              = 80
   protocol          = "HTTP"
@@ -225,16 +251,40 @@ resource "aws_lb_listener" "http_redirect" {
 }
 
 resource "aws_lb_listener" "https" {
-  count             = var.certificate_arn == "" ? 0 : 1
   load_balancer_arn = aws_lb.app.arn
   port              = 443
   protocol          = "HTTPS"
-  certificate_arn   = var.certificate_arn
+  certificate_arn   = aws_acm_certificate_validation.app.certificate_arn
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
 
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app.arn
+  }
+}
+
+resource "aws_lb_listener_rule" "www_redirect" {
+  count        = local.www_domain == "" ? 0 : 1
+  listener_arn = aws_lb_listener.https.arn
+  priority     = 10
+
+  action {
+    type = "redirect"
+
+    redirect {
+      host        = local.canonical_domain
+      path        = "/#{path}"
+      port        = "443"
+      protocol    = "HTTPS"
+      query       = "#{query}"
+      status_code = "HTTP_301"
+    }
+  }
+
+  condition {
+    host_header {
+      values = [local.www_domain]
+    }
   }
 }
 
@@ -322,17 +372,14 @@ resource "aws_secretsmanager_secret" "app" {
 resource "aws_secretsmanager_secret_version" "app" {
   secret_id = aws_secretsmanager_secret.app.id
   secret_string = jsonencode({
-    NEXTAUTH_SECRET               = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
-    NEXTAUTH_URL                  = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.app.dns_name}"
-    NEXT_PUBLIC_SUPABASE_URL      = var.next_public_supabase_url
-    NEXT_PUBLIC_SUPABASE_ANON_KEY = var.next_public_supabase_anon_key
-    SUPABASE_SERVICE_ROLE_KEY     = var.supabase_service_role_key
-    DATABASE_URL                  = "postgresql://${var.db_username}:${random_password.db.result}@${aws_db_instance.app.address}:5432/${var.db_name}"
-    DB_HOST                       = aws_db_instance.app.address
-    DB_PORT                       = "5432"
-    DB_USER                       = var.db_username
-    DB_PASSWORD                   = random_password.db.result
-    DB_NAME                       = var.db_name
+    NEXTAUTH_SECRET = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
+    NEXTAUTH_URL    = var.domain_name != "" ? "https://${var.domain_name}" : "http://${aws_lb.app.dns_name}"
+    DATABASE_URL    = "postgresql://${var.db_username}:${random_password.db.result}@${aws_db_instance.app.address}:5432/${var.db_name}"
+    DB_HOST         = aws_db_instance.app.address
+    DB_PORT         = "5432"
+    DB_USER         = var.db_username
+    DB_PASSWORD     = random_password.db.result
+    DB_NAME         = var.db_name
   })
 }
 
@@ -418,10 +465,7 @@ resource "aws_ecs_task_definition" "app" {
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${aws_secretsmanager_secret.app.arn}:DATABASE_URL::" },
         { name = "NEXTAUTH_SECRET", valueFrom = "${aws_secretsmanager_secret.app.arn}:NEXTAUTH_SECRET::" },
-        { name = "NEXTAUTH_URL", valueFrom = "${aws_secretsmanager_secret.app.arn}:NEXTAUTH_URL::" },
-        { name = "NEXT_PUBLIC_SUPABASE_URL", valueFrom = "${aws_secretsmanager_secret.app.arn}:NEXT_PUBLIC_SUPABASE_URL::" },
-        { name = "NEXT_PUBLIC_SUPABASE_ANON_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:NEXT_PUBLIC_SUPABASE_ANON_KEY::" },
-        { name = "SUPABASE_SERVICE_ROLE_KEY", valueFrom = "${aws_secretsmanager_secret.app.arn}:SUPABASE_SERVICE_ROLE_KEY::" }
+        { name = "NEXTAUTH_URL", valueFrom = "${aws_secretsmanager_secret.app.arn}:NEXTAUTH_URL::" }
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -464,7 +508,6 @@ resource "aws_ecs_service" "app" {
   }
 
   depends_on = [
-    aws_lb_listener.http_forward,
     aws_lb_listener.http_redirect,
     aws_lb_listener.https
   ]
@@ -566,10 +609,34 @@ resource "aws_cloudfront_distribution" "assets" {
   tags = local.common_tags
 }
 
-resource "aws_route53_record" "app" {
-  count   = var.domain_name == "" || var.route53_zone_id == "" ? 0 : 1
-  zone_id = var.route53_zone_id
-  name    = var.domain_name
+resource "aws_route53_record" "frontend" {
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = local.canonical_domain
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.app.dns_name
+    zone_id                = aws_lb.app.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "www" {
+  count   = local.www_domain == "" ? 0 : 1
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = local.www_domain
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.app.dns_name
+    zone_id                = aws_lb.app.zone_id
+    evaluate_target_health = true
+  }
+}
+
+resource "aws_route53_record" "api" {
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = local.api_domain
   type    = "A"
 
   alias {
