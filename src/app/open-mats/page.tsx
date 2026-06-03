@@ -1,13 +1,15 @@
 import { PageShell } from "@/components/shell";
+import { LocationButton } from "@/components/location-button";
 import { EventCard } from "@/components/ui";
 import { getOpenMatRadar } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
-export default async function OpenMatsPage({ searchParams }: { searchParams: Promise<{ q?: string; when?: string; gi?: string }> }) {
-  const { q = "", when = "", gi = "" } = await searchParams;
+export default async function OpenMatsPage({ searchParams }: { searchParams: Promise<{ q?: string; when?: string; gi?: string; lat?: string; lng?: string }> }) {
+  const { q = "", when = "", gi = "", lat, lng } = await searchParams;
+  const location = lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : {};
   const [events, today, tomorrow, weekend] = await Promise.all([
-    getOpenMatRadar({ q, when, gi }),
+    getOpenMatRadar({ q, when, gi, ...location }),
     getOpenMatRadar({ when: "today" }),
     getOpenMatRadar({ when: "tomorrow" }),
     getOpenMatRadar({ when: "weekend" }),
@@ -18,7 +20,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-black text-stone-950">Open Mats</h1>
         <p className="mt-2 text-stone-700">Find visitor-friendly training sessions today, tomorrow, and this weekend.</p>
-        <div className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_180px_180px_auto]">
+        <div className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_180px_180px_auto_auto]">
           <form action="/open-mats" className="contents">
             <input name="q" defaultValue={q} placeholder="Search academy, borough, postcode, gi, no-gi, competition" className="min-h-12 rounded-md border border-stone-200 px-4 text-base text-stone-950 placeholder:text-stone-500" />
             <select name="when" defaultValue={when} className="min-h-12 rounded-md border border-stone-200 px-3 text-base text-stone-950">
@@ -34,6 +36,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
             </select>
             <button className="min-h-12 rounded-md bg-teal-700 px-5 text-sm font-semibold text-white hover:bg-teal-800">Filter</button>
           </form>
+          <LocationButton />
         </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <RadarCount label="Today" count={today.length} href="/open-mats?when=today" />

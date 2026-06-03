@@ -1,5 +1,6 @@
+import { redirect } from "next/navigation";
 import { PageShell } from "@/components/shell";
-import { requireAdminPage } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { createOpenMat } from "../actions";
 import { OpenMatForm } from "../form";
@@ -7,8 +8,15 @@ import { OpenMatForm } from "../form";
 export const dynamic = "force-dynamic";
 
 export default async function NewOpenMatPage() {
-  await requireAdminPage();
-  const academies = await prisma.academy.findMany({ orderBy: { name: "asc" } });
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const academies = await prisma.academy.findMany({
+    where: isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <PageShell>

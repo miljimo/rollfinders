@@ -51,6 +51,10 @@ export async function requireSuperAdminApi() {
   return { response: null, user };
 }
 
+export function isProtectedSuperAdmin(user: { email: string; isProtected?: boolean | null }) {
+  return user.isProtected === true || user.email.toLowerCase() === "admin@rollfinder.local";
+}
+
 export async function writeAdminAuditLog({
   actorUserId,
   targetUserId,

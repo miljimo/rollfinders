@@ -1,5 +1,22 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
+import { distanceMiles } from "./utils";
+
+export type LocationInput = { latitude?: number; longitude?: number };
+
+function hasLocation(location?: LocationInput): location is { latitude: number; longitude: number } {
+  return Number.isFinite(location?.latitude) && Number.isFinite(location?.longitude);
+}
+
+function addAcademyDistances<T extends { latitude: number; longitude: number; verified?: boolean }>(items: T[], location?: LocationInput) {
+  if (!hasLocation(location)) return items.map((item) => ({ ...item, distanceMiles: null as number | null }));
+  return items
+    .map((item) => ({
+      ...item,
+      distanceMiles: distanceMiles(location, { latitude: item.latitude, longitude: item.longitude }),
+    }))
+    .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || Number(b.verified) - Number(a.verified));
+}
 
 export async function getFeaturedData() {
   const [academies, events] = await Promise.all([
@@ -15,10 +32,10 @@ export async function getFeaturedData() {
   return { academies, events };
 }
 
-export async function searchAcademies(query = "") {
+export async function searchAcademies(query = "", location?: LocationInput) {
   const q = query.trim();
   const lower = q.toLowerCase();
-  return prisma.academy.findMany({
+  const academies = await prisma.academy.findMany({
     where: q
       ? {
           OR: [
@@ -43,6 +60,7 @@ export async function searchAcademies(query = "") {
     },
     orderBy: { name: "asc" },
   });
+  return addAcademyDistances(academies, location);
 }
 
 export async function searchEvents(query = "") {
@@ -54,6 +72,8 @@ export type OpenMatFilters = {
   q?: string;
   when?: string;
   gi?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 function startOfDay(date: Date) {
@@ -93,7 +113,7 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
           ? weekend
           : { gte: today };
 
-  return prisma.event.findMany({
+  const events = await prisma.event.findMany({
     where: {
       active: true,
       eventDate: dateRange,
@@ -117,6 +137,15 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
     include: { academy: true },
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
+  const location = { latitude: filters.latitude, longitude: filters.longitude };
+  if (!hasLocation(location)) return events.map((event) => ({ ...event, distanceMiles: null as number | null }));
+
+  return events
+    .map((event) => ({
+      ...event,
+      distanceMiles: distanceMiles(location, { latitude: event.academy.latitude, longitude: event.academy.longitude }),
+    }))
+    .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime() || (a.distanceMiles ?? 0) - (b.distanceMiles ?? 0) || Number(b.academy.verified) - Number(a.academy.verified));
 }
 
 export async function getMapItems() {

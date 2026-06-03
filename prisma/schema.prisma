@@ -15,6 +15,11 @@ enum Role {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
 enum GiType {
   GI
   NO_GI
@@ -44,8 +49,11 @@ model User {
   name         String?
   email        String   @unique
   passwordHash String   @map("password_hash")
-  role         Role     @default(USER)
+  role         Role     @default(STANDARD_USER)
+  status       UserStatus @default(ACTIVE)
   disabled     Boolean  @default(false)
+  isProtected  Boolean  @default(false) @map("is_protected")
+  lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")
   academyMemberships AcademyMember[]
   academyInvitations AcademyInvitation[] @relation("AcademyInvitationInviter")

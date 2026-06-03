@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdminPage } from "@/lib/admin";
+import { requireAcademyEditor } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { eventSchema } from "@/lib/validators";
 
@@ -47,13 +47,13 @@ function eventData(data: {
 }
 
 export async function createOpenMat(_state: EventFormState, formData: FormData): Promise<EventFormState> {
-  await requireAdminPage();
   const parsed = eventSchema.safeParse(getFormValues(formData));
 
   if (!parsed.success) {
     return validationError(formData, parsed.error.flatten().fieldErrors);
   }
 
+  await requireAcademyEditor(parsed.data.academyId);
   await prisma.event.create({ data: eventData(parsed.data) });
   revalidatePath("/admin");
   revalidatePath("/open-mats");
@@ -61,13 +61,13 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
 }
 
 export async function updateOpenMat(id: string, _state: EventFormState, formData: FormData): Promise<EventFormState> {
-  await requireAdminPage();
   const parsed = eventSchema.safeParse(getFormValues(formData));
 
   if (!parsed.success) {
     return validationError(formData, parsed.error.flatten().fieldErrors);
   }
 
+  await requireAcademyEditor(parsed.data.academyId);
   await prisma.event.update({ where: { id }, data: eventData(parsed.data) });
   revalidatePath("/admin");
   revalidatePath("/open-mats");
@@ -76,7 +76,9 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
 }
 
 export async function deleteOpenMat(id: string) {
-  await requireAdminPage();
+  const event = await prisma.event.findUnique({ where: { id } });
+  if (!event) return;
+  await requireAcademyEditor(event.academyId);
   await prisma.event.delete({ where: { id } });
   revalidatePath("/admin");
   revalidatePath("/open-mats");

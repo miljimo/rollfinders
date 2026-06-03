@@ -47,3 +47,7 @@ export function canManageAcademyTeam(access: AcademyAccess) {
 export function canDeleteAcademy(access: AcademyAccess) {
   return access.superAdmin;
 }
+
+export function canTransferAcademyOwnership(access: AcademyAccess) {
+  return access.superAdmin || access.memberRole === AcademyMemberRole.OWNER;
+}

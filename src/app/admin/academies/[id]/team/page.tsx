@@ -1,0 +1,92 @@
+import Link from "next/link";
+import { AcademyMemberRole, InvitationStatus } from "@prisma/client";
+import { PageShell } from "@/components/shell";
+import { canManageAcademyTeam, canTransferAcademyOwnership, requireAcademyOwner } from "@/lib/academy-access";
+import { prisma } from "@/lib/prisma";
+import { formatDate } from "@/lib/utils";
+import { cancelAcademyInvitation, inviteAcademyAdmin, removeAcademyMember, resendAcademyInvitation, transferAcademyOwnership } from "../../actions";
+
+export const dynamic = "force-dynamic";
+
+export default async function AcademyTeamPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const access = await requireAcademyOwner(id);
+  const academy = await prisma.academy.findUnique({
+    where: { id },
+    include: {
+      members: { include: { user: true }, orderBy: [{ role: "desc" }, { createdAt: "asc" }] },
+      invitations: { where: { status: InvitationStatus.PENDING }, include: { invitedBy: true }, orderBy: { createdAt: "desc" } },
+    },
+  });
+
+  if (!academy || !canManageAcademyTeam(access)) return null;
+
+  return (
+    <PageShell>
+      <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+        <Link href={`/admin/academies/${academy.id}`} className="text-sm font-semibold text-teal-800">Back to academy</Link>
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-black text-stone-950">Academy Team</h1>
+            <p className="mt-2 text-stone-700">{academy.name}</p>
+          </div>
+          <form action={inviteAcademyAdmin.bind(null, academy.id)} className="flex gap-2">
+            <input name="invitedEmail" type="email" required placeholder="admin@example.com" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
+            <button className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Invite</button>
+          </form>
+        </div>
+
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <h2 className="text-xl font-black text-stone-950">Members</h2>
+            <div className="mt-3">
+              {academy.members.map((member) => (
+                <div key={member.id} className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
+                  <div>
+                    <p className="font-semibold text-stone-950">{member.user.name ?? member.user.email}</p>
+                    <p className="text-sm text-stone-600">{member.user.email} · {member.role}</p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {canTransferAcademyOwnership(access) && member.role !== AcademyMemberRole.OWNER ? (
+                      <form action={transferAcademyOwnership.bind(null, academy.id, member.id)}>
+                        <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Make Owner</button>
+                      </form>
+                    ) : null}
+                    {member.role !== AcademyMemberRole.OWNER || access.platformAdmin ? (
+                      <form action={removeAcademyMember.bind(null, academy.id, member.id)}>
+                        <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Remove</button>
+                      </form>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+              {academy.members.length === 0 ? <p className="py-3 text-sm text-stone-600">No members yet.</p> : null}
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <h2 className="text-xl font-black text-stone-950">Pending Invitations</h2>
+            <div className="mt-3">
+              {academy.invitations.map((invitation) => (
+                <div key={invitation.id} className="border-b border-stone-100 py-3">
+                  <p className="font-semibold text-stone-950">{invitation.invitedEmail}</p>
+                  <p className="text-sm text-stone-600">Invited by {invitation.invitedBy.email} · expires {formatDate(invitation.expiresAt)}</p>
+                  <p className="mt-1 break-all text-xs text-stone-500">Accept URL: /admin/invitations/{invitation.token}</p>
+                  <div className="mt-2 flex gap-2">
+                    <form action={resendAcademyInvitation.bind(null, academy.id, invitation.id)}>
+                      <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Resend</button>
+                    </form>
+                    <form action={cancelAcademyInvitation.bind(null, academy.id, invitation.id)}>
+                      <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Cancel</button>
+                    </form>
+                  </div>
+                </div>
+              ))}
+              {academy.invitations.length === 0 ? <p className="py-3 text-sm text-stone-600">No pending invitations.</p> : null}
+            </div>
+          </section>
+        </div>
+      </section>
+    </PageShell>
+  );
+}

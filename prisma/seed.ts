@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient, GiType, Role } from "@prisma/client";
+import { PrismaClient, GiType, Role, UserStatus } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
 import { Pool } from "pg";
@@ -44,12 +44,14 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: "admin@rollfinder.local" },
-    update: { role: Role.SUPER_ADMIN, disabled: false },
+    update: { role: Role.SUPER_ADMIN, status: UserStatus.ACTIVE, disabled: false, isProtected: true },
     create: {
       name: "RollFinder Admin",
       email: "admin@rollfinder.local",
       passwordHash,
       role: Role.SUPER_ADMIN,
+      status: UserStatus.ACTIVE,
+      isProtected: true,
     },
   });
 

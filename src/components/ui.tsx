@@ -1,7 +1,7 @@
 import Link from "next/link";
+import type { Academy, Event } from "@prisma/client";
 import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
-import type { AcademyWithEvents, EventWithAcademy } from "@/lib/data";
-import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
+import { directionsUrl, formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
 
 export function SearchForm({ action, query, placeholder }: { action: string; query?: string; placeholder: string }) {
   return (
@@ -19,7 +19,10 @@ export function SearchForm({ action, query, placeholder }: { action: string; que
   );
 }
 
-export function AcademyCard({ academy }: { academy: AcademyWithEvents }) {
+type AcademyCardItem = Academy & { events: Event[]; distanceMiles?: number | null };
+type EventCardItem = Event & { academy: Academy; distanceMiles?: number | null };
+
+export function AcademyCard({ academy }: { academy: AcademyCardItem }) {
   return (
     <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -31,6 +34,7 @@ export function AcademyCard({ academy }: { academy: AcademyWithEvents }) {
           <p className="mt-1 flex items-center gap-1 text-sm text-stone-600">
             <MapPin size={15} aria-hidden /> {academy.borough ?? academy.city}, {academy.postcode}
           </p>
+          {academy.distanceMiles != null ? <p className="mt-1 text-sm font-semibold text-teal-800">{formatDistanceMiles(academy.distanceMiles)}</p> : null}
         </div>
         {academy.affiliation ? <span className="rounded-md bg-amber-100 px-2 py-1 text-xs font-semibold text-amber-900">{academy.affiliation}</span> : null}
       </div>
@@ -56,7 +60,7 @@ export function AcademyCard({ academy }: { academy: AcademyWithEvents }) {
   );
 }
 
-export function EventCard({ event }: { event: EventWithAcademy }) {
+export function EventCard({ event }: { event: EventCardItem }) {
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   return (
     <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
@@ -65,6 +69,7 @@ export function EventCard({ event }: { event: EventWithAcademy }) {
         <Link href={`/open-mats/${event.id}`}>{event.title}</Link>
       </h2>
       <p className="mt-1 text-sm font-medium text-stone-700">{event.academy.name}</p>
+      {event.distanceMiles != null ? <p className="mt-1 text-sm font-semibold text-teal-800">{formatDistanceMiles(event.distanceMiles)}</p> : null}
       <dl className="mt-4 grid grid-cols-1 gap-2 text-sm text-stone-700 sm:grid-cols-3">
         <div className="flex items-center gap-2"><CalendarDays size={16} aria-hidden />{formatDate(event.eventDate)}</div>
         <div>{event.startTime}-{event.endTime}</div>

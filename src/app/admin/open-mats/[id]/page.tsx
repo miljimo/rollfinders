@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { PageShell } from "@/components/shell";
-import { requireAdminPage } from "@/lib/admin";
+import { requireAcademyEditor } from "@/lib/academy-access";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { deleteOpenMat, updateOpenMat } from "../actions";
 import { OpenMatForm } from "../form";
@@ -8,14 +9,21 @@ import { OpenMatForm } from "../form";
 export const dynamic = "force-dynamic";
 
 export default async function EditOpenMatPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireAdminPage();
   const { id } = await params;
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
   const [event, academies] = await Promise.all([
     prisma.event.findUnique({ where: { id } }),
-    prisma.academy.findMany({ orderBy: { name: "asc" } }),
+    prisma.academy.findMany({
+      where: isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   if (!event) notFound();
+  await requireAcademyEditor(event.academyId);
 
   return (
     <PageShell>
