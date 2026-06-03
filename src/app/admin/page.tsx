@@ -68,7 +68,17 @@ export default async function AdminPage({
   const emailPage = pageFromParams(params, "emailsPage");
   const invalidEmailPage = pageFromParams(params, "invalidEmailsPage");
 
-  const [academyCount, verifiedAcademyCount, pendingAcademyCount, featuredAcademyCount, eventCount, userCount, queuedEmailCount, invalidEmailCount] = await Promise.all([
+  const [
+    academyCount,
+    verifiedAcademyCount,
+    pendingAcademyCount,
+    featuredAcademyCount,
+    eventCount,
+    userCount,
+    queuedEmailCount,
+    failedEmailCount,
+    invalidEmailCount,
+  ] = await Promise.all([
     prisma.academy.count(),
     prisma.academy.count({ where: { verificationStatus: "VERIFIED" } }),
     prisma.academy.count({ where: { verificationStatus: "PENDING" } }),
@@ -76,6 +86,7 @@ export default async function AdminPage({
     prisma.event.count({ where: { active: true } }),
     prisma.user.count(),
     prisma.outboundEmail.count(),
+    prisma.outboundEmail.count({ where: { status: { in: ["FAILED", "RETRY_PENDING", "INVALID_EMAIL", "PERMANENTLY_FAILED"] } } }),
     isSuperAdmin ? prisma.invalidEmailAddress.count() : Promise.resolve(0),
   ]);
 
@@ -91,6 +102,7 @@ export default async function AdminPage({
     users,
     recentEmails,
     invalidEmails,
+    recentAuditLogs,
   ] = await Promise.all([
     prisma.academy.findMany({
       skip: (currentAcademyPage - 1) * pageSize,
@@ -122,6 +134,13 @@ export default async function AdminPage({
           orderBy: { lastFailureAt: "desc" },
         })
       : Promise.resolve([]),
+    isSuperAdmin
+      ? prisma.adminAuditLog.findMany({
+          take: 8,
+          include: { actor: true, target: true },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -146,6 +165,20 @@ export default async function AdminPage({
           <Metric label="Active Open Mats" value={eventCount} />
         </div>
 
+        <div className="mt-6 grid gap-4 lg:grid-cols-4">
+          <ModuleCard title="Academy Management" description="Search, filter, verify, feature, and edit academy records." href="/admin/academies" action="Manage academies" />
+          <ModuleCard title="Open Mats" description="Create and maintain active open mat events." href="/admin/open-mats/new" action="Create open mat" />
+          <ModuleCard title="Users" description="Review recent accounts and manage platform access." href="#users" action="Review users" />
+          <ModuleCard title="Email Operations" description="Monitor delivery status, invalid emails, and backend mail settings." href="#email-operations" action="Review email" />
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Users" value={userCount} />
+          <Metric label="Outbound Emails" value={queuedEmailCount} />
+          <Metric label="Email Attention" value={failedEmailCount} />
+          <Metric label="Invalid Emails" value={invalidEmailCount} />
+        </div>
+
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <AdminPanel title="Academy Management" description="Dedicated module for academy search, filtering, pagination, and editing.">
             <div className="grid gap-3 text-sm">
@@ -159,7 +192,7 @@ export default async function AdminPage({
             </div>
           </AdminPanel>
 
-          <AdminPanel title="Email Provisioning" description="Backend configuration for transactional email.">
+          <AdminPanel title="Email Provisioning" description="Backend configuration for transactional email." id="email-operations">
             <div className="grid gap-3 text-sm">
               <ConfigRow label="Provider" value={emailConfig.provider} />
               <ConfigRow label="Sending domain" value={emailConfig.domain} />
@@ -176,7 +209,7 @@ export default async function AdminPage({
             </div>
           </AdminPanel>
 
-          <AdminPanel title="Email Delivery" description="Recent queued, sent, failed, and retrying messages.">
+          <AdminPanel title="Email Delivery" description="Recent queued, sent, failed, and retrying messages." id="email-delivery">
             {recentEmails.length ? (
               <>
                 {recentEmails.map((email) => (
@@ -235,17 +268,17 @@ export default async function AdminPage({
             </AdminPanel>
           ) : null}
 
-          <AdminPanel title="Academies" description="Newest operational slice of academy records.">
+          <AdminPanel title="Academies" description="Newest operational slice of academy records." id="academies">
             {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
             <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
           </AdminPanel>
 
-          <AdminPanel title="Open Mats" description="Active open mat events ordered by event date.">
+          <AdminPanel title="Open Mats" description="Active open mat events ordered by event date." id="open-mats">
             {events.map((event) => <Row key={event.id} primary={event.title} secondary={`${event.academy.name} · ${formatDate(event.eventDate)}`} href={`/admin/open-mats/${event.id}`} />)}
             <Pagination currentPage={currentEventPage} totalItems={eventCount} pageKey="eventsPage" searchParams={params} />
           </AdminPanel>
 
-          <AdminPanel title="Users" description="Recent users with account controls for super admins.">
+          <AdminPanel title="Users" description="Recent users with account controls for super admins." id="users">
             {isSuperAdmin ? (
               <form action={createUser} className="mb-4 grid gap-2 rounded-md border border-stone-200 bg-stone-50 p-3">
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -291,6 +324,28 @@ export default async function AdminPage({
             ))}
             <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
           </AdminPanel>
+
+          {isSuperAdmin ? (
+            <AdminPanel title="Recent Admin Activity" description="Latest audited platform administration actions." id="audit-log">
+              {recentAuditLogs.length ? (
+                recentAuditLogs.map((log) => (
+                  <div key={log.id} className="border-b border-stone-100 py-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-semibold text-stone-950">{log.action}</p>
+                        <p className="break-all text-sm text-stone-600">
+                          {log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}
+                        </p>
+                      </div>
+                      <p className="text-xs font-bold uppercase text-stone-500">{formatDate(log.createdAt)}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-stone-600">No admin activity has been audited yet.</p>
+              )}
+            </AdminPanel>
+          ) : null}
         </div>
       </section>
     </PageShell>
@@ -306,9 +361,19 @@ function Metric({ label, value }: { label: string; value: number }) {
   );
 }
 
-function AdminPanel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+function ModuleCard({ title, description, href, action }: { title: string; description: string; href: string; action: string }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+    <Link href={href} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition hover:border-teal-600">
+      <p className="text-base font-black text-stone-950">{title}</p>
+      <p className="mt-2 min-h-12 text-sm leading-6 text-stone-600">{description}</p>
+      <p className="mt-4 text-sm font-bold text-teal-800">{action}</p>
+    </Link>
+  );
+}
+
+function AdminPanel({ title, description, children, id }: { title: string; description: string; children: React.ReactNode; id?: string }) {
+  return (
+    <section id={id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex flex-col gap-1 border-b border-stone-100 pb-3">
         <h2 className="text-xl font-black text-stone-950">{title}</h2>
         <p className="text-sm text-stone-600">{description}</p>
