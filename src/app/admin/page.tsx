@@ -152,7 +152,7 @@ export default async function AdminPage({
             <p className="mt-2 text-stone-700">Review platform health and manage operational records.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin/academies/new" className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-bold text-white">New Academy</Link>
+            <Link href="/admin/academies" className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-bold text-white">Academies</Link>
             <Link href="/admin/open-mats/new" className="rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-bold text-white">New Open Mat</Link>
           </div>
         </div>
@@ -180,18 +180,6 @@ export default async function AdminPage({
         </div>
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <AdminPanel title="Academy Management" description="Dedicated module for academy search, filtering, pagination, and editing.">
-            <div className="grid gap-3 text-sm">
-              <ConfigRow label="Total academies" value={academyCount.toLocaleString()} />
-              <ConfigRow label="Verified" value={verifiedAcademyCount.toLocaleString()} />
-              <ConfigRow label="Pending verification" value={pendingAcademyCount.toLocaleString()} />
-              <ConfigRow label="Featured" value={featuredAcademyCount.toLocaleString()} />
-              <Link href="/admin/academies" className="inline-flex min-h-11 items-center justify-center rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
-                Open Academy Management
-              </Link>
-            </div>
-          </AdminPanel>
-
           <AdminPanel title="Email Provisioning" description="Backend configuration for transactional email." id="email-operations">
             <div className="grid gap-3 text-sm">
               <ConfigRow label="Provider" value={emailConfig.provider} />

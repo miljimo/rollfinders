@@ -13,6 +13,8 @@ Improve the main RollFinders admin dashboard so it works as a clear operational 
 * Surface invalid email counts for super admins.
 * Show recent audited admin activity for super admins.
 * Preserve existing role-based controls and protected super-admin behavior.
+* Avoid duplicate dashboard panels that repeat metrics already shown in the overview.
+* Keep primary dashboard actions clear: the main admin page links to Academies, while the dedicated Academy Management page owns the New Academy action.
 
 ## Implementation
 
@@ -36,6 +38,9 @@ The admin page now includes:
   * Invalid emails
 * Anchored dashboard panels for academy, open mat, user, email, and audit sections.
 * Recent Admin Activity panel using `AdminAuditLog` for super admins.
+* Removed the duplicated Academy Management panel from `/admin`.
+* Changed the top dashboard action from `New Academy` to `Academies`, linking to `/admin/academies`.
+* Kept the `New Academy` action on `/admin/academies`.
 
 ## Acceptance Criteria
 
@@ -44,4 +49,5 @@ The admin page now includes:
 3. Dashboard provides obvious navigation to major admin modules.
 4. Dashboard displays email and user operational metrics.
 5. Recent admin audit activity is visible to super admins.
-6. TypeScript, lint, and production build checks pass.
+6. Admin dashboard does not repeat the same academy metrics in both overview cards and a second panel.
+7. TypeScript, lint, and production build checks pass.

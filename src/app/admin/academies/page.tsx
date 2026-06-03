@@ -132,43 +132,43 @@ export default async function AcademyManagementPage({
           <Metric label="Featured Academies" value={featuredCount} />
         </div>
 
-        <form action="/admin/academies" className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm lg:grid-cols-6">
-          <label className="grid gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
+        <form action="/admin/academies" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 sm:col-span-2 lg:col-span-4">
             Search
-            <input name="search" placeholder="Search academy by name..." defaultValue={search} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-normal" />
+            <input name="search" placeholder="Search academy by name..." defaultValue={search} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal" />
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
             Verification
-            <select name="verificationStatus" defaultValue={verificationStatus} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-normal">
+            <select name="verificationStatus" defaultValue={verificationStatus} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
               <option value="all">All</option>
               <option value={AcademyVerificationStatus.VERIFIED}>Verified</option>
               <option value={AcademyVerificationStatus.PENDING}>Pending</option>
               <option value={AcademyVerificationStatus.REJECTED}>Rejected</option>
             </select>
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
             Featured
-            <select name="featured" defaultValue={featured} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-normal">
+            <select name="featured" defaultValue={featured} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
               <option value="all">All</option>
               <option value="featured">Featured</option>
               <option value="not-featured">Not Featured</option>
             </select>
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
             City
-            <input name="city" defaultValue={city} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-normal" />
+            <input name="city" defaultValue={city} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal" />
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
             Postcode
-            <input name="postcode" defaultValue={postcode} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-normal" />
+            <input name="postcode" defaultValue={postcode} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal" />
           </label>
-          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
             Page size
-            <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-normal">
+            <select name="pageSize" defaultValue={pageSize} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
               {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
             </select>
           </label>
-          <div className="flex items-end gap-2 lg:col-span-5">
+          <div className="flex min-w-0 items-end gap-2 sm:col-span-2 lg:col-span-10">
             <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Apply Filters</button>
             <Link href="/admin/academies" className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Reset</Link>
           </div>

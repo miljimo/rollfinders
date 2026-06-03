@@ -119,6 +119,8 @@ Dashboard
 
 The Academy Listing page shall display academies in a paginated data table.
 
+The filter form above the table must stay contained within its parent card at supported desktop and mobile widths. Inputs and selects must shrink within their grid cells instead of overflowing horizontally.
+
 ## Table Columns
 
 | Column              | Description                 |
@@ -461,6 +463,7 @@ All academy management actions must be audit logged.
 * Administrators can search academies by name.
 * Administrators can filter academies by verification status.
 * Administrators can filter academies by featured status.
+* Academy filters do not overlap or overflow the filter panel.
 * Administrators can edit academy records directly from the listing page.
 * Dashboard overview displays academy management metrics.
 * API endpoints support pagination, filtering, and search.
