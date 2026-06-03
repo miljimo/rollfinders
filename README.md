@@ -23,6 +23,34 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Local Build Scripts
+
+Linux engineers can run the same core checks used by CI:
+
+```bash
+./scripts/build.sh
+```
+
+Build the production Docker image locally:
+
+```bash
+./scripts/docker-build.sh
+```
+
+Validate Terraform locally:
+
+```bash
+./scripts/terraform-validate.sh
+```
+
+If Terraform is not installed, the script downloads the pinned Linux binary into `.bin/`.
+
+Run the full local CI path:
+
+```bash
+./scripts/local-ci.sh
+```
+
 Seed admin:
 
 - Email: `admin@rollfinder.local`
@@ -70,12 +98,7 @@ Create a Supabase project, copy the database connection details into `DB_NAME`, 
 
 ## Deployment
 
-Set the environment variables from `.env.example` in Vercel, then run:
-
-```bash
-npm run db:migrate
-npm run db:seed
-```
+Deployment is handled by Bitbucket Pipelines and Terraform. See `docs/features/deployment.requirements.md` and `terraform/README.md`.
 
 ## MVP Coverage
 

@@ -6,6 +6,7 @@ Dockerfile
 .dockerignore
 .env
 .env.*
+.bin
 terraform
 docs
 scripts/tools
