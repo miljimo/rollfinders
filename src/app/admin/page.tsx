@@ -11,8 +11,8 @@ import { createUser, toggleUserDisabled, updateUserRole } from "./actions";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinder | Admin Panel - Manage listings",
-  description: "Manage RollFinder academies, open mats, users, and platform content.",
+  title: "RollFinders | Admin Panel - Manage listings",
+  description: "Manage RollFinders academies, open mats, users, and platform content.",
 };
 
 export default async function AdminPage() {

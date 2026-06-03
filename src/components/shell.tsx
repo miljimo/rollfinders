@@ -25,7 +25,7 @@ function BrandLink() {
         className="h-10 w-auto shrink-0"
         sizes="120px"
       />
-      <span>RollFinder</span>
+      <span>RollFinders</span>
     </Link>
   );
 }
@@ -69,7 +69,7 @@ export function SiteFooter() {
   return (
     <footer className="border-t border-stone-200 bg-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-stone-600 sm:px-6 md:flex-row md:items-center md:justify-between">
-        <p>RollFinder helps grapplers find their next round in London.</p>
+        <p>RollFinders helps grapplers find their next round in London.</p>
         <div className="flex flex-wrap gap-4">
           <Link href="/about">About</Link>
           <Link href="/contact">Contact</Link>

@@ -21,7 +21,7 @@ High
 
 # Objective
 
-Automatically provision and configure the RollFinder public domain using Terraform.
+Automatically provision and configure the RollFinders public domain using Terraform.
 
 The domain:
 

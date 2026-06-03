@@ -1,6 +1,6 @@
-# RollFinder Terraform
+# RollFinders Terraform
 
-This Terraform stack deploys RollFinder to AWS using ECS Fargate, an Application Load Balancer, ECR, RDS PostgreSQL, CloudWatch, Secrets Manager, S3, CloudFront, Route53, and IAM.
+This Terraform stack deploys RollFinders to AWS using ECS Fargate, an Application Load Balancer, ECR, RDS PostgreSQL, CloudWatch, Secrets Manager, S3, CloudFront, Route53, and IAM.
 
 Supported environments:
 

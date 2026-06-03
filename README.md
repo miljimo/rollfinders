@@ -1,6 +1,6 @@
-# RollFinder
+# RollFinders
 
-RollFinder is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open mats in London.
+RollFinders is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open mats in London.
 
 ## Stack
 

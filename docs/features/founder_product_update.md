@@ -1,4 +1,4 @@
-# RollFinder MVP PRD (Founder Edition)
+# RollFinders MVP PRD (Founder Edition)
 
 Version: 1.0
 
@@ -14,7 +14,7 @@ Primary Goal: Validate demand before building advanced platform features
 
 # Executive Summary
 
-RollFinder helps Brazilian Jiu-Jitsu practitioners answer one question:
+RollFinders helps Brazilian Jiu-Jitsu practitioners answer one question:
 
 > Where can I train today?
 
@@ -518,7 +518,7 @@ APPROVED FOR MVP IMPLEMENTATION
 
 # Competitive Advantage
 
-RollFinder is not intended to be a generic martial arts directory.
+RollFinders is not intended to be a generic martial arts directory.
 
 The platform differentiates itself by focusing on:
 
@@ -530,7 +530,7 @@ The platform differentiates itself by focusing on:
 - Academy Claiming
 - Mobile-First Training Discovery
 
-The primary question RollFinder answers is:
+The primary question RollFinders answers is:
 
 > Where can I train today?
 
