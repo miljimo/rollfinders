@@ -1,6 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
-import { MapPin, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { NavLink } from "./nav-link";
 import { LogoutButton } from "./logout-button";
@@ -12,6 +13,23 @@ const navItems = [
   ["Map", "/map"],
 ];
 
+function BrandLink() {
+  return (
+    <Link href="/" className="flex min-w-0 items-center gap-2 text-base font-bold text-stone-950">
+      <Image
+        src="/logo.png"
+        alt=""
+        width={1672}
+        height={941}
+        priority
+        className="h-10 w-auto shrink-0"
+        sizes="120px"
+      />
+      <span>RollFinder</span>
+    </Link>
+  );
+}
+
 export async function SiteHeader() {
   const session = await getServerSession(authOptions);
   const isLoggedIn = Boolean(session?.user);
@@ -19,12 +37,7 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 text-base font-bold text-stone-950">
-          <span className="flex size-9 items-center justify-center rounded-md bg-teal-700 text-white">
-            <MapPin size={18} aria-hidden />
-          </span>
-          RollFinder
-        </Link>
+        <BrandLink />
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
           {navItems.map(([label, href]) => (
             <NavLink key={href} href={href}>
@@ -72,12 +85,7 @@ export function StaticSiteHeader() {
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 text-base font-bold text-stone-950">
-          <span className="flex size-9 items-center justify-center rounded-md bg-teal-700 text-white">
-            <MapPin size={18} aria-hidden />
-          </span>
-          RollFinder
-        </Link>
+        <BrandLink />
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
           {navItems.map(([label, href]) => (
             <NavLink key={href} href={href}>

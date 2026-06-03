@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "RollFinder | London BJJ open mats and academies",
   description: "Find Brazilian Jiu-Jitsu academies and open mats in London in under 30 seconds.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({

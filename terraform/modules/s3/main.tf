@@ -1,7 +1,30 @@
+/* 
+  Creating S3 Modules for the S3 Bucket ,
+  This should allow the configuration of any S3 buckets with more opinionated 
+  configurations.
+  From my understanding of S3 bucket configurations.
+  https://docs.aws.amazon.com/AmazonS3/latest/userguide/Welcome.html
+*/
+
+
 resource "aws_s3_bucket" "bucket" {
-  bucket = var.name
+  bucket              = local.unique_name
+  object_lock_enabled = var.lock_enabled
+  force_destroy       = var.force_deletion
+
+
+  lifecycle {
+
+  }
+
+  tags = {
+    BranchName = var.environment_name
+    Name       = local.unique_name
+  }
 }
 
-output "bucket_name" {
-  value = aws_s3_bucket.bucket.bucket
+// Who pays for use of the bucket
+resource "aws_s3_bucket_request_payment_configuration" "request_payment_configuration" {
+  bucket = aws_s3_bucket.bucket.id
+  payer  = var.payer
 }
