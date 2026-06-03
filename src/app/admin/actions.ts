@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { Role, UserStatus } from "@prisma/client";
+import { Role, UserEmailStatus, UserStatus } from "@prisma/client";
 import { isProtectedSuperAdmin, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
@@ -70,6 +70,54 @@ export async function updateUserRole(userId: string, formData: FormData) {
     targetUserId: userId,
     action: "USER_ROLE_UPDATED",
     metadata: { email: user.email, role },
+  });
+
+  revalidatePath("/admin");
+}
+
+export async function deleteInvalidEmailRecord(invalidEmailId: string) {
+  const actor = await requireSuperAdminPage();
+  const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { id: invalidEmailId } });
+  if (!invalidEmail) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.invalidEmailAddress.delete({ where: { id: invalidEmailId } });
+    if (invalidEmail.userId) {
+      await tx.user.update({
+        where: { id: invalidEmail.userId },
+        data: {
+          emailStatus: UserEmailStatus.VALID,
+          emailInvalidReason: null,
+          emailInvalidAt: null,
+        },
+      });
+    }
+  });
+
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    targetUserId: invalidEmail.userId,
+    action: "INVALID_EMAIL_RECORD_DELETED",
+    metadata: { email: invalidEmail.email },
+  });
+
+  revalidatePath("/admin");
+}
+
+export async function deleteInvalidEmailUser(invalidEmailId: string) {
+  const actor = await requireSuperAdminPage();
+  const invalidEmail = await prisma.invalidEmailAddress.findUnique({
+    where: { id: invalidEmailId },
+    include: { user: true },
+  });
+  if (!invalidEmail?.user || isProtectedSuperAdmin(invalidEmail.user)) return;
+
+  await prisma.user.delete({ where: { id: invalidEmail.user.id } });
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    targetUserId: null,
+    action: "INVALID_EMAIL_USER_DELETED",
+    metadata: { email: invalidEmail.email, deletedUserId: invalidEmail.user.id },
   });
 
   revalidatePath("/admin");

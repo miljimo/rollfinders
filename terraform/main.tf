@@ -122,6 +122,11 @@ resource "random_password" "nextauth" {
   special = false
 }
 
+resource "random_password" "cron" {
+  length  = 48
+  special = false
+}
+
 module "database" {
   source             = "./modules/rds_postgres"
   name_prefix        = local.name_prefix
@@ -162,6 +167,7 @@ module "app_secrets" {
     SMTP_HOST       = module.email.smtp_host
     SMTP_PORT       = "587"
     MAILBOX_LINK    = "https://${module.email.mail_from_domain}"
+    CRON_SECRET     = random_password.cron.result
   }
 }
 
@@ -236,7 +242,8 @@ module "app_service" {
         { name = "EMAIL_REPLY_TO", valueFrom = "${module.app_secrets.arn}:EMAIL_REPLY_TO::" },
         { name = "SMTP_HOST", valueFrom = "${module.app_secrets.arn}:SMTP_HOST::" },
         { name = "SMTP_PORT", valueFrom = "${module.app_secrets.arn}:SMTP_PORT::" },
-        { name = "MAILBOX_LINK", valueFrom = "${module.app_secrets.arn}:MAILBOX_LINK::" }
+        { name = "MAILBOX_LINK", valueFrom = "${module.app_secrets.arn}:MAILBOX_LINK::" },
+        { name = "CRON_SECRET", valueFrom = "${module.app_secrets.arn}:CRON_SECRET::" }
       ]
       ports = [
         {

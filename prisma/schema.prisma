@@ -20,6 +20,22 @@ enum UserStatus {
   DISABLED
 }
 
+enum UserEmailStatus {
+  VALID
+  INVALID
+  PENDING_VERIFICATION
+}
+
+enum OutboundEmailStatus {
+  PENDING
+  SENDING
+  SENT
+  FAILED
+  RETRY_PENDING
+  INVALID_EMAIL
+  PERMANENTLY_FAILED
+}
+
 enum GiType {
   GI
   NO_GI
@@ -53,12 +69,17 @@ model User {
   status       UserStatus @default(ACTIVE)
   disabled     Boolean  @default(false)
   isProtected  Boolean  @default(false) @map("is_protected")
+  emailStatus  UserEmailStatus @default(VALID) @map("email_status")
+  emailInvalidReason String? @map("email_invalid_reason")
+  emailInvalidAt DateTime? @map("email_invalid_at")
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")
   academyMemberships AcademyMember[]
   academyInvitations AcademyInvitation[] @relation("AcademyInvitationInviter")
   adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogActor")
   targetedAdminAuditLogs AdminAuditLog[] @relation("AdminAuditLogTarget")
+  outboundEmails OutboundEmail[]
+  invalidEmailAddresses InvalidEmailAddress[]
 
   @@map("users")
 }
@@ -176,4 +197,57 @@ model AdminAuditLog {
   @@index([targetUserId])
   @@index([action])
   @@map("admin_audit_logs")
+}
+
+model OutboundEmail {
+  id              String              @id @default(cuid())
+  userId          String?             @map("user_id")
+  recipientEmail  String              @map("recipient_email")
+  subject         String
+  textBody        String              @map("text_body")
+  htmlBody        String?             @map("html_body")
+  status          OutboundEmailStatus @default(PENDING)
+  retryCount      Int                 @default(0) @map("retry_count")
+  maxRetries      Int                 @default(5) @map("max_retries")
+  nextAttemptAt   DateTime            @default(now()) @map("next_attempt_at")
+  lastAttemptAt   DateTime?           @map("last_attempt_at")
+  sentAt          DateTime?           @map("sent_at")
+  failureReason   String?             @map("failure_reason")
+  providerMessageId String?           @map("provider_message_id")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  statusHistory   OutboundEmailStatusHistory[]
+
+  @@index([status, nextAttemptAt])
+  @@index([recipientEmail])
+  @@index([userId])
+  @@map("outbound_emails")
+}
+
+model OutboundEmailStatusHistory {
+  id              String              @id @default(cuid())
+  outboundEmailId String              @map("outbound_email_id")
+  status          OutboundEmailStatus
+  reason          String?
+  createdAt       DateTime            @default(now()) @map("created_at")
+  outboundEmail   OutboundEmail       @relation(fields: [outboundEmailId], references: [id], onDelete: Cascade)
+
+  @@index([outboundEmailId])
+  @@index([status])
+  @@map("outbound_email_status_history")
+}
+
+model InvalidEmailAddress {
+  id            String   @id @default(cuid())
+  userId        String?  @map("user_id")
+  email         String   @unique
+  failureReason String   @map("failure_reason")
+  failureCount  Int      @default(1) @map("failure_count")
+  lastFailureAt DateTime @default(now()) @map("last_failure_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@map("invalid_email_addresses")
 }

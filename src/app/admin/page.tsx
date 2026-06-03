@@ -7,7 +7,7 @@ import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdmi
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
-import { createUser, toggleUserDisabled, updateUserRole } from "./actions";
+import { createUser, deleteInvalidEmailRecord, deleteInvalidEmailUser, toggleUserDisabled, updateUserRole } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -24,10 +24,18 @@ export default async function AdminPage() {
   const isSuperAdmin = isSuperAdminRole(currentUser.role);
   const emailConfig = getEmailProvisioningConfig();
 
-  const [academies, events, users] = await Promise.all([
+  const [academies, events, users, recentEmails, invalidEmails] = await Promise.all([
     prisma.academy.findMany({ take: 20, orderBy: { name: "asc" } }),
     prisma.event.findMany({ take: 20, where: { active: true }, include: { academy: true }, orderBy: { eventDate: "asc" } }),
     prisma.user.findMany({ take: 20, orderBy: { createdAt: "desc" } }),
+    prisma.outboundEmail.findMany({ take: 8, orderBy: { createdAt: "desc" } }),
+    isSuperAdmin
+      ? prisma.invalidEmailAddress.findMany({
+          take: 20,
+          include: { user: true },
+          orderBy: { lastFailureAt: "desc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   return (
@@ -61,6 +69,57 @@ export default async function AdminPage() {
               <p className="text-xs text-stone-500">Backend services can also read this configuration from /api/admin/email-provisioning.</p>
             </div>
           </AdminPanel>
+          <AdminPanel title="Email Delivery">
+            {recentEmails.length ? (
+              recentEmails.map((email) => (
+                <div key={email.id} className="border-b border-stone-100 py-3">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold text-stone-950">{email.subject}</p>
+                      <p className="break-all text-sm text-stone-600">{email.recipientEmail}</p>
+                    </div>
+                    <p className="text-xs font-bold uppercase text-stone-500">{email.status}</p>
+                  </div>
+                  <p className="mt-1 text-xs text-stone-500">
+                    Attempts: {email.retryCount}{email.lastAttemptAt ? ` · last attempt ${formatDate(email.lastAttemptAt)}` : ""}{email.failureReason ? ` · ${email.failureReason}` : ""}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-stone-600">No outbound emails have been queued yet.</p>
+            )}
+          </AdminPanel>
+          {isSuperAdmin ? (
+            <AdminPanel title="Invalid Emails">
+              {invalidEmails.length ? (
+                invalidEmails.map((invalidEmail) => (
+                  <div key={invalidEmail.id} className="border-b border-stone-100 py-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="break-all font-semibold text-stone-950">{invalidEmail.email}</p>
+                        <p className="text-sm text-stone-600">{invalidEmail.user?.name ?? "No associated user"}</p>
+                        <p className="text-xs text-stone-500">
+                          {invalidEmail.failureReason} · failures: {invalidEmail.failureCount} · {formatDate(invalidEmail.lastFailureAt)}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <form action={deleteInvalidEmailRecord.bind(null, invalidEmail.id)}>
+                          <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Delete Record</button>
+                        </form>
+                        {invalidEmail.user && !isProtectedSuperAdmin(invalidEmail.user) ? (
+                          <form action={deleteInvalidEmailUser.bind(null, invalidEmail.id)}>
+                            <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete User</button>
+                          </form>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-stone-600">No invalid email addresses are recorded.</p>
+              )}
+            </AdminPanel>
+          ) : null}
           <AdminPanel title="Academies">
             {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
           </AdminPanel>

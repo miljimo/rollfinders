@@ -7,6 +7,7 @@ import { randomBytes } from "crypto";
 import { getCurrentUser, requireAdminPage } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
+import { queueEmail } from "@/lib/reliable-email";
 import { academySchema } from "@/lib/validators";
 
 export type AcademyFormState = {
@@ -173,12 +174,39 @@ function invitationToken() {
   return randomBytes(24).toString("hex");
 }
 
+function invitationUrl(token: string) {
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return `${baseUrl}/admin/invitations/${token}`;
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
+}
+
+async function queueAcademyInvitationEmail({
+  invitedEmail,
+  academyName,
+  token,
+}: {
+  invitedEmail: string;
+  academyName: string;
+  token: string;
+}) {
+  const url = invitationUrl(token);
+  await queueEmail({
+    to: invitedEmail,
+    subject: `You've been invited to manage ${academyName} on RollFinders`,
+    text: `You've been invited to manage ${academyName} on RollFinders.\n\nAccept the invitation here: ${url}`,
+    html: `<p>You've been invited to manage <strong>${escapeHtml(academyName)}</strong> on RollFinders.</p><p><a href="${url}">Accept the invitation</a></p>`,
+  });
+}
+
 export async function inviteAcademyAdmin(academyId: string, formData: FormData) {
   const access = await requireAcademyOwner(academyId);
   const invitedEmail = String(formData.get("invitedEmail") ?? "").trim().toLowerCase();
   if (!invitedEmail || !invitedEmail.includes("@")) redirect(`/admin/academies/${academyId}/team?error=invalid-email`);
 
-  await prisma.academyInvitation.create({
+  const invitation = await prisma.academyInvitation.create({
     data: {
       academyId,
       invitedEmail,
@@ -186,6 +214,12 @@ export async function inviteAcademyAdmin(academyId: string, formData: FormData) 
       token: invitationToken(),
       expiresAt: invitationExpiry(),
     },
+    include: { academy: true },
+  });
+  await queueAcademyInvitationEmail({
+    invitedEmail,
+    academyName: invitation.academy.name,
+    token: invitation.token,
   });
 
   revalidatePath(`/admin/academies/${academyId}/team`);
@@ -203,9 +237,15 @@ export async function cancelAcademyInvitation(academyId: string, invitationId: s
 
 export async function resendAcademyInvitation(academyId: string, invitationId: string) {
   await requireAcademyOwner(academyId);
-  await prisma.academyInvitation.update({
+  const invitation = await prisma.academyInvitation.update({
     where: { id: invitationId, academyId },
     data: { token: invitationToken(), status: InvitationStatus.PENDING, expiresAt: invitationExpiry() },
+    include: { academy: true },
+  });
+  await queueAcademyInvitationEmail({
+    invitedEmail: invitation.invitedEmail,
+    academyName: invitation.academy.name,
+    token: invitation.token,
   });
   revalidatePath(`/admin/academies/${academyId}/team`);
 }
