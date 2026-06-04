@@ -57,12 +57,7 @@ export default async function AdminPage({
   if (!currentUser) redirect("/login");
 
   if (!isPlatformAdminRole(currentUser.role)) {
-    const membership = await prisma.academyMember.findFirst({
-      where: { userId: currentUser.id },
-      orderBy: { createdAt: "asc" },
-    });
-    if (membership) redirect(`/admin/academies/${membership.academyId}`);
-    redirect("/login");
+    redirect("/");
   }
   const isSuperAdmin = isSuperAdminRole(currentUser.role);
   const emailConfig = getEmailProvisioningConfig();

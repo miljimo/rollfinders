@@ -264,11 +264,25 @@ async function seedOpenMats() {
   }
 }
 
+async function assignStandardUsersToAcademy() {
+  const academy = await prisma.academy.findFirst({ orderBy: { name: "asc" } });
+  if (!academy) return;
+
+  await prisma.user.updateMany({
+    where: {
+      academyId: null,
+      role: { in: [Role.USER, Role.STANDARD_USER, Role.ACADEMY_OWNER] },
+    },
+    data: { academyId: academy.id },
+  });
+}
+
 async function main() {
   await seedReferenceCsv("boroughs.csv");
   await seedReferenceCsv("gi_types.csv");
   await seedUsers();
   await seedAcademies();
+  await assignStandardUsersToAcademy();
   await seedOpenMats();
 }
 

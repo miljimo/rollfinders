@@ -25,15 +25,18 @@ export function isPlatformAdminRole(role?: string) {
   return isSuperAdminRole(role) || role === "PLATFORM_ADMIN";
 }
 
+export function isStandardUserRole(role?: string) {
+  return role === "STANDARD_USER" || role === "USER";
+}
+
 export function canManageNonPlatformUsers(role?: string) {
   return isPlatformAdminRole(role);
 }
 
 export async function requireAdminPage() {
   const user = await getCurrentUser();
-  if (!isPlatformAdminRole(user?.role)) {
-    redirect("/login");
-  }
+  if (!user) redirect("/login");
+  if (!isPlatformAdminRole(user.role)) redirect("/");
 }
 
 export async function requireSuperAdminPage() {

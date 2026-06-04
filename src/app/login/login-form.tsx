@@ -12,7 +12,7 @@ export function LoginForm() {
       email: formData.get("email"),
       password: formData.get("password"),
       redirect: false,
-      callbackUrl: "/admin",
+      callbackUrl: "/dashboard",
     });
 
     if (result?.error) {
@@ -20,7 +20,7 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href = result?.url ?? "/admin";
+    window.location.href = result?.url ?? "/dashboard";
   }
 
   return (

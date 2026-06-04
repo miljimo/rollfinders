@@ -72,6 +72,7 @@ model User {
   email        String   @unique
   passwordHash String   @map("password_hash")
   role         Role     @default(STANDARD_USER)
+  academyId    String?  @map("academy_id")
   status       UserStatus @default(ACTIVE)
   disabled     Boolean  @default(false)
   isProtected  Boolean  @default(false) @map("is_protected")
@@ -81,6 +82,7 @@ model User {
   lastLoginAt  DateTime? @map("last_login_at")
   createdAt    DateTime @default(now()) @map("created_at")
   academyMemberships AcademyMember[]
+  academy      Academy? @relation("AcademyUsers", fields: [academyId], references: [id], onDelete: SetNull)
   academyInvitations AcademyInvitation[] @relation("AcademyInvitationInviter")
   adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogActor")
   targetedAdminAuditLogs AdminAuditLog[] @relation("AdminAuditLogTarget")
@@ -89,6 +91,7 @@ model User {
   passwordResetTokens PasswordResetToken[]
   createdEvents Event[] @relation("EventCreator")
 
+  @@index([academyId])
   @@map("users")
 }
 
@@ -141,6 +144,7 @@ model Academy {
   events      Event[]
   claims      ClaimRequest[]
   members     AcademyMember[]
+  users       User[] @relation("AcademyUsers")
   invitations AcademyInvitation[]
 
   @@index([city])
