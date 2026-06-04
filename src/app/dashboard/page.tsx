@@ -18,12 +18,14 @@ export default async function StandardDashboardPage() {
   const { user, academy } = await requireDashboardUser();
   const platformAdminUser = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || user.role === Role.PLATFORM_ADMIN;
   const academyAdminUser = user.role === Role.ACADEMY_ADMIN;
-  const rolls = await prisma.event.findMany({
-    where: { ...(platformAdminUser || !academy ? {} : { academyId: academy.id }), active: true },
-    include: { academy: true },
-    orderBy: { createdAt: "desc" },
-    take: 12,
-  });
+  const rolls = academy
+    ? await prisma.event.findMany({
+        where: { academyId: academy.id, active: true },
+        include: { academy: true },
+        orderBy: { createdAt: "desc" },
+        take: 12,
+      })
+    : [];
   const initials = (user.name ?? user.email).slice(0, 2).toUpperCase();
 
   return (
@@ -35,8 +37,8 @@ export default async function StandardDashboardPage() {
           <section className="min-w-0">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="text-sm font-bold uppercase text-teal-800">{platformAdminUser ? "Platform Dashboard" : "My Academy"}</p>
-                <h2 className="mt-1 text-3xl font-black text-stone-950">{platformAdminUser ? "Operational Overview" : `${academy?.name ?? "Academy"} Rolls`}</h2>
+                <p className="text-sm font-bold uppercase text-teal-800">{platformAdminUser ? "Control Panel" : "My Academy"}</p>
+                <h2 className="mt-1 text-3xl font-black text-stone-950">{platformAdminUser ? "Explorer" : `${academy?.name ?? "Academy"} Rolls`}</h2>
               </div>
               <p className="text-sm font-semibold text-stone-600">{rolls.length} active rolls</p>
             </div>
@@ -102,14 +104,7 @@ function UserProfilePanel({ academy, initials, user }: { academy: DashboardAcade
           <p className="mt-2 text-base font-bold text-stone-700">{roleLabel(user.role)}</p>
         </div>
 
-        <nav className="mt-8 grid grid-cols-4 border-b border-stone-200 text-center text-sm font-bold text-stone-600" aria-label="Profile sections">
-          <span className="border-b-2 border-teal-700 px-1 py-3 text-teal-800">Profile</span>
-          <span className="px-1 py-3">Roles</span>
-          <span className="px-1 py-3">Activity</span>
-          <span className="px-1 py-3">Security</span>
-        </nav>
-
-        <section className="py-4">
+        <section className="mt-8 py-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-black text-stone-950">Personal Information</h3>
             <Link href="/dashboard/password" className="rounded-md border border-stone-300 px-3 py-2 text-sm font-bold text-stone-800">Edit</Link>

@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
@@ -95,6 +96,7 @@ export async function createManagedUser(formData: FormData) {
 
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  redirect("/admin/users");
 }
 
 export async function updateManagedUser(userId: string, formData: FormData) {
@@ -144,6 +146,7 @@ export async function updateManagedUser(userId: string, formData: FormData) {
 
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  redirect("/admin/users");
 }
 
 export async function toggleManagedUserDisabled(userId: string) {

@@ -6,11 +6,8 @@ import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdmi
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
-  createManagedUser,
   deleteManagedUser,
-  sendPasswordChangeEmail,
   toggleManagedUserDisabled,
-  updateManagedUser,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -142,15 +139,6 @@ export default async function UserManagementPage({
     take: pageSize,
     orderBy: [{ createdAt: "desc" }, { email: "asc" }],
   });
-  const selectedUserId = firstParam(params.edit);
-  const selectedUser = selectedUserId
-    ? await prisma.user.findUnique({ where: { id: selectedUserId } })
-    : null;
-  const selectedProtectedUser = selectedUser ? isProtectedSuperAdmin(selectedUser) : false;
-  const canEditSelectedUser = Boolean(
-    selectedUser &&
-    (superAdmin || (platformAdmin && !selectedProtectedUser && selectedUser.role !== Role.SUPER_ADMIN && selectedUser.role !== Role.ADMIN && selectedUser.role !== Role.PLATFORM_ADMIN))
-  );
   const academyNames = new Map(academies.map((item) => [item.id, item.name]));
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
@@ -164,7 +152,10 @@ export default async function UserManagementPage({
             <h1 className="mt-2 text-3xl font-black text-stone-950">Users</h1>
             <p className="mt-2 text-stone-700">Search, filter, edit, disable, delete, and send password-change emails.</p>
           </div>
-          <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
+          <div className="flex flex-wrap gap-2">
+            {platformAdmin ? <Link href="/admin/users/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New User</Link> : null}
+            <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -173,41 +164,6 @@ export default async function UserManagementPage({
           <Metric label="Disabled Users" value={disabledUsers} />
           <Metric label="Platform Admins" value={platformAdmins} />
         </div>
-
-        {platformAdmin ? (
-          <form action={createManagedUser} className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm lg:grid-cols-6">
-            <input name="name" placeholder="Name" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            <input name="email" type="email" required placeholder="Email" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            <input name="password" type="password" placeholder="Temporary password" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            {superAdmin ? (
-              <select name="role" defaultValue={Role.STANDARD_USER} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-                <option value={Role.STANDARD_USER}>Standard user</option>
-                <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
-                <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
-                <option value={Role.SUPER_ADMIN}>Super admin</option>
-              </select>
-            ) : (
-              <select name="role" defaultValue={Role.STANDARD_USER} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-                <option value={Role.STANDARD_USER}>Standard user</option>
-                <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
-              </select>
-            )}
-            <select name="academyId" defaultValue="" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-              <option value="">No academy</option>
-              {academies.map((academy) => <option key={academy.id} value={academy.id}>{academy.name}</option>)}
-            </select>
-            <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Create User</button>
-          </form>
-        ) : null}
-
-        {selectedUser && canEditSelectedUser ? (
-          <EditUserPanel
-            academies={academies}
-            cancelHref={compactParams(params, { edit: undefined })}
-            superAdmin={superAdmin}
-            user={selectedUser}
-          />
-        ) : null}
 
         <form action="/admin/users" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
           <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 sm:col-span-2 lg:col-span-4">
@@ -303,12 +259,9 @@ export default async function UserManagementPage({
                       <td className="px-4 py-3">
                         {canManage ? (
                           <div className="flex flex-wrap gap-2">
-                            <Link href={compactParams(params, { edit: user.id })} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
+                            <Link href={`/admin/users/${user.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
                             <form action={toggleManagedUserDisabled.bind(null, user.id)}>
                               <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.status === UserStatus.DISABLED || user.disabled ? "Enable" : "Disable"}</button>
-                            </form>
-                            <form action={sendPasswordChangeEmail.bind(null, user.id)}>
-                              <button className="rounded-md border border-teal-300 px-2 py-1 text-xs font-bold text-teal-800">Send Password Email</button>
                             </form>
                             {canDelete ? (
                               <form action={deleteManagedUser.bind(null, user.id)}>
@@ -353,58 +306,6 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
       <p className="mt-2 text-2xl font-black text-stone-950">{value.toLocaleString()}</p>
     </div>
-  );
-}
-
-function EditUserPanel({
-  academies,
-  cancelHref,
-  superAdmin,
-  user,
-}: {
-  academies: { id: string; name: string }[];
-  cancelHref: string;
-  superAdmin: boolean;
-  user: {
-    id: string;
-    name: string | null;
-    email: string;
-    role: Role;
-    status: UserStatus;
-    academyId: string | null;
-  };
-}) {
-  return (
-    <section className="mt-6 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-bold uppercase text-teal-800">Edit User</p>
-          <h2 className="mt-1 text-xl font-black text-stone-950">{user.name ?? user.email}</h2>
-        </div>
-        <Link href={cancelHref} className="inline-flex min-h-10 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link>
-      </div>
-
-      <form action={updateManagedUser.bind(null, user.id)} className="mt-4 grid gap-3 lg:grid-cols-6">
-        <input name="name" defaultValue={user.name ?? ""} placeholder="Name" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-        <input name="email" type="email" defaultValue={user.email} required className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-        <select name="role" defaultValue={user.role} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-          <option value={Role.STANDARD_USER}>Standard user</option>
-          <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
-          {superAdmin ? <option value={Role.PLATFORM_ADMIN}>Platform admin</option> : null}
-          {superAdmin ? <option value={Role.SUPER_ADMIN}>Super admin</option> : null}
-          {superAdmin && user.role === Role.ADMIN ? <option value={Role.ADMIN}>Admin</option> : null}
-        </select>
-        <select name="status" defaultValue={user.status} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-          <option value={UserStatus.ACTIVE}>Active</option>
-          <option value={UserStatus.DISABLED}>Disabled</option>
-        </select>
-        <select name="academyId" defaultValue={user.academyId ?? ""} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-          <option value="">No academy</option>
-          {academies.map((academy) => <option key={academy.id} value={academy.id}>{academy.name}</option>)}
-        </select>
-        <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Save Changes</button>
-      </form>
-    </section>
   );
 }
 
