@@ -7,19 +7,14 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
   deleteManagedUser,
-  demoteManagedUser,
-  promoteManagedUser,
-  sendPasswordChangeEmail,
   toggleManagedUserDisabled,
-  updateManagedUser,
 } from "./actions";
-import { CreateUserForm } from "./create-user-form";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "RollFinders | User Management",
-  description: "Search, filter, edit, disable, promote, delete, and send password-change emails to users.",
+  description: "Search, filter, edit, disable, delete, and send password-change emails to users.",
 };
 
 const supportedPageSizes = [20, 50, 100];
@@ -53,6 +48,11 @@ function selectedStatus(value: string | undefined) {
 function selectedEmailStatus(value: string | undefined) {
   if (!value || value === "all") return "all";
   return Object.values(UserEmailStatus).includes(value as UserEmailStatus) ? value : "all";
+}
+
+function selectedAcademy(value: string | undefined, academyIds: Set<string>) {
+  if (!value || value === "all") return "all";
+  return academyIds.has(value) ? value : "all";
 }
 
 function isSuperUserRole(role: Role) {
@@ -102,6 +102,11 @@ export default async function UserManagementPage({
   const role = selectedRole(firstParam(params.role));
   const status = selectedStatus(firstParam(params.status));
   const emailStatus = selectedEmailStatus(firstParam(params.emailStatus));
+  const academies = await prisma.academy.findMany({
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  const academy = selectedAcademy(firstParam(params.academy), new Set(academies.map((item) => item.id)));
 
   const where: Prisma.UserWhereInput = {
     ...(search
@@ -115,18 +120,15 @@ export default async function UserManagementPage({
     ...(role !== "all" ? { role: role as Role } : {}),
     ...(status !== "all" ? { status: status as UserStatus } : {}),
     ...(emailStatus !== "all" ? { emailStatus: emailStatus as UserEmailStatus } : {}),
+    ...(academy !== "all" ? { academyId: academy } : {}),
   };
 
-  const [totalItems, totalUsers, activeUsers, disabledUsers, platformAdmins, academies] = await Promise.all([
+  const [totalItems, totalUsers, activeUsers, disabledUsers, platformAdmins] = await Promise.all([
     prisma.user.count({ where }),
     prisma.user.count(),
     prisma.user.count({ where: { status: UserStatus.ACTIVE, disabled: false } }),
     prisma.user.count({ where: { OR: [{ status: UserStatus.DISABLED }, { disabled: true }] } }),
     prisma.user.count({ where: { role: Role.PLATFORM_ADMIN } }),
-    prisma.academy.findMany({
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -137,6 +139,7 @@ export default async function UserManagementPage({
     take: pageSize,
     orderBy: [{ createdAt: "desc" }, { email: "asc" }],
   });
+  const academyNames = new Map(academies.map((item) => [item.id, item.name]));
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
 
@@ -147,9 +150,12 @@ export default async function UserManagementPage({
           <div>
             <p className="text-sm font-bold uppercase tracking-wide text-teal-800">User Management</p>
             <h1 className="mt-2 text-3xl font-black text-stone-950">Users</h1>
-            <p className="mt-2 text-stone-700">Search, filter, edit, disable, promote, delete, and send password-change emails.</p>
+            <p className="mt-2 text-stone-700">Search, filter, edit, disable, delete, and send password-change emails.</p>
           </div>
-          <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
+          <div className="flex flex-wrap gap-2">
+            {platformAdmin ? <Link href="/admin/users/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New User</Link> : null}
+            <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -158,8 +164,6 @@ export default async function UserManagementPage({
           <Metric label="Disabled Users" value={disabledUsers} />
           <Metric label="Platform Admins" value={platformAdmins} />
         </div>
-
-        {platformAdmin ? <CreateUserForm academies={academies} superAdmin={superAdmin} /> : null}
 
         <form action="/admin/users" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
           <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 sm:col-span-2 lg:col-span-4">
@@ -171,6 +175,7 @@ export default async function UserManagementPage({
             <select name="role" defaultValue={role} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
               <option value="all">All</option>
               <option value={Role.STANDARD_USER}>Standard</option>
+              <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
               <option value={Role.PLATFORM_ADMIN}>Platform</option>
               <option value={Role.SUPER_ADMIN}>Super admin</option>
             </select>
@@ -193,6 +198,13 @@ export default async function UserManagementPage({
             </select>
           </label>
           <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
+            Academy
+            <select name="academy" defaultValue={academy} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
+              <option value="all">All</option>
+              {academies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+          </label>
+          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
             Page size
             <select name="pageSize" defaultValue={pageSize} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
               {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
@@ -212,6 +224,7 @@ export default async function UserManagementPage({
                   <th className="px-4 py-3">User</th>
                   <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Academy</th>
                   <th className="px-4 py-3">Email Status</th>
                   <th className="px-4 py-3">Last Login</th>
                   <th className="px-4 py-3">Created</th>
@@ -224,42 +237,21 @@ export default async function UserManagementPage({
                   const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
                   const superUserTarget = isSuperUserRole(user.role);
                   const canDelete = canManage && currentUser?.id !== user.id && !superUserTarget;
-                  const canPromoteOrDemotePlatform = superAdmin && !superUserTarget && currentUser?.id !== user.id;
                   return (
-                    <tr key={user.id} className="border-t border-stone-100 align-top">
+                    <tr key={user.id} className="border-t border-stone-100">
                       <td className="px-4 py-3">
-                        {canManage ? (
-                          <form id={`edit-${user.id}`} action={updateManagedUser.bind(null, user.id)} className="grid gap-2">
-                            <input name="name" defaultValue={user.name ?? ""} placeholder="Name" className="min-h-9 rounded-md border border-stone-300 px-2 text-xs" />
-                            <input name="email" type="email" defaultValue={user.email} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs" />
-                          </form>
-                        ) : (
-                          <div>
-                            <p className="font-semibold text-stone-950">{user.name ?? user.email}</p>
-                            <p className="break-all text-stone-600">{user.email}</p>
-                            {protectedUser ? <p className="mt-1 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
-                          </div>
-                        )}
+                        <p className="font-semibold text-stone-950">{user.name ?? user.email}</p>
+                        <p className="break-all text-stone-600">{user.email}</p>
+                        {protectedUser ? <p className="mt-1 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
                       </td>
                       <td className="px-4 py-3">
-                        {canManage ? (
-                          superAdmin ? (
-                            <select form={`edit-${user.id}`} name="role" defaultValue={user.role} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs">
-                              <option value={Role.STANDARD_USER}>Standard</option>
-                              <option value={Role.PLATFORM_ADMIN}>Platform</option>
-                            </select>
-                          ) : (
-                            <Badge>{user.role}</Badge>
-                          )
-                        ) : <Badge>{user.role}</Badge>}
+                        <Badge>{user.role}</Badge>
                       </td>
                       <td className="px-4 py-3">
-                        {canManage ? (
-                          <select form={`edit-${user.id}`} name="status" defaultValue={user.status} className="min-h-9 rounded-md border border-stone-300 px-2 text-xs">
-                            <option value={UserStatus.ACTIVE}>Active</option>
-                            <option value={UserStatus.DISABLED}>Disabled</option>
-                          </select>
-                        ) : <Badge>{user.status === UserStatus.DISABLED || user.disabled ? "Disabled" : "Active"}</Badge>}
+                        <Badge>{user.status === UserStatus.DISABLED || user.disabled ? "Disabled" : "Active"}</Badge>
+                      </td>
+                      <td className="px-4 py-3">
+                        {user.academyId ? academyNames.get(user.academyId) ?? "Unknown academy" : "None"}
                       </td>
                       <td className="px-4 py-3"><Badge>{user.emailStatus}</Badge></td>
                       <td className="px-4 py-3 text-stone-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
@@ -267,17 +259,9 @@ export default async function UserManagementPage({
                       <td className="px-4 py-3">
                         {canManage ? (
                           <div className="flex flex-wrap gap-2">
-                            <button form={`edit-${user.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Save</button>
+                            <Link href={`/admin/users/${user.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
                             <form action={toggleManagedUserDisabled.bind(null, user.id)}>
                               <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.status === UserStatus.DISABLED || user.disabled ? "Enable" : "Disable"}</button>
-                            </form>
-                            {canPromoteOrDemotePlatform ? (
-                              <form action={(user.role === Role.PLATFORM_ADMIN ? demoteManagedUser : promoteManagedUser).bind(null, user.id)}>
-                                <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.role === Role.PLATFORM_ADMIN ? "Demote" : "Promote"}</button>
-                              </form>
-                            ) : null}
-                            <form action={sendPasswordChangeEmail.bind(null, user.id)}>
-                              <button className="rounded-md border border-teal-300 px-2 py-1 text-xs font-bold text-teal-800">Send Password Email</button>
                             </form>
                             {canDelete ? (
                               <form action={deleteManagedUser.bind(null, user.id)}>
@@ -294,7 +278,7 @@ export default async function UserManagementPage({
                 })}
                 {!users.length ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-stone-600">No users match these filters.</td>
+                    <td colSpan={8} className="px-4 py-8 text-center text-stone-600">No users match these filters.</td>
                   </tr>
                 ) : null}
               </tbody>

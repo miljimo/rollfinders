@@ -1,96 +1,29 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { ArrowRight, Mail, RefreshCw, Send, Settings, ShieldCheck } from "lucide-react";
 import { PageShell } from "@/components/shell";
-import { isProtectedSuperAdmin, requireSuperAdminPage } from "@/lib/admin";
+import { requireAdminPage } from "@/lib/admin";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
-import { deleteInvalidEmailRecord, deleteInvalidEmailUser } from "../actions";
-import { auditPlatformSettingsReview } from "./actions";
-import { SuperAdminPasswordForm } from "./password-form";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinders | Platform Settings",
-  description: "Super Admin platform settings and audited configuration review.",
+  title: "RollFinders | Settings",
+  description: "Manage email operations, audits, and application settings.",
 };
 
-const pageSize = 8;
-
-type SettingsSearchParams = Record<string, string | string[] | undefined>;
-
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function pageFromParams(searchParams: SettingsSearchParams, key: string) {
-  const value = Number(firstParam(searchParams[key]) ?? "1");
-  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
-}
-
-function clampPage(page: number, totalItems: number) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  return Math.min(page, totalPages);
-}
-
-function pageHref(searchParams: SettingsSearchParams, key: string, page: number) {
-  const params = new URLSearchParams();
-  Object.entries(searchParams).forEach(([paramKey, value]) => {
-    if (!value || paramKey === key) return;
-    if (Array.isArray(value)) {
-      value.forEach((item) => params.append(paramKey, item));
-      return;
-    }
-    params.set(paramKey, value);
-  });
-  if (page > 1) params.set(key, String(page));
-  const query = params.toString();
-  return query ? `/admin/settings?${query}` : "/admin/settings";
-}
-
-export default async function PlatformSettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SettingsSearchParams>;
-}) {
-  await requireSuperAdminPage();
+export default async function SettingsPage() {
+  await requireAdminPage();
   const emailConfig = getEmailProvisioningConfig();
-  const params = await searchParams;
-  const emailPage = pageFromParams(params, "emailsPage");
-  const invalidEmailPage = pageFromParams(params, "invalidEmailsPage");
-
-  const [userCount, queuedEmailCount, failedEmailCount, invalidEmailCount] = await Promise.all([
-    prisma.user.count(),
+  const [outboundEmailCount, failedEmailCount, invalidEmailCount, recentAuditLogs] = await Promise.all([
     prisma.outboundEmail.count(),
     prisma.outboundEmail.count({ where: { status: { in: ["FAILED", "RETRY_PENDING", "INVALID_EMAIL", "PERMANENTLY_FAILED"] } } }),
     prisma.invalidEmailAddress.count(),
-  ]);
-
-  const currentEmailPage = clampPage(emailPage, queuedEmailCount);
-  const currentInvalidEmailPage = clampPage(invalidEmailPage, invalidEmailCount);
-
-  const [recentEmails, invalidEmails, recentAdminLogs, recentSettingsLogs] = await Promise.all([
-    prisma.outboundEmail.findMany({
-      skip: (currentEmailPage - 1) * pageSize,
-      take: pageSize,
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.invalidEmailAddress.findMany({
-      skip: (currentInvalidEmailPage - 1) * pageSize,
-      take: pageSize,
-      include: { user: true },
-      orderBy: { lastFailureAt: "desc" },
-    }),
     prisma.adminAuditLog.findMany({
       take: 8,
       include: { actor: true, target: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.adminAuditLog.findMany({
-      where: { action: { startsWith: "PLATFORM_SETTINGS" } },
-      take: 8,
-      include: { actor: true },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -98,214 +31,101 @@ export default async function PlatformSettingsPage({
   return (
     <PageShell>
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Platform Settings</p>
-            <h1 className="mt-2 text-3xl font-black text-stone-950">Settings</h1>
-            <p className="mt-2 text-stone-700">Review platform-level configuration and record audited settings actions.</p>
+            <h1 className="text-3xl font-black text-stone-950">Settings</h1>
+            <p className="mt-2 text-stone-700">Manage email operations, audit activity, and future application settings.</p>
           </div>
-          <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
+          <Link href="/admin/settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">
+            <RefreshCw size={16} aria-hidden /> Refresh
+          </Link>
         </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Users" value={userCount} />
-          <Metric label="Outbound Emails" value={queuedEmailCount} />
-          <Metric label="Email Attention" value={failedEmailCount} />
-          <Metric label="Invalid Emails" value={invalidEmailCount} />
-        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <SettingsCard accent="teal" icon={<Mail size={22} aria-hidden />} title="Emails Overview">
+            <Info label="Provider" value={emailConfig.provider} />
+            <Info label="Outbound Emails" value={outboundEmailCount.toLocaleString()} />
+            <Info label="Email Attention" value={failedEmailCount.toLocaleString()} />
+            <Info label="Invalid Emails" value={invalidEmailCount.toLocaleString()} />
+            <CardLink href="/admin/settings">View email settings</CardLink>
+          </SettingsCard>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <SettingsPanel title="Email Provisioning" description="Backend configuration for transactional email.">
-            <div className="mt-4 grid gap-3 text-sm">
-              <ConfigRow label="Provider" value={emailConfig.provider} />
-              <ConfigRow label="Sending domain" value={emailConfig.domain} />
-              <ConfigRow label="Default sender" value={emailConfig.fromAddress} />
-              <ConfigRow label="Reply-to" value={emailConfig.replyToAddress} />
-              <ConfigRow label="SMTP server" value={`${emailConfig.smtpHost}:${emailConfig.smtpPort}`} />
-              <ConfigRow label="AWS region" value={emailConfig.region} />
-              <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
-                <p className="text-xs font-bold uppercase text-teal-800">Mailbox link</p>
-                <a href={emailConfig.mailboxLink} className="mt-1 block break-all font-semibold text-teal-900 underline">
-                  {emailConfig.mailboxLink}
-                </a>
-              </div>
-            </div>
-            <form action={auditPlatformSettingsReview} className="mt-4">
-              <input type="hidden" name="setting" value="email-configuration" />
-              <button className="rounded-md bg-stone-950 px-4 py-3 text-sm font-bold text-white">Record Review</button>
-            </form>
-          </SettingsPanel>
-
-          <SettingsPanel title="Email Delivery" description="Recent queued, sent, failed, and retrying messages.">
-            {recentEmails.length ? (
-              <>
-                {recentEmails.map((email) => (
-                  <div key={email.id} className="border-b border-stone-100 py-3">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-stone-950">{email.subject}</p>
-                        <p className="break-all text-sm text-stone-600">{email.recipientEmail}</p>
-                      </div>
-                      <p className="text-xs font-bold uppercase text-stone-500">{email.status}</p>
-                    </div>
-                    <p className="mt-1 text-xs text-stone-500">
-                      Attempts: {email.retryCount}{email.lastAttemptAt ? ` · last attempt ${formatDate(email.lastAttemptAt)}` : ""}{email.failureReason ? ` · ${email.failureReason}` : ""}
-                    </p>
+          <SettingsCard accent="violet" icon={<ShieldCheck size={22} aria-hidden />} title="Recent Audits">
+            {recentAuditLogs.length ? (
+              recentAuditLogs.map((log) => (
+                <div key={log.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-stone-950">{sentenceCase(log.action)}</p>
+                    <p className="truncate text-sm text-stone-600">{log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}</p>
                   </div>
-                ))}
-                <Pagination currentPage={currentEmailPage} totalItems={queuedEmailCount} pageKey="emailsPage" searchParams={params} />
-              </>
-            ) : (
-              <p className="text-sm text-stone-600">No outbound emails have been queued yet.</p>
-            )}
-          </SettingsPanel>
-
-          <SettingsPanel title="Invalid Emails" description="Permanent delivery failures requiring account cleanup.">
-            {invalidEmails.length ? (
-              <>
-                {invalidEmails.map((invalidEmail) => (
-                  <div key={invalidEmail.id} className="border-b border-stone-100 py-3">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="break-all font-semibold text-stone-950">{invalidEmail.email}</p>
-                        <p className="text-sm text-stone-600">{invalidEmail.user?.name ?? "No associated user"}</p>
-                        <p className="text-xs text-stone-500">
-                          {invalidEmail.failureReason} · failures: {invalidEmail.failureCount} · {formatDate(invalidEmail.lastFailureAt)}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <form action={deleteInvalidEmailRecord.bind(null, invalidEmail.id)}>
-                          <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Delete Record</button>
-                        </form>
-                        {invalidEmail.user && !isProtectedSuperAdmin(invalidEmail.user) ? (
-                          <form action={deleteInvalidEmailUser.bind(null, invalidEmail.id)}>
-                            <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete User</button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <Pagination currentPage={currentInvalidEmailPage} totalItems={invalidEmailCount} pageKey="invalidEmailsPage" searchParams={params} />
-              </>
-            ) : (
-              <p className="text-sm text-stone-600">No invalid email addresses are recorded.</p>
-            )}
-          </SettingsPanel>
-
-          <SettingsPanel title="Password" description="Change the active Super Admin password.">
-            <SuperAdminPasswordForm />
-          </SettingsPanel>
-
-          <SettingsPanel title="Recent Admin Activity" description="Latest audited platform administration actions.">
-            {recentAdminLogs.length ? (
-              recentAdminLogs.map((log) => (
-                <div key={log.id} className="border-b border-stone-100 py-3">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-stone-950">{log.action}</p>
-                      <p className="break-all text-sm text-stone-600">
-                        {log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}
-                      </p>
-                    </div>
-                    <p className="text-xs font-bold uppercase text-stone-500">{formatDate(log.createdAt)}</p>
-                  </div>
+                  <p className="shrink-0 text-xs font-semibold text-stone-500">{formatDate(log.createdAt)}</p>
                 </div>
               ))
             ) : (
-              <p className="text-sm text-stone-600">No admin activity has been audited yet.</p>
+              <p className="text-sm text-stone-600">No audit activity yet.</p>
             )}
-          </SettingsPanel>
+            <CardLink href="/admin/settings">View all audits</CardLink>
+          </SettingsCard>
 
-          <SettingsPanel title="Audit Trail" description="Latest audited settings review and password actions.">
-            <div className="mt-3">
-              {recentSettingsLogs.length ? recentSettingsLogs.map((log) => (
-                <div key={log.id} className="border-b border-stone-100 py-3">
-                  <p className="font-semibold text-stone-950">{log.action}</p>
-                  <p className="text-sm text-stone-600">{log.actor.email} · {formatDate(log.createdAt)}</p>
-                </div>
-              )) : <p className="text-sm text-stone-600">No settings activity has been audited yet.</p>}
+          <SettingsCard accent="blue" icon={<Settings size={22} aria-hidden />} title="Application Settings">
+            <p className="max-w-sm text-sm font-semibold leading-6 text-stone-700">Configure future platform behavior and system preferences.</p>
+            <div className="mx-auto my-8 flex size-24 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
+              <Settings size={48} aria-hidden />
             </div>
-          </SettingsPanel>
+            <p className="mx-auto max-w-xs text-center text-sm font-bold leading-6 text-stone-700">Application settings will be available here when configuration requirements are ready.</p>
+            <CardLink href="/admin/settings">Learn more</CardLink>
+          </SettingsCard>
         </div>
+
+        <section className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black text-blue-950">What&apos;s coming next?</h2>
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900">More application settings and configuration controls will be available here. We&apos;re working on bringing powerful tools to manage your platform better.</p>
+            </div>
+            <Send className="hidden text-blue-300 sm:block" size={56} aria-hidden />
+          </div>
+        </section>
       </section>
     </PageShell>
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
-      <p className="mt-2 text-2xl font-black text-stone-950">{value.toLocaleString()}</p>
-    </div>
-  );
-}
+function SettingsCard({ accent, children, icon, title }: { accent: "blue" | "teal" | "violet"; children: React.ReactNode; icon: React.ReactNode; title: string }) {
+  const accentClass = {
+    blue: "border-blue-200 text-blue-700",
+    teal: "border-teal-100 text-teal-700",
+    violet: "border-violet-200 text-violet-700",
+  }[accent];
 
-function SettingsPanel({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <div className="border-b border-stone-100 pb-3">
-        <h2 className="text-xl font-black text-stone-950">{title}</h2>
-        <p className="mt-1 text-sm text-stone-600">{description}</p>
+    <section className={`rounded-lg border bg-white p-4 shadow-sm ${accentClass}`}>
+      <div className="flex items-center gap-3">
+        <span className="inline-flex size-10 items-center justify-center rounded-md bg-current/10">{icon}</span>
+        <h2 className="text-lg font-black">{title}</h2>
       </div>
-      <div className="mt-3">{children}</div>
+      <div className="mt-4">{children}</div>
     </section>
   );
 }
 
-function ConfigRow({ label, value }: { label: string; value: string }) {
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-stone-100 pb-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
-      <p className="break-all font-semibold text-stone-950">{value}</p>
+    <div className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
+      <p className="text-sm font-bold text-teal-800">{label}</p>
+      <p className="mt-1 break-all font-semibold text-stone-950">{value}</p>
     </div>
   );
 }
 
-function Pagination({
-  currentPage,
-  totalItems,
-  pageKey,
-  searchParams,
-}: {
-  currentPage: number;
-  totalItems: number;
-  pageKey: string;
-  searchParams: SettingsSearchParams;
-}) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const end = Math.min(currentPage * pageSize, totalItems);
-
+function CardLink({ children, href }: { children: React.ReactNode; href: string }) {
   return (
-    <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-stone-600">
-        Showing {start}-{end} of {totalItems}
-      </p>
-      <div className="flex gap-2">
-        <PaginationLink disabled={currentPage <= 1} href={pageHref(searchParams, pageKey, currentPage - 1)}>Previous</PaginationLink>
-        <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-600">
-          Page {currentPage} of {totalPages}
-        </span>
-        <PaginationLink disabled={currentPage >= totalPages} href={pageHref(searchParams, pageKey, currentPage + 1)}>Next</PaginationLink>
-      </div>
-    </div>
-  );
-}
-
-function PaginationLink({ disabled, href, children }: { disabled: boolean; href: string; children: React.ReactNode }) {
-  if (disabled) {
-    return (
-      <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-400">
-        {children}
-      </span>
-    );
-  }
-
-  return (
-    <Link href={href} className="inline-flex min-h-9 items-center rounded-md border border-stone-300 px-3 text-xs font-bold text-stone-800">
-      {children}
+    <Link href={href} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-teal-800">
+      {children} <ArrowRight size={16} aria-hidden />
     </Link>
   );
+}
+
+function sentenceCase(value: string) {
+  return value.replaceAll("_", " ").toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
 }
