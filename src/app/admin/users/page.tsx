@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
-import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Plus, Search, Shield, Trash2, User, Users } from "lucide-react";
+import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { PageShell } from "@/components/shell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -164,12 +164,6 @@ export default async function UserManagementPage({
                 <h1 className="text-3xl font-black text-slate-950">Users &amp; Roles</h1>
                 <p className="mt-2 text-base text-slate-500">Manage users, roles and academy access.</p>
               </div>
-              {platformAdmin ? (
-                <Link href="/admin/users/new" className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md bg-teal-700 px-5 text-base font-bold text-white shadow-sm transition hover:bg-teal-800">
-                  <Plus size={22} aria-hidden="true" />
-                  New User
-                </Link>
-              ) : null}
             </div>
 
             <form action="/admin/users" className="mt-6 grid gap-4 lg:grid-cols-[1fr_auto]">

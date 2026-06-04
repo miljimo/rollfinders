@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Building2, CalendarDays, ChevronDown, ChevronRight, HelpCircle, Home, LogOut, Mail, Map, Menu, RefreshCw, Search, Send, Settings, ShieldCheck, Users, X } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, ChevronDown, ChevronRight, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
@@ -276,6 +276,12 @@ export default async function AdminPage({
           ) : null}
           {panel === "users" ? (
             <AdminPanel
+              action={(
+                <Link href="/admin/users/new" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                  <Plus size={18} aria-hidden />
+                  New User
+                </Link>
+              )}
               description="Newest operational slice of user records and role assignments."
               id="users"
               search={<PanelSearch panel={panel} search={search} />}
@@ -560,7 +566,7 @@ function roleLabel(role: string) {
   return "Standard User";
 }
 
-function AdminPanel({ title, description, children, id, search }: { title: string; description: string; children: React.ReactNode; id?: string; search: React.ReactNode }) {
+function AdminPanel({ title, description, action, children, id, search }: { title: string; description: string; action?: React.ReactNode; children: React.ReactNode; id?: string; search: React.ReactNode }) {
   return (
     <section id={id}>
       <div className="grid gap-4 border-b border-stone-100 pb-4 lg:grid-cols-[minmax(240px,360px)_1fr] lg:items-start">
@@ -568,7 +574,10 @@ function AdminPanel({ title, description, children, id, search }: { title: strin
           <h2 className="text-xl font-black text-stone-950">{title}</h2>
           <p className="text-sm text-stone-600">{description}</p>
         </div>
-        {search}
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          {search}
+          {action}
+        </div>
       </div>
       <div className="mt-3">{children}</div>
     </section>
