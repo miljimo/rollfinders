@@ -1,5 +1,3 @@
-# ticket-terraform-refactor-bootstrap-and-runtime.md
-
 # Feature: Terraform Deployment Refactor
 
 ## Bootstrap Infrastructure vs Runtime Infrastructure

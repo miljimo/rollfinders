@@ -1,6 +1,4 @@
-# Product Requirements Document (PRD)
-
-# Feature: Reliable Email Delivery and Email Failure Management
+# Reliable Email Delivery and Email Failure Management
 
 ## Version
 

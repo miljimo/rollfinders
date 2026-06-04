@@ -96,7 +96,7 @@ The app and Prisma derive the PostgreSQL connection string from those values. Yo
 
 ## Deployment
 
-Deployment is handled by Bitbucket Pipelines and Terraform. See `docs/features/deployment.requirements.md` and `terraform/README.md`.
+Deployment is handled by Bitbucket Pipelines and Terraform. See `docs/features/Deployment/DeploymentPlatformEnhancement.md` and `terraform/README.md`.
 
 ## MVP Coverage
 

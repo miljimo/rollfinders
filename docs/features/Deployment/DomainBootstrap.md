@@ -1,5 +1,3 @@
-# ticket-domain-bootstrap.md
-
 # Feature: Route53 Domain Bootstrap & ACM Certificate Provisioning
 
 ## Type

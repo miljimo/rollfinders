@@ -34,8 +34,6 @@ In scope:
   * Disable users
   * Enable users
   * Delete users
-  * Promote users
-  * Demote users
   * Send password-change emails to users
 * Preserve protected super-admin safeguards.
 * Audit all user management actions.

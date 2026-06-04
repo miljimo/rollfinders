@@ -1,6 +1,4 @@
-# Feature.md
-
-# Feature: Public Business Information Pages
+# Public Business Information Pages
 
 ## Feature ID
 

@@ -1,6 +1,4 @@
-# Feature.md
-
-# Feature: Platform User Management & Protected Super Admin
+# Platform User Management & Protected Super Admin
 
 ## Feature ID
 

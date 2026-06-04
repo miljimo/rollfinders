@@ -1,6 +1,4 @@
-# Feature.md
-
-# Feature: CSV-Based Data Seeding Framework
+# CSV-Based Data Seeding Framework
 
 ## Feature ID
 
