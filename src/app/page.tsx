@@ -22,7 +22,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
 
   return (
     <PageShell>
-      <section className="relative overflow-hidden border-b border-stone-200 bg-white">
+      <section className="relative overflow-hidden border-b border-stone-200 bg-[#eef6ef]">
         <div className="pointer-events-none absolute inset-0 opacity-70 [background-image:radial-gradient(circle_at_1px_1px,rgba(15,118,110,0.12)_1px,transparent_0)] [background-size:28px_28px]" />
         <div className="pointer-events-none absolute left-[46%] top-0 hidden h-full w-[42rem] rounded-full border border-dashed border-teal-100 lg:block" />
         <div className="mx-auto grid max-w-7xl gap-9 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-14">
