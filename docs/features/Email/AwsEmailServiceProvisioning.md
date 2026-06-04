@@ -1,8 +1,8 @@
-# Product Requirements Document (PRD)
+# AWS Email Service Provisioning
 
-## Title
+## Document Type
 
-AWS Email Service Provisioning for Backend Applications
+Product Requirements Document
 
 ## Document Version
 

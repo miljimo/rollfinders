@@ -1,6 +1,4 @@
-# Feature.md
-
-# Feature: Intelligent Location-Based Search & Discovery
+# Intelligent Location-Based Search & Discovery
 
 ## Feature ID
 

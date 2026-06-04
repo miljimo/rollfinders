@@ -1,6 +1,4 @@
-# Feature.md
-
-# Feature: Platform Administration & Moderation Management
+# Platform Administration & Moderation Management
 
 ## Feature ID
 

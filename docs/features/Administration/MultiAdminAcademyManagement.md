@@ -1,6 +1,4 @@
-# Feature.md
-
-# Feature: Multi-Admin Academy Management
+# Multi-Admin Academy Management
 
 ## Feature ID
 
