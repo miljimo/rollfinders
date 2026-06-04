@@ -94,9 +94,11 @@ export async function createManagedUser(formData: FormData) {
     metadata: { email, role, academyId },
   });
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
   revalidatePath("/admin/users");
   revalidatePath("/admin");
-  redirect("/admin/users");
+  redirect(redirectTo);
 }
 
 export async function updateManagedUser(userId: string, formData: FormData) {

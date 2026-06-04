@@ -3,13 +3,15 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ArrowRight, Building2, CalendarDays, ChevronDown, ChevronRight, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Users, X } from "lucide-react";
-import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
+import { createManagedUser } from "./users/actions";
+import { UserForm } from "./users/form";
 
 export const dynamic = "force-dynamic";
 
@@ -89,8 +91,10 @@ export default async function AdminPage({
   });
   const params = await searchParams;
   const panel = selectedPanel(firstParam(params.panel));
+  const dialog = firstParam(params.dialog);
   const search = (firstParam(params.search) ?? "").trim();
   const emailConfig = getEmailProvisioningConfig();
+  const superAdmin = isSuperAdminRole(currentUser.role);
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -277,7 +281,7 @@ export default async function AdminPage({
           {panel === "users" ? (
             <AdminPanel
               action={(
-                <Link href="/admin/users/new" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                <Link href="/admin?panel=users&dialog=new-user" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
                   <Plus size={18} aria-hidden />
                   New User
                 </Link>
@@ -295,6 +299,36 @@ export default async function AdminPage({
         </section>
         )}
       </main>
+      {panel === "users" && dialog === "new-user" ? (
+        <NewUserDialog academies={academies} superAdmin={superAdmin} />
+      ) : null}
+    </div>
+  );
+}
+
+function NewUserDialog({ academies, superAdmin }: { academies: { id: string; name: string }[]; superAdmin: boolean }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role="dialog" aria-modal="true" aria-labelledby="new-user-title">
+      <Link href="/admin?panel=users" className="fixed inset-0" aria-label="Close new user dialog" />
+      <section className="relative z-[71] w-full max-w-3xl rounded-lg bg-white p-5 shadow-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4">
+          <div>
+            <h2 id="new-user-title" className="text-3xl font-black text-slate-950">New User</h2>
+            <p className="mt-2 text-sm text-slate-600">Create a user and assign role and academy access.</p>
+          </div>
+          <Link href="/admin?panel=users" className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label="Close new user dialog">
+            <X size={20} aria-hidden />
+          </Link>
+        </div>
+        <UserForm
+          academies={academies}
+          action={createManagedUser}
+          cancelHref="/admin?panel=users"
+          mode="create"
+          returnTo="/admin?panel=users"
+          superAdmin={superAdmin}
+        />
+      </section>
     </div>
   );
 }

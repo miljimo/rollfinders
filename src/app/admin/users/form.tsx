@@ -17,18 +17,23 @@ type UserFormUser = {
 export function UserForm({
   academies,
   action,
+  cancelHref = "/admin/users",
   mode,
+  returnTo,
   superAdmin,
   user,
 }: {
   academies: UserFormAcademy[];
   action: (formData: FormData) => Promise<void>;
+  cancelHref?: string;
   mode: "create" | "edit";
+  returnTo?: string;
   superAdmin: boolean;
   user?: UserFormUser;
 }) {
   return (
     <form action={action} className="mt-8 rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       <div className="grid gap-6">
         <label className="grid gap-2 text-lg font-bold text-stone-950">
           Name
@@ -81,7 +86,7 @@ export function UserForm({
         <button className="min-h-12 rounded-md bg-stone-950 px-5 text-sm font-bold text-white">
           {mode === "create" ? "Create User" : "Save Changes"}
         </button>
-        <Link href="/admin/users" className="inline-flex min-h-12 items-center rounded-md border border-stone-300 px-5 text-sm font-bold text-stone-800">Cancel</Link>
+        <Link href={cancelHref} className="inline-flex min-h-12 items-center rounded-md border border-stone-300 px-5 text-sm font-bold text-stone-800">Cancel</Link>
       </div>
     </form>
   );
