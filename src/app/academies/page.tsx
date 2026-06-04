@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/shell";
-import { LocationSearchForm } from "@/components/location-search-form";
+import { LocationSearchForm } from "@/components/LocationSearchForm";
 import { AcademyCard } from "@/components/ui";
 import { searchAcademies } from "@/lib/data";
 

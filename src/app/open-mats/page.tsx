@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/shell";
-import { OpenMatLocationFilterForm } from "@/components/location-search-form";
+import { OpenMatLocationFilterForm } from "@/components/LocationSearchForm";
 import { EventCard } from "@/components/ui";
 import { getOpenMatRadar } from "@/lib/data";
 

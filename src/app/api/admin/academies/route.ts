@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
-import { requireAdminApi, requireSuperAdminApi } from "@/lib/admin";
+import { academyScopedAcademyWhere, getCurrentUser, requireAdminApi, requireSuperAdminApi } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -48,6 +48,8 @@ function toNullableNumber(value: number | "" | undefined) {
 export async function GET(request: Request) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const url = new URL(request.url);
   const page = parsePositiveInt(param(url, "page"), 1);
@@ -59,6 +61,7 @@ export async function GET(request: Request) {
   const postcode = param(url, "postcode");
 
   const where: Prisma.AcademyWhereInput = {
+    ...academyScopedAcademyWhere(actor),
     ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
     ...(verificationStatus ? { verificationStatus } : {}),
     ...(featured === "featured" ? { featured: true } : {}),

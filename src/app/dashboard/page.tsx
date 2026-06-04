@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarDays, Users } from "lucide-react";
+import { Role } from "@prisma/client";
 import { PageShell } from "@/components/shell";
 import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
@@ -14,9 +15,10 @@ export const metadata: Metadata = {
 };
 
 export default async function StandardDashboardPage() {
-  const { user, academy } = await requireStandardDashboardUser();
+  const { user, academy } = await requireStandardDashboardUser({ allowPlatformAdmin: true });
+  const platformAdmin = user.role === Role.PLATFORM_ADMIN;
   const rolls = await prisma.event.findMany({
-    where: { academyId: academy.id, active: true },
+    where: { ...(platformAdmin ? {} : { academyId: academy!.id }), active: true },
     include: { academy: true },
     orderBy: { createdAt: "desc" },
     take: 12,
@@ -39,30 +41,57 @@ export default async function StandardDashboardPage() {
             </div>
             <dl className="mt-5 grid gap-3 text-sm">
               <ProfileRow label="Registered" value={formatDate(user.createdAt)} />
-              <ProfileRow label="Academy" value={academy.name} />
-              <ProfileRow label="Role" value="Standard User" />
+              {academy ? <ProfileRow label="Academy" value={academy.name} /> : null}
+              <ProfileRow label="Role" value={platformAdmin ? "Platform Admin" : "Standard User"} />
             </dl>
             <div className="mt-5 grid gap-2">
               <Link href="/dashboard/password" className="inline-flex min-h-11 items-center justify-center rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
                 Change Password
               </Link>
-              <Link href="/dashboard/members" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">
-                <Users size={16} aria-hidden /> Members
-              </Link>
-              <Link href={`/academies/${academy.slug}`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">
-                View Academy
-              </Link>
+              {platformAdmin ? (
+                <Link href="/admin" className="inline-flex min-h-11 items-center justify-center rounded-md bg-stone-950 px-4 text-sm font-bold text-white">
+                  Admin Dashboard
+                </Link>
+              ) : (
+                <>
+                  <Link href="/dashboard/members" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">
+                    <Users size={16} aria-hidden /> Members
+                  </Link>
+                  <Link href={`/academies/${academy!.slug}`} className="inline-flex min-h-11 items-center justify-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">
+                    View Academy
+                  </Link>
+                </>
+              )}
             </div>
           </aside>
 
           <section className="min-w-0">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <p className="text-sm font-bold uppercase text-teal-800">My Academy</p>
-                <h2 className="mt-1 text-3xl font-black text-stone-950">{academy.name} Rolls</h2>
+            {platformAdmin ? (
+              <>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-bold uppercase text-teal-800">Platform Operations</p>
+                    <h2 className="mt-1 text-3xl font-black text-stone-950">Admin Dashboard</h2>
+                  </div>
+                  <p className="text-sm font-semibold text-stone-600">Reusing existing admin tools</p>
+                </div>
+
+                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                  <AdminShortcut title="Academy Management" description="Search, verify, feature, and edit academy records." href="/admin/academies" />
+                  <AdminShortcut title="Open Mats" description="Search, edit, and maintain open mat events across academies." href="/admin/open-mats" />
+                  <AdminShortcut title="Users" description="Manage Academy Admin and Standard User accounts." href="/admin/users" />
+                  <AdminShortcut title="Admin Dashboard" description="Review platform health and operational records." href="/admin" />
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-sm font-bold uppercase text-teal-800">My Academy</p>
+                  <h2 className="mt-1 text-3xl font-black text-stone-950">{academy!.name} Rolls</h2>
+                </div>
+                <p className="text-sm font-semibold text-stone-600">{rolls.length} active rolls</p>
               </div>
-              <p className="text-sm font-semibold text-stone-600">{rolls.length} active rolls</p>
-            </div>
+            )}
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               {rolls.map((roll) => (
@@ -79,12 +108,21 @@ export default async function StandardDashboardPage() {
                   </dl>
                 </article>
               ))}
-              {rolls.length === 0 ? <p className="text-stone-600">No academy rolls are listed yet.</p> : null}
+              {rolls.length === 0 ? <p className="text-stone-600">{platformAdmin ? "No active rolls are listed yet." : "No academy rolls are listed yet."}</p> : null}
             </div>
           </section>
         </div>
       </section>
     </PageShell>
+  );
+}
+
+function AdminShortcut({ title, description, href }: { title: string; description: string; href: string }) {
+  return (
+    <Link href={href} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition hover:border-teal-300 hover:shadow-md">
+      <h3 className="text-lg font-black text-stone-950">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-stone-700">{description}</p>
+    </Link>
   );
 }
 

@@ -1,8 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { PageShell } from "@/components/shell";
-import { getCurrentUser, isPlatformAdminRole, isSuperAdminRole } from "@/lib/admin";
+import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
@@ -51,14 +50,13 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<AdminSearchParams>;
 }) {
-  const currentUser = await getCurrentUser();
-  if (!currentUser) redirect("/login");
-
-  if (!isPlatformAdminRole(currentUser.role)) {
-    redirect("/");
-  }
+  const currentUser = await requireAdminPage();
   const isSuperAdmin = isSuperAdminRole(currentUser.role);
+  const isAcademyAdmin = isAcademyAdminRole(currentUser.role);
   const params = await searchParams;
+  const academyWhere = academyScopedAcademyWhere(currentUser);
+  const eventWhere = { active: true, ...academyScopedEventWhere(currentUser) };
+  const userWhere = academyScopedUserWhere(currentUser);
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -69,12 +67,14 @@ export default async function AdminPage({
     pendingAcademyCount,
     featuredAcademyCount,
     eventCount,
+    userCount,
   ] = await Promise.all([
-    prisma.academy.count(),
-    prisma.academy.count({ where: { verificationStatus: "VERIFIED" } }),
-    prisma.academy.count({ where: { verificationStatus: "PENDING" } }),
-    prisma.academy.count({ where: { featured: true } }),
-    prisma.event.count({ where: { active: true } }),
+    prisma.academy.count({ where: academyWhere }),
+    prisma.academy.count({ where: { ...academyWhere, verificationStatus: "VERIFIED" } }),
+    prisma.academy.count({ where: { ...academyWhere, verificationStatus: "PENDING" } }),
+    prisma.academy.count({ where: { ...academyWhere, featured: true } }),
+    prisma.event.count({ where: eventWhere }),
+    prisma.user.count({ where: userWhere }),
   ]);
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
@@ -85,30 +85,32 @@ export default async function AdminPage({
     academies,
     events,
   ] = await Promise.all([
-    isSuperAdmin
-      ? prisma.user.findUnique({
-          where: { id: currentUser.id },
-          include: {
-            academyMemberships: {
-              include: { academy: true },
-              orderBy: { createdAt: "asc" },
-            },
-          },
-        })
-      : Promise.resolve(null),
+    prisma.user.findUnique({
+      where: { id: currentUser.id },
+      include: {
+        academy: true,
+        academyMemberships: {
+          include: { academy: true },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    }),
     prisma.academy.findMany({
       skip: (currentAcademyPage - 1) * pageSize,
       take: pageSize,
+      where: academyWhere,
       orderBy: { name: "asc" },
     }),
     prisma.event.findMany({
       skip: (currentEventPage - 1) * pageSize,
       take: pageSize,
-      where: { active: true },
+      where: eventWhere,
       include: { academy: true },
       orderBy: { eventDate: "asc" },
     }),
   ]);
+
+  const academyName = adminProfile?.academy?.name ?? adminProfile?.academyMemberships[0]?.academy.name ?? "Not assigned";
 
   return (
     <PageShell>
@@ -116,16 +118,19 @@ export default async function AdminPage({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-black text-stone-950">Admin Dashboard</h1>
-            <p className="mt-2 text-stone-700">Review platform health and manage operational records.</p>
+            <p className="mt-2 text-stone-700">
+              {isAcademyAdmin ? "Review your academy, open mats, and assigned users." : "Review platform health and manage operational records."}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin/academies" className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-bold text-white">Academies</Link>
+            <Link href="/admin/academies" className="rounded-md bg-teal-700 px-4 py-3 text-center text-sm font-bold text-white">{isAcademyAdmin ? "Academy" : "Academies"}</Link>
             <Link href="/admin/open-mats" className="rounded-md bg-stone-950 px-4 py-3 text-center text-sm font-bold text-white">Open Mats</Link>
+            <Link href="/admin/users" className="rounded-md border border-stone-300 px-4 py-3 text-center text-sm font-bold text-stone-800">Users</Link>
           </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Metric label="Total Academies" value={academyCount} />
+          <Metric label={isAcademyAdmin ? "Managed Academy" : "Total Academies"} value={academyCount} />
           <Metric label="Verified Academies" value={verifiedAcademyCount} />
           <Metric label="Pending Verification" value={pendingAcademyCount} />
           <Metric label="Featured Academies" value={featuredAcademyCount} />
@@ -134,8 +139,8 @@ export default async function AdminPage({
 
         <div className={adminProfile ? "mt-6 grid gap-5 lg:grid-cols-[320px_1fr]" : "mt-6"}>
           {adminProfile ? (
-            <SuperAdminProfileCard
-              academyName={adminProfile.academyMemberships[0]?.academy.name ?? "Not assigned"}
+            <AdminProfileCard
+              academyName={academyName}
               email={adminProfile.email}
               name={adminProfile.name ?? adminProfile.email}
               registeredAt={adminProfile.createdAt}
@@ -145,22 +150,30 @@ export default async function AdminPage({
 
           <div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <ModuleCard title="Academy Management" description="Search, filter, verify, feature, and edit academy records." href="/admin/academies" action="Manage academies" />
+              <ModuleCard
+                title={isAcademyAdmin ? "Academy Profile" : "Academy Management"}
+                description={isAcademyAdmin ? "View your assigned academy record." : "Search, filter, verify, feature, and edit academy records."}
+                href="/admin/academies"
+                action={isAcademyAdmin ? "View academy" : "Manage academies"}
+              />
               <ModuleCard title="Open Mats" description="Search, filter, edit, and maintain open mat events." href="/admin/open-mats" action="Manage open mats" />
-              {isSuperAdmin ? (
-                <>
-                  <ModuleCard title="Users & Roles" description="Search, edit, disable, promote, delete, assign roles, and send password emails." href="/admin/users" action="Manage users" />
-                  <ModuleCard title="Settings" description="Review platform-level configuration and audit settings changes." href="/admin/settings" action="Open settings" />
-                </>
-              ) : (
-                <>
-                  <ModuleCard title="Users" description="Search, edit, disable, promote, delete, and send password emails." href="/admin/users" action="Manage users" />
-                </>
-              )}
+              <ModuleCard
+                title={isSuperAdmin ? "Users & Roles" : "Users"}
+                description={isAcademyAdmin ? "Search, create, edit, and disable users in your academy." : "Search, edit, disable, promote, delete, and send password emails."}
+                href="/admin/users"
+                action="Manage users"
+              />
+              {isSuperAdmin ? <ModuleCard title="Settings" description="Review platform-level configuration and audit settings changes." href="/admin/settings" action="Open settings" /> : null}
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Metric label={isAcademyAdmin ? "Academy Users" : "Users"} value={userCount} />
+              <Metric label={isAcademyAdmin ? "Managed Academy" : "Visible Academies"} value={academyCount} />
+              <Metric label="Active Open Mats" value={eventCount} />
             </div>
 
             <div className="mt-5 grid gap-5 lg:grid-cols-2">
-              <AdminPanel title="Academies" description="Newest operational slice of academy records." id="academies">
+              <AdminPanel title={isAcademyAdmin ? "Academy" : "Academies"} description="Newest operational slice of academy records." id="academies">
                 {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
                 <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
               </AdminPanel>
@@ -196,7 +209,7 @@ function ModuleCard({ title, description, href, action }: { title: string; descr
   );
 }
 
-function SuperAdminProfileCard({
+function AdminProfileCard({
   academyName,
   email,
   name,
@@ -224,6 +237,10 @@ function SuperAdminProfileCard({
         <ProfileInfo label="Academy" value={academyName} />
         <ProfileInfo label="Role" value={displayRole(role)} />
       </div>
+
+      <Link href="/dashboard/password" className="mt-8 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
+        Change Password
+      </Link>
     </aside>
   );
 }

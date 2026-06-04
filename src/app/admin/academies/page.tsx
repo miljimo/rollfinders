@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
+import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
 import { PageShell } from "@/components/shell";
-import { getCurrentUser, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { academyScopedAcademyWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
@@ -57,19 +58,14 @@ function compactParams(params: AcademySearchParams, overrides: Record<string, st
   return query ? `/admin/academies?${query}` : "/admin/academies";
 }
 
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-  return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
-}
-
 export default async function AcademyManagementPage({
   searchParams,
 }: {
   searchParams: Promise<AcademySearchParams>;
 }) {
-  await requireAdminPage();
-  const currentUser = await getCurrentUser();
+  const currentUser = await requireAdminPage();
   const superAdmin = isSuperAdminRole(currentUser?.role);
+  const academyAdmin = isAcademyAdminRole(currentUser?.role);
   const params = await searchParams;
 
   const page = parsePositiveInt(firstParam(params.page), 1);
@@ -80,7 +76,9 @@ export default async function AcademyManagementPage({
   const city = (firstParam(params.city) ?? "").trim();
   const postcode = (firstParam(params.postcode) ?? "").trim();
 
+  const scopeWhere = academyScopedAcademyWhere(currentUser);
   const where: Prisma.AcademyWhereInput = {
+    ...scopeWhere,
     ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
     ...(verificationStatus !== "all" ? { verificationStatus: verificationStatus as AcademyVerificationStatus } : {}),
     ...(featured === "featured" ? { featured: true } : {}),
@@ -91,9 +89,10 @@ export default async function AcademyManagementPage({
 
   const [totalItems, totalAcademies, metrics] = await Promise.all([
     prisma.academy.count({ where }),
-    prisma.academy.count(),
+    prisma.academy.count({ where: scopeWhere }),
     prisma.academy.groupBy({
       by: ["verificationStatus", "featured"],
+      where: scopeWhere,
       _count: { _all: true },
     }),
   ]);
@@ -109,8 +108,31 @@ export default async function AcademyManagementPage({
   const verifiedCount = metrics.filter((metric) => metric.verificationStatus === AcademyVerificationStatus.VERIFIED).reduce((sum, metric) => sum + metric._count._all, 0);
   const pendingCount = metrics.filter((metric) => metric.verificationStatus === AcademyVerificationStatus.PENDING).reduce((sum, metric) => sum + metric._count._all, 0);
   const featuredCount = metrics.filter((metric) => metric.featured).reduce((sum, metric) => sum + metric._count._all, 0);
-  const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const end = Math.min(currentPage * pageSize, totalItems);
+  type AcademyRow = (typeof academies)[number] & Record<string, unknown>;
+  const columns: TableColumn<AcademyRow>[] = [
+    { key: "name", title: "Name", className: "font-semibold text-stone-950" },
+    { key: "location", title: "Location", render: (_value, academy) => `${academy.city}, ${academy.postcode}` },
+    { key: "verificationStatus", title: "Verification Status", render: (value) => <TableStatusBadge status={String(value)} /> },
+    { key: "featured", title: "Featured Status", render: (value) => <TableStatusBadge status={value ? "Featured" : "Not Featured"} /> },
+    { key: "createdAt", title: "Created Date", className: "text-stone-600", render: (value) => formatDate(value as Date) },
+    { key: "updatedAt", title: "Last Updated", className: "text-stone-600", render: (value) => formatDate(value as Date) },
+    {
+      key: "actions",
+      title: "Actions",
+      render: (_value, academy) => (
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/academies/${academy.slug}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
+          {!academyAdmin ? <Link href={`/admin/academies/${academy.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link> : null}
+          {superAdmin ? (
+            <form action={`/api/admin/academies/${academy.id}`} method="post">
+              <input type="hidden" name="_method" value="DELETE" />
+              <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
+            </form>
+          ) : null}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <PageShell>
@@ -118,8 +140,8 @@ export default async function AcademyManagementPage({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Academy Management</p>
-            <h1 className="mt-2 text-3xl font-black text-stone-950">Academies</h1>
-            <p className="mt-2 text-stone-700">Search, filter, and manage academy records without loading the full directory.</p>
+            <h1 className="mt-2 text-3xl font-black text-stone-950">{academyAdmin ? "Academy" : "Academies"}</h1>
+            <p className="mt-2 text-stone-700">{academyAdmin ? "View details for your assigned academy." : "Search, filter, and manage academy records without loading the full directory."}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
@@ -176,62 +198,20 @@ export default async function AcademyManagementPage({
           </div>
         </form>
 
-        <div className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-              <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
-                <tr>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Location</th>
-                  <th className="px-4 py-3">Verification Status</th>
-                  <th className="px-4 py-3">Featured Status</th>
-                  <th className="px-4 py-3">Created Date</th>
-                  <th className="px-4 py-3">Last Updated</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {academies.map((academy) => (
-                  <tr key={academy.id} className="border-t border-stone-100">
-                    <td className="px-4 py-3 font-semibold text-stone-950">{academy.name}</td>
-                    <td className="px-4 py-3 text-stone-700">{academy.city}, {academy.postcode}</td>
-                    <td className="px-4 py-3"><Badge>{academy.verificationStatus}</Badge></td>
-                    <td className="px-4 py-3"><Badge>{academy.featured ? "Featured" : "Not Featured"}</Badge></td>
-                    <td className="px-4 py-3 text-stone-600">{formatDate(academy.createdAt)}</td>
-                    <td className="px-4 py-3 text-stone-600">{formatDate(academy.updatedAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Link href={`/academies/${academy.slug}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
-                        <Link href={`/admin/academies/${academy.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
-                        {superAdmin ? (
-                          <form action={`/api/admin/academies/${academy.id}`} method="post">
-                            <input type="hidden" name="_method" value="DELETE" />
-                            <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
-                          </form>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {!academies.length ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-stone-600">No academies match these filters.</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
-          </div>
-          <div className="flex flex-col gap-3 border-t border-stone-100 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-stone-600">Showing {start}-{end} of {totalItems}</p>
-            <div className="flex flex-wrap gap-2">
-              <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })}>Previous</PageLink>
-              {paginationPages(currentPage, totalPages).map((pageNumber) => (
-                <PageLink key={pageNumber} active={pageNumber === currentPage} href={compactParams(params, { page: pageNumber })}>{pageNumber}</PageLink>
-              ))}
-              <PageLink disabled={currentPage >= totalPages} href={compactParams(params, { page: currentPage + 1 })}>Next</PageLink>
-            </div>
-          </div>
-        </div>
+        <Table
+          className="mt-6"
+          columns={columns}
+          data={academies as AcademyRow[]}
+          emptyMessage="No academies match these filters."
+          getRowId={(academy) => academy.id}
+          minWidthClassName="min-w-[980px]"
+          pagination={{
+            page: currentPage,
+            totalPages,
+            previousHref: compactParams(params, { page: currentPage - 1 }),
+            nextHref: compactParams(params, { page: currentPage + 1 }),
+          }}
+        />
       </section>
     </PageShell>
   );
@@ -243,20 +223,5 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
       <p className="mt-2 text-2xl font-black text-stone-950">{value.toLocaleString()}</p>
     </div>
-  );
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{children}</span>;
-}
-
-function PageLink({ href, disabled, active, children }: { href: string; disabled?: boolean; active?: boolean; children: React.ReactNode }) {
-  if (disabled) {
-    return <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-400">{children}</span>;
-  }
-  return (
-    <Link href={href} className={`inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-bold ${active ? "border-teal-700 bg-teal-700 text-white" : "border-stone-300 text-stone-800"}`}>
-      {children}
-    </Link>
   );
 }

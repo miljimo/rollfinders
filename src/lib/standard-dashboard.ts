@@ -1,12 +1,19 @@
-import { Role } from "@prisma/client";
+import { Role, type Academy, type Prisma } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getCurrentUser, isStandardUserRole } from "./admin";
 import { prisma } from "./prisma";
 
-export async function requireStandardDashboardUser() {
+type DashboardUser = Prisma.UserGetPayload<{ include: { academy: true } }> & { role: Role };
+type StandardDashboardResult = { user: DashboardUser; academy: Academy };
+type PlatformDashboardResult = { user: DashboardUser; academy: Academy | null };
+
+export async function requireStandardDashboardUser(): Promise<StandardDashboardResult>;
+export async function requireStandardDashboardUser(options: { allowPlatformAdmin: true }): Promise<PlatformDashboardResult>;
+export async function requireStandardDashboardUser(options: { allowPlatformAdmin?: boolean } = {}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!isStandardUserRole(user.role)) redirect("/admin");
+  const platformAdmin = options.allowPlatformAdmin === true && user.role === Role.PLATFORM_ADMIN;
+  if (!isStandardUserRole(user.role) && !platformAdmin) redirect("/admin");
 
   const account = await prisma.user.findUnique({
     where: { id: user.id },
@@ -23,9 +30,9 @@ export async function requireStandardDashboardUser() {
         orderBy: { createdAt: "asc" },
       });
   const academy = account.academy ?? fallbackMembership?.academy;
-  if (!academy) redirect("/");
+  if (!academy && !platformAdmin) redirect("/");
 
-  return { user: { ...account, role: account.role as Role }, academy };
+  return { user: { ...account, role: account.role as Role }, academy: academy ?? null };
 }
 
 export function memberSearchWhere(academyId: string, query: string) {

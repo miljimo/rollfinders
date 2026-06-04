@@ -1,6 +1,6 @@
 import { AcademyMemberRole } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { getCurrentUser, isPlatformAdminRole, isSuperAdminRole } from "./admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole } from "./admin";
 import { prisma } from "./prisma";
 
 export type AcademyAccess = {
@@ -16,6 +16,10 @@ export async function getAcademyAccess(academyId: string): Promise<AcademyAccess
 
   if (isPlatformAdminRole(user.role)) {
     return { userId: user.id, platformAdmin: true, superAdmin: isSuperAdminRole(user.role), memberRole: null };
+  }
+
+  if (isAcademyAdminRole(user.role) && user.academyId === academyId) {
+    return { userId: user.id, platformAdmin: false, superAdmin: false, memberRole: AcademyMemberRole.ADMIN };
   }
 
   const member = await prisma.academyMember.findUnique({

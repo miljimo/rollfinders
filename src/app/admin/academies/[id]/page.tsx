@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { PageShell } from "@/components/shell";
 import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
+import { getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
 import { AcademyForm } from "../form";
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
 export default async function EditAcademyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const access = await requireAcademyEditor(id);
+  const currentUser = await getCurrentUser();
+  const academyAdmin = isAcademyAdminRole(currentUser?.role);
   const academy = await prisma.academy.findUnique({
     where: { id },
     include: { events: true, claims: true, members: true },
@@ -79,7 +82,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
           </div>
         </section>
 
-        <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} />
+        {!academyAdmin ? <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} /> : null}
       </section>
     </PageShell>
   );

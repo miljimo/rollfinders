@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { deleteInvalidEmailRecord, deleteInvalidEmailUser } from "../actions";
 import { auditPlatformSettingsReview } from "./actions";
-import { SuperAdminPasswordForm } from "./password-form";
+import { SuperAdminPasswordForm } from "./PasswordForm";
 
 export const dynamic = "force-dynamic";
 

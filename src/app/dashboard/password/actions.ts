@@ -13,7 +13,7 @@ export async function changeStandardUserPassword(
   _state: ChangePasswordState,
   formData: FormData,
 ): Promise<ChangePasswordState> {
-  const { user } = await requireStandardDashboardUser();
+  const { user } = await requireStandardDashboardUser({ allowPlatformAdmin: true });
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 

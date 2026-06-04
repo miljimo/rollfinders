@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value?: string) {
+  if (value === Role.ACADEMY_ADMIN) return Role.ACADEMY_ADMIN;
   if (value === Role.PLATFORM_ADMIN) return Role.PLATFORM_ADMIN;
   return Role.STANDARD_USER;
 }
@@ -12,7 +13,16 @@ function normalizeStatus(value?: string) {
   return value === UserStatus.DISABLED ? UserStatus.DISABLED : UserStatus.ACTIVE;
 }
 
-function canManageTarget(actorRole: string | undefined, target: { role: Role; email: string; isProtected?: boolean | null }) {
+function canViewTarget(actor: { id: string; role?: string; academyId?: string | null }, target: { role: Role; academyId?: string | null }) {
+  if (!isAcademyAdminRole(actor.role)) return true;
+  return actor.academyId === target.academyId && (target.role === Role.STANDARD_USER || target.role === Role.USER || target.role === Role.ACADEMY_ADMIN);
+}
+
+function canManageTarget(actor: { id: string; role?: string; academyId?: string | null }, target: { id: string; role: Role; email: string; academyId?: string | null; isProtected?: boolean | null }) {
+  if (isAcademyAdminRole(actor.role)) {
+    return actor.id !== target.id && actor.academyId === target.academyId && (target.role === Role.STANDARD_USER || target.role === Role.USER || target.role === Role.ACADEMY_ADMIN);
+  }
+  const actorRole = actor.role;
   if (isSuperAdminRole(actorRole)) return true;
   if (!isPlatformAdminRole(actorRole)) return false;
   if (isProtectedSuperAdmin(target)) return false;
@@ -38,13 +48,16 @@ async function hasAnotherActiveSuperUser(userId: string) {
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const { id } = await params;
   const user = await prisma.user.findUnique({
     where: { id },
-    select: { id: true, name: true, email: true, role: true, status: true, disabled: true, isProtected: true, emailStatus: true, lastLoginAt: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, academyId: true, status: true, disabled: true, isProtected: true, emailStatus: true, lastLoginAt: true, createdAt: true },
   });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!canViewTarget(actor, user)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
 
   return NextResponse.json({ user });
 }
@@ -58,14 +71,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!canManageTarget(actor.role, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
+  if (!canManageTarget(actor, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
 
   const body = await request.json().catch(() => null) as { name?: string; email?: string; role?: string; status?: string } | null;
   const email = body?.email?.trim().toLowerCase();
   if (!email || !email.includes("@")) return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
 
   const protectedUser = isProtectedSuperAdmin(target);
-  const role = protectedUser || !isSuperAdminRole(actor.role) ? target.role : normalizeRole(body?.role);
+  const requestedRole = normalizeRole(body?.role);
+  const role = protectedUser || (!isSuperAdminRole(actor.role) && !isAcademyAdminRole(actor.role)) ? target.role : isAcademyAdminRole(actor.role) && requestedRole === Role.PLATFORM_ADMIN ? target.role : requestedRole;
   const status = protectedUser ? target.status : normalizeStatus(body?.status);
   if (actor.id === id && isSuperUser(target) && status === UserStatus.DISABLED && !(await hasAnotherActiveSuperUser(id))) {
     return NextResponse.json({ error: "You cannot disable the last active super admin account" }, { status: 400 });
@@ -79,7 +93,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       status,
       disabled: status === UserStatus.DISABLED,
     },
-    select: { id: true, name: true, email: true, role: true, status: true, disabled: true, isProtected: true, emailStatus: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, academyId: true, status: true, disabled: true, isProtected: true, emailStatus: true, createdAt: true },
   });
 
   await writeAdminAuditLog({
@@ -107,7 +121,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!canManageTarget(actor.role, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
+  if (!canManageTarget(actor, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
   if (isSuperUser(target)) return NextResponse.json({ error: "Super admin accounts cannot be deleted" }, { status: 403 });
 
   await prisma.user.delete({ where: { id } });

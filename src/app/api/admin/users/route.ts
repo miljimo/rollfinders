@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
-import { isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
+import { academyScopedUserWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 const supportedPageSizes = [20, 50, 100];
@@ -35,6 +35,8 @@ function parseEmailStatus(value: string) {
 export async function GET(request: Request) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const url = new URL(request.url);
   const page = parsePositiveInt(param(url, "page"), 1);
@@ -44,7 +46,8 @@ export async function GET(request: Request) {
   const status = parseStatus(param(url, "status"));
   const emailStatus = parseEmailStatus(param(url, "emailStatus"));
 
-  const where: Prisma.UserWhereInput = {
+  const scopeWhere = academyScopedUserWhere(actor);
+  const filterWhere: Prisma.UserWhereInput = {
     ...(search
       ? {
           OR: [
@@ -57,6 +60,7 @@ export async function GET(request: Request) {
     ...(status ? { status } : {}),
     ...(emailStatus ? { emailStatus } : {}),
   };
+  const where: Prisma.UserWhereInput = isAcademyAdminRole(actor.role) ? { AND: [scopeWhere, filterWhere] } : filterWhere;
 
   const totalItems = await prisma.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -65,7 +69,7 @@ export async function GET(request: Request) {
     where,
     skip: (currentPage - 1) * pageSize,
     take: pageSize,
-    select: { id: true, name: true, email: true, role: true, status: true, disabled: true, isProtected: true, emailStatus: true, lastLoginAt: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, academyId: true, status: true, disabled: true, isProtected: true, emailStatus: true, lastLoginAt: true, createdAt: true },
     orderBy: [{ createdAt: "desc" }, { email: "asc" }],
   });
 
@@ -84,9 +88,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
   }
 
-  const role = isSuperAdminRole(actor.role) && body?.role === Role.PLATFORM_ADMIN ? Role.PLATFORM_ADMIN : Role.STANDARD_USER;
-  const academyId = role === Role.STANDARD_USER ? body?.academyId?.trim() : null;
-  if (role === Role.STANDARD_USER) {
+  const role = isSuperAdminRole(actor.role) && body?.role === Role.PLATFORM_ADMIN
+    ? Role.PLATFORM_ADMIN
+    : isAcademyAdminRole(actor.role) && body?.role === Role.ACADEMY_ADMIN
+      ? Role.ACADEMY_ADMIN
+      : Role.STANDARD_USER;
+  const academyId = isAcademyAdminRole(actor.role)
+    ? actor.academyId
+    : role === Role.STANDARD_USER || role === Role.ACADEMY_ADMIN
+      ? body?.academyId?.trim()
+      : null;
+  if (role === Role.STANDARD_USER || role === Role.ACADEMY_ADMIN) {
     if (!academyId) return NextResponse.json({ error: "Academy is required for standard users" }, { status: 400 });
     const academyExists = await prisma.academy.count({ where: { id: academyId } });
     if (!academyExists) return NextResponse.json({ error: "Academy not found" }, { status: 400 });

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ArrowRight, CalendarDays, MapPinned, Navigation, Search } from "lucide-react";
-import { LocationSearchForm } from "@/components/location-search-form";
+import { LocationSearchForm } from "@/components/LocationSearchForm";
 import { PageShell } from "@/components/shell";
 import { AcademyCard, EventCard } from "@/components/ui";
 import { getFeaturedData } from "@/lib/data";

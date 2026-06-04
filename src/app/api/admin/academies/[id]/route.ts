@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { getCurrentUser, requireAdminApi, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, requireAdminApi, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -41,11 +41,17 @@ function academyData(data: ReturnType<typeof academySchema.parse>) {
   };
 }
 
+function canAccessAcademy(actor: { role?: string; academyId?: string | null } | null, academyId: string) {
+  return !isAcademyAdminRole(actor?.role) || actor?.academyId === academyId;
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
 
   const { id } = await params;
+  if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
   const academy = await prisma.academy.findUnique({ where: { id } });
   if (!academy) return NextResponse.json({ error: "Academy not found" }, { status: 404 });
 
@@ -55,8 +61,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
 
   const { id } = await params;
+  if (!canAccessAcademy(actor, id) || isAcademyAdminRole(actor?.role)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
   const body = await request.json().catch(() => null);
   const parsed = academySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
@@ -71,7 +79,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     where: { id },
     data: academyData(data),
   });
-  const actor = await getCurrentUser();
   if (actor) {
     await writeAdminAuditLog({
       actorUserId: actor.id,
@@ -104,8 +111,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
 
   const { id } = await params;
+  if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
   const formData = await request.formData();
 
   if (formData.get("_method") === "DELETE") {
@@ -122,6 +131,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     return NextResponse.redirect(new URL("/admin/academies", request.url), { status: 303 });
   }
+  if (isAcademyAdminRole(actor?.role)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
 
   const parsed = academySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
@@ -135,7 +145,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     where: { id },
     data: academyData(data),
   });
-  const actor = await getCurrentUser();
   if (actor) {
     await writeAdminAuditLog({
       actorUserId: actor.id,

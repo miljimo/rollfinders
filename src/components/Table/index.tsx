@@ -1,5 +1,3 @@
-"use client";
-
 import { clsx } from "clsx";
 import { TableBody } from "./TableBody";
 import { TableEmptyState } from "./TableEmptyState";
