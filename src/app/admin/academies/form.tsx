@@ -3,6 +3,7 @@
 import type { Academy } from "@prisma/client";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { useActionState } from "react";
+import Link from "next/link";
 import type { AcademyFormState } from "./actions";
 
 type AcademyAction = (state: AcademyFormState, formData: FormData) => Promise<AcademyFormState>;
@@ -13,11 +14,12 @@ const initialAcademyFormState: AcademyFormState = {
   values: {},
 };
 
-export function AcademyForm({ action, academy }: { action: AcademyAction; academy?: Academy }) {
+export function AcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
 
   return (
     <form action={formAction} className="mt-6 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       {state.message ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{state.message}</p> : null}
       <Field name="name" label="Name" value={state.values.name ?? academy?.name} errors={state.fieldErrors.name} />
       <Field name="slug" label="Slug" value={state.values.slug ?? academy?.slug} errors={state.fieldErrors.slug} />
@@ -63,9 +65,12 @@ export function AcademyForm({ action, academy }: { action: AcademyAction; academ
         <Checkbox name="featured" label="Featured academy" checked={state.values.featured ? state.values.featured === "on" : academy?.featured ?? false} />
         <Checkbox name="verified" label="Legacy verified flag" checked={state.values.verified ? state.values.verified === "on" : academy?.verified ?? false} />
       </div>
-      <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
-        {isPending ? "Saving..." : "Save Academy"}
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
+          {isPending ? "Saving..." : "Save Academy"}
+        </button>
+        {cancelHref ? <Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link> : null}
+      </div>
     </form>
   );
 }

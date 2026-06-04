@@ -10,6 +10,10 @@ import { prisma } from "@/lib/prisma";
 import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { LogoutButton } from "@/components/logout-button";
+import { createAcademy } from "./academies/actions";
+import { AcademyForm } from "./academies/form";
+import { createOpenMat } from "./open-mats/actions";
+import { OpenMatForm } from "./open-mats/form";
 import { createManagedUser } from "./users/actions";
 import { UserForm } from "./users/form";
 
@@ -163,6 +167,7 @@ export default async function AdminPage({
     users,
     recentAuditLogs,
     mapItems,
+    academyOptions,
   ] = await Promise.all([
     prisma.academy.findMany({
       where: academyWhere,
@@ -190,6 +195,7 @@ export default async function AdminPage({
       orderBy: { createdAt: "desc" },
     }),
     panel === "maps" ? getMapItems() : Promise.resolve([]),
+    prisma.academy.findMany({ orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -258,6 +264,12 @@ export default async function AdminPage({
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
             <AdminPanel
+              action={superAdmin ? (
+                <Link href="/admin?panel=academies&dialog=new-academy" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                  <Plus size={18} aria-hidden />
+                  New Academy
+                </Link>
+              ) : null}
               description="Newest operational slice of academy records."
               id="academies"
               search={<PanelSearch panel={panel} search={search} />}
@@ -269,6 +281,12 @@ export default async function AdminPage({
           ) : null}
           {panel === "open-mats" ? (
             <AdminPanel
+              action={(
+                <Link href="/admin?panel=open-mats&dialog=new-open-mat" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                  <Plus size={18} aria-hidden />
+                  New Open Mat
+                </Link>
+              )}
               description="Active open mat events ordered by event date."
               id="open-mats"
               search={<PanelSearch panel={panel} search={search} />}
@@ -300,36 +318,66 @@ export default async function AdminPage({
         )}
       </main>
       {panel === "users" && dialog === "new-user" ? (
-        <NewUserDialog academies={academies} superAdmin={superAdmin} />
+        <NewUserDialog academies={academyOptions} superAdmin={superAdmin} />
+      ) : null}
+      {panel === "academies" && dialog === "new-academy" && superAdmin ? (
+        <NewAcademyDialog />
+      ) : null}
+      {panel === "open-mats" && dialog === "new-open-mat" ? (
+        <NewOpenMatDialog academies={academyOptions} />
       ) : null}
     </div>
   );
 }
 
-function NewUserDialog({ academies, superAdmin }: { academies: { id: string; name: string }[]; superAdmin: boolean }) {
+function DialogShell({ children, closeHref, description, title }: { children: React.ReactNode; closeHref: string; description: string; title: string }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role="dialog" aria-modal="true" aria-labelledby="new-user-title">
-      <Link href="/admin?panel=users" className="fixed inset-0" aria-label="Close new user dialog" />
-      <section className="relative z-[71] w-full max-w-3xl rounded-lg bg-white p-5 shadow-2xl sm:p-6">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
+      <Link href={closeHref} className="fixed inset-0" aria-label={`Close ${title} dialog`} />
+      <section className="relative z-[71] w-full max-w-4xl rounded-lg bg-white p-5 shadow-2xl sm:p-6">
         <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4">
           <div>
-            <h2 id="new-user-title" className="text-3xl font-black text-slate-950">New User</h2>
-            <p className="mt-2 text-sm text-slate-600">Create a user and assign role and academy access.</p>
+            <h2 id="admin-dialog-title" className="text-3xl font-black text-slate-950">{title}</h2>
+            <p className="mt-2 text-sm text-slate-600">{description}</p>
           </div>
-          <Link href="/admin?panel=users" className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label="Close new user dialog">
+          <Link href={closeHref} className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label={`Close ${title} dialog`}>
             <X size={20} aria-hidden />
           </Link>
         </div>
-        <UserForm
-          academies={academies}
-          action={createManagedUser}
-          cancelHref="/admin?panel=users"
-          mode="create"
-          returnTo="/admin?panel=users"
-          superAdmin={superAdmin}
-        />
+        {children}
       </section>
     </div>
+  );
+}
+
+function NewAcademyDialog() {
+  return (
+    <DialogShell closeHref="/admin?panel=academies" description="Create an academy record without leaving the Admin dashboard." title="New Academy">
+      <AcademyForm action={createAcademy} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" />
+    </DialogShell>
+  );
+}
+
+function NewOpenMatDialog({ academies }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>> }) {
+  return (
+    <DialogShell closeHref="/admin?panel=open-mats" description="Create an open mat event without leaving the Admin dashboard." title="New Open Mat">
+      <OpenMatForm academies={academies} action={createOpenMat} cancelHref="/admin?panel=open-mats" returnTo="/admin?panel=open-mats" />
+    </DialogShell>
+  );
+}
+
+function NewUserDialog({ academies, superAdmin }: { academies: { id: string; name: string }[]; superAdmin: boolean }) {
+  return (
+    <DialogShell closeHref="/admin?panel=users" description="Create a user and assign role and academy access." title="New User">
+      <UserForm
+        academies={academies}
+        action={createManagedUser}
+        cancelHref="/admin?panel=users"
+        mode="create"
+        returnTo="/admin?panel=users"
+        superAdmin={superAdmin}
+      />
+    </DialogShell>
   );
 }
 

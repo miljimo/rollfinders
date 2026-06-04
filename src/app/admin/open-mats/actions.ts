@@ -97,10 +97,12 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
   }
 
   await prisma.event.create({ data: { ...eventData(parsed.data), createdById: access.userId } });
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/open-mats";
   revalidatePath("/admin");
   revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");
-  redirect("/admin/open-mats");
+  redirect(redirectTo);
 }
 
 export async function updateOpenMat(id: string, _state: EventFormState, formData: FormData): Promise<EventFormState> {
