@@ -1,0 +1,58 @@
+"use server";
+
+import bcrypt from "bcryptjs";
+import { revalidatePath } from "next/cache";
+import { requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { prisma } from "@/lib/prisma";
+
+export type ChangeSuperAdminPasswordState = {
+  message: string;
+  success: boolean;
+};
+
+export async function auditPlatformSettingsReview(formData: FormData) {
+  const actor = await requireSuperAdminPage();
+  const setting = String(formData.get("setting") ?? "platform-settings").trim();
+
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    action: "PLATFORM_SETTINGS_REVIEWED",
+    metadata: { setting },
+  });
+
+  revalidatePath("/admin/settings");
+  revalidatePath("/admin");
+}
+
+export async function changeSuperAdminPassword(
+  _state: ChangeSuperAdminPasswordState,
+  formData: FormData,
+): Promise<ChangeSuperAdminPasswordState> {
+  const actor = await requireSuperAdminPage();
+  const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (password.length < 8) {
+    return { success: false, message: "Password must be at least 8 characters." };
+  }
+
+  if (password !== confirmPassword) {
+    return { success: false, message: "Passwords do not match." };
+  }
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.update({
+    where: { id: actor.id },
+    data: { passwordHash },
+  });
+
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    targetUserId: actor.id,
+    action: "SUPER_ADMIN_PASSWORD_CHANGED",
+    metadata: { changedBy: actor.id },
+  });
+
+  revalidatePath("/admin/settings");
+  return { success: true, message: "Password changed successfully." };
+}

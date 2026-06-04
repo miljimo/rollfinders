@@ -6,6 +6,13 @@ import { useState } from "react";
 export function LoginForm() {
   const [error, setError] = useState("");
 
+  function loginErrorMessage(errorCode: string | undefined) {
+    if (errorCode === "AccountDisabled") return "This account is disabled. Contact an administrator to enable it.";
+    if (errorCode === "AcademyRequired") return "This account is active, but no academy is assigned. Ask an administrator to assign an academy.";
+    if (errorCode === "MissingCredentials") return "Enter both email and password.";
+    return "Invalid email or password.";
+  }
+
   async function handleSubmit(formData: FormData) {
     setError("");
     const result = await signIn("credentials", {
@@ -16,7 +23,7 @@ export function LoginForm() {
     });
 
     if (result?.error) {
-      setError("Invalid email or password.");
+      setError(loginErrorMessage(result.error));
       return;
     }
 

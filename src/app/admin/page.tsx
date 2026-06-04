@@ -2,11 +2,9 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/shell";
-import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
-import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
+import { getCurrentUser, isPlatformAdminRole, isSuperAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
-import { deleteInvalidEmailRecord, deleteInvalidEmailUser } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -60,13 +58,10 @@ export default async function AdminPage({
     redirect("/");
   }
   const isSuperAdmin = isSuperAdminRole(currentUser.role);
-  const emailConfig = getEmailProvisioningConfig();
   const params = await searchParams;
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
-  const emailPage = pageFromParams(params, "emailsPage");
-  const invalidEmailPage = pageFromParams(params, "invalidEmailsPage");
 
   const [
     academyCount,
@@ -74,34 +69,33 @@ export default async function AdminPage({
     pendingAcademyCount,
     featuredAcademyCount,
     eventCount,
-    userCount,
-    queuedEmailCount,
-    failedEmailCount,
-    invalidEmailCount,
   ] = await Promise.all([
     prisma.academy.count(),
     prisma.academy.count({ where: { verificationStatus: "VERIFIED" } }),
     prisma.academy.count({ where: { verificationStatus: "PENDING" } }),
     prisma.academy.count({ where: { featured: true } }),
     prisma.event.count({ where: { active: true } }),
-    prisma.user.count(),
-    prisma.outboundEmail.count(),
-    prisma.outboundEmail.count({ where: { status: { in: ["FAILED", "RETRY_PENDING", "INVALID_EMAIL", "PERMANENTLY_FAILED"] } } }),
-    isSuperAdmin ? prisma.invalidEmailAddress.count() : Promise.resolve(0),
   ]);
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
   const currentEventPage = clampPage(eventPage, eventCount);
-  const currentEmailPage = clampPage(emailPage, queuedEmailCount);
-  const currentInvalidEmailPage = clampPage(invalidEmailPage, invalidEmailCount);
 
   const [
+    adminProfile,
     academies,
     events,
-    recentEmails,
-    invalidEmails,
-    recentAuditLogs,
   ] = await Promise.all([
+    isSuperAdmin
+      ? prisma.user.findUnique({
+          where: { id: currentUser.id },
+          include: {
+            academyMemberships: {
+              include: { academy: true },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        })
+      : Promise.resolve(null),
     prisma.academy.findMany({
       skip: (currentAcademyPage - 1) * pageSize,
       take: pageSize,
@@ -114,26 +108,6 @@ export default async function AdminPage({
       include: { academy: true },
       orderBy: { eventDate: "asc" },
     }),
-    prisma.outboundEmail.findMany({
-      skip: (currentEmailPage - 1) * pageSize,
-      take: pageSize,
-      orderBy: { createdAt: "desc" },
-    }),
-    isSuperAdmin
-      ? prisma.invalidEmailAddress.findMany({
-          skip: (currentInvalidEmailPage - 1) * pageSize,
-          take: pageSize,
-          include: { user: true },
-          orderBy: { lastFailureAt: "desc" },
-        })
-      : Promise.resolve([]),
-    isSuperAdmin
-      ? prisma.adminAuditLog.findMany({
-          take: 8,
-          include: { actor: true, target: true },
-          orderBy: { createdAt: "desc" },
-        })
-      : Promise.resolve([]),
   ]);
 
   return (
@@ -158,128 +132,45 @@ export default async function AdminPage({
           <Metric label="Active Open Mats" value={eventCount} />
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-4">
-          <ModuleCard title="Academy Management" description="Search, filter, verify, feature, and edit academy records." href="/admin/academies" action="Manage academies" />
-          <ModuleCard title="Open Mats" description="Search, filter, edit, and maintain open mat events." href="/admin/open-mats" action="Manage open mats" />
-          <ModuleCard title="Users" description="Search, edit, disable, promote, delete, and send password emails." href="/admin/users" action="Manage users" />
-          <ModuleCard title="Email Operations" description="Monitor delivery status, invalid emails, and backend mail settings." href="#email-operations" action="Review email" />
-        </div>
+        <div className={adminProfile ? "mt-6 grid gap-5 lg:grid-cols-[320px_1fr]" : "mt-6"}>
+          {adminProfile ? (
+            <SuperAdminProfileCard
+              academyName={adminProfile.academyMemberships[0]?.academy.name ?? "Not assigned"}
+              email={adminProfile.email}
+              name={adminProfile.name ?? adminProfile.email}
+              registeredAt={adminProfile.createdAt}
+              role={adminProfile.role}
+            />
+          ) : null}
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Users" value={userCount} />
-          <Metric label="Outbound Emails" value={queuedEmailCount} />
-          <Metric label="Email Attention" value={failedEmailCount} />
-          <Metric label="Invalid Emails" value={invalidEmailCount} />
-        </div>
-
-        <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <AdminPanel title="Email Provisioning" description="Backend configuration for transactional email." id="email-operations">
-            <div className="grid gap-3 text-sm">
-              <ConfigRow label="Provider" value={emailConfig.provider} />
-              <ConfigRow label="Sending domain" value={emailConfig.domain} />
-              <ConfigRow label="Default sender" value={emailConfig.fromAddress} />
-              <ConfigRow label="Reply-to" value={emailConfig.replyToAddress} />
-              <ConfigRow label="SMTP server" value={`${emailConfig.smtpHost}:${emailConfig.smtpPort}`} />
-              <ConfigRow label="AWS region" value={emailConfig.region} />
-              <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
-                <p className="text-xs font-bold uppercase text-teal-800">Mailbox link</p>
-                <a href={emailConfig.mailboxLink} className="mt-1 block break-all font-semibold text-teal-900 underline">
-                  {emailConfig.mailboxLink}
-                </a>
-              </div>
-            </div>
-          </AdminPanel>
-
-          <AdminPanel title="Email Delivery" description="Recent queued, sent, failed, and retrying messages." id="email-delivery">
-            {recentEmails.length ? (
-              <>
-                {recentEmails.map((email) => (
-                  <div key={email.id} className="border-b border-stone-100 py-3">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-stone-950">{email.subject}</p>
-                        <p className="break-all text-sm text-stone-600">{email.recipientEmail}</p>
-                      </div>
-                      <p className="text-xs font-bold uppercase text-stone-500">{email.status}</p>
-                    </div>
-                    <p className="mt-1 text-xs text-stone-500">
-                      Attempts: {email.retryCount}{email.lastAttemptAt ? ` · last attempt ${formatDate(email.lastAttemptAt)}` : ""}{email.failureReason ? ` · ${email.failureReason}` : ""}
-                    </p>
-                  </div>
-                ))}
-                <Pagination currentPage={currentEmailPage} totalItems={queuedEmailCount} pageKey="emailsPage" searchParams={params} />
-              </>
-            ) : (
-              <p className="text-sm text-stone-600">No outbound emails have been queued yet.</p>
-            )}
-          </AdminPanel>
-
-          {isSuperAdmin ? (
-            <AdminPanel title="Invalid Emails" description="Permanent delivery failures requiring account cleanup.">
-              {invalidEmails.length ? (
+          <div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <ModuleCard title="Academy Management" description="Search, filter, verify, feature, and edit academy records." href="/admin/academies" action="Manage academies" />
+              <ModuleCard title="Open Mats" description="Search, filter, edit, and maintain open mat events." href="/admin/open-mats" action="Manage open mats" />
+              {isSuperAdmin ? (
                 <>
-                  {invalidEmails.map((invalidEmail) => (
-                    <div key={invalidEmail.id} className="border-b border-stone-100 py-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <p className="break-all font-semibold text-stone-950">{invalidEmail.email}</p>
-                          <p className="text-sm text-stone-600">{invalidEmail.user?.name ?? "No associated user"}</p>
-                          <p className="text-xs text-stone-500">
-                            {invalidEmail.failureReason} · failures: {invalidEmail.failureCount} · {formatDate(invalidEmail.lastFailureAt)}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <form action={deleteInvalidEmailRecord.bind(null, invalidEmail.id)}>
-                            <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Delete Record</button>
-                          </form>
-                          {invalidEmail.user && !isProtectedSuperAdmin(invalidEmail.user) ? (
-                            <form action={deleteInvalidEmailUser.bind(null, invalidEmail.id)}>
-                              <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete User</button>
-                            </form>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <Pagination currentPage={currentInvalidEmailPage} totalItems={invalidEmailCount} pageKey="invalidEmailsPage" searchParams={params} />
+                  <ModuleCard title="Users & Roles" description="Search, edit, disable, promote, delete, assign roles, and send password emails." href="/admin/users" action="Manage users" />
+                  <ModuleCard title="Settings" description="Review platform-level configuration and audit settings changes." href="/admin/settings" action="Open settings" />
                 </>
               ) : (
-                <p className="text-sm text-stone-600">No invalid email addresses are recorded.</p>
+                <>
+                  <ModuleCard title="Users" description="Search, edit, disable, promote, delete, and send password emails." href="/admin/users" action="Manage users" />
+                </>
               )}
-            </AdminPanel>
-          ) : null}
+            </div>
 
-          <AdminPanel title="Academies" description="Newest operational slice of academy records." id="academies">
-            {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
-            <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
-          </AdminPanel>
+            <div className="mt-5 grid gap-5 lg:grid-cols-2">
+              <AdminPanel title="Academies" description="Newest operational slice of academy records." id="academies">
+                {academies.map((academy) => <Row key={academy.id} primary={academy.name} secondary={`${academy.borough ?? academy.city}, ${academy.postcode}${academy.verified ? " · verified" : ""}`} href={`/admin/academies/${academy.id}`} />)}
+                <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
+              </AdminPanel>
 
-          <AdminPanel title="Open Mats" description="Active open mat events ordered by event date." id="open-mats">
-            {events.map((event) => <Row key={event.id} primary={event.title} secondary={`${event.academy.name} · ${formatDate(event.eventDate)}`} href={`/admin/open-mats/${event.id}`} />)}
-            <Pagination currentPage={currentEventPage} totalItems={eventCount} pageKey="eventsPage" searchParams={params} />
-          </AdminPanel>
-
-          {isSuperAdmin ? (
-            <AdminPanel title="Recent Admin Activity" description="Latest audited platform administration actions." id="audit-log">
-              {recentAuditLogs.length ? (
-                recentAuditLogs.map((log) => (
-                  <div key={log.id} className="border-b border-stone-100 py-3">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-stone-950">{log.action}</p>
-                        <p className="break-all text-sm text-stone-600">
-                          {log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}
-                        </p>
-                      </div>
-                      <p className="text-xs font-bold uppercase text-stone-500">{formatDate(log.createdAt)}</p>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-stone-600">No admin activity has been audited yet.</p>
-              )}
-            </AdminPanel>
-          ) : null}
+              <AdminPanel title="Open Mats" description="Active open mat events ordered by event date." id="open-mats">
+                {events.map((event) => <Row key={event.id} primary={event.title} secondary={`${event.academy.name} · ${formatDate(event.eventDate)}`} href={`/admin/open-mats/${event.id}`} />)}
+                <Pagination currentPage={currentEventPage} totalItems={eventCount} pageKey="eventsPage" searchParams={params} />
+              </AdminPanel>
+            </div>
+          </div>
         </div>
       </section>
     </PageShell>
@@ -305,6 +196,61 @@ function ModuleCard({ title, description, href, action }: { title: string; descr
   );
 }
 
+function SuperAdminProfileCard({
+  academyName,
+  email,
+  name,
+  registeredAt,
+  role,
+}: {
+  academyName: string;
+  email: string;
+  name: string;
+  registeredAt: Date;
+  role: string;
+}) {
+  return (
+    <aside className="rounded-lg border border-stone-200 bg-white px-6 py-8 shadow-sm">
+      <div className="flex min-w-0 flex-col items-center text-center">
+        <div className="flex size-32 shrink-0 items-center justify-center rounded-full bg-teal-700 text-4xl font-black text-white" aria-hidden>
+          {profileInitials(name)}
+        </div>
+        <h2 className="mt-8 max-w-full break-words text-2xl font-black text-stone-950">{name}</h2>
+        <p className="mt-2 max-w-full break-all text-sm text-stone-600">{email}</p>
+      </div>
+
+      <div className="mx-auto mt-12 grid max-w-56 gap-9 text-center">
+        <ProfileInfo label="Registered" value={formatDate(registeredAt)} />
+        <ProfileInfo label="Academy" value={academyName} />
+        <ProfileInfo label="Role" value={displayRole(role)} />
+      </div>
+    </aside>
+  );
+}
+
+function profileInitials(value: string) {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return value.trim().slice(0, 2).toUpperCase() || "AD";
+}
+
+function displayRole(role: string) {
+  return role
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function ProfileInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-t border-stone-300 pt-4">
+      <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
+      <p className="mt-2 break-words text-base font-black text-stone-950">{value}</p>
+    </div>
+  );
+}
+
 function AdminPanel({ title, description, children, id }: { title: string; description: string; children: React.ReactNode; id?: string }) {
   return (
     <section id={id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
@@ -314,15 +260,6 @@ function AdminPanel({ title, description, children, id }: { title: string; descr
       </div>
       <div className="mt-3">{children}</div>
     </section>
-  );
-}
-
-function ConfigRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-1 border-b border-stone-100 pb-2 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
-      <p className="break-all font-semibold text-stone-950">{value}</p>
-    </div>
   );
 }
 

@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { Role } from "@prisma/client";
 import { prisma } from "./prisma";
 
 export const authOptions: NextAuthOptions = {
@@ -13,11 +14,16 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) return null;
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
-        if (!user || user.disabled || user.status === "DISABLED") return null;
+        if (!credentials?.email || !credentials.password) throw new Error("MissingCredentials");
+        const user = await prisma.user.findUnique({ where: { email: credentials.email.toLowerCase() } });
+        if (!user) throw new Error("InvalidCredentials");
+        if (user.disabled || user.status === "DISABLED") throw new Error("AccountDisabled");
         const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) throw new Error("InvalidCredentials");
+        if ((user.role === Role.STANDARD_USER || user.role === Role.USER) && !user.academyId) {
+          const membership = await prisma.academyMember.findFirst({ where: { userId: user.id } });
+          if (!membership) throw new Error("AcademyRequired");
+        }
         await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },

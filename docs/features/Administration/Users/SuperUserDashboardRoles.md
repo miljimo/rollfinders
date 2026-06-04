@@ -2,7 +2,7 @@
 
 ## Feature Branch
 
-`feature/user_permissions_and_roles`
+`feature/super_admin_permissions_and_roles`
 
 ## Role
 
@@ -15,16 +15,22 @@ Implement Super User access control using strict IF/WHEN/THEN requirements so AI
 The Super User is the highest authority on the platform, but the system must still prevent unsafe self-actions and protect the last active Super User account.
 
 ---
-
 # Super User Dashboard Access
+### Scenario:  Access Super User Dashboard
 
-## Scenario: Access Super User Dashboard
+IF a valid Super User account exists
 
-IF the authenticated user has the role `SUPER_ADMIN`
+WHEN the user enters a valid username and password and submits the login form
 
-WHEN the user logs in successfully
+THEN the system SHALL authenticate the user and redirect them to the User Dashboard.
 
-THEN the system SHALL redirect the user to the Super User Dashboard.
+AND the dashboard SHALL display:
+
+* User full name
+* User profile avatar (if available)
+* Registration date
+* Academy name if any or removed the field.
+* Change Password
 
 AND the dashboard SHALL display platform-level administration features.
 
@@ -331,3 +337,21 @@ AND tests SHALL verify Super User cannot delete themselves.
 AND tests SHALL verify Super User cannot demote themselves.
 
 AND tests SHALL verify the last active Super User cannot be disabled, deleted, or demoted.
+
+
+##  Change Password 
+IF the authenticated user has the role `SUPER_ADMIN`
+
+AND there is a Change Password button or link
+
+WHEN the user clicks the Change Password button or link and enters a valid new password
+
+THEN the system should update the user's password
+
+AND the user's password should be changed to the new password successfully.
+
+
+Acceptable Criteria
+ 
+ Above functionality is tested and working
+ Maintaining backward compatibility with existing functionality.

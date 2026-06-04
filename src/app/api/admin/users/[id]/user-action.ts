@@ -52,6 +52,7 @@ export async function mutateUser(
   const updated = await prisma.user.update({ where: { id }, data });
   const action =
     mutation === "disable" ? "USER_DISABLED" :
+    mutation === "enable" && target.role === Role.SUPER_ADMIN ? "SUPER_USER_ENABLED" :
     mutation === "enable" ? "USER_ENABLED" :
     mutation === "promote" ? "USER_PROMOTED" :
     "USER_DEMOTED";

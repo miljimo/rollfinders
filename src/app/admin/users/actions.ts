@@ -56,9 +56,15 @@ export async function createManagedUser(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const requestedRole = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const role = isSuperAdminRole(actor.role) ? requestedRole : Role.STANDARD_USER;
-  const password = String(formData.get("password") ?? "rollfinder-user");
+  const academyId = role === Role.STANDARD_USER ? String(formData.get("academyId") ?? "").trim() : null;
+  const password = String(formData.get("password") ?? "").trim() || "rollfinder-user";
 
   if (!email || !email.includes("@")) return;
+  if (role === Role.STANDARD_USER) {
+    if (!academyId) return;
+    const academyExists = await prisma.academy.count({ where: { id: academyId } });
+    if (!academyExists) return;
+  }
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
@@ -66,6 +72,7 @@ export async function createManagedUser(formData: FormData) {
       email,
       passwordHash,
       role,
+      academyId,
       status: UserStatus.ACTIVE,
       disabled: false,
     },
@@ -75,7 +82,7 @@ export async function createManagedUser(formData: FormData) {
     actorUserId: actor.id,
     targetUserId: user.id,
     action: "USER_CREATED",
-    metadata: { email, role },
+    metadata: { email, role, academyId },
   });
 
   revalidatePath("/admin/users");

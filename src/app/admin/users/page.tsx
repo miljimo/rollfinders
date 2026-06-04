@@ -6,7 +6,6 @@ import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdmi
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
-  createManagedUser,
   deleteManagedUser,
   demoteManagedUser,
   promoteManagedUser,
@@ -14,6 +13,7 @@ import {
   toggleManagedUserDisabled,
   updateManagedUser,
 } from "./actions";
+import { CreateUserForm } from "./create-user-form";
 
 export const dynamic = "force-dynamic";
 
@@ -117,12 +117,16 @@ export default async function UserManagementPage({
     ...(emailStatus !== "all" ? { emailStatus: emailStatus as UserEmailStatus } : {}),
   };
 
-  const [totalItems, totalUsers, activeUsers, disabledUsers, platformAdmins] = await Promise.all([
+  const [totalItems, totalUsers, activeUsers, disabledUsers, platformAdmins, academies] = await Promise.all([
     prisma.user.count({ where }),
     prisma.user.count(),
     prisma.user.count({ where: { status: UserStatus.ACTIVE, disabled: false } }),
     prisma.user.count({ where: { OR: [{ status: UserStatus.DISABLED }, { disabled: true }] } }),
     prisma.user.count({ where: { role: Role.PLATFORM_ADMIN } }),
+    prisma.academy.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -155,22 +159,7 @@ export default async function UserManagementPage({
           <Metric label="Platform Admins" value={platformAdmins} />
         </div>
 
-        {platformAdmin ? (
-          <form action={createManagedUser} className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm lg:grid-cols-5">
-            <input name="name" placeholder="Name" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            <input name="email" type="email" required placeholder="Email" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            <input name="password" type="password" placeholder="Temporary password" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-            {superAdmin ? (
-              <select name="role" defaultValue={Role.STANDARD_USER} className="min-h-11 rounded-md border border-stone-300 px-3 text-sm">
-                <option value={Role.STANDARD_USER}>Standard user</option>
-                <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
-              </select>
-            ) : (
-              <input type="hidden" name="role" value={Role.STANDARD_USER} />
-            )}
-            <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Create User</button>
-          </form>
-        ) : null}
+        {platformAdmin ? <CreateUserForm academies={academies} superAdmin={superAdmin} /> : null}
 
         <form action="/admin/users" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
           <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 sm:col-span-2 lg:col-span-4">

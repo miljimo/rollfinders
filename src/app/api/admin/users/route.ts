@@ -78,13 +78,19 @@ export async function POST(request: Request) {
   const actor = await getCurrentUser();
   if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
-  const body = await request.json().catch(() => null) as { name?: string; email?: string; password?: string; role?: string } | null;
+  const body = await request.json().catch(() => null) as { name?: string; email?: string; password?: string; role?: string; academyId?: string } | null;
   const email = body?.email?.trim().toLowerCase();
   if (!email || !email.includes("@")) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
   }
 
   const role = isSuperAdminRole(actor.role) && body?.role === Role.PLATFORM_ADMIN ? Role.PLATFORM_ADMIN : Role.STANDARD_USER;
+  const academyId = role === Role.STANDARD_USER ? body?.academyId?.trim() : null;
+  if (role === Role.STANDARD_USER) {
+    if (!academyId) return NextResponse.json({ error: "Academy is required for standard users" }, { status: 400 });
+    const academyExists = await prisma.academy.count({ where: { id: academyId } });
+    if (!academyExists) return NextResponse.json({ error: "Academy not found" }, { status: 400 });
+  }
   const passwordHash = await bcrypt.hash(body?.password || "rollfinder-user", 10);
   const created = await prisma.user.create({
     data: {
@@ -92,16 +98,17 @@ export async function POST(request: Request) {
       email,
       passwordHash,
       role,
+      academyId,
       status: UserStatus.ACTIVE,
     },
-    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+    select: { id: true, name: true, email: true, role: true, academyId: true, status: true, createdAt: true },
   });
 
   await writeAdminAuditLog({
     actorUserId: actor.id,
     targetUserId: created.id,
     action: "USER_CREATED",
-    metadata: { email, role },
+    metadata: { email, role, academyId },
   });
 
   return NextResponse.json({ user: created }, { status: 201 });
