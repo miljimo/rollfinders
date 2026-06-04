@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Building2, CalendarDays, ChevronDown, ChevronRight, HelpCircle, Home, LogOut, Mail, Map, RefreshCw, Search, Send, Settings, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, Building2, CalendarDays, ChevronDown, ChevronRight, HelpCircle, Home, LogOut, Mail, Map, Menu, RefreshCw, Search, Send, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
@@ -190,28 +190,21 @@ export default async function AdminPage({
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
+      <input id="admin-mobile-menu" type="checkbox" className="peer sr-only" aria-hidden />
+      <label htmlFor="admin-mobile-menu" className="fixed inset-0 z-40 hidden bg-slate-950/40 peer-checked:block lg:hidden" aria-label="Close admin menu" />
+      <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(22rem,88vw)] -translate-x-full flex-col border-r border-stone-200 bg-white shadow-2xl transition-transform duration-200 peer-checked:translate-x-0 lg:hidden">
+        <AdminSidebar panel={panel} showClose />
+      </aside>
+
       <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-stone-200 bg-white lg:flex lg:flex-col">
-        <div className="flex h-24 items-center gap-3 border-b border-stone-200 px-7">
-          <Image src="/logo.png" alt="" width={52} height={52} className="h-12 w-auto" />
-          <p className="text-2xl font-black text-slate-950">RollFinders</p>
-        </div>
-        <nav className="flex flex-1 flex-col gap-2 px-4 py-7 text-sm font-bold text-slate-600">
-          <AdminNavItem active={panel !== "settings" && panel !== "maps"} href="/admin" icon={<Home size={20} aria-hidden />}>Dashboard</AdminNavItem>
-          <AdminNavItem active={panel === "settings"} href="/admin?panel=settings" icon={<Settings size={20} aria-hidden />}>Settings</AdminNavItem>
-          <div className="my-5 border-t border-stone-200" />
-          <AdminNavItem active={panel === "maps"} href="/admin?panel=maps" icon={<Map size={20} aria-hidden />}>Map</AdminNavItem>
-        </nav>
-        <div className="grid gap-2 border-t border-stone-200 px-4 py-5 text-sm font-bold text-slate-600">
-          <AdminNavItem href="/contact" icon={<HelpCircle size={20} aria-hidden />}>Help & Support</AdminNavItem>
-          <div className="flex min-h-12 items-center gap-3 rounded-md px-3">
-            <LogOut size={20} aria-hidden />
-            <LogoutButton />
-          </div>
-        </div>
+        <AdminSidebar panel={panel} />
       </aside>
 
       <main className="lg:pl-72">
-        <header className="flex min-h-24 items-center justify-end border-b border-stone-200 bg-white px-4 sm:px-8">
+        <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
+          <label htmlFor="admin-mobile-menu" className="inline-flex size-11 items-center justify-center rounded-md border border-stone-200 text-slate-700 lg:hidden" aria-label="Open admin menu">
+            <Menu size={22} aria-hidden />
+          </label>
           <div className="flex items-center gap-5">
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</div>
@@ -314,6 +307,35 @@ function PanelSearch({ panel, search }: { panel: string; search: string }) {
         <Search size={20} aria-hidden />
       </button>
     </form>
+  );
+}
+
+function AdminSidebar({ panel, showClose }: { panel: string; showClose?: boolean }) {
+  return (
+    <>
+      <div className="flex h-24 items-center gap-3 border-b border-stone-200 px-7">
+        <Image src="/logo.png" alt="" width={52} height={52} className="h-12 w-auto" />
+        <p className="text-2xl font-black text-slate-950">RollFinders</p>
+        {showClose ? (
+          <label htmlFor="admin-mobile-menu" className="ml-auto inline-flex size-10 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label="Close admin menu">
+            <X size={20} aria-hidden />
+          </label>
+        ) : null}
+      </div>
+      <nav className="flex flex-1 flex-col gap-2 px-4 py-7 text-sm font-bold text-slate-600">
+        <AdminNavItem active={panel !== "settings" && panel !== "maps"} href="/admin" icon={<Home size={20} aria-hidden />}>Dashboard</AdminNavItem>
+        <AdminNavItem active={panel === "settings"} href="/admin?panel=settings" icon={<Settings size={20} aria-hidden />}>Settings</AdminNavItem>
+        <div className="my-5 border-t border-stone-200" />
+        <AdminNavItem active={panel === "maps"} href="/admin?panel=maps" icon={<Map size={20} aria-hidden />}>Map</AdminNavItem>
+      </nav>
+      <div className="grid gap-2 border-t border-stone-200 px-4 py-5 text-sm font-bold text-slate-600">
+        <AdminNavItem href="/contact" icon={<HelpCircle size={20} aria-hidden />}>Help & Support</AdminNavItem>
+        <div className="flex min-h-12 items-center gap-3 rounded-md px-3">
+          <LogOut size={20} aria-hidden />
+          <LogoutButton />
+        </div>
+      </div>
+    </>
   );
 }
 
