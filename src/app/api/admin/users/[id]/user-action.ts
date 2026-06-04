@@ -3,6 +3,22 @@ import { Role, UserStatus } from "@prisma/client";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
+function isSuperUser(user: { role: Role }) {
+  return user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+}
+
+async function hasAnotherActiveSuperUser(userId: string) {
+  const count = await prisma.user.count({
+    where: {
+      id: { not: userId },
+      role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
+      status: UserStatus.ACTIVE,
+      disabled: false,
+    },
+  });
+  return count > 0;
+}
+
 export async function mutateUser(
   id: string,
   mutation: "disable" | "enable" | "promote" | "demote",
@@ -19,6 +35,12 @@ export async function mutateUser(
   const superCanManage = isSuperAdminRole(actor.role);
   if (!superCanManage && (!platformCanManage || mutation === "promote" || mutation === "demote")) {
     return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
+  }
+  if (mutation === "demote" && (actor.id === id || isSuperUser(target))) {
+    return NextResponse.json({ error: "Super admin accounts cannot be demoted" }, { status: 403 });
+  }
+  if (mutation === "disable" && actor.id === id && isSuperUser(target) && !(await hasAnotherActiveSuperUser(id))) {
+    return NextResponse.json({ error: "You cannot disable the last active super admin account" }, { status: 400 });
   }
 
   const data =

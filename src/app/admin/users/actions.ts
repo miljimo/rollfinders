@@ -34,6 +34,22 @@ function canManageUser(actorRole: string | undefined, target: { role: Role; emai
   return target.role !== Role.SUPER_ADMIN && target.role !== Role.ADMIN && target.role !== Role.PLATFORM_ADMIN;
 }
 
+function isSuperUser(user: { role: Role }) {
+  return user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+}
+
+async function hasAnotherActiveSuperUser(userId: string) {
+  const count = await prisma.user.count({
+    where: {
+      id: { not: userId },
+      role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
+      status: UserStatus.ACTIVE,
+      disabled: false,
+    },
+  });
+  return count > 0;
+}
+
 export async function createManagedUser(formData: FormData) {
   const actor = await requireUserManager();
   const name = String(formData.get("name") ?? "").trim();
@@ -76,6 +92,7 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = protectedUser || !isSuperAdminRole(actor.role) ? user.role : normalizeRole(String(formData.get("role") ?? user.role));
   const status = protectedUser ? user.status : normalizeStatus(String(formData.get("status") ?? user.status));
+  if (actor.id === userId && isSuperUser(user) && status === UserStatus.DISABLED && !(await hasAnotherActiveSuperUser(userId))) return;
 
   if (!email || !email.includes("@")) return;
 
@@ -110,6 +127,7 @@ export async function toggleManagedUserDisabled(userId: string) {
   if (!user || !canManageUser(actor.role, user)) return;
 
   const disabled = user.status !== UserStatus.DISABLED;
+  if (actor.id === userId && isSuperUser(user) && disabled && !(await hasAnotherActiveSuperUser(userId))) return;
   await prisma.user.update({
     where: { id: userId },
     data: { disabled, status: disabled ? UserStatus.DISABLED : UserStatus.ACTIVE },
@@ -146,6 +164,7 @@ export async function demoteManagedUser(userId: string) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
   if (!user || !canManageUser(actor.role, user) || !isSuperAdminRole(actor.role)) return;
+  if (actor.id === userId || isSuperUser(user)) return;
 
   await prisma.user.update({ where: { id: userId }, data: { role: Role.STANDARD_USER } });
   await writeAdminAuditLog({
@@ -165,6 +184,7 @@ export async function deleteManagedUser(userId: string) {
 
   const user = await targetUser(userId);
   if (!user || !canManageUser(actor.role, user)) return;
+  if (isSuperUser(user)) return;
 
   await prisma.user.delete({ where: { id: userId } });
   await writeAdminAuditLog({

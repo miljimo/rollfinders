@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { PageShell } from "@/components/shell";
-import { canDeleteAcademy, canManageAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
+import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
 import { AcademyForm } from "../form";
@@ -30,9 +30,9 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
           <div className="flex flex-wrap gap-2">
             <StatusBadge>{academy.verificationStatus}</StatusBadge>
             <StatusBadge>{academy.featured ? "Featured" : "Not Featured"}</StatusBadge>
-            {canManageAcademyTeam(access) ? (
+            {canViewAcademyTeam(access) ? (
               <Link href={`/admin/academies/${academy.id}/team`} className="rounded-md border border-stone-300 px-3 py-2 text-sm font-bold text-stone-800">
-                Manage Team
+                {canManageAcademyTeam(access) ? "Manage Team" : "View Team"}
               </Link>
             ) : null}
             <Link href={`/academies/${academy.slug}`} className="rounded-md border border-stone-300 px-3 py-2 text-sm font-bold text-stone-800">

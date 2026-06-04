@@ -60,6 +60,16 @@ export async function requireAcademyOwner(academyId: string) {
   return access;
 }
 
+export async function requireAcademyTeamViewer(academyId: string) {
+  const access = await getAcademyAccess(academyId);
+  if (!access) redirect("/login");
+  return access;
+}
+
+export function canViewAcademyTeam(access: AcademyAccess) {
+  return access.platformAdmin || access.memberRole === AcademyMemberRole.OWNER || access.memberRole === AcademyMemberRole.ADMIN;
+}
+
 export function canManageAcademyTeam(access: AcademyAccess) {
   return access.platformAdmin || access.memberRole === AcademyMemberRole.OWNER;
 }

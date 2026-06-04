@@ -19,6 +19,22 @@ function canManageTarget(actorRole: string | undefined, target: { role: Role; em
   return target.role !== Role.SUPER_ADMIN && target.role !== Role.ADMIN && target.role !== Role.PLATFORM_ADMIN;
 }
 
+function isSuperUser(user: { role: Role }) {
+  return user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+}
+
+async function hasAnotherActiveSuperUser(userId: string) {
+  const count = await prisma.user.count({
+    where: {
+      id: { not: userId },
+      role: { in: [Role.SUPER_ADMIN, Role.ADMIN] },
+      status: UserStatus.ACTIVE,
+      disabled: false,
+    },
+  });
+  return count > 0;
+}
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
@@ -51,6 +67,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const protectedUser = isProtectedSuperAdmin(target);
   const role = protectedUser || !isSuperAdminRole(actor.role) ? target.role : normalizeRole(body?.role);
   const status = protectedUser ? target.status : normalizeStatus(body?.status);
+  if (actor.id === id && isSuperUser(target) && status === UserStatus.DISABLED && !(await hasAnotherActiveSuperUser(id))) {
+    return NextResponse.json({ error: "You cannot disable the last active super admin account" }, { status: 400 });
+  }
   const updated = await prisma.user.update({
     where: { id },
     data: {
@@ -89,6 +108,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const target = await prisma.user.findUnique({ where: { id } });
   if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
   if (!canManageTarget(actor.role, target)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
+  if (isSuperUser(target)) return NextResponse.json({ error: "Super admin accounts cannot be deleted" }, { status: 403 });
 
   await prisma.user.delete({ where: { id } });
   await writeAdminAuditLog({

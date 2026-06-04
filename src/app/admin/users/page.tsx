@@ -55,6 +55,10 @@ function selectedEmailStatus(value: string | undefined) {
   return Object.values(UserEmailStatus).includes(value as UserEmailStatus) ? value : "all";
 }
 
+function isSuperUserRole(role: Role) {
+  return role === Role.SUPER_ADMIN || role === Role.ADMIN;
+}
+
 function compactParams(params: UserSearchParams, overrides: Record<string, string | number | undefined>) {
   const next = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -229,6 +233,9 @@ export default async function UserManagementPage({
                 {users.map((user) => {
                   const protectedUser = isProtectedSuperAdmin(user);
                   const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
+                  const superUserTarget = isSuperUserRole(user.role);
+                  const canDelete = canManage && currentUser?.id !== user.id && !superUserTarget;
+                  const canPromoteOrDemotePlatform = superAdmin && !superUserTarget && currentUser?.id !== user.id;
                   return (
                     <tr key={user.id} className="border-t border-stone-100 align-top">
                       <td className="px-4 py-3">
@@ -275,7 +282,7 @@ export default async function UserManagementPage({
                             <form action={toggleManagedUserDisabled.bind(null, user.id)}>
                               <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.status === UserStatus.DISABLED || user.disabled ? "Enable" : "Disable"}</button>
                             </form>
-                            {superAdmin ? (
+                            {canPromoteOrDemotePlatform ? (
                               <form action={(user.role === Role.PLATFORM_ADMIN ? demoteManagedUser : promoteManagedUser).bind(null, user.id)}>
                                 <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.role === Role.PLATFORM_ADMIN ? "Demote" : "Promote"}</button>
                               </form>
@@ -283,9 +290,11 @@ export default async function UserManagementPage({
                             <form action={sendPasswordChangeEmail.bind(null, user.id)}>
                               <button className="rounded-md border border-teal-300 px-2 py-1 text-xs font-bold text-teal-800">Send Password Email</button>
                             </form>
-                            <form action={deleteManagedUser.bind(null, user.id)}>
-                              <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
-                            </form>
+                            {canDelete ? (
+                              <form action={deleteManagedUser.bind(null, user.id)}>
+                                <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
+                              </form>
+                            ) : null}
                           </div>
                         ) : (
                           <span className="text-xs font-semibold text-stone-500">Read only</span>
