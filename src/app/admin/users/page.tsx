@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
+import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Plus, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { PageShell } from "@/components/shell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -14,10 +15,10 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "RollFinders | User Management",
-  description: "Search, filter, edit, disable, delete, and send password-change emails to users.",
+  description: "Search, filter, edit, disable, delete, and manage users.",
 };
 
-const supportedPageSizes = [20, 50, 100];
+const supportedPageSizes = [10, 20, 50, 100];
 
 type UserSearchParams = Record<string, string | string[] | undefined>;
 
@@ -31,8 +32,8 @@ function parsePositiveInt(value: string | undefined, fallback: number) {
 }
 
 function selectedPageSize(value: string | undefined) {
-  const parsed = parsePositiveInt(value, 20);
-  return supportedPageSizes.includes(parsed) ? parsed : 20;
+  const parsed = parsePositiveInt(value, 10);
+  return supportedPageSizes.includes(parsed) ? parsed : 10;
 }
 
 function selectedRole(value: string | undefined) {
@@ -57,6 +58,17 @@ function selectedAcademy(value: string | undefined, academyIds: Set<string>) {
 
 function isSuperUserRole(role: Role) {
   return role === Role.SUPER_ADMIN || role === Role.ADMIN;
+}
+
+function roleLabel(role: Role) {
+  return role.replaceAll("_", " ");
+}
+
+function initialsFor(name: string | null, email: string) {
+  const source = name || email.split("@")[0] || "User";
+  const parts = source.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase();
 }
 
 function compactParams(params: UserSearchParams, overrides: Record<string, string | number | undefined>) {
@@ -114,6 +126,7 @@ export default async function UserManagementPage({
           OR: [
             { name: { contains: search, mode: "insensitive" } },
             { email: { contains: search, mode: "insensitive" } },
+            { academy: { name: { contains: search, mode: "insensitive" } } },
           ],
         }
       : {}),
@@ -123,14 +136,7 @@ export default async function UserManagementPage({
     ...(academy !== "all" ? { academyId: academy } : {}),
   };
 
-  const [totalItems, totalUsers, activeUsers, disabledUsers, platformAdmins] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.count(),
-    prisma.user.count({ where: { status: UserStatus.ACTIVE, disabled: false } }),
-    prisma.user.count({ where: { OR: [{ status: UserStatus.DISABLED }, { disabled: true }] } }),
-    prisma.user.count({ where: { role: Role.PLATFORM_ADMIN } }),
-  ]);
-
+  const totalItems = await prisma.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = Math.min(page, totalPages);
   const users = await prisma.user.findMany({
@@ -142,93 +148,110 @@ export default async function UserManagementPage({
   const academyNames = new Map(academies.map((item) => [item.id, item.name]));
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
+  const allUsersHref = compactParams(params, { role: undefined, status: undefined, page: 1 });
+  const activeHref = compactParams(params, { role: undefined, status: UserStatus.ACTIVE, page: 1 });
+  const disabledHref = compactParams(params, { role: undefined, status: UserStatus.DISABLED, page: 1 });
+  const academyAdminHref = compactParams(params, { role: Role.ACADEMY_ADMIN, status: undefined, page: 1 });
+  const standardHref = compactParams(params, { role: Role.STANDARD_USER, status: undefined, page: 1 });
 
   return (
     <PageShell>
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-teal-800">User Management</p>
-            <h1 className="mt-2 text-3xl font-black text-stone-950">Users</h1>
-            <p className="mt-2 text-stone-700">Search, filter, edit, disable, delete, and send password-change emails.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {platformAdmin ? <Link href="/admin/users/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New User</Link> : null}
-            <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
-          </div>
-        </div>
+        <div className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+          <div className="border-b border-stone-100 p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h1 className="text-3xl font-black text-slate-950">Users &amp; Roles</h1>
+                <p className="mt-2 text-base text-slate-500">Manage users, roles and academy access.</p>
+              </div>
+              {platformAdmin ? (
+                <Link href="/admin/users/new" className="inline-flex min-h-12 items-center justify-center gap-3 rounded-md bg-teal-700 px-5 text-base font-bold text-white shadow-sm transition hover:bg-teal-800">
+                  <Plus size={22} aria-hidden="true" />
+                  New User
+                </Link>
+              ) : null}
+            </div>
 
-        <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Total Users" value={totalUsers} />
-          <Metric label="Active Users" value={activeUsers} />
-          <Metric label="Disabled Users" value={disabledUsers} />
-          <Metric label="Platform Admins" value={platformAdmins} />
-        </div>
+            <form action="/admin/users" className="mt-6 grid gap-4 lg:grid-cols-[1fr_auto]">
+              <label className="relative block">
+                <span className="sr-only">Search users</span>
+                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={22} aria-hidden="true" />
+                <input name="search" placeholder="Search users by name, email or academy..." defaultValue={search} className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-700 focus:ring-2 focus:ring-teal-100" />
+              </label>
+              <details className="group relative">
+                <summary className="inline-flex min-h-12 cursor-pointer list-none items-center justify-center gap-3 rounded-md border border-slate-200 bg-white px-6 text-base font-bold text-teal-700 shadow-sm transition hover:border-teal-600 hover:bg-teal-50 [&::-webkit-details-marker]:hidden">
+                  <Filter size={22} aria-hidden="true" />
+                  Filters
+                </summary>
+                <div className="absolute right-0 z-30 mt-2 grid w-[min(28rem,calc(100vw-2rem))] gap-4 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl sm:grid-cols-2">
+                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                    Role
+                    <select name="role" defaultValue={role} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
+                      <option value="all">All</option>
+                      <option value={Role.STANDARD_USER}>Standard user</option>
+                      <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
+                      <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
+                      <option value={Role.SUPER_ADMIN}>Super admin</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                    Status
+                    <select name="status" defaultValue={status} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
+                      <option value="all">All</option>
+                      <option value={UserStatus.ACTIVE}>Active</option>
+                      <option value={UserStatus.DISABLED}>Disabled</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                    Email status
+                    <select name="emailStatus" defaultValue={emailStatus} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
+                      <option value="all">All</option>
+                      <option value={UserEmailStatus.VALID}>Valid</option>
+                      <option value={UserEmailStatus.INVALID}>Invalid</option>
+                      <option value={UserEmailStatus.PENDING_VERIFICATION}>Pending</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                    Academy
+                    <select name="academy" defaultValue={academy} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
+                      <option value="all">All</option>
+                      {academies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
+                    Rows
+                    <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
+                      {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+                    </select>
+                  </label>
+                  <div className="flex items-end gap-2">
+                    <button className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Apply</button>
+                    <Link href="/admin/users" className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-4 text-sm font-bold text-slate-700">Reset</Link>
+                  </div>
+                </div>
+              </details>
+            </form>
 
-        <form action="/admin/users" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
-          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 sm:col-span-2 lg:col-span-4">
-            Search
-            <input name="search" placeholder="Search user by name or email..." defaultValue={search} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal" />
-          </label>
-          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
-            Role
-            <select name="role" defaultValue={role} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
-              <option value="all">All</option>
-              <option value={Role.STANDARD_USER}>Standard</option>
-              <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
-              <option value={Role.PLATFORM_ADMIN}>Platform</option>
-              <option value={Role.SUPER_ADMIN}>Super admin</option>
-            </select>
-          </label>
-          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
-            Status
-            <select name="status" defaultValue={status} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
-              <option value="all">All</option>
-              <option value={UserStatus.ACTIVE}>Active</option>
-              <option value={UserStatus.DISABLED}>Disabled</option>
-            </select>
-          </label>
-          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
-            Email status
-            <select name="emailStatus" defaultValue={emailStatus} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
-              <option value="all">All</option>
-              <option value={UserEmailStatus.VALID}>Valid</option>
-              <option value={UserEmailStatus.INVALID}>Invalid</option>
-              <option value={UserEmailStatus.PENDING_VERIFICATION}>Pending</option>
-            </select>
-          </label>
-          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
-            Academy
-            <select name="academy" defaultValue={academy} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
-              <option value="all">All</option>
-              {academies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </select>
-          </label>
-          <label className="grid min-w-0 gap-1 text-sm font-semibold text-stone-800 lg:col-span-2">
-            Page size
-            <select name="pageSize" defaultValue={pageSize} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal">
-              {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-            </select>
-          </label>
-          <div className="flex min-w-0 items-end gap-2 sm:col-span-2 lg:col-span-10">
-            <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Apply Filters</button>
-            <Link href="/admin/users" className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Reset</Link>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <FilterPill href={allUsersHref} active={role === "all" && status === "all"} icon={<Users size={20} aria-hidden="true" />}>All Users</FilterPill>
+              <FilterPill href={activeHref} active={status === UserStatus.ACTIVE} dotClassName="bg-emerald-500">Active</FilterPill>
+              <FilterPill href={disabledHref} active={status === UserStatus.DISABLED} dotClassName="bg-red-500">Disabled</FilterPill>
+              <FilterPill href={academyAdminHref} active={role === Role.ACADEMY_ADMIN} icon={<Shield size={20} aria-hidden="true" />}>Academy Admin</FilterPill>
+              <FilterPill href={standardHref} active={role === Role.STANDARD_USER} icon={<User size={20} aria-hidden="true" />}>Standard User</FilterPill>
+            </div>
           </div>
-        </form>
 
-        <div className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
-              <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
+              <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
                 <tr>
-                  <th className="px-4 py-3">User</th>
-                  <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Academy</th>
-                  <th className="px-4 py-3">Email Status</th>
-                  <th className="px-4 py-3">Last Login</th>
-                  <th className="px-4 py-3">Created</th>
-                  <th className="px-4 py-3">Actions</th>
+                  <th className="px-5 py-4">User</th>
+                  <th className="px-5 py-4">Role</th>
+                  <th className="px-5 py-4">Academy</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Last Login</th>
+                  <th className="px-5 py-4">Created</th>
+                  <th className="px-5 py-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,38 +260,64 @@ export default async function UserManagementPage({
                   const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
                   const superUserTarget = isSuperUserRole(user.role);
                   const canDelete = canManage && currentUser?.id !== user.id && !superUserTarget;
+                  const disabled = user.status === UserStatus.DISABLED || user.disabled;
                   return (
                     <tr key={user.id} className="border-t border-stone-100">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-stone-950">{user.name ?? user.email}</p>
-                        <p className="break-all text-stone-600">{user.email}</p>
-                        {protectedUser ? <p className="mt-1 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="grid size-12 shrink-0 place-items-center rounded-full bg-teal-50 text-base font-black text-teal-800 ring-1 ring-teal-100">
+                            {initialsFor(user.name, user.email)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-950">{user.name ?? user.email}</p>
+                            <p className="break-all text-slate-500">{user.email}</p>
+                          </div>
+                        </div>
+                        {protectedUser ? <p className="mt-2 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge>{user.role}</Badge>
+                      <td className="px-5 py-4">
+                        <RoleBadge role={user.role} />
                       </td>
-                      <td className="px-4 py-3">
-                        <Badge>{user.status === UserStatus.DISABLED || user.disabled ? "Disabled" : "Active"}</Badge>
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4 text-slate-700">
                         {user.academyId ? academyNames.get(user.academyId) ?? "Unknown academy" : "None"}
                       </td>
-                      <td className="px-4 py-3"><Badge>{user.emailStatus}</Badge></td>
-                      <td className="px-4 py-3 text-stone-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
-                      <td className="px-4 py-3 text-stone-600">{formatDate(user.createdAt)}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-4">
+                        <StatusBadge disabled={disabled} />
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
+                      <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
+                      <td className="px-5 py-4 text-right">
                         {canManage ? (
-                          <div className="flex flex-wrap gap-2">
-                            <Link href={`/admin/users/${user.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
-                            <form action={toggleManagedUserDisabled.bind(null, user.id)}>
-                              <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">{user.status === UserStatus.DISABLED || user.disabled ? "Enable" : "Disable"}</button>
-                            </form>
-                            {canDelete ? (
-                              <form action={deleteManagedUser.bind(null, user.id)}>
-                                <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
+                          <details className="group relative inline-block text-left">
+                            <summary className="inline-flex size-10 cursor-pointer list-none items-center justify-center rounded-md text-slate-700 transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                              <MoreVertical size={22} aria-hidden="true" />
+                              <span className="sr-only">Open actions for {user.name ?? user.email}</span>
+                            </summary>
+                            <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-xl">
+                              <Link href={`/admin/users/${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                <User size={18} aria-hidden="true" />
+                                View Profile
+                              </Link>
+                              <Link href={`/admin/users/${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                <Edit3 size={18} aria-hidden="true" />
+                                Edit User
+                              </Link>
+                              <form action={toggleManagedUserDisabled.bind(null, user.id)}>
+                                <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                                  <Ban size={18} aria-hidden="true" />
+                                  {disabled ? "Enable Account" : "Disable Account"}
+                                </button>
                               </form>
-                            ) : null}
-                          </div>
+                              {canDelete ? (
+                                <form action={deleteManagedUser.bind(null, user.id)}>
+                                  <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                                    <Trash2 size={18} aria-hidden="true" />
+                                    Delete User
+                                  </button>
+                                </form>
+                              ) : null}
+                            </div>
+                          </details>
                         ) : (
                           <span className="text-xs font-semibold text-stone-500">Read only</span>
                         )}
@@ -278,20 +327,38 @@ export default async function UserManagementPage({
                 })}
                 {!users.length ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-stone-600">No users match these filters.</td>
+                    <td colSpan={7} className="px-4 py-8 text-center text-stone-600">No users match these filters.</td>
                   </tr>
                 ) : null}
               </tbody>
             </table>
           </div>
-          <div className="flex flex-col gap-3 border-t border-stone-100 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-stone-600">Showing {start}-{end} of {totalItems}</p>
-            <div className="flex flex-wrap gap-2">
-              <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })}>Previous</PageLink>
+
+          <div className="flex flex-col gap-4 border-t border-stone-100 px-5 py-5 text-sm lg:flex-row lg:items-center lg:justify-between">
+            <p className="text-base text-slate-700">Showing {start} to {end} of {totalItems} users</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <form action="/admin/users" className="flex min-h-11 items-center rounded-md border border-slate-200 bg-white">
+                <span className="px-4 text-sm font-semibold text-slate-600">Rows per page</span>
+                <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-r-md border-l border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none">
+                  {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
+                <input type="hidden" name="search" value={search} />
+                <input type="hidden" name="role" value={role} />
+                <input type="hidden" name="status" value={status} />
+                <input type="hidden" name="emailStatus" value={emailStatus} />
+                <input type="hidden" name="academy" value={academy} />
+              </form>
+              <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })} iconOnly>
+                <ChevronLeft size={20} aria-hidden="true" />
+                <span className="sr-only">Previous</span>
+              </PageLink>
               {paginationPages(currentPage, totalPages).map((pageNumber) => (
                 <PageLink key={pageNumber} active={pageNumber === currentPage} href={compactParams(params, { page: pageNumber })}>{pageNumber}</PageLink>
               ))}
-              <PageLink disabled={currentPage >= totalPages} href={compactParams(params, { page: currentPage + 1 })}>Next</PageLink>
+              <PageLink disabled={currentPage >= totalPages} href={compactParams(params, { page: currentPage + 1 })} iconOnly>
+                <ChevronRight size={20} aria-hidden="true" />
+                <span className="sr-only">Next</span>
+              </PageLink>
             </div>
           </div>
         </div>
@@ -300,25 +367,42 @@ export default async function UserManagementPage({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function FilterPill({ href, active, icon, dotClassName, children }: { href: string; active?: boolean; icon?: React.ReactNode; dotClassName?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
-      <p className="mt-2 text-2xl font-black text-stone-950">{value.toLocaleString()}</p>
-    </div>
+    <Link href={href} className={`inline-flex min-h-11 items-center gap-3 rounded-md border px-4 text-base font-bold transition ${active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-slate-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50"}`}>
+      {icon}
+      {dotClassName ? <span className={`size-2.5 rounded-full ${dotClassName}`} aria-hidden="true" /> : null}
+      {children}
+    </Link>
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{children}</span>;
+function RoleBadge({ role }: { role: Role }) {
+  const className =
+    role === Role.PLATFORM_ADMIN || role === Role.SUPER_ADMIN || role === Role.ADMIN
+      ? "border-violet-200 bg-violet-50 text-violet-700"
+      : role === Role.ACADEMY_ADMIN
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-sky-200 bg-sky-50 text-sky-700";
+
+  return <span className={`inline-flex rounded-md border px-3 py-1 text-xs font-black uppercase ${className}`}>{roleLabel(role)}</span>;
 }
 
-function PageLink({ href, disabled, active, children }: { href: string; disabled?: boolean; active?: boolean; children: React.ReactNode }) {
+function StatusBadge({ disabled }: { disabled: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ${disabled ? "bg-red-50 text-red-700 ring-1 ring-red-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"}`}>
+      <span className={`size-2.5 rounded-full ${disabled ? "bg-red-500" : "bg-emerald-500"}`} aria-hidden="true" />
+      {disabled ? "Disabled" : "Active"}
+    </span>
+  );
+}
+
+function PageLink({ href, disabled, active, iconOnly, children }: { href: string; disabled?: boolean; active?: boolean; iconOnly?: boolean; children: React.ReactNode }) {
   if (disabled) {
-    return <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-400">{children}</span>;
+    return <span className={`inline-flex min-h-11 items-center justify-center rounded-md border border-stone-200 text-sm font-bold text-stone-400 ${iconOnly ? "w-11 px-0" : "px-4"}`}>{children}</span>;
   }
   return (
-    <Link href={href} className={`inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-bold ${active ? "border-teal-700 bg-teal-700 text-white" : "border-stone-300 text-stone-800"}`}>
+    <Link href={href} className={`inline-flex min-h-11 items-center justify-center rounded-md border text-sm font-bold ${iconOnly ? "w-11 px-0" : "px-4"} ${active ? "border-teal-700 bg-teal-700 text-white shadow-sm" : "border-stone-300 text-stone-800 hover:bg-stone-50"}`}>
       {children}
     </Link>
   );
