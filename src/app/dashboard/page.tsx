@@ -43,6 +43,9 @@ export default async function StandardDashboardPage() {
               <ProfileRow label="Role" value="Standard User" />
             </dl>
             <div className="mt-5 grid gap-2">
+              <Link href="/dashboard/password" className="inline-flex min-h-11 items-center justify-center rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
+                Change Password
+              </Link>
               <Link href="/dashboard/members" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">
                 <Users size={16} aria-hidden /> Members
               </Link>

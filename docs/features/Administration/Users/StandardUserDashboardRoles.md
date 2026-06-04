@@ -22,7 +22,7 @@ AND the dashboard SHALL display:
 * User profile avatar (if available)
 * Registration date
 * Academy name
-* User role
+* Change Password 
 
 AND the dashboard SHALL display a list of rolls belonging only to the user's academy.
 
@@ -144,6 +144,18 @@ THEN only rolls belonging to the user's academy SHALL be returned.
 AND rolls from other academies SHALL NOT be visible.
 
 AND results SHALL be sorted by newest first.
+
+
+##  Change Password 
+Given a user has the role "Standard User"
+
+And there is a Change Password button or link
+
+When the user clicks the Change Password button or link and enters a valid new password
+
+Then the system should update the user's password
+
+And the user's password should be changed to the new password successfully.
 
 
 Acceptable Criteria
