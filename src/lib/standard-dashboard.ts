@@ -3,6 +3,28 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, isStandardUserRole } from "./admin";
 import { prisma } from "./prisma";
 
+export async function requireDashboardUser() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const account = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: { academy: true },
+  });
+
+  if (!account) redirect("/login");
+
+  const fallbackMembership = account.academy
+    ? null
+    : await prisma.academyMember.findFirst({
+        where: { userId: user.id },
+        include: { academy: true },
+        orderBy: { createdAt: "asc" },
+      });
+
+  return { user: { ...account, role: account.role as Role }, academy: account.academy ?? fallbackMembership?.academy ?? null };
+}
+
 export async function requireStandardDashboardUser() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");

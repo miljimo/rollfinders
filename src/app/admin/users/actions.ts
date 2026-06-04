@@ -8,6 +8,9 @@ import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value: string) {
+  if (value === Role.SUPER_ADMIN) return Role.SUPER_ADMIN;
+  if (value === Role.ADMIN) return Role.ADMIN;
+  if (value === Role.ACADEMY_ADMIN) return Role.ACADEMY_ADMIN;
   if (value === Role.PLATFORM_ADMIN) return Role.PLATFORM_ADMIN;
   return Role.STANDARD_USER;
 }
@@ -34,6 +37,13 @@ function canManageUser(actorRole: string | undefined, target: { role: Role; emai
   return target.role !== Role.SUPER_ADMIN && target.role !== Role.ADMIN && target.role !== Role.PLATFORM_ADMIN;
 }
 
+async function validManagedAcademyId(role: Role, academyId: string | null) {
+  if (role !== Role.STANDARD_USER && role !== Role.ACADEMY_ADMIN && role !== Role.USER) return null;
+  if (!academyId) return undefined;
+  const academyExists = await prisma.academy.count({ where: { id: academyId } });
+  return academyExists ? academyId : undefined;
+}
+
 function isSuperUser(user: { role: Role }) {
   return user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
 }
@@ -55,10 +65,14 @@ export async function createManagedUser(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const requestedRole = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
-  const role = isSuperAdminRole(actor.role) ? requestedRole : Role.STANDARD_USER;
+  const role = isSuperAdminRole(actor.role)
+    ? requestedRole
+    : requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER;
+  const academyId = await validManagedAcademyId(role, String(formData.get("academyId") ?? "").trim() || null);
   const password = String(formData.get("password") ?? "rollfinder-user");
 
   if (!email || !email.includes("@")) return;
+  if (academyId === undefined) return;
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
@@ -66,6 +80,7 @@ export async function createManagedUser(formData: FormData) {
       email,
       passwordHash,
       role,
+      academyId,
       status: UserStatus.ACTIVE,
       disabled: false,
     },
@@ -75,7 +90,7 @@ export async function createManagedUser(formData: FormData) {
     actorUserId: actor.id,
     targetUserId: user.id,
     action: "USER_CREATED",
-    metadata: { email, role },
+    metadata: { email, role, academyId },
   });
 
   revalidatePath("/admin/users");
@@ -90,11 +105,20 @@ export async function updateManagedUser(userId: string, formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const role = protectedUser || !isSuperAdminRole(actor.role) ? user.role : normalizeRole(String(formData.get("role") ?? user.role));
+  const requestedRole = normalizeRole(String(formData.get("role") ?? user.role));
+  const proposedRole = protectedUser || (actor.id === userId && isSuperUser(user))
+    ? user.role
+    : isSuperAdminRole(actor.role)
+      ? requestedRole
+      : requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER;
+  if (isSuperUser(user) && !isSuperUser({ role: proposedRole }) && !(await hasAnotherActiveSuperUser(userId))) return;
+  const role = proposedRole;
   const status = protectedUser ? user.status : normalizeStatus(String(formData.get("status") ?? user.status));
   if (actor.id === userId && isSuperUser(user) && status === UserStatus.DISABLED && !(await hasAnotherActiveSuperUser(userId))) return;
 
   if (!email || !email.includes("@")) return;
+  const academyId = await validManagedAcademyId(role, String(formData.get("academyId") ?? user.academyId ?? "").trim() || null);
+  if (academyId === undefined) return;
 
   const updated = await prisma.user.update({
     where: { id: userId },
@@ -102,6 +126,7 @@ export async function updateManagedUser(userId: string, formData: FormData) {
       name: name || null,
       email,
       role,
+      academyId,
       status,
       disabled: status === UserStatus.DISABLED,
     },
@@ -112,8 +137,8 @@ export async function updateManagedUser(userId: string, formData: FormData) {
     targetUserId: userId,
     action: "USER_EDITED",
     metadata: {
-      previous: { name: user.name, email: user.email, role: user.role, status: user.status },
-      next: { name: updated.name, email: updated.email, role: updated.role, status: updated.status },
+      previous: { name: user.name, email: user.email, role: user.role, academyId: user.academyId, status: user.status },
+      next: { name: updated.name, email: updated.email, role: updated.role, academyId: updated.academyId, status: updated.status },
     },
   });
 
