@@ -11,8 +11,8 @@ import { formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinders | Find BJJ training today in London",
-  description: "Find today's BJJ open mats, nearby academies, gi and no-gi sessions, drop-in costs, and directions across London.",
+  title: "RollFinders | Find BJJ training today",
+  description: "Find today's BJJ open mats, nearby academies, gi and no-gi sessions, drop-in costs, and directions near you.",
 };
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ lat?: string; lng?: string }> }) {
@@ -32,7 +32,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
               Where can I train today?
             </h1>
             <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
-              RollFinders is built for Brazilian Jiu-Jitsu practitioners, not generic gym browsing. Search open mats, nearby academies, gi and no-gi options, drop-in costs, and directions across London.
+              RollFinders is built for Brazilian Jiu-Jitsu practitioners, not generic gym browsing. Search open mats, nearby academies, gi and no-gi options, drop-in costs, and directions wherever you train.
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm font-bold text-slate-600">
               <Link href="/open-mats?when=today" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-teal-700 px-4 text-white shadow-sm">
@@ -53,8 +53,8 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
               <span>Popular searches:</span>
-              <PopularSearch href="/open-mats?q=East%20London">East London</PopularSearch>
-              <PopularSearch href="/open-mats?q=SW%20London">SW London</PopularSearch>
+              <PopularSearch href="/open-mats?q=nearby">Nearby</PopularSearch>
+              <PopularSearch href="/open-mats?q=beginner">Beginner friendly</PopularSearch>
               <PopularSearch href="/open-mats?gi=NO_GI">No-Gi</PopularSearch>
               <PopularSearch href="/open-mats?when=weekend">Weekend</PopularSearch>
             </div>
@@ -130,7 +130,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
       <section className="bg-stone-950 text-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 sm:px-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-black">Know a London open mat?</h2>
+            <h2 className="text-2xl font-black">Know a local open mat?</h2>
             <p className="mt-1 text-stone-300">Send it to the RollFinders admin so the radar stays useful.</p>
           </div>
           <Link href="/open-mats" className="rounded-md bg-teal-500 px-4 py-3 text-sm font-bold text-stone-950">Open Mat Radar</Link>
