@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Role, UserStatus } from "@prisma/client";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 
 type UserFormAcademy = {
   id: string;
@@ -31,6 +32,11 @@ export function UserForm({
   superAdmin: boolean;
   user?: UserFormUser;
 }) {
+  const academyOptions: AutoCompleteTextFieldOption[] = academies.map((academy) => ({
+    id: academy.id,
+    label: academy.name,
+  }));
+
   return (
     <form action={action} className="mt-8 rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
@@ -63,13 +69,15 @@ export function UserForm({
           </select>
         </label>
 
-        <label className="grid gap-2 text-lg font-bold text-stone-950">
-          Academy
-          <select name="academyId" defaultValue={user?.academyId ?? ""} className="min-h-14 rounded-md border border-stone-300 px-4 text-base font-normal">
-            <option value="">No academy</option>
-            {academies.map((academy) => <option key={academy.id} value={academy.id}>{academy.name}</option>)}
-          </select>
-        </label>
+        <AutoCompleteTextField
+          label="Academy"
+          name="academyId"
+          options={academyOptions}
+          selectedId={user?.academyId ?? ""}
+          placeholder="Search academy by name"
+          emptyMessage="No academies found."
+          size="lg"
+        />
 
         {mode === "edit" ? (
           <label className="grid gap-2 text-lg font-bold text-stone-950">

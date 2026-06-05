@@ -3,6 +3,7 @@
 import { GiType, type Academy, type Event } from "@prisma/client";
 import { useActionState } from "react";
 import { Button } from "@/components/Button";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import type { EventFormState } from "./actions";
 
 type EventAction = (state: EventFormState, formData: FormData) => Promise<EventFormState>;
@@ -16,19 +17,13 @@ const initialState: EventFormState = {
 export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: { action: EventAction; academies: Academy[]; cancelHref?: string; event?: Event; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const eventDate = event?.eventDate.toISOString().slice(0, 10);
+  const selectedAcademyId = state.values.academyId ?? event?.academyId ?? "";
 
   return (
     <form action={formAction} className="mt-6 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       {state.message ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{state.message}</p> : null}
-      <label className="grid gap-1 text-sm font-semibold text-stone-800">
-        Academy
-        <select name="academyId" required defaultValue={state.values.academyId ?? event?.academyId ?? ""} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
-          <option value="">Select academy</option>
-          {academies.map((academy) => <option key={academy.id} value={academy.id}>{academy.name}</option>)}
-        </select>
-        <FieldError errors={state.fieldErrors.academyId} />
-      </label>
+      <AcademySearchSelect academies={academies} errors={state.fieldErrors.academyId} selectedAcademyId={selectedAcademyId} />
       <Field name="title" label="Title" value={state.values.title ?? event?.title} errors={state.fieldErrors.title} />
       <label className="grid gap-1 text-sm font-semibold text-stone-800">
         Description
@@ -71,6 +66,27 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
         {cancelHref ? <Button href={cancelHref} variant="secondary">Cancel</Button> : null}
       </div>
     </form>
+  );
+}
+
+function AcademySearchSelect({ academies, errors, selectedAcademyId }: { academies: Academy[]; errors?: string[]; selectedAcademyId: string }) {
+  const options: AutoCompleteTextFieldOption[] = academies.map((academy) => ({
+    id: academy.id,
+    label: academy.name,
+    description: `${academy.city}, ${academy.postcode}`,
+    meta: `${academy.city} ${academy.postcode}`,
+  }));
+
+  return (
+    <AutoCompleteTextField
+      label="Academy"
+      name="academyId"
+      options={options}
+      selectedId={selectedAcademyId}
+      placeholder="Search academy by name, city, or postcode"
+      emptyMessage="No academies found."
+      errors={errors}
+    />
   );
 }
 
