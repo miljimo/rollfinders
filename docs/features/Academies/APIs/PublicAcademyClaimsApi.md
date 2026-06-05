@@ -88,7 +88,11 @@ The success response SHALL NOT include requester phone, requester belt rank, req
 * `publicProofLink` is optional, trimmed before storage, must be an `http://` or `https://` URL when provided, and empty strings are stored as `null`.
 * `requesterBeltRank` is optional and, when provided, must be one of `WHITE`, `BLUE`, `PURPLE`, `BROWN`, `BLACK`, `CORAL`, `RED`, or `OTHER`.
 * `requesterBeltStripes` is optional and, when provided, must be an integer from 0 to 4.
+* `requesterBeltStripes` SHALL be rejected when `requesterBeltRank` is missing.
+* `requesterBeltStripes` SHALL be accepted only for `WHITE`, `BLUE`, `PURPLE`, and `BROWN`.
+* `requesterBeltStripes` SHALL be rejected for `BLACK`, `CORAL`, `RED`, and `OTHER`.
 * Belt rank and stripes are context for admin review only and SHALL NOT be required to submit a claim.
+* Belt rank and stripes are self-attested and SHALL NOT be treated as proof of academy ownership, identity verification, coaching authority, or approval eligibility.
 * Oversized request bodies SHOULD be rejected before parsing where practical.
 
 ---
@@ -128,6 +132,70 @@ Example:
   }
 }
 ```
+
+---
+
+## CLAIM-PUBLIC-002A: Optional Belt Context
+
+IF a requester omits `requesterBeltRank` and `requesterBeltStripes`
+
+WHEN the API validates the claim request
+
+THEN the API SHALL accept the claim if all required fields and evidence are valid.
+
+Done when:
+
+* Belt rank is never required.
+* Stripe count is never required.
+* Missing belt data does not change the claim status, approval path, or response body.
+
+---
+
+## CLAIM-PUBLIC-002B: Belt Stripe Dependency
+
+IF `requesterBeltStripes` is provided
+
+WHEN `requesterBeltRank` is missing
+
+THEN the API SHALL return HTTP 400 with a stable field validation error.
+
+Done when:
+
+* Stripe count cannot be submitted without belt rank.
+* The error explains that stripes require a belt rank.
+
+---
+
+## CLAIM-PUBLIC-002C: Belt Stripe Rank Rules
+
+IF `requesterBeltRank` is provided
+
+WHEN `requesterBeltStripes` is also provided
+
+THEN the API SHALL validate whether stripes are meaningful for the selected rank.
+
+Done when:
+
+* `WHITE`, `BLUE`, `PURPLE`, and `BROWN` accept stripe counts from 0 to 4.
+* `BLACK`, `CORAL`, `RED`, and `OTHER` reject stripe counts.
+* Black belt degrees are not accepted through `requesterBeltStripes`.
+
+---
+
+## CLAIM-PUBLIC-002D: Belt Context Privacy
+
+IF belt rank or stripe data is submitted
+
+WHEN the API returns public responses, emits analytics, writes audit metadata, writes application logs, queues public/requester emails, or serializes claim data for non-admin contexts
+
+THEN the API SHALL exclude requester belt rank and stripe information.
+
+Done when:
+
+* The public success response never includes belt rank or stripes.
+* Analytics never include belt rank or stripes.
+* Requester/admin notification emails do not include belt rank or stripes unless a future admin-only review email requirement explicitly allows it.
+* Belt data is available only to authorized platform admins reviewing claim details.
 
 ---
 

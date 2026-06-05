@@ -62,6 +62,20 @@ WHEN the API responds
 
 THEN the API SHALL include reviewed metadata and decision status.
 
+## CLAIM-DETAIL-006: Self-Attested BJJ Context
+
+IF a claim includes requester belt rank or stripe information
+
+WHEN an authorized platform admin requests claim details
+
+THEN the API SHALL return the belt rank and stripe information as private, self-attested BJJ context for review.
+
+Done when:
+
+* Belt rank and stripes are available only through authorized admin claim detail responses.
+* The detail response does not label belt rank or stripes as verified identity, ownership, or academy authority evidence.
+* The API does not expose belt rank or stripes to unauthorized users.
+
 ---
 
 # Acceptance Criteria
@@ -70,3 +84,4 @@ THEN the API SHALL include reviewed metadata and decision status.
 * Unknown claims return HTTP 404.
 * Authorized admins receive enough data to approve or reject.
 * Private evidence is not exposed publicly.
+* Optional belt rank and stripes are returned only as self-attested admin review context.

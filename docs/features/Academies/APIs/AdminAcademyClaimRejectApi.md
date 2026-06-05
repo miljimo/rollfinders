@@ -86,6 +86,10 @@ WHEN the decision is saved
 
 THEN the API SHALL write an admin audit log entry with actor, claim, academy, requester, action, and timestamp.
 
+Done when:
+
+* The audit log does not copy requester belt rank or stripes into rejection metadata.
+
 ---
 
 # Acceptance Criteria

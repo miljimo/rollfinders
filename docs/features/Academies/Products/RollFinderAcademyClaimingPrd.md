@@ -199,6 +199,8 @@ Claim requests must support:
 
 Requester role should be stored as a claim-specific role value and SHALL NOT reuse `AcademyMemberRole`, because academy membership roles describe platform access rather than the claimant's real-world relationship to the academy.
 
+BJJ belt rank and stripes are optional, self-attested context for admin review only. They can help RollFinders understand who is contacting the platform, but they SHALL NOT be treated as proof of academy ownership, identity verification, coaching authority, or approval eligibility.
+
 Academies should support determining whether the listing is already claimed or owner-managed. For V1 this can be derived from existing `AcademyMember` records because current academy members are owner/admin managers. If future non-admin academy member roles are added, managed-academy checks must narrow to owner/admin roles.
 
 ---
@@ -270,6 +272,78 @@ Done when:
 * Verification notes or evidence are required and must be long enough for admin review.
 * Optional phone number, if provided, is stored safely.
 * Optional BJJ belt rank and stripe count, if provided, are stored safely and shown only to admins reviewing the claim.
+
+---
+
+## AC-004A: Optional BJJ Rank Context
+
+IF a requester submits a claim without BJJ belt rank or stripe information
+
+WHEN all required claim fields and ownership evidence are valid
+
+THEN the system SHALL accept the claim.
+
+Done when:
+
+* Belt rank is not required to submit a claim.
+* Stripe count is not required to submit a claim.
+* The claim form copy makes clear that belt information is optional and used only as context.
+* A missing belt rank or stripe count does not reduce claim validity by itself.
+
+---
+
+## AC-004B: BJJ Rank Validation
+
+IF a requester provides BJJ belt information
+
+WHEN the claim form or API validates the submission
+
+THEN the system SHALL validate the rank and stripe fields without making them required.
+
+Done when:
+
+* Accepted belt ranks are `WHITE`, `BLUE`, `PURPLE`, `BROWN`, `BLACK`, `CORAL`, `RED`, and `OTHER`.
+* Stripe count is accepted only when a belt rank is provided.
+* Stripe count is accepted only for `WHITE`, `BLUE`, `PURPLE`, and `BROWN`.
+* Stripe count is rejected for `BLACK`, `CORAL`, `RED`, and `OTHER`.
+* Stripe count, when accepted, must be an integer from 0 to 4.
+* Black belt degree is not overloaded into the stripe field; a separate future field would be required if black belt degrees are needed.
+
+---
+
+## AC-004C: BJJ Rank Admin Review Context
+
+IF a claim includes BJJ belt rank or stripe information
+
+WHEN a platform admin reviews the claim
+
+THEN the system SHALL present the information as self-attested BJJ context, not as verified authority evidence.
+
+Done when:
+
+* Admin-facing labels use wording such as `BJJ context` or `Self-attested belt rank`.
+* Belt rank and stripes are visible only to authorized platform admins in claim review contexts.
+* Claim list views exclude belt rank and stripes unless a specific admin-review requirement adds them.
+* Claim approval guidance states that ownership decisions must be based on operational authority evidence, not belt rank alone.
+
+---
+
+## AC-004D: BJJ Rank Privacy Boundaries
+
+IF claim data is exposed outside authorized admin claim review
+
+WHEN public responses, public pages, emails, analytics events, audit logs, application logs, exports, search indexes, badges, user profiles, or academy profiles are generated
+
+THEN the system SHALL exclude requester belt rank and stripe information unless a future explicit consent-based requirement allows it.
+
+Done when:
+
+* Public academy pages never display claim-request belt data.
+* Public API responses never return claim-request belt data.
+* Analytics events exclude belt rank and stripes.
+* Notification emails exclude belt rank and stripes.
+* Audit logs record claim actions without copying belt rank and stripes into metadata.
+* Future practitioner profiles do not auto-populate from claim-request belt data.
 
 ---
 
@@ -588,7 +662,7 @@ Events:
 
 Done when:
 
-* Analytics payload does not include requester name, email, phone, or verification evidence.
+* Analytics payload does not include requester name, email, phone, belt rank, stripe count, or verification evidence.
 * Academy ID or slug may be included if consistent with existing analytics policy.
 
 ---
@@ -598,6 +672,8 @@ Done when:
 * Unclaimed academy profiles show a claim action.
 * Claim form validates requester details and evidence.
 * Valid submissions create pending claims without granting access.
+* Claims can be submitted without BJJ belt rank or stripe information.
+* Optional BJJ belt rank and stripe information is self-attested, private to admin review, and never used as ownership proof by itself.
 * Duplicate pending claims from the same requester for the same academy are handled.
 * Platform admins can list, filter, and inspect claims.
 * Platform admins can approve pending claims.

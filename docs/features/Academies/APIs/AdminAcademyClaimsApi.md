@@ -81,6 +81,20 @@ WHEN the response is generated
 
 THEN the API SHALL exclude full verification notes unless needed by the list UI.
 
+## CLAIM-LIST-007: Belt Context Exclusion
+
+IF the API returns claim list rows
+
+WHEN the response is generated
+
+THEN the API SHALL exclude requester belt rank and stripe information from list rows.
+
+Done when:
+
+* Belt rank and stripes are not used for claim list sorting, filtering, badges, or prioritization.
+* Admins must open claim detail to view optional BJJ context.
+* Claim list rows remain focused on review status, academy, requester, and submitted date.
+
 ---
 
 # Acceptance Criteria
@@ -89,3 +103,4 @@ THEN the API SHALL exclude full verification notes unless needed by the list UI.
 * Claims can be filtered by status.
 * List response supports pagination.
 * Full private evidence is reserved for detail review.
+* Belt rank and stripes are excluded from claim list rows.

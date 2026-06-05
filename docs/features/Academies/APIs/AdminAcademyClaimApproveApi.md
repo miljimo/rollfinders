@@ -94,6 +94,21 @@ WHEN the decision is saved
 
 THEN the API SHALL write an admin audit log entry with actor, claim, academy, requester, action, and timestamp.
 
+## CLAIM-APPROVE-009A: Belt Context Is Not Approval Evidence
+
+IF a claim includes requester belt rank or stripe information
+
+WHEN a platform admin approves the claim
+
+THEN the API SHALL grant academy access only when operational academy authority evidence supports approval.
+
+Done when:
+
+* Belt rank and stripes are not required for approval.
+* Belt rank and stripes are not sufficient for approval by themselves.
+* Approval logic does not treat belt rank or stripes as identity, ownership, or authorization proof.
+* The audit log does not copy belt rank or stripes into approval metadata.
+
 ## CLAIM-APPROVE-010: Safe Response
 
 IF approval succeeds
@@ -113,3 +128,4 @@ THEN the API SHALL return approved claim status and linked user/academy identifi
 * Initial login email is queued.
 * Plaintext password is never returned by the API.
 * Approval is audit logged.
+* Optional belt rank and stripes are never treated as standalone approval evidence.
