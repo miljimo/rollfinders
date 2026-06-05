@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
+import { requireDashboardUser } from "@/lib/standard-dashboard";
 
 export type ChangePasswordState = {
   message: string;
@@ -13,7 +13,7 @@ export async function changeStandardUserPassword(
   _state: ChangePasswordState,
   formData: FormData,
 ): Promise<ChangePasswordState> {
-  const { user } = await requireStandardDashboardUser();
+  const { user } = await requireDashboardUser();
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 

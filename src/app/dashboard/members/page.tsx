@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { prisma } from "@/lib/prisma";
 import { memberSearchWhere, requireStandardDashboardUser } from "@/lib/standard-dashboard";
@@ -46,8 +47,8 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
             placeholder="Search members by name or email..."
             className="min-h-11 min-w-0 flex-1 rounded-md border border-stone-300 px-3 text-sm"
           />
-          <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Search</button>
-          {q ? <Link href="/dashboard/members" className="inline-flex min-h-11 items-center justify-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Reset</Link> : null}
+          <Button type="submit" variant="neutral">Search</Button>
+          {q ? <Button href="/dashboard/members" variant="secondary">Reset</Button> : null}
         </form>
 
         <div className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">

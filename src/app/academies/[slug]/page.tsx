@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { EventCard } from "@/components/EventCard";
 import { prisma } from "@/lib/prisma";
@@ -54,7 +55,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
         </div>
         <aside className="h-fit rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2">
-            <a href={`https://www.google.com/maps/search/?api=1&query=${academy.latitude},${academy.longitude}`} target="_blank" rel="noreferrer" className="rounded-md bg-stone-950 px-3 py-2 text-center text-sm font-semibold text-white">Open Map</a>
+            <Button href={`https://www.google.com/maps/search/?api=1&query=${academy.latitude},${academy.longitude}`} target="_blank" rel="noreferrer" size="sm" variant="neutral" className="px-3 py-2 text-sm font-semibold">Open Map</Button>
           </div>
         </aside>
       </section>

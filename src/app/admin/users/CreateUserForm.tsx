@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/Button";
 import { Role } from "@prisma/client";
 import { useState } from "react";
 import { createManagedUser } from "./actions";
@@ -42,7 +43,7 @@ export function CreateUserForm({
         <option value="">{requiresAcademy ? "Assign academy" : "No academy needed"}</option>
         {requiresAcademy ? academies.map((academy) => <option key={academy.id} value={academy.id}>{academy.name}</option>) : null}
       </select>
-      <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Create User</button>
+      <Button type="submit" variant="neutral">Create User</Button>
     </form>
   );
 }

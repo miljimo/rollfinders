@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AcademyMemberRole, InvitationStatus } from "@prisma/client";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canManageAcademyTeam, canTransferAcademyOwnership, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
@@ -34,7 +35,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
           {canManageTeam ? (
             <form action={inviteAcademyAdmin.bind(null, academy.id)} className="flex gap-2">
               <input name="invitedEmail" type="email" required placeholder="admin@example.com" className="min-h-11 rounded-md border border-stone-300 px-3 text-sm" />
-              <button className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Invite</button>
+              <Button type="submit" variant="primary">Invite</Button>
             </form>
           ) : null}
         </div>
@@ -53,12 +54,12 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
                     <div className="flex flex-wrap justify-end gap-2">
                       {canTransferAcademyOwnership(access) && member.role !== AcademyMemberRole.OWNER ? (
                         <form action={transferAcademyOwnership.bind(null, academy.id, member.id)}>
-                          <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Make Owner</button>
+                          <Button type="submit" size="sm" variant="secondary">Make Owner</Button>
                         </form>
                       ) : null}
                       {member.role !== AcademyMemberRole.OWNER || access.platformAdmin ? (
                         <form action={removeAcademyMember.bind(null, academy.id, member.id)}>
-                          <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Remove</button>
+                          <Button type="submit" size="sm" variant="danger">Remove</Button>
                         </form>
                       ) : null}
                     </div>
@@ -80,10 +81,10 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
                   <p className="mt-1 break-all text-xs text-stone-500">Accept URL: /admin/invitations/{invitation.token}</p>
                   <div className="mt-2 flex gap-2">
                     <form action={resendAcademyInvitation.bind(null, academy.id, invitation.id)}>
-                      <button className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold">Resend</button>
+                      <Button type="submit" size="sm" variant="secondary">Resend</Button>
                     </form>
                     <form action={cancelAcademyInvitation.bind(null, academy.id, invitation.id)}>
-                      <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Cancel</button>
+                      <Button type="submit" size="sm" variant="danger">Cancel</Button>
                     </form>
                   </div>
                 </div>

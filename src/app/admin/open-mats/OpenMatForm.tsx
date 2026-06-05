@@ -2,7 +2,7 @@
 
 import { GiType, type Academy, type Event } from "@prisma/client";
 import { useActionState } from "react";
-import Link from "next/link";
+import { Button } from "@/components/Button";
 import type { EventFormState } from "./actions";
 
 type EventAction = (state: EventFormState, formData: FormData) => Promise<EventFormState>;
@@ -57,10 +57,10 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
         Active listing
       </label>
       <div className="flex flex-wrap gap-3">
-        <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
+        <Button type="submit" disabled={isPending} variant="primary">
           {isPending ? "Saving..." : "Save Open Mat"}
-        </button>
-        {cancelHref ? <Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link> : null}
+        </Button>
+        {cancelHref ? <Button href={cancelHref} variant="secondary">Cancel</Button> : null}
       </div>
     </form>
   );

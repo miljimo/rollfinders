@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Academy, Event } from "@prisma/client";
 import { CheckCircle2, MapPin } from "lucide-react";
+import { Button } from "./Button";
 import { formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
 
 type AcademyCardItem = Academy & { events: Event[]; distanceMiles?: number | null };
@@ -37,7 +38,7 @@ export function AcademyCard({ academy }: { academy: AcademyCardItem }) {
         ))}
       </div>
       <div className="mt-4 flex gap-2">
-        <Link href={`/academies/${academy.slug}`} className="rounded-md bg-stone-950 px-3 py-2 text-sm font-semibold text-white">Details</Link>
+        <Button href={`/academies/${academy.slug}`} size="sm" variant="neutral" className="px-3 py-2 text-sm font-semibold">Details</Button>
       </div>
     </article>
   );

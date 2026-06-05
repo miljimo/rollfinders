@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
-import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
+import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function StandardChangePasswordPage() {
-  await requireStandardDashboardUser();
+  await requireDashboardUser();
 
   return (
     <PageShell>

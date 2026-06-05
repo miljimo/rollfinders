@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Mail, RefreshCw, Send, Settings, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { requireAdminPage } from "@/lib/admin";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
@@ -36,9 +37,9 @@ export default async function SettingsPage() {
             <h1 className="text-3xl font-black text-stone-950">Settings</h1>
             <p className="mt-2 text-stone-700">Manage email operations, audit activity, and future application settings.</p>
           </div>
-          <Link href="/admin/settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">
+          <Button href="/admin/settings" variant="secondary">
             <RefreshCw size={16} aria-hidden /> Refresh
-          </Link>
+          </Button>
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-3">

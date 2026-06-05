@@ -25,12 +25,12 @@ export function isPlatformAdminRole(role?: string) {
   return isSuperAdminRole(role) || role === "PLATFORM_ADMIN";
 }
 
-export function isStandardUserRole(role?: string) {
-  return role === "STANDARD_USER" || role === "USER";
+export function isAcademyAdminRole(role?: string) {
+  return role === "ACADEMY_ADMIN" || role === "ACADEMY_OWNER";
 }
 
-export function isAcademyAdminRole(role?: string) {
-  return role === "ACADEMY_ADMIN";
+export function isStandardUserRole(role?: string) {
+  return role === "STANDARD_USER" || role === "USER";
 }
 
 export function hasAdminMenuRole(role?: string) {

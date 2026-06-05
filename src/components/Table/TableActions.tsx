@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { clsx } from "clsx";
+import { Button } from "@/components/Button";
 import type { TableAction, TableRecord } from "./types";
 
 function actionValue<T extends TableRecord, V>(value: V | ((row: T) => V), row: T) {
@@ -18,30 +17,27 @@ export function TableActions<T extends TableRecord>({ actions, row }: { actions:
       {actions.map((action) => {
         const disabled = action.disabled ? actionValue(action.disabled, row) : false;
         const ariaLabel = action.ariaLabel ? actionValue(action.ariaLabel, row) : action.label;
-        const className = clsx(
-          "inline-flex min-h-9 items-center justify-center rounded-md border border-stone-300 px-3 text-sm font-bold text-stone-800 transition focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2",
-          disabled ? "pointer-events-none opacity-50" : "hover:border-teal-700 hover:text-teal-800",
-        );
-
-        if (action.href && !disabled) {
+        if (action.href) {
           return (
-            <Link key={action.label} href={actionValue(action.href, row)} aria-label={ariaLabel} className={className}>
+            <Button key={action.label} href={actionValue(action.href, row)} aria-label={ariaLabel} disabled={disabled} size="sm" variant="secondary" className="px-3 text-sm hover:border-teal-700 hover:text-teal-800">
               {action.label}
-            </Link>
+            </Button>
           );
         }
 
         return (
-          <button
+          <Button
             key={action.label}
             type="button"
             aria-label={ariaLabel}
-            className={className}
             disabled={disabled}
+            size="sm"
+            variant="secondary"
+            className="px-3 text-sm hover:border-teal-700 hover:text-teal-800"
             onClick={() => action.onClick?.(row)}
           >
             {action.label}
-          </button>
+          </Button>
         );
       })}
     </div>

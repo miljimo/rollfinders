@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ArrowRight, CalendarDays, MapPin, Navigation, Search, Users } from "lucide-react";
+import { Button } from "@/components/Button";
 import { LocationSearchForm } from "@/components/LocationSearchForm";
 import { PageShell } from "@/components/PageShell";
 import { AcademyCard } from "@/components/AcademyCard";
@@ -36,18 +37,18 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
               RollFinders is built for Brazilian Jiu-Jitsu practitioners, not generic gym browsing. Search open mats, nearby academies, gi and no-gi options, drop-in costs, and directions wherever you train.
             </p>
             <div className="mt-6 flex flex-wrap gap-3 text-sm font-bold text-slate-600">
-              <Link href="/open-mats?when=today" className="inline-flex min-h-11 items-center gap-2 rounded-md bg-teal-700 px-4 text-white shadow-sm">
+              <Button href="/open-mats?when=today" variant="primary" className="shadow-sm">
                 <CalendarDays size={16} aria-hidden /> Today
-              </Link>
-              <Link href="/open-mats" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-stone-200 bg-white px-4 shadow-sm">
+              </Button>
+              <Button href="/open-mats" variant="secondary" className="border-stone-200 shadow-sm">
                 <MapPin size={16} aria-hidden /> Nearby
-              </Link>
-              <Link href="/open-mats" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-stone-200 bg-white px-4 shadow-sm">
+              </Button>
+              <Button href="/open-mats" variant="secondary" className="border-stone-200 shadow-sm">
                 <Users size={16} aria-hidden /> Open mats
-              </Link>
-              <Link href="/open-mats?gi=GI" className="inline-flex min-h-11 items-center gap-2 rounded-md border border-stone-200 bg-white px-4 shadow-sm">
+              </Button>
+              <Button href="/open-mats?gi=GI" variant="secondary" className="border-stone-200 shadow-sm">
                 Gi / No-Gi
-              </Link>
+              </Button>
             </div>
             <div className="mt-8 max-w-3xl">
               <LocationSearchForm action="/open-mats" placeholder="Search open mats by borough, postcode, gi or no-gi..." />

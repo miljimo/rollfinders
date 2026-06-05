@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
@@ -27,8 +28,8 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
         </dl>
         <p className="mt-6 text-lg leading-8 text-stone-700">{event.description}</p>
         <div className="mt-6 flex flex-wrap gap-2">
-          <a href={directionsUrl(address)} target="_blank" rel="noreferrer" className="rounded-md bg-stone-950 px-4 py-3 text-sm font-bold text-white">Directions</a>
-          <a href={event.academy.website ?? `/academies/${event.academy.slug}`} className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Academy Details</a>
+          <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
+          <Button href={event.academy.website ?? `/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
         </div>
       </section>
     </PageShell>
