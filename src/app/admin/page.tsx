@@ -9,14 +9,14 @@ import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
-import { LogoutButton } from "@/components/logout-button";
+import { LogoutButton } from "@/components/LogoutButton";
 import { createAcademy } from "./academies/actions";
-import { AcademyForm } from "./academies/form";
+import { AcademyForm } from "./academies/AcademyForm";
 import { createOpenMat } from "./open-mats/actions";
-import { OpenMatForm } from "./open-mats/form";
+import { OpenMatForm } from "./open-mats/OpenMatForm";
 import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "./users/actions";
-import { UserForm } from "./users/form";
-import { ActionMenu } from "./action-menu";
+import { UserForm } from "./users/UserForm";
+import { ActionMenu } from "./ActionMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -218,16 +218,34 @@ export default async function AdminPage({
           <label htmlFor="admin-mobile-menu" className="inline-flex size-11 items-center justify-center rounded-md border border-stone-200 text-slate-700 lg:hidden" aria-label="Open admin menu">
             <Menu size={22} aria-hidden />
           </label>
-          <div className="flex items-center gap-5">
-            <div className="flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</div>
-              <div>
-                <p className="font-black text-slate-950">{account?.name ?? currentUser.email}</p>
-                <p className="text-sm font-semibold text-slate-500">{roleLabel(account?.role ?? currentUser.role)}</p>
+          <ActionMenu
+            buttonClassName="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+            label="Open account profile menu"
+            menuClassName="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl"
+            trigger={(
+              <>
+                <span className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</span>
+                <span className="hidden sm:block">
+                  <span className="block font-black text-slate-950">{account?.name ?? currentUser.email}</span>
+                  <span className="block text-sm font-semibold text-slate-500">{roleLabel(account?.role ?? currentUser.role)}</span>
+                </span>
+                <ChevronDown size={18} aria-hidden />
+              </>
+            )}
+          >
+            <div className="flex items-start gap-3 border-b border-stone-100 pb-4">
+              <div className="grid size-14 shrink-0 place-items-center rounded-full bg-teal-100 text-lg font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</div>
+              <div className="min-w-0">
+                <p className="break-words text-lg font-black text-slate-950">{account?.name ?? currentUser.email}</p>
+                <p className="mt-1 break-all text-sm font-semibold text-slate-500">{account?.email ?? currentUser.email}</p>
+                <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(account?.role ?? currentUser.role)}</p>
               </div>
-              <ChevronDown size={18} aria-hidden />
             </div>
-          </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <Link href="/admin?panel=settings" className="rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Settings</Link>
+              <LogoutButton />
+            </div>
+          </ActionMenu>
         </header>
 
         {panel === "settings" ? (

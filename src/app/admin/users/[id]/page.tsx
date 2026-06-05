@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Role } from "@prisma/client";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { updateManagedUser } from "../actions";
-import { UserForm } from "../form";
+import { UserForm } from "../UserForm";
 
 export const dynamic = "force-dynamic";
 

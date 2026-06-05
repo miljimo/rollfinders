@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/shell";
-import { OpenMatLocationFilterForm } from "@/components/location-search-form";
-import { EventCard } from "@/components/ui";
+import { PageShell } from "@/components/PageShell";
+import { OpenMatLocationFilterForm } from "@/components/OpenMatLocationFilterForm";
+import { EventCard } from "@/components/EventCard";
 import { getOpenMatRadar } from "@/lib/data";
 
 export const dynamic = "force-dynamic";

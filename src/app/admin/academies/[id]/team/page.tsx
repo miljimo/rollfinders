@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AcademyMemberRole, InvitationStatus } from "@prisma/client";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { canManageAcademyTeam, canTransferAcademyOwnership, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";

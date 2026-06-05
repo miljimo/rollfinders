@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { StaticPageShell } from "@/components/shell";
+import { StaticPageShell } from "@/components/StaticPageShell";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | RollFinders",

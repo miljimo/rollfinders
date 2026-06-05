@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Mail, RefreshCw, Send, Settings, ShieldCheck } from "lucide-react";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { requireAdminPage } from "@/lib/admin";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";

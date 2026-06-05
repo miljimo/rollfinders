@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";

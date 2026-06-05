@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { createManagedUser } from "../actions";
-import { UserForm } from "../form";
+import { UserForm } from "../UserForm";
 
 export const dynamic = "force-dynamic";
 

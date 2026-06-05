@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
-import { AcademyForm } from "../form";
+import { AcademyForm } from "../AcademyForm";
 
 export const dynamic = "force-dynamic";
 
