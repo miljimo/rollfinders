@@ -26,6 +26,10 @@ IF more than one page of open mats matches
 WHEN results render  
 THEN the page SHALL paginate event cards and preserve active `q`, `when`, `gi`, `lat`, and `lng` params in pagination links.
 
+IF open mat or rolling results include sessions from approved/managed and unclaimed academies  
+WHEN public Open Mat Radar results are sorted  
+THEN the page SHALL use academy discovery trust ranking to prioritize which sessions qualify for top-list prominence while preserving closest-first card order when user location is available.
+
 IF an open mat occurrence has started and has not ended  
 WHEN results render  
 THEN the event card SHALL indicate that the open mat is currently in session.
@@ -44,6 +48,8 @@ THEN the page SHALL render derived upcoming occurrences from the recurring sourc
 * Count links preserve location params.
 * Events render as cards.
 * Pagination shows result range, page links, Previous, and Next without requiring long scrolling.
+* Open mat and rolling candidate selection boosts verified-and-managed, managed, and verified academy sessions over otherwise comparable unclaimed academy sessions.
+* When `lat` and `lng` are available, visible open mat cards are sorted by closest distance first after filters and top-list candidate priority are applied.
 * In-session events are visually labelled.
 * Completed sessions are hidden from public discovery after their end time.
 * Recurring sessions can appear as dated occurrences while remaining backed by one source listing/rule.

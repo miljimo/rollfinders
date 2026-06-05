@@ -258,7 +258,49 @@ THEN the implementation SHALL document where monthly visitors, weekly active use
 
 ---
 
-# Group 3: Data-Driven Map API And Backend
+# Group 3: Discovery Ranking API And Backend
+
+Source PRDs:
+
+`docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md` AC-024
+
+`docs/features/Academies/Products/AcademyVerificationPrd.md` AV-012
+
+## API-DISCOVERY-001: Academy Trust Ranking Signal
+
+IF public academy or open mat discovery data is queried
+
+WHEN academy records are loaded for ranking
+
+THEN the backend SHALL calculate a reusable academy discovery trust rank from verification and managed/claimed state.
+
+Done when:
+
+* Verified-and-managed academies receive the strongest trust rank.
+* Managed academies are derived from owner/admin academy membership or approved claim evidence.
+* Verified-but-unmanaged academies receive verified ranking weight without being treated as owner-managed.
+* Pending, rejected, unclaimed, and unmanaged academies do not receive managed ranking weight.
+* The rank can be reused by academy listing, Featured Academies, map-adjacent lists, Open Mat Radar, and recurring rolling top-list candidate selection.
+
+## API-DISCOVERY-002: Discovery Ordering Policy
+
+IF ranked discovery results are returned
+
+WHEN the backend sorts academies, featured academies, open mats, or recurring rolling occurrences
+
+THEN the backend SHALL apply academy discovery trust rank as a strong boost for top-list candidate selection while preserving closest-first visible card order when distance is available.
+
+Done when:
+
+* Academy listing and Featured Academies use higher trust rank to prioritize which otherwise comparable records enter the top candidate set.
+* Open Mat Radar and recurring rolling results use higher trust rank to prioritize which otherwise comparable sessions enter the top candidate set.
+* Distance-aware card grids render closest-first after filtering and candidate priority are applied.
+* Search relevance, featured state, date/time, and deterministic name/title fallback continue to apply where the surface already uses them.
+* The implementation avoids per-card N+1 claim or membership lookups.
+
+---
+
+# Group 4: Data-Driven Map API And Backend
 
 Source PRD:
 
@@ -298,7 +340,7 @@ THEN the backend SHALL include sufficient address or coordinate data to build di
 
 ---
 
-# Group 4: Open Mat Contact API And Backend
+# Group 5: Open Mat Contact API And Backend
 
 Source PRD:
 
@@ -338,7 +380,7 @@ THEN the backend SHALL expose only contact fields intended for public display.
 
 ---
 
-# Group 5: Admin-Created User Onboarding API And Backend
+# Group 6: Admin-Created User Onboarding API And Backend
 
 Source PRD:
 
@@ -426,7 +468,7 @@ THEN the existing password reset backend action SHALL still work.
 
 ---
 
-# Group 6: Search Performance Backend Checks
+# Group 7: Search Performance Backend Checks
 
 Source PRD:
 
@@ -458,7 +500,7 @@ THEN the checks SHALL report pass/fail status for academy search and open mat se
 
 ---
 
-# Group 7: Platform Decision Documentation
+# Group 8: Platform Decision Documentation
 
 Source PRD:
 

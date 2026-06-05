@@ -203,6 +203,8 @@ BJJ belt rank and stripes are optional, self-attested context for admin review o
 
 Academies should support determining whether the listing is already claimed or owner-managed. For V1 this can be derived from existing `AcademyMember` records because current academy members are owner/admin managers. If future non-admin academy member roles are added, managed-academy checks must narrow to owner/admin roles.
 
+Discovery ranking should treat approved claimed/managed academies as higher-trust listings. The managed signal SHOULD be derived from approved owner/admin membership, with an approved claim as supporting evidence where needed. Managed status alone SHALL NOT imply that RollFinders has independently verified academy details unless `verificationStatus = VERIFIED`.
+
 ---
 
 # IF/WHEN/THEN Requirements
@@ -667,6 +669,25 @@ Done when:
 
 ---
 
+## AC-024: Managed Academy Discovery Priority
+
+IF an academy has an approved claim or active owner/admin academy membership
+
+WHEN public discovery ranking is calculated
+
+THEN the system SHALL treat the academy as managed for discovery ordering.
+
+Done when:
+
+* Managed academies receive a trust-ranking boost when the system selects or promotes records for top-list candidate sets.
+* The boost applies to academy listing, Featured Academies, map-adjacent academy lists, and open mat/rolling discovery surfaces that include academy context.
+* Distance-aware card grids preserve closest-first visible ordering after top-list candidate priority is applied.
+* Managed status is used with existing relevance rules such as date, time, distance, search relevance, featured state, and name fallback without moving farther cards above closer cards.
+* Open mat and rolling discovery uses managed status for top-list candidate priority, then preserves closest-first card order when user location is available.
+* Managed status does not show a verified badge unless the academy is also verified.
+
+---
+
 # Acceptance Criteria
 
 * Unclaimed academy profiles show a claim action.
@@ -680,6 +701,7 @@ Done when:
 * Platform admins can reject pending claims.
 * Approved claims link or create a requester account.
 * Approved requesters are automatically added as `Academy Admin` users for the claimed academy.
+* Approved claimed or owner/admin-managed academies receive managed discovery priority for top-list candidate selection while distance-aware card grids remain closest-first.
 * Approved requesters receive an email with an initial password or secure password setup link.
 * Rejected claims do not grant access.
 * Requesters receive submission, approval, and rejection notifications where email is available.

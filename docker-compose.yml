@@ -74,6 +74,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_HOST: db
       DB_PORT: 5432
+      HOSTNAME: 0.0.0.0
       NEXTAUTH_URL: http://localhost:3000
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-local-rollfinder-secret-for-compose}
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}

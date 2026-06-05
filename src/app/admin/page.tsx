@@ -2,13 +2,13 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, Eye, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
-import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
@@ -19,6 +19,7 @@ import { OpenMatForm } from "./open-mats/OpenMatForm";
 import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "./users/actions";
 import { UserForm } from "./users/UserForm";
 import { ActionMenu } from "./ActionMenu";
+import { fetchAcademyClaims, type AcademyClaimListItem } from "./academy-claims/api";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export const metadata: Metadata = {
 };
 
 const pageSize = 8;
+const claimPageSizes = [20, 50, 100];
 
 type AdminSearchParams = Record<string, string | string[] | undefined>;
 
@@ -46,8 +48,18 @@ function clampPage(page: number, totalItems: number) {
 }
 
 function selectedPanel(value: string | undefined) {
-  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps") return value;
+  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "academy-claims") return value;
   return "academies";
+}
+
+function selectedClaimStatus(value: string | undefined) {
+  if (!value || value === "all") return "all";
+  return Object.values(ClaimStatus).includes(value as ClaimStatus) ? value : "all";
+}
+
+function selectedClaimPageSize(value: string | undefined) {
+  const parsed = Number(value ?? "20");
+  return claimPageSizes.includes(parsed) ? parsed : 20;
 }
 
 function matchingAcademyVerificationStatus(search: string) {
@@ -81,6 +93,42 @@ function pageHref(searchParams: AdminSearchParams, key: string, page: number) {
   return query ? `/admin?${query}` : "/admin";
 }
 
+function adminClaimsHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>) {
+  const params = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => item && params.append(key, item));
+      return;
+    }
+    params.set(key, value);
+  });
+  params.set("panel", "academy-claims");
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (value === undefined || value === "" || value === "all" || value === 1) {
+      params.delete(key);
+      return;
+    }
+    params.set(key, String(value));
+  });
+  params.set("panel", "academy-claims");
+  return `/admin?${params.toString()}`;
+}
+
+function claimApiParams({ page, pageSize, search, status }: { page: number; pageSize: number; search: string; status: string }) {
+  const params = new URLSearchParams();
+  params.set("page", String(page));
+  params.set("pageSize", String(pageSize));
+  if (search) params.set("search", search);
+  if (status !== "all") params.set("status", status);
+  return params;
+}
+
+function claimPaginationPages(currentPage: number, totalPages: number) {
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -107,6 +155,9 @@ export default async function AdminPage({
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
   const userPage = pageFromParams(params, "usersPage");
+  const claimPage = pageFromParams(params, "claimsPage");
+  const claimPageSize = selectedClaimPageSize(firstParam(params.pageSize));
+  const claimStatus = selectedClaimStatus(firstParam(params.status));
   const academyVerificationSearch = matchingAcademyVerificationStatus(search);
   const roleSearch = matchingRole(search);
   const userStatusSearch = matchingUserStatus(search);
@@ -166,6 +217,9 @@ export default async function AdminPage({
   const currentAcademyPage = clampPage(academyPage, academyCount);
   const currentEventPage = clampPage(eventPage, activeEventCount);
   const currentUserPage = clampPage(userPage, userCount);
+  const claimResult = panel === "academy-claims"
+    ? await fetchAcademyClaims(claimApiParams({ page: claimPage, pageSize: claimPageSize, search, status: claimStatus }))
+    : null;
 
   const [
     academies,
@@ -281,8 +335,9 @@ export default async function AdminPage({
           </div>
 
           <h2 className="mt-7 text-xl font-black text-slate-950">Quick Actions</h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div className="mt-4 grid gap-4 lg:grid-cols-4">
             <ActionCard active={panel === "academies"} description="Search, verify and manage academies" href="/admin?panel=academies" icon={<Building2 size={24} aria-hidden />} title="Manage Academies" />
+            <ActionCard active={panel === "academy-claims"} description="Review ownership access requests" href="/admin?panel=academy-claims" icon={<ClipboardCheck size={24} aria-hidden />} title="Academy Claims" />
             <ActionCard active={panel === "open-mats"} description="Create, edit and manage events" href="/admin?panel=open-mats" icon={<CalendarDays size={24} aria-hidden />} title="Manage Open Mats" />
             <ActionCard active={panel === "users"} description="Create, edit and manage users" href="/admin?panel=users" icon={<Users size={24} aria-hidden />} title="Manage Users" />
           </div>
@@ -320,6 +375,22 @@ export default async function AdminPage({
             >
               <OpenMatsTable events={events} />
               <Pagination currentPage={currentEventPage} totalItems={activeEventCount} pageKey="eventsPage" searchParams={params} />
+            </AdminPanel>
+          ) : null}
+          {panel === "academy-claims" ? (
+            <AdminPanel
+              action={<ClaimsFilter status={claimStatus} pageSize={claimPageSize} search={search} />}
+              description="Review academy ownership requests and grant access after evidence checks."
+              id="academy-claims"
+              search={<ClaimsPanelSearch pageSize={claimPageSize} search={search} status={claimStatus} />}
+              title="Academy Claims"
+            >
+              <ClaimStatusFilters params={params} status={claimStatus} />
+              {!claimResult ? null : !claimResult.ok ? (
+                <ClaimsErrorState message={claimResult.message} status={claimResult.status} />
+              ) : (
+                <ClaimsTable claims={claimResult.data.items} page={claimResult.data.page} pageSize={claimResult.data.pageSize} params={params} totalItems={claimResult.data.totalItems} totalPages={claimResult.data.totalPages} />
+              )}
             </AdminPanel>
           ) : null}
           {panel === "users" ? (
@@ -497,6 +568,25 @@ function PanelSearch({ panel, search }: { panel: string; search: string }) {
   );
 }
 
+function ClaimsPanelSearch({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
+  return (
+    <form action="/admin" className="flex min-w-0 gap-2">
+      <input type="hidden" name="panel" value="academy-claims" />
+      {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
+      {pageSize !== 20 ? <input type="hidden" name="pageSize" value={pageSize} /> : null}
+      <input
+        name="search"
+        defaultValue={search}
+        placeholder="Search by academy, requester, or email"
+        className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
+      />
+      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label="Search claims">
+        <Search size={20} aria-hidden />
+      </Button>
+    </form>
+  );
+}
+
 function AdminSidebar({ panel, showClose }: { panel: string; showClose?: boolean }) {
   return (
     <>
@@ -512,9 +602,10 @@ function AdminSidebar({ panel, showClose }: { panel: string; showClose?: boolean
         ) : null}
       </div>
       <nav className="flex flex-1 flex-col gap-2 px-4 py-7 text-sm font-bold text-slate-600">
-        <AdminNavItem active={panel !== "settings" && panel !== "maps"} href="/admin" icon={<Home size={20} aria-hidden />}>Dashboard</AdminNavItem>
+        <AdminNavItem active={panel === "academies" || panel === "open-mats" || panel === "users"} href="/admin" icon={<Home size={20} aria-hidden />}>Dashboard</AdminNavItem>
         <AdminNavItem active={panel === "settings"} href="/admin?panel=settings" icon={<Settings size={20} aria-hidden />}>Settings</AdminNavItem>
         <div className="my-5 border-t border-stone-200" />
+        <AdminNavItem active={panel === "academy-claims"} href="/admin?panel=academy-claims" icon={<ClipboardCheck size={20} aria-hidden />}>Academy Claims</AdminNavItem>
         <AdminNavItem active={panel === "maps"} href="/admin?panel=maps" icon={<Map size={20} aria-hidden />}>Map</AdminNavItem>
       </nav>
       <div className="grid gap-2 border-t border-stone-200 px-4 py-5 text-sm font-bold text-slate-600">
@@ -1007,6 +1098,180 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
       </table>
     </div>
   );
+}
+
+function ClaimsFilter({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
+  return (
+    <details className="group relative">
+      <summary className="inline-flex min-h-12 cursor-pointer list-none items-center justify-center gap-3 rounded-md border border-stone-200 bg-white px-5 text-sm font-bold text-teal-800 shadow-sm transition hover:border-teal-600 hover:bg-teal-50 [&::-webkit-details-marker]:hidden">
+        <Filter size={18} aria-hidden />
+        Filters
+      </summary>
+      <div className="absolute right-0 z-30 mt-2 grid w-[min(24rem,calc(100vw-2rem))] gap-4 rounded-lg border border-stone-200 bg-white p-4 text-left shadow-xl sm:grid-cols-2">
+        <form action="/admin" className="contents">
+          <input type="hidden" name="panel" value="academy-claims" />
+          {search ? <input type="hidden" name="search" value={search} /> : null}
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Status
+            <select name="status" defaultValue={status} className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800">
+              <option value="all">All</option>
+              <option value={ClaimStatus.PENDING}>Pending</option>
+              <option value={ClaimStatus.APPROVED}>Approved</option>
+              <option value={ClaimStatus.REJECTED}>Rejected</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-700">
+            Rows
+            <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800">
+              {claimPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
+          </label>
+          <div className="flex items-end gap-2 sm:col-span-2">
+            <Button type="submit" variant="primary">Apply</Button>
+            <Button href="/admin?panel=academy-claims" variant="secondary" className="border-stone-200 text-slate-700">Reset</Button>
+          </div>
+        </form>
+      </div>
+    </details>
+  );
+}
+
+function ClaimStatusFilters({ params, status }: { params: AdminSearchParams; status: string }) {
+  return (
+    <div className="mt-4 flex flex-wrap gap-3">
+      <ClaimFilterPill href={adminClaimsHref(params, { status: undefined, claimsPage: 1 })} active={status === "all"} icon={<ShieldCheck size={18} aria-hidden />}>All Claims</ClaimFilterPill>
+      <ClaimFilterPill href={adminClaimsHref(params, { status: ClaimStatus.PENDING, claimsPage: 1 })} active={status === ClaimStatus.PENDING} dotClassName="bg-amber-500">Pending</ClaimFilterPill>
+      <ClaimFilterPill href={adminClaimsHref(params, { status: ClaimStatus.APPROVED, claimsPage: 1 })} active={status === ClaimStatus.APPROVED} dotClassName="bg-emerald-500">Approved</ClaimFilterPill>
+      <ClaimFilterPill href={adminClaimsHref(params, { status: ClaimStatus.REJECTED, claimsPage: 1 })} active={status === ClaimStatus.REJECTED} dotClassName="bg-red-500">Rejected</ClaimFilterPill>
+    </div>
+  );
+}
+
+function ClaimFilterPill({ active, children, dotClassName, href, icon }: { active?: boolean; children: React.ReactNode; dotClassName?: string; href: string; icon?: React.ReactNode }) {
+  return (
+    <Link href={href} className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold transition ${active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-stone-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50"}`}>
+      {icon}
+      {dotClassName ? <span className={`size-2.5 rounded-full ${dotClassName}`} aria-hidden /> : null}
+      {children}
+    </Link>
+  );
+}
+
+function ClaimsErrorState({ message, status }: { message: string; status: number }) {
+  const title = status === 403 ? "Access restricted" : "Claims unavailable";
+  return (
+    <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 px-5 py-10 text-center">
+      <h3 className="text-xl font-black text-slate-950">{title}</h3>
+      <p className="mx-auto mt-2 max-w-xl text-slate-600">{message}</p>
+      <Button href="/admin?panel=academy-claims" variant="secondary" className="mt-5">Refresh Claims</Button>
+    </div>
+  );
+}
+
+function ClaimsTable({ claims, page, pageSize, params, totalItems, totalPages }: { claims: AcademyClaimListItem[]; page: number; pageSize: number; params: AdminSearchParams; totalItems: number; totalPages: number }) {
+  const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, totalItems);
+
+  return (
+    <>
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
+            <tr>
+              <th className="px-5 py-4">Academy</th>
+              <th className="px-5 py-4">Requester</th>
+              <th className="px-5 py-4">Role</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4">Submitted</th>
+              <th className="px-5 py-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {claims.map((claim) => (
+              <tr key={claim.id} className="border-t border-stone-100">
+                <td className="px-5 py-4">
+                  <p className="font-bold text-slate-950">{claim.academy.name}</p>
+                  {claim.academy.city || claim.academy.postcode ? <p className="mt-1 text-slate-500">{[claim.academy.city, claim.academy.postcode].filter(Boolean).join(", ")}</p> : null}
+                </td>
+                <td className="px-5 py-4">
+                  <p className="font-bold text-slate-950">{claim.requester.name}</p>
+                  <p className="break-all text-slate-500">{claim.requester.email}</p>
+                </td>
+                <td className="px-5 py-4 text-slate-700">{claimRoleLabel(claim.requester.role)}</td>
+                <td className="px-5 py-4"><ClaimStatusBadge status={claim.status} /></td>
+                <td className="px-5 py-4 text-slate-600">{formatDate(new Date(claim.createdAt))}</td>
+                <td className="px-5 py-4 text-right">
+                  <Button href={`/admin/academy-claims/${claim.id}?returnTo=${encodeURIComponent(adminClaimsHref(params, {}))}`} size="sm" variant={claim.status === ClaimStatus.PENDING ? "primary" : "secondary"}>Review</Button>
+                </td>
+              </tr>
+            ))}
+            {!claims.length ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-12 text-center text-stone-600">No academy claims match these filters.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex flex-col gap-4 border-t border-stone-100 px-1 py-5 text-sm lg:flex-row lg:items-center lg:justify-between">
+        <p className="text-slate-700">Showing {start} to {end} of {totalItems} claims</p>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ClaimPageLink disabled={page <= 1} href={adminClaimsHref(params, { claimsPage: page - 1 })} iconOnly>
+            <ChevronLeft size={18} aria-hidden />
+            <span className="sr-only">Previous</span>
+          </ClaimPageLink>
+          {claimPaginationPages(page, totalPages).map((pageNumber) => (
+            <ClaimPageLink key={pageNumber} active={pageNumber === page} href={adminClaimsHref(params, { claimsPage: pageNumber })}>{pageNumber}</ClaimPageLink>
+          ))}
+          <ClaimPageLink disabled={page >= totalPages} href={adminClaimsHref(params, { claimsPage: page + 1 })} iconOnly>
+            <ChevronRight size={18} aria-hidden />
+            <span className="sr-only">Next</span>
+          </ClaimPageLink>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ClaimPageLink({ active, children, disabled, href, iconOnly }: { active?: boolean; children: React.ReactNode; disabled?: boolean; href: string; iconOnly?: boolean }) {
+  if (disabled) {
+    return <span className={`inline-flex min-h-9 items-center justify-center rounded-md border border-stone-200 text-xs font-bold text-stone-400 ${iconOnly ? "w-9 px-0" : "px-3"}`}>{children}</span>;
+  }
+  return (
+    <Button href={href} size={iconOnly ? "icon" : "sm"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "h-9 min-h-9 w-9 px-0" : "min-h-9 px-3"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`}>
+      {children}
+    </Button>
+  );
+}
+
+function ClaimStatusBadge({ status }: { status: ClaimStatus }) {
+  const className = {
+    [ClaimStatus.PENDING]: "bg-amber-50 text-amber-800 ring-amber-100",
+    [ClaimStatus.APPROVED]: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+    [ClaimStatus.REJECTED]: "bg-red-50 text-red-700 ring-red-100",
+  }[status];
+
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ring-1 ${className}`}>
+      <span className={`size-2.5 rounded-full ${statusDot(status)}`} aria-hidden />
+      {claimStatusLabel(status)}
+    </span>
+  );
+}
+
+function claimRoleLabel(value: string) {
+  return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function claimStatusLabel(status: ClaimStatus) {
+  return claimRoleLabel(status);
+}
+
+function statusDot(status: ClaimStatus) {
+  if (status === ClaimStatus.APPROVED) return "bg-emerald-500";
+  if (status === ClaimStatus.REJECTED) return "bg-red-500";
+  return "bg-amber-500";
 }
 
 function Badge({ children }: { children: React.ReactNode }) {

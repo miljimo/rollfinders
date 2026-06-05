@@ -18,6 +18,8 @@ Provide a clear admin workflow for verifying, rejecting, and displaying academy 
 
 This requirement covers academy verification state transitions and the relationship between `verificationStatus` and the legacy/public `verified` flag.
 
+Verification is a public data-quality signal. It can contribute to discovery ranking, but it is separate from academy ownership or management status.
+
 ---
 
 # Current Source Context
@@ -247,7 +249,26 @@ Done when:
 
 ---
 
-## AV-012: Unauthorized Verification Change
+## AV-012: Verified Academy Discovery Weight
+
+IF an academy has `verificationStatus = VERIFIED`
+
+WHEN public discovery ranking is calculated
+
+THEN the academy SHALL receive verified ranking weight without implying ownership unless it is also managed through approved claim or owner/admin membership.
+
+Done when:
+
+* Verified and managed academies receive the highest trust ranking tier.
+* Managed but unverified academies receive managed ranking weight without a verified badge.
+* Verified but unmanaged academies receive verified ranking weight below verified-and-managed listings.
+* Pending or rejected academies do not receive verified ranking weight.
+* Existing relevance rules such as search relevance, date/time, distance, featured state, and deterministic name fallback still apply.
+* Distance-aware card grids preserve closest-first visible ordering after verified/managed top-list candidate priority is applied.
+
+---
+
+## AV-013: Unauthorized Verification Change
 
 IF a user without verification permission attempts to change academy verification status
 
@@ -270,6 +291,7 @@ Done when:
 * Verified and pending dashboard counts are accurate.
 * Academy management filters by verification status.
 * Public verified indicators display only for verified academies.
+* Verified academies receive discovery candidate-selection weight without implying ownership unless they are also managed.
 * Verification changes are audited.
 * Unauthorized verification changes are rejected.
 

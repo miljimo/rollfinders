@@ -275,6 +275,24 @@ Done when:
 
 ---
 
+## RR-007D: Recurring Rolling Discovery Trust Priority
+
+IF recurring rolling occurrences include sessions from approved/managed and unclaimed academies
+
+WHEN public discovery surfaces sort derived recurring occurrences
+
+THEN the system SHALL use academy discovery trust ranking to prioritize which derived occurrences qualify for top-list prominence while preserving closest-first card order when user location is available.
+
+Done when:
+
+* Derived recurring occurrences follow the same academy discovery trust ranking policy as Open Mat Radar.
+* Verified-and-managed, managed, and verified academy sessions are boosted during candidate selection over otherwise comparable unclaimed academy sessions.
+* When distance is available, visible recurring occurrence cards are sorted by closest distance first after filters and candidate priority are applied.
+* Trust ranking does not create duplicate recurring occurrence records.
+* Trust ranking does not show completed occurrences after their end time.
+
+---
+
 ## RR-007A: In-Session Public State
 
 IF a visible open mat occurrence has started but has not ended
@@ -508,6 +526,7 @@ Done when:
 * Recurring rollings appear on academy profile upcoming open mats.
 * Weekly recurring listings show no more than the next 4 valid upcoming occurrences per source listing on public discovery surfaces.
 * Monthly recurring listings show no more than the next 6 valid upcoming occurrences per source listing on public discovery surfaces.
+* Recurring rolling discovery applies academy trust ranking for candidate priority, then keeps distance-aware card grids closest-first where distance is available.
 * Open mats currently in progress show an `In session` state publicly on Open Mat cards, latest upcoming UI, public academy upcoming sections, map details, and detail pages.
 * Completed sessions disappear from public upcoming discovery after their end time.
 * Completed sessions remain trackable as system/admin history.

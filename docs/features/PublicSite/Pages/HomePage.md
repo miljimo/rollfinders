@@ -22,8 +22,17 @@ IF featured events or academies are empty
 WHEN the page renders  
 THEN layout SHALL remain stable.
 
+IF Featured Academies data includes approved/managed and unclaimed academies  
+WHEN the home page renders the Featured Academies section  
+THEN it SHALL use academy discovery trust ranking to prioritize which academies enter the featured/top candidate set while preserving closest-first card order when distance is available.
+
+IF Featured Open Mats data includes sessions from approved/managed and unclaimed academies  
+WHEN the home page renders featured open mat cards  
+THEN it SHALL use academy discovery trust ranking to prioritize which sessions enter the featured/top candidate set while preserving closest-first card order when distance is available.
+
 ## Done When
 
 * Page uses `PageShell`.
 * Search routes correctly.
 * Cards render responsively.
+* Featured Academies and Featured Open Mats apply academy discovery trust ranking for candidate priority, then render distance-aware cards closest-first where distance is available.
