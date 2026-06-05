@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { AcademyMap } from "@/components/AcademyMap";
 import { PageShell } from "@/components/PageShell";
 import { getMapItems } from "@/lib/data";
-import { getGoogleMapsApiKey } from "@/lib/google-maps";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +14,6 @@ export const metadata: Metadata = {
 
 export default async function MapPage() {
   const academies = await getMapItems();
-  const googleKey = getGoogleMapsApiKey();
-  const center = "51.5072,-0.1276";
 
   return (
     <PageShell>
@@ -24,21 +22,7 @@ export default async function MapPage() {
         <p className="mt-2 max-w-3xl text-stone-700">Scan London by training opportunity, not just club location. See nearby academies, upcoming open mats, and details before you travel.</p>
         <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_380px]">
           <div className="min-h-[480px] overflow-hidden rounded-lg border border-stone-200 bg-white">
-            {googleKey ? (
-              <iframe
-                title="London BJJ academies map"
-                className="h-[480px] w-full"
-                loading="lazy"
-                src={`https://www.google.com/maps/embed/v1/search?key=${googleKey}&q=Brazilian%20Jiu%20Jitsu%20London&center=${center}&zoom=11`}
-              />
-            ) : (
-              <div className="map-grid flex h-[480px] items-center justify-center p-6 text-center">
-                <div className="rounded-lg bg-white p-5 shadow-sm">
-                  <p className="font-bold text-stone-950">Google Maps key not configured</p>
-                  <p className="mt-2 max-w-sm text-sm text-stone-600">Set GOOGLE_MAPS_API_KEY to enable the embedded map. Listings remain available below.</p>
-                </div>
-              </div>
-            )}
+            <AcademyMap academies={academies} />
           </div>
           <div className="grid max-h-[480px] gap-3 overflow-auto pr-1">
             {academies.map((academy) => (
