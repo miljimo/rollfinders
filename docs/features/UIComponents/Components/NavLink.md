@@ -1,6 +1,9 @@
 # PRD: NavLink Component
 
-Source: `src/components/NavLink.tsx`
+## Implementation Metadata
+
+- Source: `src/components/NavLink.tsx`
+- Status: Ready for development
 
 ## Purpose
 
@@ -23,6 +26,10 @@ THEN it SHALL set `aria-current="page"` and active styling.
 IF the link is inactive  
 WHEN rendered  
 THEN it SHALL use inactive styling with hover behavior.
+
+IF a link receives additional class names  
+WHEN active or inactive styles are composed  
+THEN caller classes SHALL be preserved without removing accessibility state.
 
 ## Done When
 

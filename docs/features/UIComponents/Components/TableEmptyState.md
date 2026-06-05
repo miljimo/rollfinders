@@ -1,6 +1,9 @@
 # PRD: TableEmptyState Component
 
-Source: `src/components/Table/TableEmptyState.tsx`
+## Implementation Metadata
+
+- Source: `src/components/Table/TableEmptyState.tsx`
+- Status: Ready for development
 
 ## Purpose
 
@@ -16,11 +19,16 @@ IF no empty message is supplied
 WHEN rendered  
 THEN a safe default message SHALL be shown.
 
-IF the table has multiple columns  
-WHEN empty state renders  
-THEN it SHALL span the full table width.
+IF rendered by `Table` for an empty dataset  
+WHEN the state appears  
+THEN it SHALL display as a standalone panel above or in place of the table container.
+
+IF a custom empty message is supplied  
+WHEN rendered  
+THEN the message SHALL display as text content without requiring custom markup.
 
 ## Done When
 
 * Empty state tests pass.
-* Empty state does not break table layout.
+* Empty state does not pretend to be a table row.
+* Empty state remains readable outside horizontally scrollable table content.

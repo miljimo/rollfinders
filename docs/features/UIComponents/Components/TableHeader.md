@@ -1,6 +1,9 @@
 # PRD: TableHeader Component
 
-Source: `src/components/Table/TableHeader.tsx`
+## Implementation Metadata
+
+- Source: `src/components/Table/TableHeader.tsx`
+- Status: Ready for development
 
 ## Purpose
 
@@ -16,11 +19,16 @@ IF a column has a title
 WHEN the header cell renders  
 THEN the title SHALL be displayed.
 
-IF a column has custom class names  
+IF a column has `headerClassName`  
 WHEN the header renders  
 THEN those classes SHALL apply without breaking default layout.
+
+IF row actions are configured  
+WHEN `hasActions` is true  
+THEN the header SHALL render a right-aligned Actions column.
 
 ## Done When
 
 * No column names are hardcoded.
 * Header supports any entity table.
+* Header order matches the supplied column order.

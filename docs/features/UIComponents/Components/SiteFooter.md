@@ -1,6 +1,9 @@
 # PRD: SiteFooter Component
 
-Source: `src/components/shell.tsx`
+## Implementation Metadata
+
+- Source: `src/components/SiteFooter.tsx`
+- Status: Ready for development
 
 ## Purpose
 
@@ -19,6 +22,10 @@ THEN it SHALL show About, Contact, Privacy Policy, and Terms of Service.
 IF the viewport is mobile  
 WHEN footer links wrap  
 THEN the layout SHALL remain readable and not overlap.
+
+IF used from authenticated and static shells  
+WHEN rendered  
+THEN the footer SHALL not require session data or page-specific props.
 
 ## Done When
 

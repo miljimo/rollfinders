@@ -56,9 +56,15 @@ WHEN the user opens the user management page
 
 THEN the system SHALL display Academy Admins and Standard Users across all academies.
 
-AND the system MAY display other Platform Admins as read-only records.
+AND the system SHALL display other Platform Admins only as read-only protected records when peer visibility is enabled.
 
-AND the system SHALL NOT display Super Admin users.
+AND peer Platform Admin records SHALL NOT show the `PLATFORM_ADMIN` role value to the logged-in Platform Admin.
+
+AND peer Platform Admin records SHALL NOT show email, academy assignment, email status, last login time, or permission-management actions.
+
+AND peer Platform Admin records MAY show only id, name, status, disabled state, protected status, and created date.
+
+AND the system SHALL NOT display Super Admin or legacy Admin users.
 
 AND the system SHALL allow filtering and searching by name, email, role, academy, and status.
 
@@ -102,7 +108,7 @@ AND the system SHALL create an audit log entry for the change.
 
 ---
 
-## Scenario: Prevent Editing Super Admin
+## Scenario: Prevent Viewing Or Editing Super Admin
 
 IF the authenticated user has the role `PLATFORM_ADMIN`
 
@@ -110,9 +116,27 @@ WHEN the user attempts to view, edit, disable, delete, promote, demote, or reset
 
 THEN the backend SHALL reject the request.
 
-AND the API SHALL return HTTP 403 Forbidden.
+AND the API SHOULD return HTTP 404 Not Found for read attempts to avoid confirming the account exists.
+
+AND the API SHALL return HTTP 403 Forbidden for mutation attempts where the target is known through an authorized flow.
 
 AND the frontend SHALL NOT display Super Admin records or actions.
+
+---
+
+## Scenario: Peer Platform Admin Read-Only Protected Visibility
+
+IF the authenticated user has the role `PLATFORM_ADMIN`
+
+WHEN the user views another `PLATFORM_ADMIN` account in user management
+
+THEN the system SHALL show the peer account only as a protected read-only record.
+
+AND the system SHALL NOT show the peer account's role as `PLATFORM_ADMIN`.
+
+AND the system SHALL NOT show the peer account's email, academy assignment, email status, last login time, or permission-management actions.
+
+AND the frontend SHALL show protected status instead of role-management controls.
 
 ---
 
@@ -120,7 +144,7 @@ AND the frontend SHALL NOT display Super Admin records or actions.
 
 IF the authenticated user has the role `PLATFORM_ADMIN`
 
-WHEN the user attempts to create, delete, promote, demote, disable, or change permissions for a `PLATFORM_ADMIN` account
+WHEN the user attempts to create, delete, promote, demote, disable, reset password, or change permissions for a `PLATFORM_ADMIN` account
 
 THEN the backend SHALL reject the request.
 

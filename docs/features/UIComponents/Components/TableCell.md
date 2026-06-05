@@ -1,26 +1,29 @@
 # PRD: TableCell Component
 
-Source: `src/components/Table/TableCell.tsx`
+## Implementation Metadata
+
+- Source: `src/components/Table/TableCell.tsx`
+- Status: Ready for development
 
 ## Purpose
 
-Render a single table cell with default or custom content.
+Render a single table cell wrapper with base table-cell styling.
 
 ## Requirements
 
-IF a column render function exists  
+IF children are supplied  
 WHEN the cell renders  
-THEN the custom render output SHALL be used.
-
-IF no custom render function exists  
-WHEN the cell renders  
-THEN the cell SHALL display the row value for the column key.
+THEN the children SHALL render inside a `td`.
 
 IF cell content is long  
 WHEN rendered  
 THEN it SHALL not break table layout unexpectedly.
 
+IF `className` is supplied  
+WHEN the cell renders  
+THEN it SHALL be composed with base cell classes.
+
 ## Done When
 
-* Custom renderers support links, forms, badges, and actions.
-* Default rendering handles missing values safely.
+* Custom renderer output passed by `TableBody` can render links, forms, badges, and actions.
+* Column-level class names are applied without removing base cell layout.

@@ -1,6 +1,11 @@
 # PRD: OpenMatLocationFilterForm Component
 
-Source: `src/components/LocationSearchForm.tsx`
+## Implementation Metadata
+
+- Source: `src/components/OpenMatLocationFilterForm.tsx`
+- Status: Ready for development
+- Related component: `LocationSearchForm`
+- Shared behavior: location lookup should match `LocationSearchForm`; extraction is preferred when both forms are changed together.
 
 ## Purpose
 
@@ -24,8 +29,12 @@ IF the user chooses gi type
 WHEN the select renders  
 THEN options SHALL include any style, gi, and no-gi.
 
+IF latitude and longitude are present  
+WHEN the form submits  
+THEN location fields SHALL be preserved with the selected filters.
+
 ## Done When
 
 * Filter form is usable on mobile.
-* Location button behavior matches `LocationSearchForm`.
+* Location button behavior matches `LocationSearchForm` for success, failure, and pending states.
 * Current filter values are preserved after navigation.
