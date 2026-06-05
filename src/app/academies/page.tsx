@@ -73,7 +73,7 @@ function PublicPagination({ currentPage, params, totalPages }: { currentPage: nu
   if (totalPages <= 1) return null;
 
   return (
-    <nav className="mt-6 flex flex-wrap items-center justify-center gap-2" aria-label="Academies pagination">
+    <nav className="mt-6 flex flex-wrap items-center justify-end gap-2" aria-label="Academies pagination">
       <Button href={pageHref(params, currentPage - 1)} disabled={currentPage <= 1} variant="secondary" size="sm">Previous</Button>
       {paginationPages(currentPage, totalPages).map((pageNumber) => (
         <Button key={pageNumber} href={pageHref(params, pageNumber)} variant={pageNumber === currentPage ? "primary" : "secondary"} size="sm" aria-current={pageNumber === currentPage ? "page" : undefined}>
