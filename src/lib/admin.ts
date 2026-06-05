@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { UserStatus, type Prisma } from "@prisma/client";
+import { Role, UserStatus, type Prisma } from "@prisma/client";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
 
@@ -19,6 +19,10 @@ export async function getCurrentUser() {
 
 export function isSuperAdminRole(role?: string) {
   return role === "SUPER_ADMIN" || role === "ADMIN";
+}
+
+export function isElevatedAdminRole(role?: string) {
+  return role === "PLATFORM_ADMIN" || isSuperAdminRole(role);
 }
 
 export function isPlatformAdminRole(role?: string) {
@@ -45,6 +49,7 @@ export async function requireAdminPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (!isPlatformAdminRole(user.role)) redirect("/");
+  return user;
 }
 
 export async function requireSuperAdminPage() {
@@ -61,6 +66,35 @@ export async function requireAdminApi() {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
   return null;
+}
+
+export function elevatedAdminPrivacyUserWhere(actor: { role?: string }): Prisma.UserWhereInput {
+  if (isSuperAdminRole(actor.role)) return {};
+  if (actor.role !== Role.PLATFORM_ADMIN) return {};
+  return {
+    role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] },
+  };
+}
+
+export function elevatedAdminPrivacyAuditLogWhere(actor: { role?: string }): Prisma.AdminAuditLogWhereInput {
+  if (isSuperAdminRole(actor.role)) return {};
+  if (actor.role !== Role.PLATFORM_ADMIN) return {};
+  return {
+    actor: { role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] } },
+    OR: [
+      { targetUserId: null },
+      { target: { role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] } } },
+    ],
+  };
+}
+
+export function canViewManagedUser(
+  actor: { role?: string },
+  target: { role: Role },
+) {
+  if (isSuperAdminRole(actor.role)) return true;
+  if (actor.role === Role.PLATFORM_ADMIN) return !isElevatedAdminRole(target.role);
+  return false;
 }
 
 export async function requireSuperAdminApi() {

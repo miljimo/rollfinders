@@ -1,16 +1,52 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Role, UserStatus } from "@prisma/client";
-import { requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isSuperAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
+type PlatformAdminRequest = {
+  name?: unknown;
+  email?: unknown;
+  password?: unknown;
+};
+
+const platformAdminSelect = {
+  id: true,
+  name: true,
+  email: true,
+  role: true,
+  status: true,
+  disabled: true,
+  createdAt: true,
+};
+
+function forbiddenResponse() {
+  return NextResponse.json({ error: "Not authorized" }, { status: 403 });
+}
+
+async function requireSuperAdminForPlatformAdmins() {
+  const user = await getCurrentUser();
+  if (!isSuperAdminRole(user?.role)) {
+    return { response: forbiddenResponse(), user: null };
+  }
+  return { response: null, user };
+}
+
+function normaliseString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 export async function GET() {
-  const { response } = await requireSuperAdminApi();
+  const { response } = await requireSuperAdminForPlatformAdmins();
   if (response) return response;
 
   const platformAdmins = await prisma.user.findMany({
     where: { role: Role.PLATFORM_ADMIN },
-    select: { id: true, name: true, email: true, status: true, disabled: true, lastLoginAt: true, createdAt: true },
+    select: platformAdminSelect,
     orderBy: { createdAt: "desc" },
   });
 
@@ -18,34 +54,54 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const { response, user: actor } = await requireSuperAdminApi();
+  const { response, user: actor } = await requireSuperAdminForPlatformAdmins();
   if (response) return response;
 
-  const body = await request.json().catch(() => null) as { name?: string; email?: string; password?: string } | null;
-  const email = body?.email?.trim().toLowerCase();
-  if (!email || !email.includes("@")) {
+  const body = await request.json().catch(() => null) as PlatformAdminRequest | null;
+  const email = normaliseString(body?.email).toLowerCase();
+  if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Valid email is required" }, { status: 400 });
   }
 
-  const passwordHash = await bcrypt.hash(body?.password || "rollfinder-admin", 10);
-  const platformAdmin = await prisma.user.upsert({
+  const name = normaliseString(body?.name);
+  const existingUser = await prisma.user.findUnique({
     where: { email },
-    update: { role: Role.PLATFORM_ADMIN, status: UserStatus.ACTIVE, disabled: false },
-    create: {
-      name: body?.name?.trim() || null,
-      email,
-      passwordHash,
-      role: Role.PLATFORM_ADMIN,
-      status: UserStatus.ACTIVE,
-    },
-    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+    select: { id: true, role: true },
   });
 
+  if (existingUser && isSuperAdminRole(existingUser.role)) {
+    return NextResponse.json({ error: "User cannot be converted to platform admin" }, { status: 409 });
+  }
+
+  const platformAdmin = existingUser
+    ? await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          ...(name ? { name } : {}),
+          role: Role.PLATFORM_ADMIN,
+          academyId: null,
+          status: UserStatus.ACTIVE,
+          disabled: false,
+        },
+        select: platformAdminSelect,
+      })
+    : await prisma.user.create({
+        data: {
+          name: name || null,
+          email,
+          passwordHash: await bcrypt.hash(normaliseString(body?.password) || "rollfinder-admin", 10),
+          role: Role.PLATFORM_ADMIN,
+          status: UserStatus.ACTIVE,
+          disabled: false,
+        },
+        select: platformAdminSelect,
+      });
+
   await writeAdminAuditLog({
-    actorUserId: actor!.id,
+    actorUserId: actor.id,
     targetUserId: platformAdmin.id,
     action: "PLATFORM_ADMIN_CREATED",
-    metadata: { email },
+    metadata: { email, promotedExistingUser: Boolean(existingUser) },
   });
 
   return NextResponse.json({ platformAdmin }, { status: 201 });

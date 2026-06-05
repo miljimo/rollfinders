@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
-import { isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
+import { elevatedAdminPrivacyUserWhere, isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 const supportedPageSizes = [20, 50, 100];
@@ -35,6 +35,8 @@ function parseEmailStatus(value: string) {
 export async function GET(request: Request) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const url = new URL(request.url);
   const page = parsePositiveInt(param(url, "page"), 1);
@@ -44,7 +46,8 @@ export async function GET(request: Request) {
   const status = parseStatus(param(url, "status"));
   const emailStatus = parseEmailStatus(param(url, "emailStatus"));
 
-  const where: Prisma.UserWhereInput = {
+  const privacyWhere = elevatedAdminPrivacyUserWhere(actor);
+  const filterWhere: Prisma.UserWhereInput = {
     ...(search
       ? {
           OR: [
@@ -57,6 +60,7 @@ export async function GET(request: Request) {
     ...(status ? { status } : {}),
     ...(emailStatus ? { emailStatus } : {}),
   };
+  const where: Prisma.UserWhereInput = { AND: [privacyWhere, filterWhere] };
 
   const totalItems = await prisma.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));

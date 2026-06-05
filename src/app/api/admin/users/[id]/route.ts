@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { canViewManagedUser, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value?: string) {
@@ -38,6 +38,8 @@ async function hasAnotherActiveSuperUser(userId: string) {
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
+  const actor = await getCurrentUser();
+  if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const { id } = await params;
   const user = await prisma.user.findUnique({
@@ -45,6 +47,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     select: { id: true, name: true, email: true, role: true, status: true, disabled: true, isProtected: true, emailStatus: true, lastLoginAt: true, createdAt: true },
   });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!canViewManagedUser(actor, user)) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json({ user });
 }

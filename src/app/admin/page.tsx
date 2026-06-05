@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, Eye, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
-import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
@@ -136,7 +136,7 @@ export default async function AdminPage({
         }
       : {}),
   };
-  const userWhere: Prisma.UserWhereInput = search
+  const userFilterWhere: Prisma.UserWhereInput = search
     ? {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
@@ -147,13 +147,15 @@ export default async function AdminPage({
         ],
       }
     : {};
+  const visibleUserWhere = elevatedAdminPrivacyUserWhere({ role: currentUser.role });
+  const userWhere: Prisma.UserWhereInput = { AND: [visibleUserWhere, userFilterWhere] };
 
   const [academyCount, totalAcademyCount, verifiedAcademyCount, pendingAcademyCount, totalUserCount, activeEventCount, userCount, outboundEmailCount, failedEmailCount, invalidEmailCount] = await Promise.all([
     prisma.academy.count({ where: academyWhere }),
     prisma.academy.count(),
     prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.VERIFIED } }),
     prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.PENDING } }),
-    prisma.user.count(),
+    prisma.user.count({ where: visibleUserWhere }),
     prisma.event.count({ where: eventWhere }),
     prisma.user.count({ where: userWhere }),
     prisma.outboundEmail.count(),
@@ -194,6 +196,7 @@ export default async function AdminPage({
       orderBy: [{ createdAt: "desc" }, { email: "asc" }],
     }),
     prisma.adminAuditLog.findMany({
+      where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
       take: 8,
       include: { actor: true, target: true },
       orderBy: { createdAt: "desc" },
