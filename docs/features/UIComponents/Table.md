@@ -1,5 +1,11 @@
 # PRD: Reusable Responsive Table Component
 
+![Table component preview](../../assets/ui-components/table.svg)
+
+## Component Name
+
+`Table`
+
 ## Feature Branch
 
 `feature/reusable-table-component`

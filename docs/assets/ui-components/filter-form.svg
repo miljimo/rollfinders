@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Filter form component preview</title>
+  <desc id="desc">Preview showing a filter form with search, selects, and actions.</desc>
+  <rect width="960" height="360" fill="#f8faf7"/>
+  <rect x="48" y="76" width="864" height="196" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+  <g font-family="Arial, sans-serif">
+    <text x="76" y="122" font-size="14" font-weight="700" fill="#292524">Search</text>
+    <rect x="76" y="136" width="300" height="46" rx="6" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="96" y="165" font-size="14" fill="#78716c">Search by name...</text>
+    <text x="400" y="122" font-size="14" font-weight="700" fill="#292524">Status</text>
+    <rect x="400" y="136" width="180" height="46" rx="6" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="420" y="165" font-size="14" fill="#292524">All</text>
+    <text x="604" y="122" font-size="14" font-weight="700" fill="#292524">Page size</text>
+    <rect x="604" y="136" width="132" height="46" rx="6" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="624" y="165" font-size="14" fill="#292524">20</text>
+    <rect x="76" y="210" width="126" height="44" rx="8" fill="#0c0a09"/>
+    <text x="99" y="238" font-size="14" font-weight="700" fill="#ffffff">Apply Filters</text>
+    <rect x="218" y="210" width="92" height="44" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="244" y="238" font-size="14" font-weight="700" fill="#292524">Reset</text>
+  </g>
+</svg>

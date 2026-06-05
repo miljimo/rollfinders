@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Page header component preview</title>
+  <desc id="desc">Preview showing eyebrow, title, description, and right aligned actions.</desc>
+  <rect width="960" height="360" fill="#f8faf7"/>
+  <text x="48" y="88" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#115e59">OPEN MAT MANAGEMENT</text>
+  <text x="48" y="136" font-family="Arial, sans-serif" font-size="38" font-weight="900" fill="#1c1917">Open Mats</text>
+  <text x="48" y="174" font-family="Arial, sans-serif" font-size="18" fill="#57534e">Search, filter, and manage operational records from one view.</text>
+  <rect x="636" y="98" width="126" height="48" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+  <text x="665" y="128" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#292524">Dashboard</text>
+  <rect x="780" y="98" width="132" height="48" rx="8" fill="#0f766e"/>
+  <text x="812" y="128" font-family="Arial, sans-serif" font-size="15" font-weight="700" fill="#ffffff">New Item</text>
+</svg>
