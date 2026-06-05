@@ -1,6 +1,10 @@
 # PRD: SearchForm Component
 
-Source: `src/components/ui.tsx`
+## Implementation Metadata
+
+- Source: `src/components/SearchForm.tsx`
+- Status: Ready for development
+- Related shared primitive: `Button`
 
 ## Purpose
 
@@ -19,6 +23,10 @@ THEN the input SHALL use it as the default value.
 IF the form is used on mobile  
 WHEN controls stack  
 THEN input and button SHALL remain usable.
+
+IF the form submits  
+WHEN the request is made  
+THEN it SHALL use GET-compatible query navigation and avoid client-only dependencies.
 
 ## Done When
 

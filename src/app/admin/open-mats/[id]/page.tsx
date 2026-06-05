@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { requireOpenMatAccess } from "@/lib/academy-access";
-import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { deleteOpenMat, updateOpenMat } from "../actions";
 import { OpenMatForm } from "../OpenMatForm";
@@ -18,7 +18,9 @@ export default async function EditOpenMatPage({ params }: { params: Promise<{ id
   const [event, academies] = await Promise.all([
     prisma.event.findUnique({ where: { id } }),
     prisma.academy.findMany({
-      where: isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
+      where: isAcademyAdminRole(user.role)
+        ? { id: user.academyId ?? "__missing_academy__" }
+        : isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
       orderBy: { name: "asc" },
     }),
   ]);

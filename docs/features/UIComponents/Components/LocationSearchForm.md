@@ -1,6 +1,11 @@
 # PRD: LocationSearchForm Component
 
-Source: `src/components/LocationSearchForm.tsx`
+## Implementation Metadata
+
+- Source: `src/components/LocationSearchForm.tsx`
+- Status: Ready for development
+- Related shared primitive: `Button`
+- Related component: `OpenMatLocationFilterForm`
 
 ## Purpose
 
@@ -24,8 +29,17 @@ IF geolocation fails or is unavailable
 WHEN requested  
 THEN the form SHALL remain usable without location.
 
+IF location lookup is pending  
+WHEN the button renders  
+THEN it SHALL expose a disabled or pending state without preventing typed search.
+
+IF open mat filters need the same geolocation behavior  
+WHEN implementation is updated  
+THEN shared location helper logic SHOULD be extracted rather than duplicated.
+
 ## Done When
 
 * Search submission preserves query and location fields.
 * Location button has accessible label and disabled locating state.
 * Auto-locate runs only when enabled and no location exists.
+* Geolocation failure does not remove or overwrite the existing query.

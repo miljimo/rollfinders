@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/admin";
+import { requirePlatformAdminApi } from "@/lib/admin";
 import { processDueEmails } from "@/lib/reliable-email";
 
 function hasCronAccess(request: Request) {
@@ -10,7 +10,7 @@ function hasCronAccess(request: Request) {
 
 async function authorize(request: Request) {
   if (hasCronAccess(request)) return null;
-  return requireAdminApi();
+  return requirePlatformAdminApi();
 }
 
 export async function GET(request: Request) {

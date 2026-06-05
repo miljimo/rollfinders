@@ -1,6 +1,10 @@
 # PRD: SiteHeader Component
 
-Source: `src/components/shell.tsx`
+## Implementation Metadata
+
+- Source: `src/components/SiteHeader.tsx`
+- Status: Ready for development
+- Related components: `NavLink`, `LogoutButton`
 
 ## Purpose
 
@@ -12,24 +16,24 @@ IF the header renders for a logged-out user
 WHEN desktop navigation is visible  
 THEN it SHALL show Home, Academies, Open Mats, Map, and Login.
 
-IF the header renders for a standard user  
+IF the header renders for any logged-in user in the current implementation  
 WHEN navigation is visible  
 THEN it SHALL show Dashboard and Logout.
 
-IF the header renders for an academy admin  
-WHEN navigation is visible  
-THEN Dashboard SHALL route to `/admin`.
-
-IF the header renders for a platform-level admin  
-WHEN navigation is visible  
-THEN it SHALL show Admin and Logout.
+IF role-aware admin navigation is added later  
+WHEN the session exposes the user's role  
+THEN academy admins and platform-level admins MAY receive admin-specific links through a separate requirement update.
 
 IF the viewport is mobile  
 WHEN desktop nav is hidden  
 THEN the header SHALL show an accessible icon link to `/academies`.
 
+IF navigation links render  
+WHEN the current route matches a link  
+THEN active state SHALL be delegated to `NavLink`.
+
 ## Done When
 
-* Role-aware links match existing auth helpers.
+* Logged-in and logged-out links match current session behavior.
 * Mobile shortcut has an accessible label.
 * Header remains sticky and responsive.

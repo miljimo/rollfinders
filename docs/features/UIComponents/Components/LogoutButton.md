@@ -1,6 +1,9 @@
 # PRD: LogoutButton Component
 
-Source: `src/components/LogoutButton.tsx`
+## Implementation Metadata
+
+- Source: `src/components/LogoutButton.tsx`
+- Status: Ready for development
 
 ## Purpose
 
@@ -19,6 +22,10 @@ THEN it SHALL be reachable and operable as a native button.
 IF sign-out completes  
 WHEN the redirect occurs  
 THEN the user SHALL land on `/`.
+
+IF sign-out is triggered from a header  
+WHEN the control renders  
+THEN styling SHALL remain visually consistent with adjacent navigation actions.
 
 ## Done When
 

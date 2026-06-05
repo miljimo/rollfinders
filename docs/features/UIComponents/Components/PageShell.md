@@ -1,6 +1,10 @@
 # PRD: PageShell Component
 
-Source: `src/components/shell.tsx`
+## Implementation Metadata
+
+- Source: `src/components/PageShell.tsx`
+- Status: Ready for development
+- Related components: `SiteHeader`, `SiteFooter`
 
 ## Purpose
 
@@ -19,6 +23,10 @@ THEN the content SHALL render inside `<main className="flex-1">`.
 IF `PageShell` is used on protected or public app pages  
 WHEN auth state changes  
 THEN `SiteHeader` SHALL handle role-aware navigation without the page duplicating header logic.
+
+IF a page supplies child content  
+WHEN rendered inside the shell  
+THEN the shell SHALL not add page-specific business UI around that content.
 
 ## Done When
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/Button";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
 import { useState } from "react";
 
 export function LoginForm() {
@@ -28,7 +28,11 @@ export function LoginForm() {
       return;
     }
 
-    window.location.href = result?.url ?? "/dashboard";
+    const session = await getSession();
+    const role = (session?.user as { role?: string } | undefined)?.role;
+    window.location.href = role === "PLATFORM_ADMIN"
+      ? "/dashboard"
+      : role === "ACADEMY_ADMIN" || role === "SUPER_ADMIN" || role === "ADMIN" ? "/admin" : result?.url ?? "/dashboard";
   }
 
   return (

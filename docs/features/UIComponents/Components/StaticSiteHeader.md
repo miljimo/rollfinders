@@ -1,6 +1,10 @@
 # PRD: StaticSiteHeader Component
 
-Source: `src/components/shell.tsx`
+## Implementation Metadata
+
+- Source: `src/components/StaticSiteHeader.tsx`
+- Status: Ready for development
+- Related component: `NavLink`
 
 ## Purpose
 
@@ -19,6 +23,10 @@ THEN it SHALL show the academy search icon link.
 IF a nav link matches the current path  
 WHEN `NavLink` renders  
 THEN the active state SHALL be applied.
+
+IF rendered on static pages  
+WHEN session state is unavailable  
+THEN the header SHALL still show logged-out public navigation.
 
 ## Done When
 
