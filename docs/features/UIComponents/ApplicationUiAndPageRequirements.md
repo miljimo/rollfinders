@@ -662,6 +662,7 @@ THEN the form SHALL support academy, title, description, date, start time, end t
 Done when:
 
 * Academy selection follows role scope.
+* Academy selection is searchable by academy name, city, or postcode and submits the selected `academyId`.
 * Time/date fields are usable on mobile.
 * Active checkbox state is visible.
 

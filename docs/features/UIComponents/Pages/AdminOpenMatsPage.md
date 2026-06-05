@@ -22,8 +22,13 @@ IF New Open Mat is permitted
 WHEN page renders  
 THEN creation action SHALL be visible.
 
+IF the New Open Mat dialog renders  
+WHEN the user chooses an academy  
+THEN the dialog SHALL use searchable academy selection by name, city, or postcode and preserve the existing create action behavior.
+
 ## Done When
 
 * Uses reusable `Table`.
 * Filters persist after submit.
 * Actions respect event permissions.
+* New Open Mat dialog does not require scrolling a long academy dropdown.
