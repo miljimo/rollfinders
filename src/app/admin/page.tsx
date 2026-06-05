@@ -3,10 +3,10 @@ import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, Eye, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { AcademyMap } from "@/components/AcademyMap";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
-import { getGoogleMapsApiKey } from "@/lib/google-maps";
 import { prisma } from "@/lib/prisma";
 import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
@@ -691,30 +691,13 @@ function sentenceCase(value: string) {
 type MapItem = Awaited<ReturnType<typeof getMapItems>>[number];
 
 function MapDashboardContent({ academies }: { academies: MapItem[] }) {
-  const googleKey = getGoogleMapsApiKey();
-  const center = "51.5072,-0.1276";
-
   return (
     <section className="px-4 py-8 sm:px-8">
       <h1 className="text-3xl font-black text-slate-950">Map</h1>
       <p className="mt-2 max-w-3xl text-slate-600">Scan London by training opportunity, not just club location. See nearby academies, upcoming open mats, and details before you travel.</p>
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_380px]">
         <div className="min-h-[480px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-          {googleKey ? (
-            <iframe
-              title="London BJJ academies map"
-              className="h-[480px] w-full"
-              loading="lazy"
-              src={`https://www.google.com/maps/embed/v1/search?key=${googleKey}&q=Brazilian%20Jiu%20Jitsu%20London&center=${center}&zoom=11`}
-            />
-          ) : (
-            <div className="map-grid flex h-[480px] items-center justify-center p-6 text-center">
-              <div className="rounded-lg bg-white p-5 shadow-sm">
-                <p className="font-bold text-stone-950">Google Maps key not configured</p>
-                <p className="mt-2 max-w-sm text-sm text-stone-600">Set GOOGLE_MAPS_API_KEY to enable the embedded map. Listings remain available below.</p>
-              </div>
-            </div>
-          )}
+          <AcademyMap academies={academies} />
         </div>
         <div className="grid max-h-[480px] gap-3 overflow-auto pr-1">
           {academies.map((academy) => (
