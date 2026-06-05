@@ -14,7 +14,7 @@ import { createAcademy } from "./academies/actions";
 import { AcademyForm } from "./academies/form";
 import { createOpenMat } from "./open-mats/actions";
 import { OpenMatForm } from "./open-mats/form";
-import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled } from "./users/actions";
+import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "./users/actions";
 import { UserForm } from "./users/form";
 
 export const dynamic = "force-dynamic";
@@ -96,6 +96,7 @@ export default async function AdminPage({
   const params = await searchParams;
   const panel = selectedPanel(firstParam(params.panel));
   const dialog = firstParam(params.dialog);
+  const userDialogId = firstParam(params.userId);
   const search = (firstParam(params.search) ?? "").trim();
   const emailConfig = getEmailProvisioningConfig();
   const superAdmin = isSuperAdminRole(currentUser.role);
@@ -197,6 +198,7 @@ export default async function AdminPage({
     panel === "maps" ? getMapItems() : Promise.resolve([]),
     prisma.academy.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
@@ -320,12 +322,73 @@ export default async function AdminPage({
       {panel === "users" && dialog === "new-user" ? (
         <NewUserDialog academies={academyOptions} superAdmin={superAdmin} />
       ) : null}
+      {panel === "users" && dialog === "view-user" && selectedDialogUser ? (
+        <ViewUserDialog user={selectedDialogUser} />
+      ) : null}
+      {panel === "users" && dialog === "edit-user" && selectedDialogUser ? (
+        <EditUserDialog academies={academyOptions} superAdmin={superAdmin} user={selectedDialogUser} />
+      ) : null}
       {panel === "academies" && dialog === "new-academy" && superAdmin ? (
         <NewAcademyDialog />
       ) : null}
       {panel === "open-mats" && dialog === "new-open-mat" ? (
         <NewOpenMatDialog academies={academyOptions} />
       ) : null}
+    </div>
+  );
+}
+
+function ViewUserDialog({ user }: { user: UserRow }) {
+  const disabled = user.status === UserStatus.DISABLED || user.disabled;
+  return (
+    <DialogShell closeHref="/admin?panel=users" description="Review this user profile and access details." title="User Profile">
+      <div className="mt-6 grid gap-6">
+        <div className="flex items-center gap-4">
+          <div className={`grid size-16 shrink-0 place-items-center rounded-full text-xl font-black ring-1 ${avatarTone(user.email)}`}>
+            {initials(user.name ?? user.email)}
+          </div>
+          <div>
+            <h3 className="text-2xl font-black text-slate-950">{user.name ?? user.email}</h3>
+            <p className="mt-1 break-all text-slate-600">{user.email}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <RolePill role={user.role} />
+              <StatusPill disabled={disabled} />
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 border-t border-stone-100 pt-5 sm:grid-cols-2">
+          <ProfileInfo label="Role" value={roleLabel(user.role)} />
+          <ProfileInfo label="Academy" value={user.academy?.name ?? "None"} />
+          <ProfileInfo label="Status" value={disabled ? "Disabled" : "Active"} />
+          <ProfileInfo label="Last Login" value={user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"} />
+          <ProfileInfo label="Created" value={formatDate(user.createdAt)} />
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+function EditUserDialog({ academies, superAdmin, user }: { academies: { id: string; name: string }[]; superAdmin: boolean; user: UserRow }) {
+  return (
+    <DialogShell closeHref="/admin?panel=users" description="Edit this user's details, role, status, and academy access." title="Edit User">
+      <UserForm
+        academies={academies}
+        action={updateManagedUser.bind(null, user.id)}
+        cancelHref="/admin?panel=users"
+        mode="edit"
+        returnTo="/admin?panel=users"
+        superAdmin={superAdmin}
+        user={{ name: user.name, email: user.email, role: user.role, status: user.status, academyId: user.academyId }}
+      />
+    </DialogShell>
+  );
+}
+
+function ProfileInfo({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
+      <p className="mt-1 break-words font-semibold text-slate-950">{value}</p>
     </div>
   );
 }
@@ -697,6 +760,7 @@ type UserRow = {
   role: Role;
   status: UserStatus;
   disabled: boolean;
+  academyId: string | null;
   lastLoginAt: Date | null;
   createdAt: Date;
   academy: { name: string } | null;
@@ -789,11 +853,11 @@ function UsersTable({ actorId, actorRole, users }: { actorId: string; actorRole:
                         <span className="sr-only">Open actions for {user.name ?? user.email}</span>
                       </summary>
                       <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-xl">
-                        <Link href={`/admin/users/${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                        <Link href={`/admin?panel=users&dialog=view-user&userId=${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                           <User size={18} aria-hidden />
                           View Profile
                         </Link>
-                        <Link href={`/admin/users/${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                        <Link href={`/admin?panel=users&dialog=edit-user&userId=${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                           <Edit3 size={18} aria-hidden />
                           Edit User
                         </Link>

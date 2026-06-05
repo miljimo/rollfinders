@@ -146,9 +146,11 @@ export async function updateManagedUser(userId: string, formData: FormData) {
     },
   });
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
   revalidatePath("/admin/users");
   revalidatePath("/admin");
-  redirect("/admin/users");
+  redirect(redirectTo);
 }
 
 export async function toggleManagedUserDisabled(userId: string) {
