@@ -179,7 +179,7 @@ Claim requests must support:
 * Requester name
 * Requester email
 * Requester phone, optional
-* Requester role at academy, for example owner, head coach, manager, or staff
+* Requester role at academy: `OWNER`, `HEAD_COACH`, `MANAGER`, `STAFF`, or `OTHER`
 * Verification notes or evidence
 * Public proof link, optional
 * Status: `PENDING`, `APPROVED`, `REJECTED`
@@ -189,7 +189,9 @@ Claim requests must support:
 * Rejection reason, optional
 * Linked user ID, optional
 
-Academies should support determining whether the listing is already claimed or owner-managed. This can be derived from existing academy membership records if that is already reliable. If not, add an explicit field only if the current data model needs it.
+Requester role should be stored as a claim-specific role value and SHALL NOT reuse `AcademyMemberRole`, because academy membership roles describe platform access rather than the claimant's real-world relationship to the academy.
+
+Academies should support determining whether the listing is already claimed or owner-managed. For V1 this can be derived from existing `AcademyMember` records because current academy members are owner/admin managers. If future non-admin academy member roles are added, managed-academy checks must narrow to owner/admin roles.
 
 ---
 
@@ -256,7 +258,8 @@ Done when:
 * Requester email is required and must be valid.
 * Academy ID is required.
 * Requester role is required.
-* Verification notes or evidence are required.
+* Requester role accepts `OWNER`, `HEAD_COACH`, `MANAGER`, `STAFF`, or `OTHER`.
+* Verification notes or evidence are required and must be long enough for admin review.
 * Optional phone number, if provided, is stored safely.
 
 ---
@@ -305,11 +308,12 @@ IF a requester submits a claim for an academy that already has a pending claim f
 
 WHEN the submission is processed
 
-THEN the system SHALL prevent duplicate pending claims or return the existing pending status.
+THEN the system SHALL prevent duplicate pending claims and return a conflict response.
 
 Done when:
 
 * Duplicate pending claims for the same academy and requester email are not created.
+* Requester email is normalized before duplicate checks.
 * The requester receives a clear message that the claim is already awaiting review.
 
 ---
