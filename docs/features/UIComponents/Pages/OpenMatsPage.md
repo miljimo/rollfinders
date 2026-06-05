@@ -22,8 +22,13 @@ IF no events match
 WHEN results render  
 THEN it SHALL show a clear empty state.
 
+IF more than one page of open mats matches  
+WHEN results render  
+THEN the page SHALL paginate event cards and preserve active `q`, `when`, `gi`, `lat`, and `lng` params in pagination links.
+
 ## Done When
 
 * Filter form preserves selected values.
 * Count links preserve location params.
 * Events render as cards.
+* Pagination shows result range, page links, Previous, and Next without requiring long scrolling.

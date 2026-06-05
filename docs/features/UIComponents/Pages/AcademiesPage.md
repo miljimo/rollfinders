@@ -22,8 +22,13 @@ IF no academies match
 WHEN results render  
 THEN the page SHALL show a clear empty state.
 
+IF more than one page of academies matches  
+WHEN results render  
+THEN the page SHALL paginate the academy grid and preserve active `q`, `lat`, and `lng` params in pagination links.
+
 ## Done When
 
 * Search input preserves query.
 * Academy cards render in responsive grid.
 * Result count matches returned data.
+* Pagination shows result range, page links, Previous, and Next without requiring long scrolling.
