@@ -2,6 +2,12 @@
 
 Version: 1.0
 
+Status: Implemented
+
+Implemented on branch: `master`
+
+Original implementation branch: `feature/academy-claiming-admin-approval`
+
 Proposed route: `GET /api/admin/academy-claims`
 
 Source PRD: `docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md`

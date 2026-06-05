@@ -2,6 +2,12 @@
 
 Version: 1.0
 
+Status: Implemented
+
+Implemented on branch: `master`
+
+Original implementation branch: `feature/academy-claiming-admin-approval`
+
 Proposed route: `POST /api/academy-claims`
 
 Source PRD: `docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md`
@@ -30,6 +36,8 @@ Optional:
 
 * `requesterPhone`
 * `publicProofLink`
+* `requesterBeltRank`
+* `requesterBeltStripes`
 
 Contract:
 
@@ -42,6 +50,8 @@ type PublicAcademyClaimRequest = {
   verificationNotes: string;
   requesterPhone?: string;
   publicProofLink?: string;
+  requesterBeltRank?: "WHITE" | "BLUE" | "PURPLE" | "BROWN" | "BLACK" | "CORAL" | "RED" | "OTHER";
+  requesterBeltStripes?: 0 | 1 | 2 | 3 | 4;
 };
 ```
 
@@ -62,7 +72,7 @@ Success response:
 }
 ```
 
-The success response SHALL NOT include requester phone, verification notes, public proof link, admin notes, user existence, reviewed metadata, or internal review data.
+The success response SHALL NOT include requester phone, requester belt rank, requester belt stripes, verification notes, public proof link, admin notes, user existence, reviewed metadata, or internal review data.
 
 ---
 
@@ -76,6 +86,9 @@ The success response SHALL NOT include requester phone, verification notes, publ
 * `verificationNotes` is required, trimmed before validation, and must be 20-2000 characters.
 * `requesterPhone` is optional, trimmed before storage, must be 40 characters or fewer, and empty strings are stored as `null`.
 * `publicProofLink` is optional, trimmed before storage, must be an `http://` or `https://` URL when provided, and empty strings are stored as `null`.
+* `requesterBeltRank` is optional and, when provided, must be one of `WHITE`, `BLUE`, `PURPLE`, `BROWN`, `BLACK`, `CORAL`, `RED`, or `OTHER`.
+* `requesterBeltStripes` is optional and, when provided, must be an integer from 0 to 4.
+* Belt rank and stripes are context for admin review only and SHALL NOT be required to submit a claim.
 * Oversized request bodies SHOULD be rejected before parsing where practical.
 
 ---
@@ -92,7 +105,7 @@ THEN the API SHALL create a `ClaimRequest` with `PENDING` status.
 
 Done when:
 
-* The claim stores academy ID, requester name, normalized requester email, requester role, verification notes, optional requester phone, optional public proof link, status, and created date.
+* The claim stores academy ID, requester name, normalized requester email, requester role, verification notes, optional requester phone, optional public proof link, optional requester belt rank, optional requester belt stripes, status, and created date.
 * The response returns only safe claim status data.
 
 ---
@@ -207,7 +220,7 @@ THEN the API SHOULD track `claim_profile_submitted`.
 Done when:
 
 * Analytics payload may include academy ID and claim status.
-* Analytics payload SHALL NOT include requester name, requester email, requester phone, verification notes, public proof link, or exact user location.
+* Analytics payload SHALL NOT include requester name, requester email, requester phone, requester belt rank, requester belt stripes, verification notes, public proof link, or exact user location.
 * Analytics failures do not roll back claim creation.
 
 ---
@@ -252,6 +265,8 @@ Status codes:
 * Verification notes or evidence
 * Requester phone, optional
 * Public proof link, optional
+* Requester BJJ belt rank, optional
+* Requester BJJ belt stripes, optional
 * Status
 * Created date
 

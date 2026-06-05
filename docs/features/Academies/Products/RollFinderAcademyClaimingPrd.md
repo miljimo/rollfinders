@@ -2,6 +2,8 @@
 
 Version: 1.0
 
+Status: Implemented
+
 Priority: Critical
 
 Release: Next beta feature
@@ -12,9 +14,13 @@ Source Requirement: RollFinders MVP academy owner onboarding
 
 ---
 
-# Implementation Branch
+# Implementation Status
 
-Use branch:
+Implemented on branch:
+
+`master`
+
+Original implementation branch:
 
 `feature/academy-claiming-admin-approval`
 
@@ -180,6 +186,8 @@ Claim requests must support:
 * Requester email
 * Requester phone, optional
 * Requester role at academy: `OWNER`, `HEAD_COACH`, `MANAGER`, `STAFF`, or `OTHER`
+* Requester BJJ belt rank, optional
+* Requester BJJ belt stripes, optional
 * Verification notes or evidence
 * Public proof link, optional
 * Status: `PENDING`, `APPROVED`, `REJECTED`
@@ -261,6 +269,7 @@ Done when:
 * Requester role accepts `OWNER`, `HEAD_COACH`, `MANAGER`, `STAFF`, or `OTHER`.
 * Verification notes or evidence are required and must be long enough for admin review.
 * Optional phone number, if provided, is stored safely.
+* Optional BJJ belt rank and stripe count, if provided, are stored safely and shown only to admins reviewing the claim.
 
 ---
 
@@ -277,6 +286,7 @@ Acceptable evidence examples:
 * Academy website contact page showing the requester email.
 * Official academy email address.
 * Instagram profile or post linking the requester to the academy.
+* Optional BJJ belt rank and stripe count to help admins understand the requester's BJJ context before contacting them.
 * Short explanation of ownership, coaching, or management role.
 
 Done when:
