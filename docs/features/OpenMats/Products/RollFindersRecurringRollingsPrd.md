@@ -6,9 +6,13 @@ Priority: High
 
 Release: Next beta feature candidate
 
+Status: Done
+
 Review date: 2026-06-05
 
 Product: RollFinders
+
+Completed implementation: 2026-06-05 in commit `daabed2 feat: support recurring open mat occurrences`
 
 ---
 
@@ -275,16 +279,19 @@ Done when:
 
 IF a visible open mat occurrence has started but has not ended
 
-WHEN a practitioner views `/open-mats`, public academy profile upcoming sessions, map details, or the open mat detail page
+WHEN a practitioner views `/open-mats`, an Open Mat card, the latest upcoming UI such as `Upcoming Near You`, public academy profile upcoming sessions, map details, or the open mat detail page
 
 THEN the UI SHALL clearly indicate that the open mat is currently in session.
 
 Done when:
 
 * The state is derived from occurrence date, start time, end time, and the application's configured timezone behavior.
-* The public card/detail label uses a clear phrase such as `In session`.
+* The Open Mat card uses a visible badge or status label such as `In session` when the occurrence is currently happening.
+* The latest upcoming UI uses the same `In session` indication so users can distinguish currently active sessions from later upcoming sessions.
+* The open mat detail page uses a clear phrase such as `In session`.
 * In-session occurrences remain visible until their end time.
 * In-session state works for both one-off open mats and derived recurring occurrences.
+* The indication does not replace the displayed occurrence date/time; users can still see when the session started or is scheduled.
 
 ---
 
@@ -501,7 +508,7 @@ Done when:
 * Recurring rollings appear on academy profile upcoming open mats.
 * Weekly recurring listings show no more than the next 4 valid upcoming occurrences per source listing on public discovery surfaces.
 * Monthly recurring listings show no more than the next 6 valid upcoming occurrences per source listing on public discovery surfaces.
-* Open mats currently in progress show an `In session` state publicly.
+* Open mats currently in progress show an `In session` state publicly on Open Mat cards, latest upcoming UI, public academy upcoming sections, map details, and detail pages.
 * Completed sessions disappear from public upcoming discovery after their end time.
 * Completed sessions remain trackable as system/admin history.
 * Admins can identify recurring rollings in management views.
