@@ -37,7 +37,7 @@ export const academySchema = z.object({
   competitionFocused: checkboxSchema,
   verificationStatus: z.enum(AcademyVerificationStatus).default(AcademyVerificationStatus.PENDING),
   featured: checkboxSchema,
-  verified: checkboxSchema,
+  verified: checkboxSchema.optional().default(false),
 });
 
 export const eventSchema = z.object({

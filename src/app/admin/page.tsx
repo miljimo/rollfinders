@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, HelpCircle, Home, LogOut, Mail, Map, Menu, MoreVertical, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, Eye, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
@@ -16,6 +16,7 @@ import { createOpenMat } from "./open-mats/actions";
 import { OpenMatForm } from "./open-mats/form";
 import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "./users/actions";
 import { UserForm } from "./users/form";
+import { ActionMenu } from "./action-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -393,11 +394,23 @@ function ProfileInfo({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DialogShell({ children, closeHref, description, title }: { children: React.ReactNode; closeHref: string; description: string; title: string }) {
+function DialogShell({
+  children,
+  closeHref,
+  description,
+  maxWidthClass = "max-w-4xl",
+  title,
+}: {
+  children: React.ReactNode;
+  closeHref: string;
+  description: string;
+  maxWidthClass?: string;
+  title: string;
+}) {
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
       <Link href={closeHref} className="fixed inset-0" aria-label={`Close ${title} dialog`} />
-      <section className="relative z-[71] w-full max-w-4xl rounded-lg bg-white p-5 shadow-2xl sm:p-6">
+      <section className={`relative z-[71] w-full rounded-lg bg-white p-5 shadow-2xl sm:p-6 ${maxWidthClass}`}>
         <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4">
           <div>
             <h2 id="admin-dialog-title" className="text-3xl font-black text-slate-950">{title}</h2>
@@ -415,7 +428,7 @@ function DialogShell({ children, closeHref, description, title }: { children: Re
 
 function NewAcademyDialog() {
   return (
-    <DialogShell closeHref="/admin?panel=academies" description="Create an academy record without leaving the Admin dashboard." title="New Academy">
+    <DialogShell closeHref="/admin?panel=academies" description="Create an academy record without leaving the Admin dashboard." maxWidthClass="max-w-6xl" title="New Academy">
       <AcademyForm action={createAcademy} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" />
     </DialogShell>
   );
@@ -732,6 +745,7 @@ function AdminPanel({ title, description, action, children, id, search }: { titl
 type AcademyRow = {
   id: string;
   name: string;
+  slug: string;
   borough: string | null;
   city: string;
   postcode: string;
@@ -766,30 +780,42 @@ type UserRow = {
   academy: { name: string } | null;
 };
 
+const menuItemClass = "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
+const dangerMenuItemClass = "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50";
+
 function AcademiesTable({ academies }: { academies: AcademyRow[] }) {
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-        <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
+      <table className="w-full min-w-[920px] border-collapse text-left text-sm">
+        <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
           <tr>
-            <th className="px-4 py-3">Name</th>
-            <th className="px-4 py-3">Location</th>
-            <th className="px-4 py-3">Postcode</th>
-            <th className="px-4 py-3">Verification</th>
-            <th className="px-4 py-3">Featured</th>
-            <th className="px-4 py-3">Actions</th>
+            <th className="px-5 py-4">Name</th>
+            <th className="px-5 py-4">Location</th>
+            <th className="px-5 py-4">Postcode</th>
+            <th className="px-5 py-4">Verification</th>
+            <th className="px-5 py-4">Featured</th>
+            <th className="px-5 py-4 text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           {academies.map((academy) => (
             <tr key={academy.id} className="border-t border-stone-100">
-              <td className="px-4 py-3 font-semibold text-stone-950">{academy.name}</td>
-              <td className="px-4 py-3 text-stone-700">{academy.borough ?? academy.city}</td>
-              <td className="px-4 py-3 text-stone-700">{academy.postcode}</td>
-              <td className="px-4 py-3"><Badge>{academy.verificationStatus}</Badge></td>
-              <td className="px-4 py-3"><Badge>{academy.featured ? "Featured" : "No"}</Badge></td>
-              <td className="px-4 py-3">
-                <Link href={`/admin/academies/${academy.id}`} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800">Edit</Link>
+              <td className="px-5 py-4 font-bold text-slate-950">{academy.name}</td>
+              <td className="px-5 py-4 text-slate-700">{academy.borough ?? academy.city}</td>
+              <td className="px-5 py-4 text-slate-700">{academy.postcode}</td>
+              <td className="px-5 py-4"><Badge>{academy.verificationStatus}</Badge></td>
+              <td className="px-5 py-4"><Badge>{academy.featured ? "Featured" : "No"}</Badge></td>
+              <td className="px-5 py-4 text-center">
+                <ActionMenu label={`Open actions for ${academy.name}`}>
+                  <Link href={`/academies/${academy.slug}`} className={menuItemClass}>
+                    <Eye size={18} aria-hidden />
+                    View Academy
+                  </Link>
+                  <Link href={`/admin/academies/${academy.id}`} className={menuItemClass}>
+                    <Edit3 size={18} aria-hidden />
+                    Edit Academy
+                  </Link>
+                </ActionMenu>
               </td>
             </tr>
           ))}
@@ -847,36 +873,30 @@ function UsersTable({ actorId, actorRole, users }: { actorId: string; actorRole:
                 <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
                 <td className="px-5 py-4 text-center">
                   {canManage ? (
-                    <details className="group relative inline-block text-left">
-                      <summary className="inline-flex size-10 cursor-pointer list-none items-center justify-center rounded-md text-slate-700 transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
-                        <MoreVertical size={22} aria-hidden />
-                        <span className="sr-only">Open actions for {user.name ?? user.email}</span>
-                      </summary>
-                      <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-xl">
-                        <Link href={`/admin?panel=users&dialog=view-user&userId=${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <ActionMenu label={`Open actions for ${user.name ?? user.email}`}>
+                        <Link href={`/admin?panel=users&dialog=view-user&userId=${user.id}`} className={menuItemClass}>
                           <User size={18} aria-hidden />
                           View Profile
                         </Link>
-                        <Link href={`/admin?panel=users&dialog=edit-user&userId=${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                        <Link href={`/admin?panel=users&dialog=edit-user&userId=${user.id}`} className={menuItemClass}>
                           <Edit3 size={18} aria-hidden />
                           Edit User
                         </Link>
                         <form action={toggleManagedUserDisabled.bind(null, user.id)}>
-                          <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                          <button className={dangerMenuItemClass}>
                             <Ban size={18} aria-hidden />
                             {disabled ? "Enable Account" : "Disable Account"}
                           </button>
                         </form>
                         {canDelete ? (
                           <form action={deleteManagedUser.bind(null, user.id)}>
-                            <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                            <button className={dangerMenuItemClass}>
                               <Trash2 size={18} aria-hidden />
                               Delete User
                             </button>
                           </form>
                         ) : null}
-                      </div>
-                    </details>
+                    </ActionMenu>
                   ) : (
                     <span className="text-xs font-semibold text-stone-500">Read only</span>
                   )}
@@ -932,35 +952,41 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-[960px] border-collapse text-left text-sm">
-        <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
+        <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
           <tr>
-            <th className="px-4 py-3">Title</th>
-            <th className="px-4 py-3">Academy</th>
-            <th className="px-4 py-3">Date</th>
-            <th className="px-4 py-3">Time</th>
-            <th className="px-4 py-3">Gi Type</th>
-            <th className="px-4 py-3">Price</th>
-            <th className="px-4 py-3">Capacity</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Actions</th>
+            <th className="px-5 py-4">Title</th>
+            <th className="px-5 py-4">Academy</th>
+            <th className="px-5 py-4">Date</th>
+            <th className="px-5 py-4">Time</th>
+            <th className="px-5 py-4">Gi Type</th>
+            <th className="px-5 py-4">Price</th>
+            <th className="px-5 py-4">Capacity</th>
+            <th className="px-5 py-4">Status</th>
+            <th className="px-5 py-4 text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
           {events.map((event) => (
             <tr key={event.id} className="border-t border-stone-100">
-              <td className="px-4 py-3 font-semibold text-stone-950">{event.title}</td>
-              <td className="px-4 py-3 text-stone-700">{event.academy.name}</td>
-              <td className="px-4 py-3 text-stone-700">{formatDate(event.eventDate)}</td>
-              <td className="px-4 py-3 text-stone-700">{event.startTime}-{event.endTime}</td>
-              <td className="px-4 py-3"><Badge>{event.giType.replace("_", "-")}</Badge></td>
-              <td className="px-4 py-3 text-stone-700">£{Number(event.price.toString()).toFixed(2)}</td>
-              <td className="px-4 py-3 text-stone-700">{event.capacity ?? "None"}</td>
-              <td className="px-4 py-3"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
-              <td className="px-4 py-3">
-                <div className="flex flex-wrap gap-2">
-                  <Link href={`/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800">View</Link>
-                  <Link href={`/admin/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800">Edit</Link>
-                </div>
+              <td className="px-5 py-4 font-bold text-slate-950">{event.title}</td>
+              <td className="px-5 py-4 text-slate-700">{event.academy.name}</td>
+              <td className="px-5 py-4 text-slate-700">{formatDate(event.eventDate)}</td>
+              <td className="px-5 py-4 text-slate-700">{event.startTime}-{event.endTime}</td>
+              <td className="px-5 py-4"><Badge>{event.giType.replace("_", "-")}</Badge></td>
+              <td className="px-5 py-4 text-slate-700">£{Number(event.price.toString()).toFixed(2)}</td>
+              <td className="px-5 py-4 text-slate-700">{event.capacity ?? "None"}</td>
+              <td className="px-5 py-4"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
+              <td className="px-5 py-4 text-center">
+                <ActionMenu label={`Open actions for ${event.title}`}>
+                  <Link href={`/open-mats/${event.id}`} className={menuItemClass}>
+                    <Eye size={18} aria-hidden />
+                    View Open Mat
+                  </Link>
+                  <Link href={`/admin/open-mats/${event.id}`} className={menuItemClass}>
+                    <Edit3 size={18} aria-hidden />
+                    Edit Open Mat
+                  </Link>
+                </ActionMenu>
               </td>
             </tr>
           ))}
