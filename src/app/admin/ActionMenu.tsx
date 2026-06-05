@@ -17,10 +17,23 @@ export function ActionMenu({
   trigger?: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ maxHeight: number; right: number; top: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
+
+    function updateMenuPosition() {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const top = rect.bottom + 8;
+      setMenuPosition({
+        maxHeight: Math.max(160, window.innerHeight - top - 16),
+        right: Math.max(8, window.innerWidth - rect.right),
+        top,
+      });
+    }
 
     function closeOnOutsideClick(event: MouseEvent) {
       if (!menuRef.current?.contains(event.target as Node)) {
@@ -28,13 +41,21 @@ export function ActionMenu({
       }
     }
 
+    updateMenuPosition();
     document.addEventListener("mousedown", closeOnOutsideClick);
-    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
   }, [open]);
 
   return (
     <div ref={menuRef} className="relative inline-block text-left">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((current) => !current)}
         className={buttonClassName}
@@ -45,7 +66,19 @@ export function ActionMenu({
         <span className="sr-only">{label}</span>
       </button>
       {open ? (
-        <div onClick={() => setOpen(false)} className={menuClassName} role="menu">
+        <div
+          onClick={() => setOpen(false)}
+          className={menuClassName}
+          role="menu"
+          style={menuPosition ? {
+            maxHeight: menuPosition.maxHeight,
+            overflowY: "auto",
+            position: "fixed",
+            right: menuPosition.right,
+            top: menuPosition.top,
+            zIndex: 100,
+          } : undefined}
+        >
           {children}
         </div>
       ) : null}
