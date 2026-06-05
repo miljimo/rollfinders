@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/Button";
 import { getSession, signIn } from "next-auth/react";
 import { useState } from "react";
 
@@ -39,7 +40,7 @@ export function LoginForm() {
       {error ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{error}</p> : null}
       <label className="grid gap-1 text-sm font-semibold text-stone-800">Email<input name="email" type="email" required className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal" /></label>
       <label className="grid gap-1 text-sm font-semibold text-stone-800">Password<input name="password" type="password" required className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal" /></label>
-      <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Sign In</button>
+      <Button type="submit" variant="neutral">Sign In</Button>
     </form>
   );
 }

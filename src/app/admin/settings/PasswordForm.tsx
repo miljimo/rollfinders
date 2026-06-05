@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/Button";
 import { useActionState } from "react";
 import { changeSuperAdminPassword, type ChangeSuperAdminPasswordState } from "./actions";
 
@@ -40,12 +41,13 @@ export function SuperAdminPasswordForm() {
           {state.message}
         </p>
       ) : null}
-      <button
+      <Button
+        type="submit"
         disabled={pending}
-        className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400"
+        variant="neutral"
       >
         {pending ? "Changing..." : "Change Password"}
-      </button>
+      </Button>
     </form>
   );
 }

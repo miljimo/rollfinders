@@ -10,6 +10,7 @@ import { getGoogleMapsApiKey } from "@/lib/google-maps";
 import { prisma } from "@/lib/prisma";
 import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
+import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
 import { createAcademy } from "./academies/actions";
 import { AcademyForm } from "./academies/AcademyForm";
@@ -287,10 +288,10 @@ export default async function AdminPage({
           {panel === "academies" ? (
             <AdminPanel
               action={superAdmin ? (
-                <Link href="/admin?panel=academies&dialog=new-academy" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                <Button href="/admin?panel=academies&dialog=new-academy" variant="primary" className="min-h-12 shadow-sm">
                   <Plus size={18} aria-hidden />
                   New Academy
-                </Link>
+                </Button>
               ) : null}
               description="Newest operational slice of academy records."
               id="academies"
@@ -304,10 +305,10 @@ export default async function AdminPage({
           {panel === "open-mats" ? (
             <AdminPanel
               action={(
-                <Link href="/admin?panel=open-mats&dialog=new-open-mat" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                <Button href="/admin?panel=open-mats&dialog=new-open-mat" variant="primary" className="min-h-12 shadow-sm">
                   <Plus size={18} aria-hidden />
                   New Open Mat
-                </Link>
+                </Button>
               )}
               description="Active open mat events ordered by event date."
               id="open-mats"
@@ -321,10 +322,10 @@ export default async function AdminPage({
           {panel === "users" ? (
             <AdminPanel
               action={(
-                <Link href="/admin?panel=users&dialog=new-user" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800">
+                <Button href="/admin?panel=users&dialog=new-user" variant="primary" className="min-h-12 shadow-sm">
                   <Plus size={18} aria-hidden />
                   New User
-                </Link>
+                </Button>
               )}
               description="Newest operational slice of user records and role assignments."
               id="users"
@@ -435,9 +436,9 @@ function DialogShell({
             <h2 id="admin-dialog-title" className="text-3xl font-black text-slate-950">{title}</h2>
             <p className="mt-2 text-sm text-slate-600">{description}</p>
           </div>
-          <Link href={closeHref} className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label={`Close ${title} dialog`}>
+          <Button href={closeHref} size="icon" variant="secondary" className="shrink-0 border-stone-200 text-slate-600" aria-label={`Close ${title} dialog`}>
             <X size={20} aria-hidden />
-          </Link>
+          </Button>
         </div>
         {children}
       </section>
@@ -486,9 +487,9 @@ function PanelSearch({ panel, search }: { panel: string; search: string }) {
         placeholder="Search"
         className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
       />
-      <button className="inline-flex min-h-12 w-14 items-center justify-center rounded-md bg-teal-700 text-white" aria-label="Search">
+      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label="Search">
         <Search size={20} aria-hidden />
-      </button>
+      </Button>
     </form>
   );
 }
@@ -594,9 +595,9 @@ function SettingsDashboardContent({
           <h1 className="text-3xl font-black text-slate-950">Settings</h1>
           <p className="mt-2 text-slate-600">Manage email operations, audit activity, and future application settings.</p>
         </div>
-        <Link href="/admin?panel=settings" className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-bold text-stone-800">
+        <Button href="/admin?panel=settings" variant="secondary">
           <RefreshCw size={16} aria-hidden /> Refresh
-        </Link>
+        </Button>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -1065,8 +1066,8 @@ function PaginationLink({ disabled, href, children }: { disabled: boolean; href:
   }
 
   return (
-    <Link href={href} className="inline-flex min-h-9 items-center rounded-md border border-stone-300 px-3 text-xs font-bold text-stone-800">
+    <Button href={href} size="sm" variant="secondary" className="px-3">
       {children}
-    </Link>
+    </Button>
   );
 }

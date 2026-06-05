@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -122,8 +123,8 @@ export default async function AcademyManagementPage({
             <p className="mt-2 text-stone-700">Search, filter, and manage academy records without loading the full directory.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
-            {superAdmin ? <Link href="/admin/academies/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New Academy</Link> : null}
+            <Button href="/admin" variant="secondary">Dashboard</Button>
+            {superAdmin ? <Button href="/admin/academies/new" variant="primary">New Academy</Button> : null}
           </div>
         </div>
 
@@ -171,8 +172,8 @@ export default async function AcademyManagementPage({
             </select>
           </label>
           <div className="flex min-w-0 items-end gap-2 sm:col-span-2 lg:col-span-10">
-            <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Apply Filters</button>
-            <Link href="/admin/academies" className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Reset</Link>
+            <Button type="submit" variant="neutral">Apply Filters</Button>
+            <Button href="/admin/academies" variant="secondary">Reset</Button>
           </div>
         </form>
 
@@ -201,12 +202,12 @@ export default async function AcademyManagementPage({
                     <td className="px-4 py-3 text-stone-600">{formatDate(academy.updatedAt)}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <Link href={`/academies/${academy.slug}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
-                        <Link href={`/admin/academies/${academy.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
+                        <Button href={`/academies/${academy.slug}`} size="sm" variant="secondary">View</Button>
+                        <Button href={`/admin/academies/${academy.id}`} size="sm" variant="secondary">Edit</Button>
                         {superAdmin ? (
                           <form action={`/api/admin/academies/${academy.id}`} method="post">
                             <input type="hidden" name="_method" value="DELETE" />
-                            <button className="rounded-md border border-red-300 px-2 py-1 text-xs font-bold text-red-700">Delete</button>
+                            <Button type="submit" size="sm" variant="danger">Delete</Button>
                           </form>
                         ) : null}
                       </div>

@@ -3,6 +3,7 @@
 import { LocateFixed, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Button } from "./Button";
 
 type LocationSearchFormProps = {
   action: string;
@@ -58,16 +59,18 @@ export function LocationSearchForm({ action, query = "", placeholder, autoLocate
       <input type="hidden" name="lng" value={lng} />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
         <div className="flex min-h-12 items-center rounded-md border border-stone-200 bg-white focus-within:border-teal-700">
-          <button
+          <Button
             type="button"
+            size="icon"
+            variant="subtle"
             onClick={requestLocation}
             disabled={locating}
-            className="inline-flex size-12 shrink-0 items-center justify-center rounded-l-md text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:opacity-60"
+            className="size-12 shrink-0 rounded-l-md text-teal-800 hover:bg-teal-50"
             aria-label={locating ? "Finding your location" : "Use your current location"}
             title={locating ? "Finding your location" : lat && lng ? "Location enabled" : "Use your current location"}
           >
             <LocateFixed size={18} aria-hidden />
-          </button>
+          </Button>
           <input
             name="q"
             defaultValue={query}
@@ -75,10 +78,10 @@ export function LocationSearchForm({ action, query = "", placeholder, autoLocate
             className="min-h-12 flex-1 border-0 px-2 text-base text-stone-950 outline-none placeholder:text-stone-500"
           />
         </div>
-        <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-teal-700 px-5 text-sm font-semibold text-white hover:bg-teal-800">
+        <Button type="submit" variant="primary" className="min-h-12 px-5 font-semibold">
           <Search size={16} aria-hidden />
           Search
-        </button>
+        </Button>
       </div>
     </form>
   );

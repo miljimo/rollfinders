@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CalendarDays, X } from "lucide-react";
 import { Role, UserStatus } from "@prisma/client";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
@@ -103,7 +104,7 @@ function UserProfilePanel({ academy, initials, user }: { academy: DashboardAcade
         <section className="mt-8 py-4">
           <div className="flex items-center justify-between gap-3">
             <h3 className="font-black text-stone-950">Personal Information</h3>
-            <Link href="/dashboard/password" className="rounded-md border border-stone-300 px-3 py-2 text-sm font-bold text-stone-800">Edit</Link>
+            <Button href="/dashboard/password" size="sm" variant="secondary" className="px-3 py-2 text-sm">Edit</Button>
           </div>
           <dl className="mt-4 grid gap-4 text-sm">
             <ProfileRow label="Full Name" value={user.name ?? user.email} />

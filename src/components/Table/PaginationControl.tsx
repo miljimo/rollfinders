@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { clsx } from "clsx";
+import { Button } from "@/components/Button";
 
 export function PaginationControl({
   children,
@@ -14,22 +13,17 @@ export function PaginationControl({
   onClick?: () => void;
   ariaLabel: string;
 }) {
-  const className = clsx(
-    "inline-flex min-h-10 items-center justify-center rounded-md border border-stone-300 px-4 text-sm font-bold transition focus:outline-none focus:ring-2 focus:ring-teal-700 focus:ring-offset-2",
-    disabled ? "pointer-events-none text-stone-400 opacity-60" : "text-stone-800 hover:border-teal-700 hover:text-teal-800",
-  );
-
   if (href && !disabled) {
     return (
-      <Link href={href} aria-label={ariaLabel} className={className}>
+      <Button href={href} aria-label={ariaLabel} disabled={disabled} size="md" variant="secondary" className="min-h-10 px-4 py-2 hover:border-teal-700 hover:text-teal-800">
         {children}
-      </Link>
+      </Button>
     );
   }
 
   return (
-    <button type="button" aria-label={ariaLabel} className={className} disabled={disabled} onClick={onClick}>
+    <Button type="button" aria-label={ariaLabel} disabled={disabled} onClick={onClick} size="md" variant="secondary" className="min-h-10 px-4 py-2 hover:border-teal-700 hover:text-teal-800">
       {children}
-    </button>
+    </Button>
   );
 }

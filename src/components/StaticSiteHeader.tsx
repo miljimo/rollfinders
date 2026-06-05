@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Search } from "lucide-react";
+import { Button } from "./Button";
 import { BrandLink } from "./BrandLink";
 import { NavLink } from "./NavLink";
 
@@ -25,9 +25,9 @@ export function StaticSiteHeader() {
             Login
           </NavLink>
         </nav>
-        <Link href="/academies" className="inline-flex size-10 items-center justify-center rounded-md bg-stone-950 text-white md:hidden" aria-label="Search academies">
+        <Button href="/academies" size="icon" variant="neutral" className="md:hidden" aria-label="Search academies">
           <Search size={18} aria-hidden />
-        </Link>
+        </Button>
       </div>
     </header>
   );

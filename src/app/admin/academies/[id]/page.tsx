@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
 import { getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
@@ -34,13 +35,13 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
             <StatusBadge>{academy.verificationStatus}</StatusBadge>
             <StatusBadge>{academy.featured ? "Featured" : "Not Featured"}</StatusBadge>
             {canViewAcademyTeam(access) ? (
-              <Link href={`/admin/academies/${academy.id}/team`} className="rounded-md border border-stone-300 px-3 py-2 text-sm font-bold text-stone-800">
+              <Button href={`/admin/academies/${academy.id}/team`} size="sm" variant="secondary" className="px-3 py-2 text-sm">
                 {canManageAcademyTeam(access) ? "Manage Team" : "View Team"}
-              </Link>
+              </Button>
             ) : null}
-            <Link href={`/academies/${academy.slug}`} className="rounded-md border border-stone-300 px-3 py-2 text-sm font-bold text-stone-800">
+            <Button href={`/academies/${academy.slug}`} size="sm" variant="secondary" className="px-3 py-2 text-sm">
               View Public Profile
-            </Link>
+            </Button>
           </div>
         </div>
 
@@ -76,7 +77,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
             {canDeleteAcademy(access) ? (
               <form action={`/api/admin/academies/${academy.id}`} method="post">
                 <input type="hidden" name="_method" value="DELETE" />
-                <button className="rounded-md border border-red-300 px-4 py-2 text-sm font-bold text-red-700">Delete Academy</button>
+                <Button type="submit" variant="danger">Delete Academy</Button>
               </form>
             ) : null}
           </div>

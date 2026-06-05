@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { GiType, type Prisma } from "@prisma/client";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -86,7 +87,7 @@ export default async function OpenMatManagementPage({
         <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
           <h1 className="text-3xl font-black text-stone-950">Open Mats</h1>
           <p className="mt-2 text-stone-700">Please log in to manage open mats.</p>
-          <Link href="/login" className="mt-4 inline-flex rounded-md bg-stone-950 px-4 py-3 text-sm font-bold text-white">Log in</Link>
+          <Button href="/login" variant="neutral" className="mt-4">Log in</Button>
         </section>
       </PageShell>
     );
@@ -166,8 +167,8 @@ export default async function OpenMatManagementPage({
             <p className="mt-2 text-stone-700">Search, filter, and manage open mat events from one operational view.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/admin" className="rounded-md border border-stone-300 px-4 py-3 text-sm font-bold text-stone-800">Dashboard</Link>
-            <Link href="/admin/open-mats/new" className="rounded-md bg-teal-700 px-4 py-3 text-sm font-bold text-white">New Open Mat</Link>
+            <Button href="/admin" variant="secondary">Dashboard</Button>
+            <Button href="/admin/open-mats/new" variant="primary">New Open Mat</Button>
           </div>
         </div>
 
@@ -219,8 +220,8 @@ export default async function OpenMatManagementPage({
             <input name="dateTo" type="date" defaultValue={dateTo} className="min-h-11 w-full min-w-0 rounded-md border border-stone-300 px-3 text-sm font-normal" />
           </label>
           <div className="flex min-w-0 items-end gap-2 sm:col-span-2 lg:col-span-8">
-            <button className="min-h-11 rounded-md bg-stone-950 px-4 text-sm font-bold text-white">Apply Filters</button>
-            <Link href="/admin/open-mats" className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Reset</Link>
+            <Button type="submit" variant="neutral">Apply Filters</Button>
+            <Button href="/admin/open-mats" variant="secondary">Reset</Button>
           </div>
         </form>
 
@@ -253,8 +254,8 @@ export default async function OpenMatManagementPage({
                     <td className="px-4 py-3"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
-                        <Link href={`/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
-                        <Link href={`/admin/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
+                        <Button href={`/open-mats/${event.id}`} size="sm" variant="secondary">View</Button>
+                        <Button href={`/admin/open-mats/${event.id}`} size="sm" variant="secondary">Edit</Button>
                       </div>
                     </td>
                   </tr>

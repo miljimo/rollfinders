@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
 import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
+import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -219,8 +220,8 @@ export default async function UserManagementPage({
                     </select>
                   </label>
                   <div className="flex items-end gap-2">
-                    <button className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Apply</button>
-                    <Link href="/admin/users" className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-4 text-sm font-bold text-slate-700">Reset</Link>
+                    <Button type="submit" variant="primary">Apply</Button>
+                    <Button href="/admin/users" variant="secondary" className="border-slate-200 text-slate-700">Reset</Button>
                   </div>
                 </div>
               </details>
@@ -396,8 +397,8 @@ function PageLink({ href, disabled, active, iconOnly, children }: { href: string
     return <span className={`inline-flex min-h-11 items-center justify-center rounded-md border border-stone-200 text-sm font-bold text-stone-400 ${iconOnly ? "w-11 px-0" : "px-4"}`}>{children}</span>;
   }
   return (
-    <Link href={href} className={`inline-flex min-h-11 items-center justify-center rounded-md border text-sm font-bold ${iconOnly ? "w-11 px-0" : "px-4"} ${active ? "border-teal-700 bg-teal-700 text-white shadow-sm" : "border-stone-300 text-stone-800 hover:bg-stone-50"}`}>
+    <Button href={href} size={iconOnly ? "icon" : "md"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "w-11 px-0" : "px-4"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`}>
       {children}
-    </Link>
+    </Button>
   );
 }
