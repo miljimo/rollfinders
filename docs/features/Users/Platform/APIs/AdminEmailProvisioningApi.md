@@ -8,6 +8,20 @@ Source: `src/app/api/admin/email-provisioning/route.ts`
 
 ---
 
+# Schema Impact
+
+No schema changes are required for this PRD.
+
+IF this API is implemented
+
+WHEN the deployment is prepared
+
+THEN no database migration script SHALL be required for this PRD.
+
+AND deployment SHALL only require application code and configuration changes.
+
+---
+
 # Objective
 
 Expose non-secret email provisioning configuration to authorized platform admins.

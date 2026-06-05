@@ -4,6 +4,14 @@ Route: `/admin/settings`
 
 Source: `src/app/admin/settings/page.tsx`
 
+## Schema Impact
+
+No schema changes are required for this page PRD.
+
+IF this page is implemented
+WHEN the deployment is prepared
+THEN no database migration script SHALL be required for this PRD.
+
 ## Purpose
 
 Provide platform/admin settings and password update access.

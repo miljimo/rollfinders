@@ -8,6 +8,20 @@ Source: `src/app/api/admin/platform-admins/route.ts`
 
 ---
 
+# Schema Impact
+
+No schema changes are required for this API PRD when the existing `users` role, status, disabled, and audit-log fields already exist.
+
+IF this API is implemented against the current Platform Admin user model
+
+WHEN the deployment is prepared
+
+THEN no new database migration script SHALL be required for this PRD.
+
+AND the deployment SHALL verify that the prerequisite user role/status and admin audit log migrations have already been applied.
+
+---
+
 # Objective
 
 Allow super admins to list and create platform admin users.

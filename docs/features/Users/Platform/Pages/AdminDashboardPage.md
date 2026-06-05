@@ -4,6 +4,14 @@ Route: `/admin`
 
 Source: `src/app/admin/page.tsx`
 
+## Schema Impact
+
+No schema changes are required for this page PRD.
+
+IF this page is implemented
+WHEN the deployment is prepared
+THEN no database migration script SHALL be required for this PRD.
+
 ## Purpose
 
 Provide role-aware operational overview and module navigation.

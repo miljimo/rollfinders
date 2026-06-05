@@ -6,6 +6,26 @@ Admin Dashboard Restructure and Academy Management Module
 
 ---
 
+# Schema Impact
+
+Schema changes are required only if the recommended academy listing indexes do not already exist.
+
+IF the target database already has indexes that support academy search, filtering, sorting, and pagination
+
+WHEN this PRD is implemented
+
+THEN no additional database migration script SHALL be required.
+
+IF any required index is missing
+
+WHEN the deployment is prepared
+
+THEN an index migration SHALL be included in the same release.
+
+AND the migration SHALL be executed before the paginated academy management page is enabled for production traffic.
+
+---
+
 # Overview
 
 The current Admin Panel displays academies in a long scrolling list, making it difficult to navigate, manage, and edit academy records as the platform grows.
@@ -404,6 +424,34 @@ postcode
 created_at
 updated_at
 ```
+
+---
+
+# Migration Requirements
+
+## Scenario: Add Missing Academy Listing Indexes
+
+IF the production database is missing indexes needed for academy name, verification status, featured status, city, postcode, created date, or updated date queries
+
+WHEN the migration is written
+
+THEN the migration SHALL add only the missing indexes.
+
+AND the migration SHALL use index names that follow the project database naming convention.
+
+AND the migration SHALL avoid dropping or rebuilding unrelated indexes.
+
+---
+
+## Scenario: Deploy Paginated Listing Safely
+
+IF index migrations are required
+
+WHEN the release is deployed
+
+THEN the index migration SHALL complete before the paginated academy listing is enabled.
+
+AND the application SHALL continue to support existing academy records without data backfill.
 
 ---
 

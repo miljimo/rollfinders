@@ -1,5 +1,17 @@
 # Ticket: Enhance Admin Page
 
+## Schema Impact
+
+No schema changes are required for this PRD.
+
+IF this dashboard enhancement is implemented
+
+WHEN the deployment is prepared
+
+THEN no database migration script SHALL be required for this PRD.
+
+AND deployment SHALL only require application code changes that read existing data.
+
 ## Objective
 
 Improve the main RollFinders admin dashboard so it works as a clear operational landing page after the Academy Management module was split into its own route.

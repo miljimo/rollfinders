@@ -143,6 +143,22 @@ Can:
 
 ---
 
+# Schema Impact
+
+Schema changes are required for this PRD.
+
+IF this PRD is implemented
+
+WHEN the deployment is prepared
+
+THEN database migration scripts SHALL be included in the same release as the Platform Admin application code.
+
+AND the migration SHALL run before any code path reads or writes `PLATFORM_ADMIN` roles or admin audit logs.
+
+AND the deployment SHALL verify that the migration completed before enabling Platform Admin routes.
+
+---
+
 # Database Changes
 
 ## Update Users Table
@@ -189,6 +205,50 @@ CREATE TABLE admin_audit_logs (
     created_at TIMESTAMP NOT NULL
 );
 ```
+
+---
+
+# Migration Requirements
+
+## Scenario: Add Platform Admin Role Support
+
+IF the existing users table does not support Platform Admin roles
+
+WHEN the migration runs
+
+THEN the migration SHALL add the role field or enum value needed for `PLATFORM_ADMIN`.
+
+AND the migration SHALL preserve existing user accounts by assigning the safe default role `STANDARD_USER` where no role exists.
+
+AND the migration SHALL NOT promote any existing user to `PLATFORM_ADMIN` unless an explicit seed or Super Admin action does so.
+
+---
+
+## Scenario: Add Admin Audit Logs
+
+IF admin actions need audit logging
+
+WHEN the migration runs
+
+THEN the migration SHALL create the admin audit log table before audit-writing code is deployed.
+
+AND the audit log schema SHALL support actor user id, optional target user id, action, metadata, and created timestamp.
+
+AND the migration SHALL add indexes needed for actor, target, action, and recent activity queries.
+
+---
+
+## Scenario: Deployment Ordering
+
+IF the deployment contains both schema and application changes
+
+WHEN the release is executed
+
+THEN migrations SHALL run first.
+
+AND application code SHALL only be deployed or enabled after the migration succeeds.
+
+AND rollback planning SHALL account for newly written roles and audit rows.
 
 ---
 
