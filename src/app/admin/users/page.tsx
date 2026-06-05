@@ -4,7 +4,7 @@ import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
 import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
-import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
@@ -121,7 +121,7 @@ export default async function UserManagementPage({
   });
   const academy = selectedAcademy(firstParam(params.academy), new Set(academies.map((item) => item.id)));
 
-  const where: Prisma.UserWhereInput = {
+  const filterWhere: Prisma.UserWhereInput = {
     ...(search
       ? {
           OR: [
@@ -135,6 +135,9 @@ export default async function UserManagementPage({
     ...(status !== "all" ? { status: status as UserStatus } : {}),
     ...(emailStatus !== "all" ? { emailStatus: emailStatus as UserEmailStatus } : {}),
     ...(academy !== "all" ? { academyId: academy } : {}),
+  };
+  const where: Prisma.UserWhereInput = {
+    AND: [elevatedAdminPrivacyUserWhere({ role: currentUser?.role }), filterWhere],
   };
 
   const totalItems = await prisma.user.count({ where });
@@ -185,8 +188,8 @@ export default async function UserManagementPage({
                       <option value="all">All</option>
                       <option value={Role.STANDARD_USER}>Standard user</option>
                       <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
-                      <option value={Role.PLATFORM_ADMIN}>Platform admin</option>
-                      <option value={Role.SUPER_ADMIN}>Super admin</option>
+                      {superAdmin ? <option value={Role.PLATFORM_ADMIN}>Platform admin</option> : null}
+                      {superAdmin ? <option value={Role.SUPER_ADMIN}>Super admin</option> : null}
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm font-semibold text-slate-700">

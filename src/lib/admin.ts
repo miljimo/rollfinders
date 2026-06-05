@@ -21,6 +21,10 @@ export function isSuperAdminRole(role?: string) {
   return role === "SUPER_ADMIN" || role === "ADMIN";
 }
 
+export function isElevatedAdminRole(role?: string) {
+  return role === "PLATFORM_ADMIN" || isSuperAdminRole(role);
+}
+
 export function isPlatformAdminRole(role?: string) {
   return isSuperAdminRole(role) || role === "PLATFORM_ADMIN";
 }
@@ -83,6 +87,38 @@ export function academyScopedUserWhere(actor: { role?: string; academyId?: strin
     academyId: actor.academyId ?? "__missing_academy__",
     role: { in: [Role.STANDARD_USER, Role.USER, Role.ACADEMY_ADMIN] },
   };
+}
+
+export function elevatedAdminPrivacyUserWhere(actor: { role?: string }): Prisma.UserWhereInput {
+  if (isSuperAdminRole(actor.role)) return {};
+  if (actor.role !== Role.PLATFORM_ADMIN) return {};
+  return {
+    role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] },
+  };
+}
+
+export function elevatedAdminPrivacyAuditLogWhere(actor: { role?: string }): Prisma.AdminAuditLogWhereInput {
+  if (isSuperAdminRole(actor.role)) return {};
+  if (actor.role !== Role.PLATFORM_ADMIN) return {};
+  return {
+    actor: { role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] } },
+    OR: [
+      { targetUserId: null },
+      { target: { role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] } } },
+    ],
+  };
+}
+
+export function canViewManagedUser(
+  actor: { id: string; role?: string; academyId?: string | null },
+  target: { role: Role; academyId?: string | null },
+) {
+  if (isSuperAdminRole(actor.role)) return true;
+  if (actor.role === Role.PLATFORM_ADMIN) return !isElevatedAdminRole(target.role);
+  if (isAcademyAdminRole(actor.role)) {
+    return actor.academyId === target.academyId && (target.role === Role.STANDARD_USER || target.role === Role.USER || target.role === Role.ACADEMY_ADMIN);
+  }
+  return false;
 }
 
 export function academyScopedAcademyWhere(actor: { role?: string; academyId?: string | null }): Prisma.AcademyWhereInput {

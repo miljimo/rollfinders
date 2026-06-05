@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { canViewManagedUser, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value?: string) {
@@ -11,11 +11,6 @@ function normalizeRole(value?: string) {
 
 function normalizeStatus(value?: string) {
   return value === UserStatus.DISABLED ? UserStatus.DISABLED : UserStatus.ACTIVE;
-}
-
-function canViewTarget(actor: { id: string; role?: string; academyId?: string | null }, target: { role: Role; academyId?: string | null }) {
-  if (!isAcademyAdminRole(actor.role)) return true;
-  return actor.academyId === target.academyId && (target.role === Role.STANDARD_USER || target.role === Role.USER || target.role === Role.ACADEMY_ADMIN);
 }
 
 function canManageTarget(actor: { id: string; role?: string; academyId?: string | null }, target: { id: string; role: Role; email: string; academyId?: string | null; isProtected?: boolean | null }) {
@@ -57,7 +52,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     select: { id: true, name: true, email: true, role: true, academyId: true, status: true, disabled: true, isProtected: true, emailStatus: true, lastLoginAt: true, createdAt: true },
   });
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!canViewTarget(actor, user)) return NextResponse.json({ error: "Insufficient user management permissions" }, { status: 403 });
+  if (!canViewManagedUser(actor, user)) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   return NextResponse.json({ user });
 }

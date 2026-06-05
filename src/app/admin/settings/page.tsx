@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Mail, RefreshCw, Send, Settings, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
-import { requireAdminPage } from "@/lib/admin";
+import { elevatedAdminPrivacyAuditLogWhere, requireAdminPage } from "@/lib/admin";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
@@ -16,13 +16,14 @@ export const metadata: Metadata = {
 };
 
 export default async function SettingsPage() {
-  await requireAdminPage();
+  const currentUser = await requireAdminPage();
   const emailConfig = getEmailProvisioningConfig();
   const [outboundEmailCount, failedEmailCount, invalidEmailCount, recentAuditLogs] = await Promise.all([
     prisma.outboundEmail.count(),
     prisma.outboundEmail.count({ where: { status: { in: ["FAILED", "RETRY_PENDING", "INVALID_EMAIL", "PERMANENTLY_FAILED"] } } }),
     prisma.invalidEmailAddress.count(),
     prisma.adminAuditLog.findMany({
+      where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
       take: 8,
       include: { actor: true, target: true },
       orderBy: { createdAt: "desc" },

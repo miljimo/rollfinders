@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
-import { academyScopedUserWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
+import { academyScopedUserWhere, elevatedAdminPrivacyUserWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog, getCurrentUser } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
 const supportedPageSizes = [20, 50, 100];
@@ -47,6 +47,7 @@ export async function GET(request: Request) {
   const emailStatus = parseEmailStatus(param(url, "emailStatus"));
 
   const scopeWhere = academyScopedUserWhere(actor);
+  const privacyWhere = elevatedAdminPrivacyUserWhere(actor);
   const filterWhere: Prisma.UserWhereInput = {
     ...(search
       ? {
@@ -60,7 +61,7 @@ export async function GET(request: Request) {
     ...(status ? { status } : {}),
     ...(emailStatus ? { emailStatus } : {}),
   };
-  const where: Prisma.UserWhereInput = isAcademyAdminRole(actor.role) ? { AND: [scopeWhere, filterWhere] } : filterWhere;
+  const where: Prisma.UserWhereInput = { AND: [scopeWhere, privacyWhere, filterWhere] };
 
   const totalItems = await prisma.user.count({ where });
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
