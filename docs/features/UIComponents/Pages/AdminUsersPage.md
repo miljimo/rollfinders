@@ -22,8 +22,13 @@ IF user rows are protected or out of scope
 WHEN table renders  
 THEN read-only state SHALL be shown.
 
+IF a user create/edit form includes academy assignment  
+WHEN academies are available  
+THEN the academy field SHALL reuse `AutoCompleteTextField` so admins can search by academy name instead of scrolling a long dropdown.
+
 ## Done When
 
 * Search and filters persist.
 * Role-scoped visibility is correct.
 * Page size supports 20, 50, 100.
+* New User academy assignment uses the shared autocomplete text field control.

@@ -599,6 +599,7 @@ THEN the page SHALL show create-user fields for name, email, temporary password,
 Done when:
 
 * Academy assignment is required for standard and academy admin users when applicable.
+* Academy assignment uses the reusable `AutoCompleteTextField` component for large academy lists.
 * Platform admin option only appears for super admins.
 * Academy admins cannot assign users outside their academy.
 

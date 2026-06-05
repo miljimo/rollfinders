@@ -1,8 +1,9 @@
 "use client";
 
 import { GiType, type Academy, type Event } from "@prisma/client";
-import { useActionState, useMemo, useState } from "react";
+import { useActionState } from "react";
 import { Button } from "@/components/Button";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import type { EventFormState } from "./actions";
 
 type EventAction = (state: EventFormState, formData: FormData) => Promise<EventFormState>;
@@ -69,60 +70,23 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
 }
 
 function AcademySearchSelect({ academies, errors, selectedAcademyId }: { academies: Academy[]; errors?: string[]; selectedAcademyId: string }) {
-  const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState(selectedAcademyId);
-  const selectedAcademy = academies.find((academy) => academy.id === selectedId);
-  const trimmedQuery = query.trim().toLowerCase();
-  const matches = useMemo(() => {
-    const filtered = trimmedQuery
-      ? academies.filter((academy) => `${academy.name} ${academy.city} ${academy.postcode}`.toLowerCase().includes(trimmedQuery))
-      : academies;
-
-    return filtered.slice(0, 25);
-  }, [academies, trimmedQuery]);
+  const options: AutoCompleteTextFieldOption[] = academies.map((academy) => ({
+    id: academy.id,
+    label: academy.name,
+    description: `${academy.city}, ${academy.postcode}`,
+    meta: `${academy.city} ${academy.postcode}`,
+  }));
 
   return (
-    <div className="grid gap-1 text-sm font-semibold text-stone-800">
-      <label htmlFor="academy-search">Academy</label>
-      <input name="academyId" type="hidden" value={selectedId} />
-      <input
-        id="academy-search"
-        type="search"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder={selectedAcademy ? selectedAcademy.name : "Search academy by name, city, or postcode"}
-        aria-invalid={errors ? "true" : undefined}
-        className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal aria-invalid:border-red-500"
-      />
-      {selectedAcademy ? (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-950">
-          <span>
-            Selected: <strong>{selectedAcademy.name}</strong>
-          </span>
-          <button type="button" className="text-xs font-black text-teal-800 underline" onClick={() => setSelectedId("")}>
-            Change
-          </button>
-        </div>
-      ) : null}
-      <div className="max-h-48 overflow-auto rounded-md border border-stone-200 bg-white shadow-sm">
-        {matches.map((academy) => (
-          <button
-            key={academy.id}
-            type="button"
-            className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm font-semibold hover:bg-teal-50 ${academy.id === selectedId ? "bg-teal-700 text-white hover:bg-teal-700" : "text-stone-800"}`}
-            onClick={() => {
-              setSelectedId(academy.id);
-              setQuery("");
-            }}
-          >
-            <span>{academy.name}</span>
-            <span className={academy.id === selectedId ? "text-white/80" : "text-stone-500"}>{academy.city}, {academy.postcode}</span>
-          </button>
-        ))}
-        {!matches.length ? <p className="px-3 py-2 text-sm font-medium text-stone-600">No academies found.</p> : null}
-      </div>
-      <FieldError errors={errors} />
-    </div>
+    <AutoCompleteTextField
+      label="Academy"
+      name="academyId"
+      options={options}
+      selectedId={selectedAcademyId}
+      placeholder="Search academy by name, city, or postcode"
+      emptyMessage="No academies found."
+      errors={errors}
+    />
   );
 }
 
