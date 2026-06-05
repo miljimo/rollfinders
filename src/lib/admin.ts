@@ -37,6 +37,14 @@ export function isStandardUserRole(role?: string) {
   return role === "STANDARD_USER" || role === "USER";
 }
 
+export function isAcademyAdminRole(role?: string) {
+  return role === "ACADEMY_ADMIN";
+}
+
+export function hasAdminMenuRole(role?: string) {
+  return isPlatformAdminRole(role) || isAcademyAdminRole(role);
+}
+
 export function canManageNonPlatformUsers(role?: string) {
   return isPlatformAdminRole(role);
 }

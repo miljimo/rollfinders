@@ -1,9 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { GiType, type Prisma } from "@prisma/client";
-import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
 import { PageShell } from "@/components/PageShell";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
@@ -70,6 +69,11 @@ function compactParams(params: OpenMatSearchParams, overrides: Record<string, st
   return query ? `/admin/open-mats?${query}` : "/admin/open-mats";
 }
 
+function paginationPages(currentPage: number, totalPages: number) {
+  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
+}
+
 export default async function OpenMatManagementPage({
   searchParams,
 }: {
@@ -89,7 +93,6 @@ export default async function OpenMatManagementPage({
   }
   const params = await searchParams;
   const platformAdmin = isPlatformAdminRole(user.role);
-  const academyAdmin = isAcademyAdminRole(user.role);
   const academyMemberships = platformAdmin
     ? []
     : await prisma.academyMember.findMany({
@@ -97,9 +100,7 @@ export default async function OpenMatManagementPage({
         select: { academyId: true },
       });
   const academyIds = academyMemberships.map((membership) => membership.academyId);
-  const accessWhere: Prisma.EventWhereInput = academyAdmin
-    ? { academyId: user.academyId ?? "__missing_academy__" }
-    : !platformAdmin
+  const accessWhere: Prisma.EventWhereInput = !platformAdmin
     ? {
         OR: [
           ...(academyIds.length ? [{ academyId: { in: academyIds } }] : []),
@@ -152,27 +153,8 @@ export default async function OpenMatManagementPage({
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
 
-  type OpenMatRow = (typeof events)[number] & Record<string, unknown>;
-  const columns: TableColumn<OpenMatRow>[] = [
-    { key: "title", title: "Title", className: "font-semibold text-stone-950" },
-    { key: "academy", title: "Academy", className: "text-stone-700", render: (_value, event) => event.academy.name },
-    { key: "eventDate", title: "Date", className: "text-stone-600", render: (value) => formatDate(value as Date) },
-    { key: "time", title: "Time", className: "text-stone-600", render: (_value, event) => `${event.startTime}-${event.endTime}` },
-    { key: "giType", title: "Gi Type", render: (value) => <TableStatusBadge status={String(value).replace("_", "-")} /> },
-    { key: "price", title: "Price", className: "text-stone-600", render: (value) => `£${String(value)}` },
-    { key: "capacity", title: "Capacity", className: "text-stone-600", render: (value) => value == null ? "Unlimited" : String(value) },
-    { key: "active", title: "Status", render: (value) => <TableStatusBadge status={value ? "Active" : "Inactive"} /> },
-    {
-      key: "actions",
-      title: "Actions",
-      render: (_value, event) => (
-        <div className="flex flex-wrap gap-2">
-          <Link href={`/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
-          <Link href={`/admin/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
-        </div>
-      ),
-    },
-  ];
+  const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
 
   return (
     <PageShell>
@@ -242,20 +224,60 @@ export default async function OpenMatManagementPage({
           </div>
         </form>
 
-        <Table
-          className="mt-6"
-          columns={columns}
-          data={events as OpenMatRow[]}
-          emptyMessage="No open mats match these filters."
-          getRowId={(event) => event.id}
-          minWidthClassName="min-w-[1040px]"
-          pagination={{
-            page: currentPage,
-            totalPages,
-            previousHref: compactParams(params, { page: currentPage - 1 }),
-            nextHref: compactParams(params, { page: currentPage + 1 }),
-          }}
-        />
+        <div className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1040px] border-collapse text-left text-sm">
+              <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
+                <tr>
+                  <th className="px-4 py-3">Title</th>
+                  <th className="px-4 py-3">Academy</th>
+                  <th className="px-4 py-3">Date</th>
+                  <th className="px-4 py-3">Time</th>
+                  <th className="px-4 py-3">Gi Type</th>
+                  <th className="px-4 py-3">Price</th>
+                  <th className="px-4 py-3">Capacity</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) => (
+                  <tr key={event.id} className="border-t border-stone-100">
+                    <td className="px-4 py-3 font-semibold text-stone-950">{event.title}</td>
+                    <td className="px-4 py-3 text-stone-700">{event.academy.name}</td>
+                    <td className="px-4 py-3 text-stone-600">{formatDate(event.eventDate)}</td>
+                    <td className="px-4 py-3 text-stone-600">{event.startTime}-{event.endTime}</td>
+                    <td className="px-4 py-3"><Badge>{event.giType.replace("_", "-")}</Badge></td>
+                    <td className="px-4 py-3 text-stone-600">£{event.price.toString()}</td>
+                    <td className="px-4 py-3 text-stone-600">{event.capacity ?? "Unlimited"}</td>
+                    <td className="px-4 py-3"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Link href={`/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">View</Link>
+                        <Link href={`/admin/open-mats/${event.id}`} className="rounded-md border border-stone-300 px-2 py-1 text-xs font-bold text-stone-800">Edit</Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!events.length ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-8 text-center text-stone-600">No open mats match these filters.</td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex flex-col gap-3 border-t border-stone-100 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-stone-600">Showing {start}-{end} of {totalItems}</p>
+            <div className="flex flex-wrap gap-2">
+              <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })}>Previous</PageLink>
+              {paginationPages(currentPage, totalPages).map((pageNumber) => (
+                <PageLink key={pageNumber} active={pageNumber === currentPage} href={compactParams(params, { page: pageNumber })}>{pageNumber}</PageLink>
+              ))}
+              <PageLink disabled={currentPage >= totalPages} href={compactParams(params, { page: currentPage + 1 })}>Next</PageLink>
+            </div>
+          </div>
+        </div>
       </section>
     </PageShell>
   );
@@ -267,5 +289,20 @@ function Metric({ label, value }: { label: string; value: number }) {
       <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
       <p className="mt-2 text-2xl font-black text-stone-950">{value.toLocaleString()}</p>
     </div>
+  );
+}
+
+function Badge({ children }: { children: React.ReactNode }) {
+  return <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{children}</span>;
+}
+
+function PageLink({ href, disabled, active, children }: { href: string; disabled?: boolean; active?: boolean; children: React.ReactNode }) {
+  if (disabled) {
+    return <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-400">{children}</span>;
+  }
+  return (
+    <Link href={href} className={`inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-bold ${active ? "border-teal-700 bg-teal-700 text-white" : "border-stone-300 text-stone-800"}`}>
+      {children}
+    </Link>
   );
 }

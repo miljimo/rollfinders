@@ -14,13 +14,23 @@ IMAGE_URI="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITOR
 aws ecr get-login-password --region "${AWS_REGION}" \
   | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-docker build --target runner -t "${IMAGE_URI}:${IMAGE_TAG}" -t "${IMAGE_URI}:latest" .
+docker build \
+  --target runner \
+  --build-arg "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" \
+  --build-arg "NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}" \
+  --build-arg "NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}" \
+  -t "${IMAGE_URI}:${IMAGE_TAG}" \
+  -t "${IMAGE_URI}:latest" \
+  .
 docker tag "${IMAGE_URI}:${IMAGE_TAG}" "${IMAGE_URI}:${ENVIRONMENT_NAME}"
 
 container_id="$(docker run -d -p 127.0.0.1::3000 \
   -e NODE_ENV=production \
   -e NEXTAUTH_URL=http://localhost:3000 \
   -e NEXTAUTH_SECRET=local-docker-validation-secret \
+  -e "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" \
+  -e "NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}" \
+  -e "NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}" \
   "${IMAGE_URI}:${IMAGE_TAG}")"
 trap 'docker rm -f "${container_id}" >/dev/null 2>&1 || true' EXIT
 

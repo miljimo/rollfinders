@@ -2,7 +2,6 @@ import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { Search } from "lucide-react";
 import { authOptions } from "@/lib/auth";
-import { isAcademyAdminRole, isPlatformAdminRole, isStandardUserRole } from "@/lib/admin";
 import { BrandLink } from "./BrandLink";
 import { LogoutButton } from "./LogoutButton";
 import { NavLink } from "./NavLink";
@@ -17,9 +16,6 @@ const navItems = [
 export async function SiteHeader() {
   const session = await getServerSession(authOptions);
   const isLoggedIn = Boolean(session?.user);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const showAdmin = isPlatformAdminRole(role);
-  const showDashboard = isStandardUserRole(role) || isAcademyAdminRole(role) || role === "PLATFORM_ADMIN";
 
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
@@ -33,8 +29,7 @@ export async function SiteHeader() {
           ))}
           {isLoggedIn ? (
             <>
-              {showDashboard ? <NavLink href={isAcademyAdminRole(role) ? "/admin" : "/dashboard"}>Dashboard</NavLink> : null}
-              {showAdmin ? <NavLink href="/admin">Admin</NavLink> : null}
+              <NavLink href="/dashboard">Dashboard</NavLink>
               <LogoutButton />
             </>
           ) : (

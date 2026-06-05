@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Metric card component preview</title>
+  <desc id="desc">Preview showing four compact metric summary cards.</desc>
+  <rect width="960" height="360" fill="#f8faf7"/>
+  <g font-family="Arial, sans-serif">
+    <rect x="48" y="96" width="188" height="132" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+    <text x="72" y="140" font-size="13" font-weight="700" fill="#78716c">TOTAL USERS</text><text x="72" y="188" font-size="36" font-weight="900" fill="#1c1917">1,248</text>
+    <rect x="260" y="96" width="188" height="132" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+    <text x="284" y="140" font-size="13" font-weight="700" fill="#78716c">ACTIVE USERS</text><text x="284" y="188" font-size="36" font-weight="900" fill="#1c1917">1,012</text>
+    <rect x="472" y="96" width="188" height="132" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+    <text x="496" y="140" font-size="13" font-weight="700" fill="#78716c">OPEN MATS</text><text x="496" y="188" font-size="36" font-weight="900" fill="#1c1917">84</text>
+    <rect x="684" y="96" width="188" height="132" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+    <text x="708" y="140" font-size="13" font-weight="700" fill="#78716c">PENDING</text><text x="708" y="188" font-size="36" font-weight="900" fill="#1c1917">12</text>
+  </g>
+</svg>

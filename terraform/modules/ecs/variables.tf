@@ -170,3 +170,9 @@ variable "execution_role_secret_arns" {
   description = "Secrets Manager secret ARNs the ECS task execution role can read for container secrets."
   default     = []
 }
+
+variable "execution_role_parameter_arns" {
+  type        = list(string)
+  description = "SSM parameter ARNs the ECS task execution role can read for container secrets."
+  default     = []
+}

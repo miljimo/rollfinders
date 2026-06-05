@@ -4,7 +4,7 @@ import { requireOpenMatAccess } from "@/lib/academy-access";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { deleteOpenMat, updateOpenMat } from "../actions";
-import { OpenMatForm } from "../form";
+import { OpenMatForm } from "../OpenMatForm";
 
 export const dynamic = "force-dynamic";
 

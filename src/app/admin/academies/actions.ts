@@ -132,9 +132,11 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
     throw error;
   }
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/academies";
   revalidatePath("/admin");
   revalidatePath("/admin/academies");
-  redirect("/admin/academies");
+  redirect(redirectTo);
 }
 
 export async function updateAcademy(

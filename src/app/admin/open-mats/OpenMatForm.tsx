@@ -2,6 +2,7 @@
 
 import { GiType, type Academy, type Event } from "@prisma/client";
 import { useActionState } from "react";
+import Link from "next/link";
 import type { EventFormState } from "./actions";
 
 type EventAction = (state: EventFormState, formData: FormData) => Promise<EventFormState>;
@@ -12,12 +13,13 @@ const initialState: EventFormState = {
   values: {},
 };
 
-export function OpenMatForm({ action, academies, event }: { action: EventAction; academies: Academy[]; event?: Event }) {
+export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: { action: EventAction; academies: Academy[]; cancelHref?: string; event?: Event; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const eventDate = event?.eventDate.toISOString().slice(0, 10);
 
   return (
     <form action={formAction} className="mt-6 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       {state.message ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{state.message}</p> : null}
       <label className="grid gap-1 text-sm font-semibold text-stone-800">
         Academy
@@ -54,9 +56,12 @@ export function OpenMatForm({ action, academies, event }: { action: EventAction;
         <input name="active" type="checkbox" defaultChecked={state.values.active ? state.values.active === "on" : event?.active ?? true} className="size-4 accent-teal-700" />
         Active listing
       </label>
-      <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
-        {isPending ? "Saving..." : "Save Open Mat"}
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
+          {isPending ? "Saving..." : "Save Open Mat"}
+        </button>
+        {cancelHref ? <Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link> : null}
+      </div>
     </form>
   );
 }

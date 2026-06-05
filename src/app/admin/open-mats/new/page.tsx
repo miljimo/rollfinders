@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { createOpenMat } from "../actions";
-import { OpenMatForm } from "../form";
+import { OpenMatForm } from "../OpenMatForm";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +14,7 @@ export default async function NewOpenMatPage() {
   }
 
   const academies = await prisma.academy.findMany({
-    where: isAcademyAdminRole(user.role)
-      ? { id: user.academyId ?? "__missing_academy__" }
-      : isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
+    where: isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
     orderBy: { name: "asc" },
   });
 

@@ -171,6 +171,19 @@ module "app_secrets" {
   }
 }
 
+resource "aws_ssm_parameter" "super_admin" {
+  for_each = {
+    SUPER_ADMIN_EMAIL    = var.super_admin_email
+    SUPER_ADMIN_PASSWORD = var.super_admin_password
+    SUPER_ADMIN_NAME     = var.super_admin_name
+  }
+
+  name  = "/${local.name_prefix}/super-admin/${each.key}"
+  type  = "SecureString"
+  value = each.value
+  tags  = local.common_tags
+}
+
 module "task_role" {
   source      = "./modules/roles"
   environment = var.environment_name
@@ -213,6 +226,10 @@ module "app_service" {
     module.app_secrets.arn
   ]
 
+  execution_role_parameter_arns = [
+    for parameter in aws_ssm_parameter.super_admin : parameter.arn
+  ]
+
   load_balancer = {
     target_group_arn = module.alb.target_group_arn
     container_name   = "web"
@@ -243,7 +260,10 @@ module "app_service" {
         { name = "SMTP_HOST", valueFrom = "${module.app_secrets.arn}:SMTP_HOST::" },
         { name = "SMTP_PORT", valueFrom = "${module.app_secrets.arn}:SMTP_PORT::" },
         { name = "MAILBOX_LINK", valueFrom = "${module.app_secrets.arn}:MAILBOX_LINK::" },
-        { name = "CRON_SECRET", valueFrom = "${module.app_secrets.arn}:CRON_SECRET::" }
+        { name = "CRON_SECRET", valueFrom = "${module.app_secrets.arn}:CRON_SECRET::" },
+        { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
+        { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
+        { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
       ]
       ports = [
         {

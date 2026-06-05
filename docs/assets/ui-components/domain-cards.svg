@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-labelledby="title desc">
+  <title id="title">Domain cards preview</title>
+  <desc id="desc">Preview showing academy and event cards using shared surfaces, badges, and buttons.</desc>
+  <rect width="960" height="360" fill="#f8faf7"/>
+  <g font-family="Arial, sans-serif">
+    <rect x="96" y="58" width="330" height="244" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+    <text x="124" y="108" font-size="22" font-weight="900" fill="#1c1917">North London BJJ</text>
+    <text x="124" y="138" font-size="15" fill="#57534e">Camden, NW1</text>
+    <rect x="124" y="166" width="44" height="28" rx="6" fill="#f5f5f4"/><text x="139" y="185" font-size="12" font-weight="700" fill="#44403c">Gi</text>
+    <rect x="180" y="166" width="70" height="28" rx="6" fill="#f5f5f4"/><text x="197" y="185" font-size="12" font-weight="700" fill="#44403c">No-Gi</text>
+    <rect x="124" y="228" width="84" height="40" rx="8" fill="#0c0a09"/><text x="145" y="254" font-size="14" font-weight="700" fill="#fff">Details</text>
+    <rect x="534" y="58" width="330" height="244" rx="8" fill="#ffffff" stroke="#e7e5e4"/>
+    <text x="562" y="92" font-size="13" font-weight="700" fill="#115e59">BOTH</text>
+    <text x="562" y="128" font-size="22" font-weight="900" fill="#1c1917">Friday Open Mat</text>
+    <text x="562" y="158" font-size="15" fill="#57534e">North London BJJ</text>
+    <text x="562" y="202" font-size="14" fill="#57534e">12 Jun - 18:30-20:00 - £10</text>
+    <rect x="562" y="228" width="112" height="40" rx="8" fill="#0c0a09"/><text x="584" y="254" font-size="14" font-weight="700" fill="#fff">View Details</text>
+  </g>
+</svg>

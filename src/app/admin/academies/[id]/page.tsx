@@ -6,7 +6,7 @@ import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcad
 import { getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
-import { AcademyForm } from "../form";
+import { AcademyForm } from "../AcademyForm";
 
 export const dynamic = "force-dynamic";
 

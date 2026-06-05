@@ -2,12 +2,15 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value: string) {
+  if (value === Role.SUPER_ADMIN) return Role.SUPER_ADMIN;
+  if (value === Role.ADMIN) return Role.ADMIN;
   if (value === Role.ACADEMY_ADMIN) return Role.ACADEMY_ADMIN;
   if (value === Role.PLATFORM_ADMIN) return Role.PLATFORM_ADMIN;
   return Role.STANDARD_USER;
@@ -28,11 +31,7 @@ async function requireUserManager() {
   return actor;
 }
 
-function canManageUser(actor: { id: string; role?: string; academyId?: string | null }, target: { id: string; role: Role; email: string; academyId?: string | null; isProtected?: boolean | null }) {
-  if (isAcademyAdminRole(actor.role)) {
-    return actor.id !== target.id && actor.academyId === target.academyId && (target.role === Role.STANDARD_USER || target.role === Role.USER || target.role === Role.ACADEMY_ADMIN);
-  }
-  const actorRole = actor.role;
+function canManageUser(actorRole: string | undefined, target: { role: Role; email: string; isProtected?: boolean | null }) {
   if (isSuperAdminRole(actorRole)) return true;
   if (!isPlatformAdminRole(actorRole)) return false;
   if (isProtectedSuperAdmin(target)) return false;
@@ -69,22 +68,12 @@ export async function createManagedUser(formData: FormData) {
   const requestedRole = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const role = isSuperAdminRole(actor.role)
     ? requestedRole
-    : isPlatformAdminRole(actor.role)
-      ? requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER
-      : isAcademyAdminRole(actor.role) && requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER;
-  const academyId = isAcademyAdminRole(actor.role)
-    ? actor.academyId
-    : role === Role.STANDARD_USER || role === Role.ACADEMY_ADMIN
-      ? String(formData.get("academyId") ?? "").trim()
-      : null;
-  const password = String(formData.get("password") ?? "").trim() || "rollfinder-user";
+    : requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER;
+  const academyId = await validManagedAcademyId(role, String(formData.get("academyId") ?? "").trim() || null);
+  const password = String(formData.get("password") ?? "rollfinder-user");
 
   if (!email || !email.includes("@")) return;
-  if (role === Role.STANDARD_USER || role === Role.ACADEMY_ADMIN) {
-    if (!academyId) return;
-    const academyExists = await prisma.academy.count({ where: { id: academyId } });
-    if (!academyExists) return;
-  }
+  if (academyId === undefined) return;
   const passwordHash = await bcrypt.hash(password, 10);
   const user = await prisma.user.create({
     data: {
@@ -105,34 +94,34 @@ export async function createManagedUser(formData: FormData) {
     metadata: { email, role, academyId },
   });
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  redirect(redirectTo);
 }
 
 export async function updateManagedUser(userId: string, formData: FormData) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user)) return;
+  if (!user || !canManageUser(actor.role, user)) return;
   const protectedUser = isProtectedSuperAdmin(user);
 
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const requestedRole = normalizeRole(String(formData.get("role") ?? user.role));
-  const role = protectedUser
+  const proposedRole = protectedUser || (actor.id === userId && isSuperUser(user))
     ? user.role
     : isSuperAdminRole(actor.role)
       ? requestedRole
-      : isPlatformAdminRole(actor.role)
-        ? requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER
-        : isAcademyAdminRole(actor.role) && requestedRole !== Role.PLATFORM_ADMIN ? requestedRole : user.role;
+      : requestedRole === Role.ACADEMY_ADMIN ? Role.ACADEMY_ADMIN : Role.STANDARD_USER;
+  if (isSuperUser(user) && !isSuperUser({ role: proposedRole }) && !(await hasAnotherActiveSuperUser(userId))) return;
+  const role = proposedRole;
   const status = protectedUser ? user.status : normalizeStatus(String(formData.get("status") ?? user.status));
   if (actor.id === userId && isSuperUser(user) && status === UserStatus.DISABLED && !(await hasAnotherActiveSuperUser(userId))) return;
 
   if (!email || !email.includes("@")) return;
-  const academyId = isAcademyAdminRole(actor.role)
-    ? actor.academyId
-    : await validManagedAcademyId(role, String(formData.get("academyId") ?? user.academyId ?? "").trim() || null);
-
+  const academyId = await validManagedAcademyId(role, String(formData.get("academyId") ?? user.academyId ?? "").trim() || null);
   if (academyId === undefined) return;
 
   const updated = await prisma.user.update({
@@ -157,14 +146,17 @@ export async function updateManagedUser(userId: string, formData: FormData) {
     },
   });
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  redirect(redirectTo);
 }
 
 export async function toggleManagedUserDisabled(userId: string) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user)) return;
+  if (!user || !canManageUser(actor.role, user)) return;
 
   const disabled = user.status !== UserStatus.DISABLED;
   if (actor.id === userId && isSuperUser(user) && disabled && !(await hasAnotherActiveSuperUser(userId))) return;
@@ -186,7 +178,7 @@ export async function toggleManagedUserDisabled(userId: string) {
 export async function promoteManagedUser(userId: string) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user) || !isSuperAdminRole(actor.role)) return;
+  if (!user || !canManageUser(actor.role, user) || !isSuperAdminRole(actor.role)) return;
 
   await prisma.user.update({ where: { id: userId }, data: { role: Role.PLATFORM_ADMIN } });
   await writeAdminAuditLog({
@@ -203,7 +195,7 @@ export async function promoteManagedUser(userId: string) {
 export async function demoteManagedUser(userId: string) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user) || !isSuperAdminRole(actor.role)) return;
+  if (!user || !canManageUser(actor.role, user) || !isSuperAdminRole(actor.role)) return;
   if (actor.id === userId || isSuperUser(user)) return;
 
   await prisma.user.update({ where: { id: userId }, data: { role: Role.STANDARD_USER } });
@@ -223,7 +215,7 @@ export async function deleteManagedUser(userId: string) {
   if (actor.id === userId) return;
 
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user)) return;
+  if (!user || !canManageUser(actor.role, user)) return;
   if (isSuperUser(user)) return;
 
   await prisma.user.delete({ where: { id: userId } });
@@ -241,7 +233,7 @@ export async function deleteManagedUser(userId: string) {
 export async function sendPasswordChangeEmail(userId: string) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user)) return;
+  if (!user || !canManageUser(actor.role, user)) return;
 
   const { expiresAt } = await queuePasswordResetEmail(user);
   await writeAdminAuditLog({

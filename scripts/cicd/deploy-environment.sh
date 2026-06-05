@@ -13,6 +13,7 @@ source "${SCRIPT_DIR}/aws-oidc.sh"
 source "${SCRIPT_DIR}/terraform-backend.sh"
 source "${SCRIPT_DIR}/deployment-lock.sh"
 source "${SCRIPT_DIR}/promotion.sh"
+source "${SCRIPT_DIR}/super-admin-env.sh"
 
 case "${ENVIRONMENT_NAME}" in
   dev|staging|production) ;;
