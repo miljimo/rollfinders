@@ -14,7 +14,7 @@ Product: RollFinders
 
 # Objective
 
-Allow admins to create a rolling/open mat once and define whether it repeats weekly, monthly, yearly, or not at all, so recurring training sessions appear on the correct future dates without the admin manually recreating the same session.
+Allow admins to create a rolling/open mat once and define whether it repeats weekly, monthly, or not at all, so recurring training sessions appear on the correct future dates without the admin manually recreating the same session.
 
 ---
 
@@ -32,7 +32,7 @@ Recurring rollings must not create duplicate event rows for each future date. Th
 
 # User Stories
 
-As an academy admin, I want to mark a rolling as recurring every week, month, or year so that I do not need to recreate the same session repeatedly.
+As an academy admin, I want to mark a rolling as recurring every week or month so that I do not need to recreate the same session repeatedly.
 
 As a platform admin, I want recurring rollings to generate or appear predictably so that public open mat data stays accurate.
 
@@ -59,10 +59,9 @@ The UI may continue using `Open Mat` where the product already does, but the rec
 In scope:
 
 * Admin recurrence controls on open mat create/edit forms.
-* Recurrence options: none, weekly, monthly, yearly.
+* Recurrence options: none, weekly, monthly.
 * Weekly recurrence on the same weekday as the selected start date.
 * Monthly recurrence on the same day of month as the selected start date, with clear end-of-month handling.
-* Yearly recurrence on the same month and day as the selected start date.
 * Recurrence start date.
 * Optional recurrence end date or occurrence limit.
 * Public display of recurring occurrences on correct future dates.
@@ -80,6 +79,9 @@ Out of scope:
 * Timezone management beyond the existing application date/time behavior.
 * Replacing public Open Mat Radar search and filter behavior.
 * Per-occurrence overrides/exceptions during beta, unless separately approved.
+* Daily recurrence during beta.
+* Yearly recurrence during beta.
+* User-facing controls for "show next N occurrences" during beta.
 
 ---
 
@@ -103,7 +105,7 @@ The implementation SHOULD add a recurrence-aware structure instead of relying on
 
 Minimum data needed:
 
-* Recurrence type: `NONE`, `WEEKLY`, `MONTHLY`, `YEARLY`
+* Recurrence type: `NONE`, `WEEKLY`, `MONTHLY`
 * Recurrence start date
 * Optional recurrence end date
 * Optional occurrence limit
@@ -132,7 +134,7 @@ IF an authorized admin opens the create or edit rolling/open mat form
 
 WHEN the form renders
 
-THEN the system SHALL provide a recurrence control with options for `Does not repeat`, `Weekly`, `Monthly`, and `Yearly`.
+THEN the system SHALL provide a recurrence control with options for `Does not repeat`, `Weekly`, and `Monthly`.
 
 Done when:
 
@@ -195,18 +197,19 @@ Done when:
 
 ---
 
-## RR-005: Yearly Recurrence
+## RR-005: Deferred Daily And Yearly Recurrence
 
-IF an admin selects `Yearly`
+IF an admin creates or edits a rolling/open mat during beta
 
-WHEN the rolling is saved with a start date and time
+WHEN recurrence options are shown or submitted
 
-THEN the system SHALL make the rolling appear once per year on the same month and day.
+THEN the system SHALL NOT support `Daily` or `Yearly` recurrence.
 
 Done when:
 
-* Future yearly occurrences preserve the selected month, day, start time, and end time.
-* Leap-day behavior is documented if the selected date is February 29.
+* The admin recurrence control does not show `Daily` or `Yearly`.
+* Direct submissions using unsupported recurrence values are rejected.
+* The beta remains focused on weekly and monthly recurrence.
 
 ---
 
@@ -243,6 +246,28 @@ Done when:
 * Today, tomorrow, weekend, and general upcoming filters include recurring occurrences.
 * Past occurrences are not shown as upcoming.
 * Occurrences sort by occurrence date and start time.
+
+---
+
+## RR-007C: Internal Public Occurrence Guardrails
+
+IF a recurring rolling has more valid upcoming derived occurrences than the beta display guardrail
+
+WHEN public discovery surfaces render that recurring source listing
+
+THEN the system SHOULD show only the nearest upcoming occurrences for that listing within the allowed guardrail.
+
+Beta guardrails:
+
+* Weekly recurring listings: show no more than the next 4 valid upcoming occurrences per source listing.
+* Monthly recurring listings: show no more than the next 6 valid upcoming occurrences per source listing.
+
+Done when:
+
+* Guardrails apply per recurring source listing, not globally across the whole page.
+* Finished occurrences are excluded before the guardrail is applied.
+* Guardrails are not exposed as configurable user-facing settings.
+* Occurrences kept by the guardrail are ordered by occurrence date and start time.
 
 ---
 
@@ -393,7 +418,7 @@ THEN the database SHALL store one source listing/rule for the recurring open mat
 
 Done when:
 
-* Weekly, monthly, and yearly recurring sessions are represented by one editable source record.
+* Weekly and monthly recurring sessions are represented by one editable source record.
 * Public queries derive upcoming occurrences from the source record within a bounded window.
 * Updating title, description, time, gi type, capacity, cost, academy, or active state on the source record updates all future derived occurrences.
 * The system does not need a batch update to keep duplicate future rows in sync.
@@ -447,7 +472,7 @@ Done when:
 * Recurrence type accepts only supported values.
 * End date, if provided, must be on or after the start date.
 * Start time and end time retain existing validation.
-* Monthly and yearly recurrence edge cases are handled predictably.
+* Monthly recurrence edge cases are handled predictably.
 
 ---
 
@@ -468,12 +493,14 @@ Done when:
 
 # Acceptance Criteria
 
-* Admins can choose no recurrence, weekly, monthly, or yearly recurrence.
+* Admins can choose no recurrence, weekly, or monthly recurrence.
 * Weekly rollings appear on the same weekday and time.
 * Monthly rollings appear on the same day of month, with documented end-of-month fallback.
-* Yearly rollings appear on the same month and day.
+* Daily and yearly recurrence are not available during beta.
 * Recurring rollings appear in public Open Mat Radar on the correct upcoming dates.
 * Recurring rollings appear on academy profile upcoming open mats.
+* Weekly recurring listings show no more than the next 4 valid upcoming occurrences per source listing on public discovery surfaces.
+* Monthly recurring listings show no more than the next 6 valid upcoming occurrences per source listing on public discovery surfaces.
 * Open mats currently in progress show an `In session` state publicly.
 * Completed sessions disappear from public upcoming discovery after their end time.
 * Completed sessions remain trackable as system/admin history.
@@ -498,7 +525,8 @@ Recommended beta implementation:
 5. Keep duplicate prevention based on academy, title, occurrence date, and start time.
 6. Add public occurrence status calculation: upcoming, in session, completed.
 7. Hide completed occurrences from public discovery while preserving history/reporting.
-8. Defer custom intervals, multiple weekdays, and exception dates.
+8. Apply internal per-listing public display guardrails after filtering out completed occurrences: 4 weekly occurrences and 6 monthly occurrences.
+9. Defer daily recurrence, yearly recurrence, custom intervals, multiple weekdays, and exception dates.
 
 ---
 
