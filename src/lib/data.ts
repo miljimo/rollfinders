@@ -39,7 +39,7 @@ function addEventDistances<T extends { eventDate: Date; academy: { latitude: num
 
 export async function getFeaturedData(location?: LocationInput) {
   const [academies, events] = await Promise.all([
-    prisma.academy.findMany({ take: 6, orderBy: { createdAt: "desc" } }),
+    prisma.academy.findMany({ orderBy: { name: "asc" } }),
     prisma.event.findMany({
       take: 6,
       where: { active: true, eventDate: { gte: new Date() } },
@@ -49,7 +49,7 @@ export async function getFeaturedData(location?: LocationInput) {
   ]);
 
   return {
-    academies: addAcademyDistances(academies, location),
+    academies: addAcademyDistances(academies, location).slice(0, 6),
     events: addEventDistances(events, location),
   };
 }
