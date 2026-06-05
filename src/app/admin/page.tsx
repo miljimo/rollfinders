@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, Eye, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, ClipboardCheck, Edit3, Eye, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
@@ -281,8 +281,9 @@ export default async function AdminPage({
           </div>
 
           <h2 className="mt-7 text-xl font-black text-slate-950">Quick Actions</h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div className="mt-4 grid gap-4 lg:grid-cols-4">
             <ActionCard active={panel === "academies"} description="Search, verify and manage academies" href="/admin?panel=academies" icon={<Building2 size={24} aria-hidden />} title="Manage Academies" />
+            <ActionCard description="Review ownership access requests" href="/admin/academy-claims" icon={<ClipboardCheck size={24} aria-hidden />} title="Academy Claims" />
             <ActionCard active={panel === "open-mats"} description="Create, edit and manage events" href="/admin?panel=open-mats" icon={<CalendarDays size={24} aria-hidden />} title="Manage Open Mats" />
             <ActionCard active={panel === "users"} description="Create, edit and manage users" href="/admin?panel=users" icon={<Users size={24} aria-hidden />} title="Manage Users" />
           </div>
@@ -513,6 +514,7 @@ function AdminSidebar({ panel, showClose }: { panel: string; showClose?: boolean
       </div>
       <nav className="flex flex-1 flex-col gap-2 px-4 py-7 text-sm font-bold text-slate-600">
         <AdminNavItem active={panel !== "settings" && panel !== "maps"} href="/admin" icon={<Home size={20} aria-hidden />}>Dashboard</AdminNavItem>
+        <AdminNavItem href="/admin/academy-claims" icon={<ClipboardCheck size={20} aria-hidden />}>Academy Claims</AdminNavItem>
         <AdminNavItem active={panel === "settings"} href="/admin?panel=settings" icon={<Settings size={20} aria-hidden />}>Settings</AdminNavItem>
         <div className="my-5 border-t border-stone-200" />
         <AdminNavItem active={panel === "maps"} href="/admin?panel=maps" icon={<Map size={20} aria-hidden />}>Map</AdminNavItem>

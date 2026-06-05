@@ -56,6 +56,25 @@ enum ClaimStatus {
   REJECTED
 }
 
+enum ClaimRequesterRole {
+  OWNER
+  HEAD_COACH
+  MANAGER
+  STAFF
+  OTHER
+}
+
+enum BjjBeltRank {
+  WHITE
+  BLUE
+  PURPLE
+  BROWN
+  BLACK
+  CORAL
+  RED
+  OTHER
+}
+
 enum AcademyVerificationStatus {
   PENDING
   VERIFIED
@@ -94,6 +113,8 @@ model User {
   academyInvitations AcademyInvitation[] @relation("AcademyInvitationInviter")
   adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogActor")
   targetedAdminAuditLogs AdminAuditLog[] @relation("AdminAuditLogTarget")
+  reviewedClaimRequests ClaimRequest[] @relation("ClaimRequestReviewer")
+  linkedClaimRequests ClaimRequest[] @relation("ClaimRequestLinkedUser")
   outboundEmails OutboundEmail[]
   invalidEmailAddresses InvalidEmailAddress[]
   passwordResetTokens PasswordResetToken[]
@@ -194,15 +215,31 @@ model Event {
 }
 
 model ClaimRequest {
-  id             String      @id @default(cuid())
-  academyId      String      @map("academy_id")
-  requesterName  String      @map("requester_name")
-  requesterEmail String      @map("requester_email")
-  status         ClaimStatus @default(PENDING)
-  createdAt      DateTime    @default(now()) @map("created_at")
-  academy        Academy     @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  id                    String              @id @default(cuid())
+  academyId             String              @map("academy_id")
+  requesterName         String              @map("requester_name")
+  requesterEmail        String              @map("requester_email")
+  requesterPhone        String?             @map("requester_phone")
+  requesterRole         ClaimRequesterRole  @map("requester_role")
+  requesterBeltRank     BjjBeltRank?        @map("requester_belt_rank")
+  requesterBeltStripes  Int?                @map("requester_belt_stripes")
+  verificationNotes     String              @map("verification_notes")
+  publicProofLink       String?             @map("public_proof_link")
+  status                ClaimStatus         @default(PENDING)
+  reviewedAt            DateTime?           @map("reviewed_at")
+  reviewedById          String?             @map("reviewed_by_id")
+  rejectionReason       String?             @map("rejection_reason")
+  linkedUserId          String?             @map("linked_user_id")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  academy               Academy             @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  reviewedBy            User?               @relation("ClaimRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  linkedUser            User?               @relation("ClaimRequestLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
 
+  @@index([academyId])
+  @@index([academyId, requesterEmail, status])
   @@index([status])
+  @@index([reviewedById])
+  @@index([linkedUserId])
   @@map("claim_requests")
 }
 

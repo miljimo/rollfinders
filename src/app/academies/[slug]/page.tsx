@@ -12,10 +12,16 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const academy = await prisma.academy.findUnique({
     where: { slug },
+    include: {
+      _count: {
+        select: { members: true },
+      },
+    },
   });
 
   if (!academy) notFound();
   const events = (await getOpenMatRadar()).filter((event) => event.academyId === academy.id);
+  const academyIsManaged = academy._count.members > 0;
 
   const address = `${academy.address}, ${academy.city} ${academy.postcode}`;
 
@@ -51,6 +57,22 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
         <aside className="h-fit rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2">
             <Button href={`https://www.google.com/maps/search/?api=1&query=${academy.latitude},${academy.longitude}`} target="_blank" rel="noreferrer" size="sm" variant="neutral" className="px-3 py-2 text-sm font-semibold">Open Map</Button>
+            {academyIsManaged ? (
+              <div className="rounded-md border border-teal-100 bg-teal-50 p-3 text-sm text-teal-900">
+                <p className="font-bold">{academy.verified ? "Verified and managed" : "Managed listing"}</p>
+                <p className="mt-1 text-teal-800">
+                  This academy listing is already managed by an approved academy contact.
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-md border border-stone-200 bg-stone-50 p-3">
+                <p className="text-sm font-bold text-stone-950">Own or manage this academy?</p>
+                <p className="mt-1 text-sm leading-6 text-stone-700">
+                  Submit a claim so RollFinders can review your details before granting management access.
+                </p>
+                <Button href={`/academies/${academy.slug}/claim`} size="sm" variant="primary" className="mt-3 px-3 py-2 text-sm font-semibold">Claim this academy</Button>
+              </div>
+            )}
           </div>
         </aside>
       </section>

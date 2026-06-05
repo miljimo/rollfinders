@@ -1,12 +1,76 @@
 import { z } from "zod";
-import { AcademyVerificationStatus, GiType, RecurrenceType } from "@prisma/client";
+import { AcademyVerificationStatus, BjjBeltRank, ClaimRequesterRole, GiType, RecurrenceType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
+const stripeEligibleRanks = new Set<BjjBeltRank>([
+  BjjBeltRank.WHITE,
+  BjjBeltRank.BLUE,
+  BjjBeltRank.PURPLE,
+  BjjBeltRank.BROWN,
+]);
+
+function emptyStringToUndefined(value: unknown) {
+  return typeof value === "string" && value.trim() === "" ? undefined : value;
+}
+
+const optionalTrimmedString = z.preprocess(
+  emptyStringToUndefined,
+  z.string().trim().optional(),
+);
+
+const optionalHttpUrl = optionalTrimmedString.refine(
+  (value) => !value || value.startsWith("http://") || value.startsWith("https://"),
+  "Proof link must start with http:// or https://",
+).refine(
+  (value) => {
+    if (!value) return true;
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  "Proof link must be a valid URL",
+);
 
 export const claimRequestSchema = z.object({
-  academyId: z.string().min(1),
-  requesterName: z.string().min(2).max(120),
-  requesterEmail: z.string().email().max(160),
+  academyId: z.string().trim().min(1, "Academy is required"),
+  requesterName: z.string().trim().min(2, "Requester name must be at least 2 characters").max(120, "Requester name must be 120 characters or fewer"),
+  requesterEmail: z.string().trim().email("Valid email is required").max(160, "Email must be 160 characters or fewer").transform((value) => value.toLowerCase()),
+  requesterRole: z.enum(ClaimRequesterRole, "Requester role is required"),
+  verificationNotes: z.string().trim().min(20, "Verification notes must be at least 20 characters").max(2000, "Verification notes must be 2000 characters or fewer"),
+  requesterPhone: optionalTrimmedString.refine((value) => !value || value.length <= 40, "Phone must be 40 characters or fewer"),
+  publicProofLink: optionalHttpUrl,
+  requesterBeltRank: z.preprocess(emptyStringToUndefined, z.enum(BjjBeltRank).optional()),
+  requesterBeltStripes: z.preprocess(
+    (value) => {
+      if (value === null || value === undefined || value === "") return undefined;
+      return typeof value === "number" ? value : Number(value);
+    },
+    z.number().int("Belt stripes must be an integer").min(0, "Belt stripes must be between 0 and 4").max(4, "Belt stripes must be between 0 and 4").optional(),
+  ),
+}).superRefine((data, ctx) => {
+  if (data.requesterBeltStripes === undefined) return;
+  if (!data.requesterBeltRank) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["requesterBeltStripes"],
+      message: "Belt stripes require a belt rank",
+    });
+    return;
+  }
+  if (!stripeEligibleRanks.has(data.requesterBeltRank)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["requesterBeltStripes"],
+      message: "Belt stripes are only accepted for white, blue, purple, and brown belts",
+    });
+  }
+});
+
+export const claimRejectionSchema = z.object({
+  rejectionReason: optionalTrimmedString.refine((value) => !value || value.length <= 1000, "Rejection reason must be 1000 characters or fewer"),
 });
 
 export const academySchema = z.object({
