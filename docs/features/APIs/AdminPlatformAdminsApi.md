@@ -14,6 +14,8 @@ Allow super admins to list and create platform admin users.
 
 Platform admins must not be able to list, view, inspect, or receive information about other platform admins, super admins, or legacy admin users through this API.
 
+If peer platform-admin read-only visibility is supported, that visibility belongs to `/api/admin/users` as redacted protected user records. It SHALL NOT be implemented through `/api/admin/platform-admins`.
+
 ---
 
 # IF/WHEN/THEN Requirements
