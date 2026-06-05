@@ -498,8 +498,10 @@ function AdminSidebar({ panel, showClose }: { panel: string; showClose?: boolean
   return (
     <>
       <div className="flex h-24 items-center gap-3 border-b border-stone-200 px-7">
-        <Image src="/logo.png" alt="" width={52} height={52} className="h-12 w-auto" />
-        <p className="text-2xl font-black text-slate-950">RollFinders</p>
+        <Link href="/" className="flex min-w-0 items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" aria-label="Go to RollFinders home">
+          <Image src="/logo.png" alt="" width={52} height={52} className="h-12 w-auto" />
+          <span className="text-2xl font-black text-slate-950">RollFinders</span>
+        </Link>
         {showClose ? (
           <label htmlFor="admin-mobile-menu" className="ml-auto inline-flex size-10 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label="Close admin menu">
             <X size={20} aria-hidden />

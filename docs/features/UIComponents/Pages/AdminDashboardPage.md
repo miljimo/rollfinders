@@ -22,8 +22,13 @@ IF the current user is platform-level admin
 WHEN page renders  
 THEN platform-level module options SHALL appear according to permissions.
 
+IF the admin sidebar brand is clicked  
+WHEN the user activates the RollFinders logo or name  
+THEN the UI SHALL navigate to `/`.
+
 ## Done When
 
 * Unauthorized users are redirected.
 * Metrics and panels paginate safely.
 * Module cards link to correct admin routes.
+* Sidebar brand link routes to `/`.
