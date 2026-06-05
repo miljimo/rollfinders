@@ -511,6 +511,7 @@ THEN the page SHALL show role-appropriate heading, description, and module links
 
 Done when:
 
+* The sidebar RollFinders logo/name links to `/`.
 * Academy admins see academy-scoped copy.
 * Platform/super admins see platform copy.
 * Module links route to academies, open mats, users, and settings where allowed.
