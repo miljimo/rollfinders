@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { GiType, type Prisma } from "@prisma/client";
+import { GiType, RecurrenceType, type Event, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import { occurrenceStatus, recurrenceLabel } from "@/lib/open-mat-occurrences";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 
@@ -47,6 +48,15 @@ function dateStart(value: string) {
 
 function dateEnd(value: string) {
   return new Date(`${value}T23:59:59.999Z`);
+}
+
+function sourceStatus(event: Event, now: Date) {
+  if (!event.active) return "Inactive";
+  if (event.recurrenceType !== RecurrenceType.NONE) return "Active series";
+  const status = occurrenceStatus(event.eventDate, event.startTime, event.endTime, now);
+  if (status === "IN_SESSION") return "In session";
+  if (status === "COMPLETED") return "Completed";
+  return "Upcoming";
 }
 
 function compactParams(params: OpenMatSearchParams, overrides: Record<string, string | number | undefined>) {
@@ -141,7 +151,16 @@ export default async function OpenMatManagementPage({
     prisma.event.count({ where }),
     prisma.event.count({ where: accessWhere }),
     prisma.event.count({ where: { ...accessWhere, active: true } }),
-    prisma.event.count({ where: { ...accessWhere, active: true, eventDate: { gte: now } } }),
+    prisma.event.count({
+      where: {
+        ...accessWhere,
+        active: true,
+        OR: [
+          { eventDate: { gte: now } },
+          { recurrenceType: { not: RecurrenceType.NONE }, OR: [{ recurrenceEndDate: null }, { recurrenceEndDate: { gte: now } }] },
+        ],
+      },
+    }),
     prisma.event.count({ where: { ...accessWhere, active: false } }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -237,6 +256,7 @@ export default async function OpenMatManagementPage({
                   <th className="px-4 py-3">Gi Type</th>
                   <th className="px-4 py-3">Price</th>
                   <th className="px-4 py-3">Capacity</th>
+                  <th className="px-4 py-3">Recurrence</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3">Actions</th>
                 </tr>
@@ -251,7 +271,8 @@ export default async function OpenMatManagementPage({
                     <td className="px-4 py-3"><Badge>{event.giType.replace("_", "-")}</Badge></td>
                     <td className="px-4 py-3 text-stone-600">£{event.price.toString()}</td>
                     <td className="px-4 py-3 text-stone-600">{event.capacity ?? "Unlimited"}</td>
-                    <td className="px-4 py-3"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
+                    <td className="px-4 py-3"><Badge>{recurrenceLabel(event.recurrenceType)}</Badge></td>
+                    <td className="px-4 py-3"><Badge>{sourceStatus(event, now)}</Badge></td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Button href={`/open-mats/${event.id}`} size="sm" variant="secondary">View</Button>
@@ -262,7 +283,7 @@ export default async function OpenMatManagementPage({
                 ))}
                 {!events.length ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-stone-600">No open mats match these filters.</td>
+                    <td colSpan={10} className="px-4 py-8 text-center text-stone-600">No open mats match these filters.</td>
                   </tr>
                 ) : null}
               </tbody>

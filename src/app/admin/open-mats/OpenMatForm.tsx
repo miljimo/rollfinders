@@ -1,6 +1,6 @@
 "use client";
 
-import { GiType, type Academy, type Event } from "@prisma/client";
+import { GiType, RecurrenceType, type Academy, type Event } from "@prisma/client";
 import { useActionState } from "react";
 import { Button } from "@/components/Button";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
@@ -17,6 +17,7 @@ const initialState: EventFormState = {
 export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: { action: EventAction; academies: Academy[]; cancelHref?: string; event?: Event; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const eventDate = event?.eventDate.toISOString().slice(0, 10);
+  const recurrenceEndDate = event?.recurrenceEndDate?.toISOString().slice(0, 10);
   const selectedAcademyId = state.values.academyId ?? event?.academyId ?? "";
 
   return (
@@ -51,14 +52,24 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
         <input name="active" type="checkbox" defaultChecked={state.values.active ? state.values.active === "on" : event?.active ?? true} className="size-4 accent-teal-700" />
         Active listing
       </label>
-      <label className="flex items-start gap-2 text-sm font-semibold text-stone-800">
-        <input name="recurring" type="hidden" value="off" />
-        <input name="recurring" type="checkbox" defaultChecked={state.values.recurring === "on"} className="mt-0.5 size-4 accent-teal-700" />
-        <span>
-          Repeat weekly on this day
-          <span className="block text-xs font-medium text-stone-600">Creates matching open mats on the same weekday for the next 12 weeks.</span>
-        </span>
-      </label>
+      <fieldset className="grid gap-3 rounded-md border border-stone-200 p-3">
+        <legend className="px-1 text-sm font-bold text-stone-900">Recurrence</legend>
+        <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          Repeats
+          <select name="recurrenceType" defaultValue={state.values.recurrenceType ?? event?.recurrenceType ?? RecurrenceType.NONE} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+            <option value={RecurrenceType.NONE}>Does not repeat</option>
+            <option value={RecurrenceType.WEEKLY}>Weekly</option>
+            <option value={RecurrenceType.MONTHLY}>Monthly</option>
+            <option value={RecurrenceType.YEARLY}>Yearly</option>
+          </select>
+          <FieldError errors={state.fieldErrors.recurrenceType} />
+          <span className="text-xs font-medium text-stone-600">Recurring open mats use one source listing. Future dates are derived automatically and update when this listing changes.</span>
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field name="recurrenceEndDate" label="Repeat Until" type="date" value={state.values.recurrenceEndDate ?? recurrenceEndDate ?? ""} required={false} errors={state.fieldErrors.recurrenceEndDate} />
+          <Field name="recurrenceLimit" label="Occurrence Limit" type="number" value={state.values.recurrenceLimit ?? event?.recurrenceLimit?.toString() ?? ""} required={false} errors={state.fieldErrors.recurrenceLimit} />
+        </div>
+      </fieldset>
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={isPending} variant="primary">
           {isPending ? "Saving..." : "Save Open Mat"}

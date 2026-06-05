@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { EventCard } from "@/components/EventCard";
+import { getOpenMatRadar } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/utils";
 
@@ -11,16 +12,10 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const academy = await prisma.academy.findUnique({
     where: { slug },
-    include: {
-      events: {
-        where: { eventDate: { gte: new Date() } },
-        include: { academy: true },
-        orderBy: { eventDate: "asc" },
-      },
-    },
   });
 
   if (!academy) notFound();
+  const events = (await getOpenMatRadar()).filter((event) => event.academyId === academy.id);
 
   const address = `${academy.address}, ${academy.city} ${academy.postcode}`;
 
@@ -48,8 +43,8 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
           <div className="mt-8">
             <h2 className="text-2xl font-black text-stone-950">Upcoming Open Mats</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {academy.events.map((event) => <EventCard key={event.id} event={event} />)}
-              {academy.events.length === 0 ? <p className="text-stone-600">No upcoming open mats listed yet.</p> : null}
+              {events.map((event) => <EventCard key={event.occurrenceId ?? event.id} event={event} />)}
+              {events.length === 0 ? <p className="text-stone-600">No upcoming open mats listed yet.</p> : null}
             </div>
           </div>
         </div>

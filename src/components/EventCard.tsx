@@ -4,15 +4,33 @@ import { CalendarDays } from "lucide-react";
 import { Button } from "./Button";
 import { directionsUrl, formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
 
-type EventCardItem = Event & { academy: Academy; distanceMiles?: number | null };
+type EventCardItem = Event & {
+  academy: Academy;
+  distanceMiles?: number | null;
+  occurrenceStatus?: "UPCOMING" | "IN_SESSION" | "COMPLETED";
+  occurrenceDateParam?: string;
+  recurrenceLabel?: string;
+  isRecurringOccurrence?: boolean;
+};
 
 export function EventCard({ event }: { event: EventCardItem }) {
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
+  const detailHref = `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
+  const inSession = event.occurrenceStatus === "IN_SESSION";
   return (
-    <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-bold uppercase tracking-wide text-teal-700">{event.giType.replace("_", "-")}</p>
+    <article className={`rounded-lg border bg-white p-4 shadow-sm ${inSession ? "border-teal-700 ring-2 ring-teal-100" : "border-stone-200"}`}>
+      {inSession ? (
+        <div className="-mx-4 -mt-4 mb-4 rounded-t-lg bg-teal-700 px-4 py-2 text-xs font-black uppercase tracking-wide text-white">
+          Session in progress now
+        </div>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-teal-700">{event.giType.replace("_", "-")}</p>
+        {inSession ? <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">Live now</span> : null}
+        {event.isRecurringOccurrence ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{event.recurrenceLabel}</span> : null}
+      </div>
       <h2 className="mt-1 text-lg font-bold text-stone-950">
-        <Link href={`/open-mats/${event.id}`}>{event.title}</Link>
+        <Link href={detailHref}>{event.title}</Link>
       </h2>
       <p className="mt-1 text-sm font-medium text-stone-700">{event.academy.name}</p>
       {event.distanceMiles != null ? <p className="mt-1 text-sm font-semibold text-teal-800">{formatDistanceMiles(event.distanceMiles)}</p> : null}
@@ -23,7 +41,7 @@ export function EventCard({ event }: { event: EventCardItem }) {
       </dl>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-700">{event.description}</p>
       <div className="mt-4 flex gap-2">
-        <Button href={`/open-mats/${event.id}`} size="sm" variant="neutral" className="px-3 py-2 text-sm font-semibold">View Details</Button>
+        <Button href={detailHref} size="sm" variant="neutral" className="px-3 py-2 text-sm font-semibold">View Details</Button>
         <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" size="sm" variant="secondary" className="px-3 py-2 text-sm font-semibold">Directions</Button>
       </div>
     </article>
