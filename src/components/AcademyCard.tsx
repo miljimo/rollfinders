@@ -5,6 +5,16 @@ import { Button } from "./Button";
 import { formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
 
 type AcademyCardItem = Academy & { events: Event[]; distanceMiles?: number | null };
+type AcademyCardEvent = Event & {
+  occurrenceId?: string;
+  occurrenceDateParam?: string;
+  isRecurringOccurrence?: boolean;
+  occurrenceStatus?: "UPCOMING" | "IN_SESSION" | "COMPLETED";
+};
+
+function eventHref(event: AcademyCardEvent) {
+  return `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
+}
 
 export function AcademyCard({ academy }: { academy: AcademyCardItem }) {
   return (
@@ -31,9 +41,10 @@ export function AcademyCard({ academy }: { academy: AcademyCardItem }) {
         {academy.dropInPrice !== null ? <span className="rounded-md bg-teal-50 px-2 py-1 text-teal-900">Drop-in {formatMoney(academy.dropInPrice)}</span> : null}
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
-        {academy.events.slice(0, 2).map((event) => (
-          <Link key={event.id} href={`/open-mats/${event.id}`} className="rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
+        {academy.events.slice(0, 2).map((event: AcademyCardEvent) => (
+          <Link key={event.occurrenceId ?? event.id} href={eventHref(event)} className="rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700">
             {formatDate(event.eventDate)} · {event.startTime}
+            {event.occurrenceStatus === "IN_SESSION" ? " · In session" : ""}
           </Link>
         ))}
       </div>

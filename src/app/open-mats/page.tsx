@@ -74,7 +74,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
           {totalItems} upcoming sessions · showing {start}-{end} · nearest available distances shown · directions ready
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {pagedEvents.map((event) => <EventCard key={event.id} event={event} />)}
+          {pagedEvents.map((event) => <EventCard key={event.occurrenceId ?? event.id} event={event} />)}
           {events.length === 0 ? <p className="text-stone-600">No open mats match those filters yet.</p> : null}
         </div>
         <PublicPagination currentPage={currentPage} params={params} totalPages={totalPages} />

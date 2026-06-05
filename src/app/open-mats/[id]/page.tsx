@@ -1,14 +1,21 @@
 import { notFound } from "next/navigation";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { getOpenMatOccurrence } from "@/lib/data";
 import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
-import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EventPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ date?: string }>;
+}) {
   const { id } = await params;
-  const event = await prisma.event.findUnique({ where: { id }, include: { academy: true } });
+  const { date } = await searchParams;
+  const event = await getOpenMatOccurrence(id, date);
   if (!event) notFound();
 
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
@@ -16,7 +23,11 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
   return (
     <PageShell>
       <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-        <p className="text-sm font-bold uppercase tracking-wide text-teal-800">{event.giType.replace("_", "-")}</p>
+        <div className="flex flex-wrap gap-2">
+          <p className="text-sm font-bold uppercase tracking-wide text-teal-800">{event.giType.replace("_", "-")}</p>
+          {event.occurrenceStatus === "IN_SESSION" ? <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">In session</span> : null}
+          {event.isRecurringOccurrence ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{event.recurrenceLabel}</span> : null}
+        </div>
         <h1 className="mt-2 text-4xl font-black text-stone-950">{event.title}</h1>
         <p className="mt-2 text-lg font-semibold text-stone-700">{event.academy.name}</p>
         <dl className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-700 sm:grid-cols-2">

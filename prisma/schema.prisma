@@ -43,6 +43,13 @@ enum GiType {
   BOTH
 }
 
+enum RecurrenceType {
+  NONE
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 enum ClaimStatus {
   PENDING
   APPROVED
@@ -171,6 +178,9 @@ model Event {
   price       Decimal  @db.Decimal(8, 2)
   capacity    Int?
   active      Boolean  @default(true)
+  recurrenceType RecurrenceType @default(NONE) @map("recurrence_type")
+  recurrenceEndDate DateTime? @map("recurrence_end_date")
+  recurrenceLimit Int? @map("recurrence_limit")
   createdAt   DateTime @default(now()) @map("created_at")
   academy     Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
   createdBy   User?    @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
@@ -178,6 +188,8 @@ model Event {
   @@index([eventDate])
   @@index([academyId])
   @@index([createdById])
+  @@index([recurrenceType])
+  @@index([recurrenceEndDate])
   @@map("events")
 }
 

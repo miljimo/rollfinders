@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AcademyVerificationStatus, GiType } from "@prisma/client";
+import { AcademyVerificationStatus, GiType, RecurrenceType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
 
@@ -51,5 +51,23 @@ export const eventSchema = z.object({
   price: z.coerce.number().nonnegative(),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
   active: checkboxSchema,
-  recurring: checkboxSchema.optional().default(false),
+  recurrenceType: z.enum(RecurrenceType).default(RecurrenceType.NONE),
+  recurrenceEndDate: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
+  recurrenceLimit: z.preprocess((value) => value === "" ? undefined : value, z.coerce.number().int().positive().max(520).optional()),
+}).superRefine((data, ctx) => {
+  if (data.endTime <= data.startTime) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["endTime"],
+      message: "End time must be after start time.",
+    });
+  }
+  if (data.recurrenceType === RecurrenceType.NONE) return;
+  if (data.recurrenceEndDate && data.recurrenceEndDate < data.eventDate) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["recurrenceEndDate"],
+      message: "Recurrence end date must be on or after the start date.",
+    });
+  }
 });
