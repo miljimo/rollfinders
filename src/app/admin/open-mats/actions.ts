@@ -51,11 +51,26 @@ function eventData(data: {
   price: number;
   capacity?: number | "";
   active: boolean;
+  recurring?: boolean;
 }) {
   return {
-    ...data,
+    academyId: data.academyId,
+    title: data.title,
+    description: data.description,
+    eventDate: data.eventDate,
+    startTime: data.startTime,
+    endTime: data.endTime,
+    giType: data.giType,
+    price: data.price,
+    active: data.active,
     capacity: data.capacity === "" || data.capacity === undefined ? null : data.capacity,
   };
+}
+
+function addWeeks(date: Date, weeks: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + weeks * 7);
+  return next;
 }
 
 async function findDuplicateOpenMat({
@@ -83,6 +98,39 @@ async function findDuplicateOpenMat({
   });
 }
 
+async function createWeeklyOpenMatOccurrences({
+  base,
+  createdById,
+  excludeId,
+  weeks = 12,
+}: {
+  base: ReturnType<typeof eventData>;
+  createdById?: string | null;
+  excludeId?: string;
+  weeks?: number;
+}) {
+  for (let week = 1; week < weeks; week += 1) {
+    const eventDate = addWeeks(base.eventDate, week);
+    const duplicate = await findDuplicateOpenMat({
+      id: excludeId,
+      academyId: base.academyId,
+      title: base.title,
+      eventDate,
+      startTime: base.startTime,
+    });
+
+    if (!duplicate) {
+      await prisma.event.create({
+        data: {
+          ...base,
+          eventDate,
+          createdById,
+        },
+      });
+    }
+  }
+}
+
 export async function createOpenMat(_state: EventFormState, formData: FormData): Promise<EventFormState> {
   const parsed = eventSchema.safeParse(getFormValues(formData));
 
@@ -96,7 +144,11 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
     return duplicateOpenMatError(formData);
   }
 
-  await prisma.event.create({ data: { ...eventData(parsed.data), createdById: access.userId } });
+  const data = eventData(parsed.data);
+  await prisma.event.create({ data: { ...data, createdById: access.userId } });
+  if (parsed.data.recurring) {
+    await createWeeklyOpenMatOccurrences({ base: data, createdById: access.userId });
+  }
   const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/open-mats";
   revalidatePath("/admin");
@@ -123,7 +175,11 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
     return duplicateOpenMatError(formData);
   }
 
-  await prisma.event.update({ where: { id }, data: eventData(parsed.data) });
+  const data = eventData(parsed.data);
+  await prisma.event.update({ where: { id }, data });
+  if (parsed.data.recurring) {
+    await createWeeklyOpenMatOccurrences({ base: data, createdById: existing.createdById, excludeId: id });
+  }
   revalidatePath("/admin");
   revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");

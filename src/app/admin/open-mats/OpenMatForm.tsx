@@ -56,6 +56,14 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
         <input name="active" type="checkbox" defaultChecked={state.values.active ? state.values.active === "on" : event?.active ?? true} className="size-4 accent-teal-700" />
         Active listing
       </label>
+      <label className="flex items-start gap-2 text-sm font-semibold text-stone-800">
+        <input name="recurring" type="hidden" value="off" />
+        <input name="recurring" type="checkbox" defaultChecked={state.values.recurring === "on"} className="mt-0.5 size-4 accent-teal-700" />
+        <span>
+          Repeat weekly on this day
+          <span className="block text-xs font-medium text-stone-600">Creates matching open mats on the same weekday for the next 12 weeks.</span>
+        </span>
+      </label>
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={isPending} variant="primary">
           {isPending ? "Saving..." : "Save Open Mat"}

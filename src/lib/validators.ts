@@ -51,4 +51,5 @@ export const eventSchema = z.object({
   price: z.coerce.number().nonnegative(),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
   active: checkboxSchema,
+  recurring: checkboxSchema.optional().default(false),
 });
