@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Building2, CalendarDays, ChevronDown, ChevronRight, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Users, X } from "lucide-react";
-import { getCurrentUser, isPlatformAdminRole, isSuperAdminRole } from "@/lib/admin";
+import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Edit3, HelpCircle, Home, LogOut, Mail, Map, Menu, MoreVertical, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
@@ -14,7 +14,7 @@ import { createAcademy } from "./academies/actions";
 import { AcademyForm } from "./academies/form";
 import { createOpenMat } from "./open-mats/actions";
 import { OpenMatForm } from "./open-mats/form";
-import { createManagedUser } from "./users/actions";
+import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled } from "./users/actions";
 import { UserForm } from "./users/form";
 
 export const dynamic = "force-dynamic";
@@ -309,7 +309,7 @@ export default async function AdminPage({
               search={<PanelSearch panel={panel} search={search} />}
               title="Users & Roles"
             >
-              <UsersTable users={users} />
+              <UsersTable actorId={currentUser.id} actorRole={currentUser.role} users={users} />
               <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
             </AdminPanel>
           ) : null}
@@ -740,38 +740,86 @@ function AcademiesTable({ academies }: { academies: AcademyRow[] }) {
   );
 }
 
-function UsersTable({ users }: { users: UserRow[] }) {
+function UsersTable({ actorId, actorRole, users }: { actorId: string; actorRole: Role; users: UserRow[] }) {
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[960px] border-collapse text-left text-sm">
-        <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
+      <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+        <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
           <tr>
-            <th className="px-4 py-3">User</th>
-            <th className="px-4 py-3">Role</th>
-            <th className="px-4 py-3">Academy</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Last Login</th>
-            <th className="px-4 py-3">Created</th>
-            <th className="px-4 py-3">Actions</th>
+            <th className="px-5 py-4">User</th>
+            <th className="px-5 py-4">Role</th>
+            <th className="px-5 py-4">Academy</th>
+            <th className="px-5 py-4">Status</th>
+            <th className="px-5 py-4">Last Login</th>
+            <th className="px-5 py-4">Created</th>
+            <th className="px-5 py-4 text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {users.map((user) => (
-            <tr key={user.id} className="border-t border-stone-100">
-              <td className="px-4 py-3">
-                <p className="font-semibold text-stone-950">{user.name ?? user.email}</p>
-                <p className="break-all text-stone-600">{user.email}</p>
-              </td>
-              <td className="px-4 py-3"><Badge>{user.role}</Badge></td>
-              <td className="px-4 py-3 text-stone-700">{user.academy?.name ?? "None"}</td>
-              <td className="px-4 py-3"><Badge>{user.status === UserStatus.DISABLED || user.disabled ? "Disabled" : "Active"}</Badge></td>
-              <td className="px-4 py-3 text-stone-700">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
-              <td className="px-4 py-3 text-stone-700">{formatDate(user.createdAt)}</td>
-              <td className="px-4 py-3">
-                <Link href={`/admin/users/${user.id}`} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800">Edit</Link>
-              </td>
-            </tr>
-          ))}
+          {users.map((user) => {
+            const protectedUser = isProtectedSuperAdmin(user);
+            const canManage = isSuperAdminRole(actorRole) || (isPlatformAdminRole(actorRole) && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
+            const superUserTarget = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+            const canDelete = canManage && actorId !== user.id && !superUserTarget;
+            const disabled = user.status === UserStatus.DISABLED || user.disabled;
+            return (
+              <tr key={user.id} className="border-t border-stone-100">
+                <td className="px-5 py-4">
+                  <div className="flex items-center gap-4">
+                    <div className={`grid size-12 shrink-0 place-items-center rounded-full text-base font-black ring-1 ${avatarTone(user.email)}`}>
+                      {initials(user.name ?? user.email)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-950">{user.name ?? user.email}</p>
+                      <p className="break-all text-slate-500">{user.email}</p>
+                    </div>
+                  </div>
+                  {protectedUser ? <p className="mt-2 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
+                </td>
+                <td className="px-5 py-4"><RolePill role={user.role} /></td>
+                <td className="px-5 py-4 text-slate-700">{user.academy?.name ?? "None"}</td>
+                <td className="px-5 py-4"><StatusPill disabled={disabled} /></td>
+                <td className="px-5 py-4 text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
+                <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
+                <td className="px-5 py-4 text-center">
+                  {canManage ? (
+                    <details className="group relative inline-block text-left">
+                      <summary className="inline-flex size-10 cursor-pointer list-none items-center justify-center rounded-md text-slate-700 transition hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                        <MoreVertical size={22} aria-hidden />
+                        <span className="sr-only">Open actions for {user.name ?? user.email}</span>
+                      </summary>
+                      <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-xl">
+                        <Link href={`/admin/users/${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                          <User size={18} aria-hidden />
+                          View Profile
+                        </Link>
+                        <Link href={`/admin/users/${user.id}`} className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                          <Edit3 size={18} aria-hidden />
+                          Edit User
+                        </Link>
+                        <form action={toggleManagedUserDisabled.bind(null, user.id)}>
+                          <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                            <Ban size={18} aria-hidden />
+                            {disabled ? "Enable Account" : "Disable Account"}
+                          </button>
+                        </form>
+                        {canDelete ? (
+                          <form action={deleteManagedUser.bind(null, user.id)}>
+                            <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
+                              <Trash2 size={18} aria-hidden />
+                              Delete User
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
+                    </details>
+                  ) : (
+                    <span className="text-xs font-semibold text-stone-500">Read only</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
           {!users.length ? (
             <tr>
               <td colSpan={7} className="px-4 py-8 text-center text-stone-600">No users to show.</td>
@@ -780,6 +828,39 @@ function UsersTable({ users }: { users: UserRow[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function avatarTone(value: string) {
+  const tones = [
+    "bg-teal-50 text-teal-800 ring-teal-100",
+    "bg-violet-50 text-violet-700 ring-violet-100",
+    "bg-amber-50 text-amber-700 ring-amber-100",
+    "bg-red-50 text-red-700 ring-red-100",
+    "bg-blue-50 text-blue-700 ring-blue-100",
+    "bg-orange-50 text-orange-700 ring-orange-100",
+  ];
+  const total = Array.from(value).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  return tones[total % tones.length];
+}
+
+function RolePill({ role }: { role: Role }) {
+  const className =
+    role === Role.PLATFORM_ADMIN || role === Role.SUPER_ADMIN || role === Role.ADMIN
+      ? "border-violet-200 bg-violet-50 text-violet-700"
+      : role === Role.ACADEMY_ADMIN
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-sky-200 bg-sky-50 text-sky-700";
+
+  return <span className={`inline-flex rounded-md border px-3 py-1 text-xs font-black uppercase ${className}`}>{role}</span>;
+}
+
+function StatusPill({ disabled }: { disabled: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ${disabled ? "bg-red-50 text-red-700 ring-1 ring-red-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"}`}>
+      <span className={`size-2.5 rounded-full ${disabled ? "bg-red-500" : "bg-emerald-500"}`} aria-hidden />
+      {disabled ? "Disabled" : "Active"}
+    </span>
   );
 }
 
