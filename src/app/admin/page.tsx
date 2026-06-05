@@ -6,6 +6,7 @@ import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronRight, Ed
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
+import { getGoogleMapsApiKey } from "@/lib/google-maps";
 import { prisma } from "@/lib/prisma";
 import { AcademyVerificationStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
@@ -689,7 +690,7 @@ function sentenceCase(value: string) {
 type MapItem = Awaited<ReturnType<typeof getMapItems>>[number];
 
 function MapDashboardContent({ academies }: { academies: MapItem[] }) {
-  const googleKey = process.env.GOOGLE_MAPS_API_KEY;
+  const googleKey = getGoogleMapsApiKey();
   const center = "51.5072,-0.1276";
 
   return (

@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { PageShell } from "@/components/PageShell";
 import { getMapItems } from "@/lib/data";
+import { getGoogleMapsApiKey } from "@/lib/google-maps";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 
 export default async function MapPage() {
   const academies = await getMapItems();
-  const googleKey = process.env.GOOGLE_MAPS_API_KEY;
+  const googleKey = getGoogleMapsApiKey();
   const center = "51.5072,-0.1276";
 
   return (
