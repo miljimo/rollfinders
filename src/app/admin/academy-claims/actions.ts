@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { approveAcademyClaim as approveClaim, queueClaimApprovedEmail, queueClaimRejectedEmail, rejectAcademyClaim as rejectClaim } from "@/lib/claim-requests";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
-import { postClaimDecision } from "./api";
 
 async function requireClaimReviewer() {
   const user = await getCurrentUser();
@@ -19,31 +19,37 @@ function detailHref(claimId: string, params?: Record<string, string>) {
 }
 
 export async function approveAcademyClaim(claimId: string) {
-  await requireClaimReviewer();
-  const result = await postClaimDecision(claimId, "approve");
+  const user = await requireClaimReviewer();
+  const result = await approveClaim(claimId, user.id);
   revalidatePath("/admin/academy-claims");
   revalidatePath(`/admin/academy-claims/${claimId}`);
 
   if (!result.ok) {
-    redirect(detailHref(claimId, { error: result.message }));
+    redirect(detailHref(claimId, { error: result.error }));
+  }
+  if (result.user) {
+    await queueClaimApprovedEmail(result.user).catch(() => undefined);
   }
 
   redirect(detailHref(claimId, { decision: "approved" }));
 }
 
 export async function rejectAcademyClaim(claimId: string, formData: FormData) {
-  await requireClaimReviewer();
+  const user = await requireClaimReviewer();
   const rejectionReason = String(formData.get("rejectionReason") ?? "").trim();
   if (!rejectionReason) {
     redirect(detailHref(claimId, { error: "Rejection reason is required." }));
   }
 
-  const result = await postClaimDecision(claimId, "reject", { rejectionReason });
+  const result = await rejectClaim(claimId, user.id, rejectionReason);
   revalidatePath("/admin/academy-claims");
   revalidatePath(`/admin/academy-claims/${claimId}`);
 
   if (!result.ok) {
-    redirect(detailHref(claimId, { error: result.message }));
+    redirect(detailHref(claimId, { error: result.error }));
+  }
+  if (result.notification) {
+    await queueClaimRejectedEmail(result.notification).catch(() => undefined);
   }
 
   redirect(detailHref(claimId, { decision: "rejected" }));
