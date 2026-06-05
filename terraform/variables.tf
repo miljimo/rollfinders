@@ -91,3 +91,22 @@ variable "nextauth_secret" {
   sensitive   = true
   default     = ""
 }
+
+variable "super_admin_email" {
+  type        = string
+  description = "Protected super admin email ensured after every environment deployment."
+  default     = "admin@rollfinder.com"
+}
+
+variable "super_admin_password" {
+  type        = string
+  description = "Protected super admin password ensured after every environment deployment."
+  sensitive   = true
+  default     = "admin"
+}
+
+variable "super_admin_name" {
+  type        = string
+  description = "Protected super admin display name ensured after every environment deployment."
+  default     = "RollFinder Admin"
+}
