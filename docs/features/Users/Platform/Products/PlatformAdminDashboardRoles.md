@@ -4,6 +4,18 @@
 
 `feature/platform_admin_permissions_and_roles`
 
+## Schema Impact
+
+No new schema changes are required for this PRD when Platform Admin role, user status, protected-account fields, academy assignment, and admin audit logs already exist.
+
+IF these role and dashboard requirements are implemented
+
+WHEN the deployment is prepared
+
+THEN no new database migration script SHALL be required for this PRD.
+
+AND deployment SHALL verify that prerequisite Platform Admin RBAC migrations have already been applied before enabling the role.
+
 ## Role
 
 `PLATFORM_ADMIN`

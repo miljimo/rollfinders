@@ -141,6 +141,20 @@ DISABLED
 
 ---
 
+# Schema Impact
+
+Schema changes are required for this PRD.
+
+IF this PRD is implemented
+
+WHEN the deployment is prepared
+
+THEN database migration scripts SHALL be included in the same release as the user-management application code.
+
+AND the migration SHALL run before user-management routes, protected-account checks, or Super Admin seed logic are enabled.
+
+---
+
 # Database Changes
 
 ## Users Table
@@ -179,6 +193,68 @@ If the account already exists:
 
 * Do not recreate
 * Do not modify password
+
+---
+
+# Migration Requirements
+
+## Scenario: Add User Management Fields
+
+IF the existing users table does not contain role, status, or protected-account fields
+
+WHEN the migration runs
+
+THEN the migration SHALL add those fields with safe defaults.
+
+AND existing users SHALL default to `STANDARD_USER` and `ACTIVE` unless a deterministic existing value indicates disabled status.
+
+AND the protected Super Admin account SHALL be marked `is_protected = TRUE`.
+
+---
+
+## Scenario: Preserve Existing Disabled Users
+
+IF the existing schema already has a disabled flag or equivalent account lock state
+
+WHEN the migration backfills `status`
+
+THEN disabled users SHALL become `DISABLED`.
+
+AND non-disabled users SHALL become `ACTIVE`.
+
+AND the backfill SHALL be idempotent.
+
+---
+
+## Scenario: Seed Protected Super Admin
+
+IF the protected Super Admin account does not exist
+
+WHEN system initialization runs after migration
+
+THEN the system SHALL create the protected Super Admin with `SUPER_ADMIN`, `ACTIVE`, and `is_protected = TRUE`.
+
+IF the protected Super Admin already exists
+
+WHEN system initialization runs after migration
+
+THEN the system SHALL NOT recreate the account.
+
+AND the system SHALL NOT overwrite the existing password.
+
+AND the system SHALL enforce `SUPER_ADMIN`, `ACTIVE`, and `is_protected = TRUE` for the protected account.
+
+---
+
+## Scenario: Deployment Ordering
+
+IF user-management code depends on role, status, or protected-account fields
+
+WHEN the release is deployed
+
+THEN migrations SHALL run before the application starts serving the new user-management routes.
+
+AND the deployment SHALL fail closed if required fields are missing.
 
 ---
 

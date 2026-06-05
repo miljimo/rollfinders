@@ -8,6 +8,20 @@ Source: `src/app/api/admin/users/[id]/route.ts`
 
 ---
 
+# Schema Impact
+
+No schema changes are required for this API PRD when the existing user role, status, disabled, protected-account, and academy assignment fields already exist.
+
+IF this API is implemented
+
+WHEN the deployment is prepared
+
+THEN no new database migration script SHALL be required for this PRD.
+
+AND deployment SHALL verify that prerequisite user-management schema fields exist before enabling the endpoint.
+
+---
+
 # Objective
 
 Support admin user detail, update, and deletion while enforcing role hierarchy, academy scope, and protected-account safeguards.

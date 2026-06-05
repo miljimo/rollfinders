@@ -8,6 +8,20 @@ Source: `src/app/api/admin/users/[id]/promote/route.ts`
 
 ---
 
+# Schema Impact
+
+No schema changes are required for this API PRD when the `PLATFORM_ADMIN` role value already exists in the user role model.
+
+IF this API is implemented
+
+WHEN the deployment is prepared
+
+THEN no new database migration script SHALL be required for this PRD.
+
+AND deployment SHALL verify that the role enum or role column supports `PLATFORM_ADMIN` before enabling promotion.
+
+---
+
 # Objective
 
 Allow super admins to promote permitted users to platform admin.
