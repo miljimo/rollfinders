@@ -57,6 +57,18 @@ module "ecs_execution_role" {
         actions   = ["secretsmanager:GetSecretValue"]
         resources = var.execution_role_secret_arns
       }
+    ] : [],
+    length(var.execution_role_parameter_arns) > 0 ? [
+      {
+        id        = "AllowSsmParameterRead"
+        actions   = ["ssm:GetParameters"]
+        resources = var.execution_role_parameter_arns
+      },
+      {
+        id        = "AllowSsmParameterDecrypt"
+        actions   = ["kms:Decrypt"]
+        resources = ["*"]
+      }
   ] : [])
 }
 
