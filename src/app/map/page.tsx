@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default async function MapPage() {
   const academies = await getMapItems();
-  const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const googleKey = process.env.GOOGLE_MAPS_API_KEY;
   const center = "51.5072,-0.1276";
 
   return (
@@ -34,7 +34,7 @@ export default async function MapPage() {
               <div className="map-grid flex h-[480px] items-center justify-center p-6 text-center">
                 <div className="rounded-lg bg-white p-5 shadow-sm">
                   <p className="font-bold text-stone-950">Google Maps key not configured</p>
-                  <p className="mt-2 max-w-sm text-sm text-stone-600">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable the embedded map. Listings remain available below.</p>
+                  <p className="mt-2 max-w-sm text-sm text-stone-600">Set GOOGLE_MAPS_API_KEY to enable the embedded map. Listings remain available below.</p>
                 </div>
               </div>
             )}

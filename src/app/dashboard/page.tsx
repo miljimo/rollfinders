@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { CalendarDays, Shield, X } from "lucide-react";
+import { redirect } from "next/navigation";
+import { CalendarDays, X } from "lucide-react";
 import { Role, UserStatus } from "@prisma/client";
 import { PageShell } from "@/components/PageShell";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
@@ -18,6 +19,8 @@ export default async function StandardDashboardPage() {
   const { user, academy } = await requireDashboardUser();
   const platformAdminUser = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || user.role === Role.PLATFORM_ADMIN;
   const academyAdminUser = user.role === Role.ACADEMY_ADMIN;
+  if (platformAdminUser) redirect("/admin");
+
   const rolls = academy
     ? await prisma.event.findMany({
         where: { academyId: academy.id, active: true },
@@ -43,13 +46,6 @@ export default async function StandardDashboardPage() {
               <p className="text-sm font-semibold text-stone-600">{rolls.length} active rolls</p>
             </div>
 
-            {platformAdminUser ? (
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <DashboardAction title="Admin" description="Platform dashboard" href="/admin" />
-                <DashboardAction title="Users" description="Manage users and roles" href="/admin/users" />
-                <DashboardAction title="Academies" description="Manage academy records" href="/admin/academies" />
-              </div>
-            ) : null}
             {academyAdminUser ? (
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <DashboardAction title="Academy" description="Manage members" href="/dashboard/members" />
@@ -146,7 +142,7 @@ function UserProfilePanel({ academy, initials, user }: { academy: DashboardAcade
 function DashboardAction({ description, href, title }: { description: string; href: string; title: string }) {
   return (
     <Link href={href} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center gap-2 text-sm font-bold uppercase text-teal-800"><Shield size={16} aria-hidden />{title}</div>
+      <div className="text-sm font-bold uppercase text-teal-800">{title}</div>
       <p className="mt-2 text-lg font-black text-stone-950">{description}</p>
     </Link>
   );

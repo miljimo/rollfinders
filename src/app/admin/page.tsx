@@ -21,7 +21,7 @@ import { ActionMenu } from "./ActionMenu";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinders | Admin Dashboard",
+  title: "RollFinders | Dashboard",
   description: "Manage RollFinders academies, open mats, users, email delivery, and platform operations.",
 };
 
@@ -262,7 +262,7 @@ export default async function AdminPage({
         <section className="px-4 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-slate-950">Admin Dashboard</h1>
+              <h1 className="text-3xl font-black text-slate-950">Dashboard</h1>
               <p className="mt-2 text-slate-600">Review platform health and manage operational records.</p>
             </div>
           </div>
@@ -446,7 +446,7 @@ function DialogShell({
 
 function NewAcademyDialog() {
   return (
-    <DialogShell closeHref="/admin?panel=academies" description="Create an academy record without leaving the Admin dashboard." maxWidthClass="max-w-6xl" title="New Academy">
+    <DialogShell closeHref="/admin?panel=academies" description="Create an academy record without leaving the dashboard." maxWidthClass="max-w-6xl" title="New Academy">
       <AcademyForm action={createAcademy} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" />
     </DialogShell>
   );
@@ -454,7 +454,7 @@ function NewAcademyDialog() {
 
 function NewOpenMatDialog({ academies }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>> }) {
   return (
-    <DialogShell closeHref="/admin?panel=open-mats" description="Create an open mat event without leaving the Admin dashboard." title="New Open Mat">
+    <DialogShell closeHref="/admin?panel=open-mats" description="Create an open mat event without leaving the dashboard." title="New Open Mat">
       <OpenMatForm academies={academies} action={createOpenMat} cancelHref="/admin?panel=open-mats" returnTo="/admin?panel=open-mats" />
     </DialogShell>
   );
@@ -689,7 +689,7 @@ function sentenceCase(value: string) {
 type MapItem = Awaited<ReturnType<typeof getMapItems>>[number];
 
 function MapDashboardContent({ academies }: { academies: MapItem[] }) {
-  const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const googleKey = process.env.GOOGLE_MAPS_API_KEY;
   const center = "51.5072,-0.1276";
 
   return (
@@ -709,7 +709,7 @@ function MapDashboardContent({ academies }: { academies: MapItem[] }) {
             <div className="map-grid flex h-[480px] items-center justify-center p-6 text-center">
               <div className="rounded-lg bg-white p-5 shadow-sm">
                 <p className="font-bold text-stone-950">Google Maps key not configured</p>
-                <p className="mt-2 max-w-sm text-sm text-stone-600">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to enable the embedded map. Listings remain available below.</p>
+                <p className="mt-2 max-w-sm text-sm text-stone-600">Set GOOGLE_MAPS_API_KEY to enable the embedded map. Listings remain available below.</p>
               </div>
             </div>
           )}
