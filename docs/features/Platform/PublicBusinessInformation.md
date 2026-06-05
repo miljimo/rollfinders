@@ -201,3 +201,30 @@ Implementation Requirements:
 Feature Status:
 
 MVP REQUIRED
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Implemented.
+
+Implemented:
+
+* `/about` exists.
+* `/contact` exists.
+* `/privacy-policy` exists.
+* `/terms` exists.
+* Pages use the existing application layout.
+* Pages are public and do not require authentication.
+* Metadata is present on the public business pages reviewed.
+
+MVP gaps or notes:
+
+* Verify footer navigation visually in the shared shell before launch.
+* Canonical URLs are not explicitly confirmed in source during this audit.
+
+MVP decision:
+
+* Public business information pages are sufficient for MVP.

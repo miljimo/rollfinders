@@ -485,3 +485,34 @@ Even if UI restrictions are bypassed.
 * UI only displays features allowed for the current role.
 * No cross-academy data leakage is possible.
 * Full regression tests pass.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Role enum exists for super admin, admin, platform admin, academy admin, standard user, and user compatibility.
+* Admin page access is guarded by `requireAdminPage`.
+* API admin access is guarded by `requireAdminApi` and role checks.
+* Academy-scoped user, academy, and event filters exist.
+* Academy admins are scoped to their assigned academy for admin lists and APIs.
+* Platform admins are restricted from protected super-admin and platform-level user management in current user actions.
+* Standard dashboard access is separated from admin dashboard access.
+* Open mat management checks academy access and creator/role permissions.
+* Protected super-admin checks exist for disable/delete/demotion paths.
+
+MVP gaps or notes:
+
+* Some permissions are implemented through duplicated helper logic across server actions and API routes. Future work should centralize this further to reduce drift.
+* Automated regression coverage for every RBAC path is not visible; current tests focus on reusable table behavior.
+* The documentation still describes some future permissions, such as analytics access, that are blocked by missing analytics implementation.
+
+MVP decision:
+
+* RBAC is sufficient for MVP admin and academy-scoped workflows.
+* Add broader permission tests before scaling beyond MVP.

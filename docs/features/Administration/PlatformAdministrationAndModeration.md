@@ -482,3 +482,31 @@ Implementation Rules:
 Feature Status:
 
 READY FOR IMPLEMENTATION
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Partial.
+
+Implemented:
+
+* Admin role helpers exist for super admin, platform admin, academy admin, and standard user roles.
+* Platform admin user APIs exist for platform-admin creation/removal.
+* Admin audit log model and write helper exist.
+* Admin dashboard, user management, academy management, open mat management, and settings pages exist.
+* User and academy actions write audit logs for many management operations.
+
+Missing or partial:
+
+* Dedicated moderation queue is not visible in source.
+* Dedicated academy claim approval/rejection workflow is not visible in source.
+* Platform analytics access is blocked by missing analytics implementation.
+* Audit logs exist, but not every platform moderation, team, or verification action has detailed audit metadata.
+
+MVP decision:
+
+* Core platform administration is MVP-usable.
+* Moderation queue, claim approval, and analytics should be implemented as separate MVP gap tasks only if they are required for launch.

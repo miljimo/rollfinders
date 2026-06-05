@@ -468,3 +468,74 @@ Every feature must support this goal:
 > Help a BJJ practitioner find a place to train in less than 30 seconds.
 
 If a feature does not directly contribute to training discovery, it should not be included in the MVP.
+
+---
+
+# Current MVP Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+| MVP Feature | Current Status | Source Evidence | MVP Action |
+| --- | --- | --- | --- |
+| Academy Directory | Implemented | `src/app/academies/page.tsx`, `src/app/academies/[slug]/page.tsx`, `src/lib/data.ts` | Preserve current browse, search, profile, and directions behavior. |
+| Open Mat Radar | Implemented | `src/app/open-mats/page.tsx`, `src/app/open-mats/[id]/page.tsx`, `getOpenMatRadar` | Preserve today/tomorrow/weekend filters, gi/no-gi filtering, search, details, and directions. |
+| Search | Implemented | `searchAcademies`, `getOpenMatRadar`, `LocationSearchForm` | Keep server-side search and location-aware sorting. |
+| Interactive Map | Partial | `src/app/map/page.tsx`, `getMapItems` | Embedded map and listing rail exist. Custom markers, marker clicks, and marker analytics are still missing if required for MVP. |
+| Academy Claiming | Missing | `ClaimRequest` model exists, but no public claim form/admin approval flow is visible. | Implement complete claim flow before claiming can be counted as MVP-complete. |
+| Admin Dashboard | Implemented | `src/app/admin/page.tsx` and admin modules | Preserve admin metrics and module navigation. |
+| Analytics | Missing | No analytics provider or event tracking found in source. | Implement analytics provider, MVP event tracking, and lightweight reporting path. |
+
+## MVP-Required Missing Work
+
+### MR-001: Complete Academy Claiming Flow
+
+Status: Missing.
+
+IF a public academy profile is visible
+
+WHEN an academy owner wants to claim it
+
+THEN the page SHALL expose a `Claim Profile` action and submit a claim request with `PENDING` status.
+
+Done when:
+
+* Public academy profile includes `Claim Profile`.
+* Claim form captures requester name, email, academy, and verification notes/evidence.
+* Admins can view pending claims.
+* Admins can approve or reject claims.
+* Approved claim creates or links the requester user account.
+* Approved owner receives academy access.
+* Rejected owner receives notification.
+* Claim actions are audit logged.
+
+Suggested branch:
+
+`feature/academy-claiming-flow`
+
+### MR-003: Analytics For MVP Success Metrics
+
+Status: Missing.
+
+IF the production application is deployed
+
+WHEN users browse, search, view details, click directions, use the map, or submit claims
+
+THEN analytics SHALL capture enough events to measure MVP traction.
+
+Done when:
+
+* Analytics provider is selected and configured for production.
+* Page views are tracked.
+* Academy search submissions are tracked.
+* Open mat search/filter submissions are tracked.
+* Open mat detail views are tracked.
+* Academy profile views are tracked.
+* Direction clicks are tracked.
+* Map views are tracked.
+* Map marker clicks are tracked if custom markers exist.
+* Claim profile started and submitted events are tracked.
+* Monthly visitors, weekly active users, returning users, and monthly searches are measurable.
+
+Suggested branch:
+
+`feature/mvp-analytics-events`

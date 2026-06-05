@@ -525,3 +525,37 @@ After implementation:
 Feature Status:
 
 READY FOR IMPLEMENTATION
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* `AcademyMember` and `AcademyInvitation` models exist.
+* Academy team page exists at `/admin/academies/[id]/team`.
+* Owners/platform admins can invite academy admins.
+* Invitation email is queued through the reliable email system.
+* Pending invitations are listed.
+* Invitations can be resent.
+* Invitations can be cancelled.
+* Invited users can accept invitations at `/admin/invitations/[token]`.
+* Owners/platform admins can remove academy members.
+* Ownership transfer exists.
+* Academy admins can view/edit their assigned academy and manage open mats according to access rules.
+
+MVP gaps or notes:
+
+* Team-management actions are not currently writing detailed admin audit log entries.
+* Owner notifications for invitation accepted and admin removed are not visible in source.
+* The page shows a raw accept URL for pending invitations. This is acceptable for internal MVP admin use, but should be polished later.
+* API endpoints listed in this PRD are not all present as separate REST routes; current implementation uses Next.js server actions for the UI flow.
+
+MVP decision:
+
+* The core multi-admin academy team workflow is MVP-usable.
+* Add audit logging for invite, resend, cancel, remove, transfer owner, and accept invitation before treating this as fully complete.

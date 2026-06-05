@@ -355,3 +355,24 @@ Acceptable Criteria
  
  Above functionality is tested and working
  Maintaining backward compatibility with existing functionality.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Super admin/admin roles are treated as super-admin roles by admin helpers.
+* Super admins can access admin dashboard, academy management, user management, open mat management, and settings.
+* User management supports create, edit, disable, enable, delete, password email, and role changes.
+* Last active super-user and protected-account safeguards are present in user management paths.
+* Change password exists through `/dashboard/password`.
+
+MVP gaps or notes:
+
+* Automated tests for every super-user RBAC scenario are not visible.
+* Dedicated role-management UI is represented through user management rather than a standalone role module.

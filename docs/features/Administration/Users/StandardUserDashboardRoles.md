@@ -14,7 +14,7 @@ IF a valid Standard User account exists
 
 WHEN the user enters a valid username and password and submits the login form
 
-THEN the system SHALL authenticate the user and redirect them to the Standard User Dashboard.
+THEN the system SHALL authenticate the user and redirect them to the User Dashboard.
 
 AND the dashboard SHALL display:
 
@@ -22,11 +22,13 @@ AND the dashboard SHALL display:
 * User profile avatar (if available)
 * Registration date
 * Academy name
-* Change Password 
+ 
 
 AND the dashboard SHALL display a list of rolls belonging only to the user's academy.
 
 AND the rolls SHALL be ordered by most recent creation date first.
+AND the dashboard SHALL display Settings Modules .
+AND the user should be able to visible the Settings.
 
 ---
 
@@ -159,6 +161,26 @@ And the user's password should be changed to the new password successfully.
 
 
 Acceptable Criteria
- 
- Only make changes that has directly effects on this requirements.
+ Above functionality is tested and working 
  Maintaining backward compatibility with existing functionality.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Standard dashboard access exists under `/dashboard`.
+* Standard users are redirected away from admin-only pages.
+* Standard dashboard data is scoped through `requireStandardDashboardUser`.
+* Dashboard member and roll APIs exist and use academy-scoped access.
+* Change password exists through `/dashboard/password`.
+
+MVP gaps or notes:
+
+* Automated tests for every standard-user direct-URL/API restriction are not visible.
+* Some wording in this PRD says users return as guests; current implementation generally redirects based on auth/role rather than making them guests.

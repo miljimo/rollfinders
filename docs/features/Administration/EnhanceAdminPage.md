@@ -51,3 +51,28 @@ The admin page now includes:
 5. Recent admin audit activity is visible to super admins.
 6. Admin dashboard does not repeat the same academy metrics in both overview cards and a second panel.
 7. TypeScript, lint, and production build checks pass.
+
+---
+
+## Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Admin dashboard route exists at `/admin`.
+* Module cards exist for academy management, open mats, users, email operations, and settings.
+* Dashboard metrics include academy counts, user counts, open mat counts, and email counts.
+* Recent admin activity is visible for super admins.
+* Super-admin-only dashboard sections are conditionally rendered.
+
+MVP gaps or notes:
+
+* The Users module now links to `/admin/users`, not `#users`.
+* Email operations are visible through dashboard panels and settings/admin routes rather than a full standalone email-operations page.
+
+MVP decision:
+
+* The enhanced admin dashboard is MVP-usable.
