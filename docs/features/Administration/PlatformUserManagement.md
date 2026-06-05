@@ -478,3 +478,31 @@ Feature Status:
 
 MVP APPROVED
 CRITICAL SECURITY FEATURE
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Protected super-admin concept exists through `isProtectedSuperAdmin`.
+* User roles, status, disabled flag, email status, last login, created date, and protected flag exist in the Prisma model.
+* `/admin/users` provides user listing, creation, editing, disable/enable, delete, and password email actions.
+* API routes exist for list, create, detail, update, delete, disable, enable, promote, demote, and password reset.
+* Protected super-admin safeguards exist in UI/action/API paths.
+* Audit logs exist for major user management actions.
+
+MVP gaps or notes:
+
+* The PRD says protected account rules should be enforced at both API and database layers. Current source shows application/API enforcement; database-level enforcement is not visible.
+* Separate visible promote/demote buttons are not shown in `/admin/users`; role changes are handled through edit controls and API routes.
+* Automated tests for protected account scenarios are not visible.
+
+MVP decision:
+
+* Platform user management is MVP-usable.
+* Database-level protected-account enforcement and expanded RBAC tests should be treated as hardening work.

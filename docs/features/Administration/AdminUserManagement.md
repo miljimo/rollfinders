@@ -242,3 +242,37 @@ Audit metadata should include:
 13. Users can change their password using a valid reset-token link.
 14. The main `/admin` page no longer contains full inline user management controls.
 15. TypeScript, lint, and production build checks pass.
+
+---
+
+## Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Dedicated `/admin/users` page exists.
+* User listing is server-side paginated.
+* Search by name and email exists.
+* Filters exist for role, account status, email status, and page size.
+* Admins can create users through `CreateUserForm`.
+* Admins can edit manageable users inline.
+* Admins can disable and enable manageable users.
+* Admins can delete manageable non-super-user accounts.
+* Admins can send password reset/change emails.
+* Protected super-admin safeguards exist.
+* API routes exist for user detail, update, delete, disable, enable, promote, demote, and password reset.
+* Audit logs are written for user create, edit, disable, enable, delete, promote, demote, and password email actions.
+
+MVP gaps or notes:
+
+* Promote/demote are available through API routes and role editing, but the table does not expose separate visible `Promote` and `Demote` buttons.
+* Inline table editing works but is dense. Use `UserProfileRedesignPrd.md` for the simpler follow-up user profile detail requirement.
+* Keep authorization behavior aligned between server actions and API routes when future UI changes are implemented.
+
+MVP decision:
+
+* This module is sufficient for MVP admin user management.
+* Do not block MVP on a richer profile UI.

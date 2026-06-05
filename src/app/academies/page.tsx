@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { LocationSearchForm } from "@/components/LocationSearchForm";
-import { AcademyCard } from "@/components/ui";
+import { AcademyCard } from "@/components/AcademyCard";
 import { searchAcademies } from "@/lib/data";
 
 export const dynamic = "force-dynamic";

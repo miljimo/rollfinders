@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { requireSuperAdminPage } from "@/lib/admin";
 import { createAcademy } from "../actions";
 import { AcademyForm } from "../form";

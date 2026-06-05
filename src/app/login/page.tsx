@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { LoginForm } from "./LoginForm";
 
 export default function LoginPage() {

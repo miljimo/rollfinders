@@ -163,3 +163,24 @@ And the user's password should be changed to the new password successfully.
 Acceptable Criteria
  Above functionality is tested and working 
  Maintaining backward compatibility with existing functionality.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Standard dashboard access exists under `/dashboard`.
+* Standard users are redirected away from admin-only pages.
+* Standard dashboard data is scoped through `requireStandardDashboardUser`.
+* Dashboard member and roll APIs exist and use academy-scoped access.
+* Change password exists through `/dashboard/password`.
+
+MVP gaps or notes:
+
+* Automated tests for every standard-user direct-URL/API restriction are not visible.
+* Some wording in this PRD says users return as guests; current implementation generally redirects based on auth/role rather than making them guests.

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Mail } from "lucide-react";
-import { StaticPageShell } from "@/components/shell";
+import { StaticPageShell } from "@/components/StaticPageShell";
 
 export const metadata: Metadata = {
   title: "Contact RollFinders | Support and business enquiries",

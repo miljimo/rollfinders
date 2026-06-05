@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { createOpenMat } from "../actions";

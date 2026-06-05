@@ -469,3 +469,34 @@ All academy management actions must be audit logged.
 * API endpoints support pagination, filtering, and search.
 * System remains responsive with 100,000+ academy records.
 * All academy management actions are secured and audit logged.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Dedicated `/admin/academies` page exists.
+* Academy listing uses server-side pagination.
+* Search by academy name exists.
+* Filters exist for verification status, featured status, city, postcode, and page size.
+* Academy table includes location, verification status, featured status, created date, and actions.
+* Academy create/edit/detail pages exist.
+* Dashboard metrics include total, verified, pending, and featured academy counts.
+* Admin academy API supports listing, filtering, pagination, create, detail, update, and delete.
+* Academy verification status is saved and public `verified` is derived from `verificationStatus`.
+
+MVP gaps or notes:
+
+* Academy update/create actions write generic audit events, but detailed verification-status audit metadata is not present.
+* Dashboard metric cards are not all clickable into filtered academy views.
+* The public claim flow is not implemented even though claim counts appear on the admin academy detail page.
+
+MVP decision:
+
+* Academy management is MVP-usable.
+* Add detailed verification audit logging and claim flow separately.

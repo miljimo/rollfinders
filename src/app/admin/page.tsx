@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";

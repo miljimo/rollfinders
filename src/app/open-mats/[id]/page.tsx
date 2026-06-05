@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
 

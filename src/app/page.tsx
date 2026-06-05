@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ArrowRight, CalendarDays, MapPinned, Navigation, Search } from "lucide-react";
 import { LocationSearchForm } from "@/components/LocationSearchForm";
-import { PageShell } from "@/components/shell";
-import { AcademyCard, EventCard } from "@/components/ui";
+import { PageShell } from "@/components/PageShell";
+import { AcademyCard } from "@/components/AcademyCard";
+import { EventCard } from "@/components/EventCard";
 import { getFeaturedData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";

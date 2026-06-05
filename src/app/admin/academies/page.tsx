@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
 import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { academyScopedAcademyWhere, isAcademyAdminRole, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";

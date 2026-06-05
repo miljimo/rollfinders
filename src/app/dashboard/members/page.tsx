@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { prisma } from "@/lib/prisma";
 import { memberSearchWhere, requireStandardDashboardUser } from "@/lib/standard-dashboard";
 import { formatDate } from "@/lib/utils";

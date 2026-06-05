@@ -373,3 +373,24 @@ Only make changes that directly affect these requirements.
 Maintain backward compatibility with existing functionality.
 
 Preserve the existing User Dashboard pattern, layout, navigation, and user experience.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Platform admin role helper exists.
+* Platform admins can access admin dashboard and permitted admin modules.
+* Platform admins can view/manage allowed users and are blocked from protected super-admin/platform-level targets by current user management logic.
+* Platform admins can manage academy and open mat workflows through admin modules.
+* Change password exists through `/dashboard/password`.
+
+MVP gaps or notes:
+
+* Analytics access is documented but not implemented because analytics is missing.
+* Automated tests for every platform-admin restriction are not visible.

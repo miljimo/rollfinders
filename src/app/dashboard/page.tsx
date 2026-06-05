@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { CalendarDays, Users } from "lucide-react";
 import { Role } from "@prisma/client";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatMoney } from "@/lib/utils";

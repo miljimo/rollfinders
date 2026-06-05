@@ -537,3 +537,31 @@ The primary question RollFinders answers is:
 rather than:
 
 > Where are martial arts clubs located?
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Public academy directory and academy profile pages exist.
+* Public open mat radar and open mat detail pages exist.
+* Public search/filter behavior exists for academy and open mat discovery.
+* Public map page exists with an embedded Google map and academy listing rail.
+* Simple admin panel exists with dashboard, academy management, open mat management, user management, settings, and audit-log-backed operations.
+* Public business pages exist.
+
+Missing or partial:
+
+* Analytics and MVP reporting are not implemented.
+* Custom interactive map markers are not implemented.
+* Academy claiming is intentionally listed as deferred in this Founder Edition, but other PRDs still list it as MVP work.
+
+MVP decision:
+
+* For the leanest founder MVP, do not block launch on academy claiming.
+* If academy claiming remains a launch requirement, implement it from `RollFinderMvpPrd.md` as a separate focused branch.

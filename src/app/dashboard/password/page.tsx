@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 

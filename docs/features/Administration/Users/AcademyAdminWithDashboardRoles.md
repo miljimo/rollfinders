@@ -298,3 +298,25 @@ AND tests SHALL verify academy isolation is enforced on all protected API endpoi
 * All academy-scoped queries SHALL be filtered by the authenticated administrator's `academy_id`.
 * Cross-academy access SHALL return HTTP 403 Forbidden.
 * Existing Platform Administrator functionality SHALL remain unchanged.
+
+---
+
+# Current Implementation Status
+
+Reviewed against source code on 2026-06-05.
+
+Status: Mostly implemented.
+
+Implemented:
+
+* Academy admin role helper exists.
+* Academy-scoped query helpers exist for users, academies, and events.
+* Academy admins are scoped to their assigned academy in admin users, academies, and open mats flows.
+* Academy admins can manage users within their academy according to current permission rules.
+* Academy admins cannot access platform-level admin functionality.
+* Change password exists through `/dashboard/password`.
+
+MVP gaps or notes:
+
+* The separate simple user profile view is not implemented yet.
+* Automated tests for every academy-isolation path are not visible.

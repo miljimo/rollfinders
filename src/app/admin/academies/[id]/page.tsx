@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
 import { getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";

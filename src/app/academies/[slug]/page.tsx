@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { PageShell } from "@/components/shell";
-import { EventCard } from "@/components/ui";
+import { PageShell } from "@/components/PageShell";
+import { EventCard } from "@/components/EventCard";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/utils";
 

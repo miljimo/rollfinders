@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PageShell } from "@/components/shell";
+import { PageShell } from "@/components/PageShell";
 import { isProtectedSuperAdmin, requireSuperAdminPage } from "@/lib/admin";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
