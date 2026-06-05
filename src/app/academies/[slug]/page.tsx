@@ -53,10 +53,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
         <aside className="h-fit rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-          <div className="map-grid flex aspect-square items-center justify-center rounded-md border border-teal-100 bg-[#eef6ef] text-center text-sm font-semibold text-teal-900">
-            {academy.latitude}, {academy.longitude}
-          </div>
-          <div className="mt-4 flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
             <a href={`https://www.google.com/maps/search/?api=1&query=${academy.latitude},${academy.longitude}`} target="_blank" rel="noreferrer" className="rounded-md bg-stone-950 px-3 py-2 text-center text-sm font-semibold text-white">Open Map</a>
           </div>
         </aside>
