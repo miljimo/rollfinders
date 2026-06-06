@@ -572,7 +572,7 @@ Type: Documentation
 Likely files:
 
 * `docs/features/Product/Products/RollFinderMvpPrd.md` or separate technical decision record
-* Deployment docs under `docs/features/Deployment/Products/` or `docs/architecture/`
+* Deployment docs under `docs/features/Deployment/Provisioning/`, `docs/features/Deployment/Delivery/`, `docs/features/Deployment/Operations/`, or `docs/architecture/`
 
 IF MVP technical requirements are reviewed
 

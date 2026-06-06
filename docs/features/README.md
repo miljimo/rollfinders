@@ -6,11 +6,15 @@ Use these folders as the canonical locations:
 
 | Domain | APIs | Components | Pages | Products |
 | --- | --- | --- | --- | --- |
-| Academies | `Academies/APIs` | `Academies/Components` | `Academies/Pages` | `Academies/Products` |
+| User Academies | `Users/Academies/APIs` | `Users/Academies/Components` | `Users/Academies/Pages` | `Users/Academies/Products` |
 | Open Mats | `OpenMats/APIs` | `OpenMats/Components` | `OpenMats/Pages` | `OpenMats/Products` |
-| Users | `Users/APIs` | - | `Users/Pages` | `Users/Products` |
+| Standard Users | `Users/Standard/APIs` | `Users/Standard/Components` | `Users/Standard/Pages` | `Users/Standard/Products` |
+| Super Admin Users | `Users/SuperAdmin/APIs` | - | `Users/SuperAdmin/Pages` | `Users/SuperAdmin/Products` |
+| Platform Users | `Users/Platform/APIs` | - | `Users/Platform/Pages` | `Users/Platform/Products` |
 | Platform | `Platform/APIs` | - | `Platform/Pages` | `Platform/Products` |
-| Deployment | - | - | - | `Deployment/Products` |
+| Communications / Email Operations | `Communications/Email/Operations/APIs` | - | - | - |
+| Communications / User Account Emails | `Communications/Email/UserAccountEmails/APIs` | - | - | `Communications/Email/UserAccountEmails/Products` |
+| Deployment | - | - | - | `Deployment/Provisioning`, `Deployment/Delivery`, `Deployment/Operations` |
 | Public Site | - | - | `PublicSite/Pages` | - |
 | Shared Components | - | `SharedComponents` and `SharedComponents/Components` | - | - |
 | Product Planning | - | - | - | `Product/Products` |

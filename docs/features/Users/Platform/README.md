@@ -33,7 +33,8 @@ THEN the PRD SHALL explicitly state that no database migration script is require
 * `APIs/AdminUsersApi.md`
 * `APIs/AdminUserDetailApi.md`
 * `APIs/AdminUserPromoteApi.md`
-* `APIs/AdminEmailProvisioningApi.md`
+
+Email provisioning API requirements live under `docs/features/Communications/Email/Operations/APIs/AdminEmailProvisioningApi.md`.
 
 ## Pages
 

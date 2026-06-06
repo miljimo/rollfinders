@@ -328,7 +328,9 @@ THEN the UI SHALL show a clear fallback such as "Check with academy" without bre
 
 Source PRD:
 
-`docs/features/Users/SuperAdmin/Products/AdminCreatedUserOnboardingEmailPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingEmailDeliveryPrd.md`
+
+`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingCredentialContentPrd.md`
 
 ## UI-USEREMAIL-001: Preserve Create User Form
 

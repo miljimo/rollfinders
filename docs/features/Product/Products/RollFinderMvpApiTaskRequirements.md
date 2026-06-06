@@ -384,7 +384,9 @@ THEN the backend SHALL expose only contact fields intended for public display.
 
 Source PRD:
 
-`docs/features/Users/SuperAdmin/Products/AdminCreatedUserOnboardingEmailPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingEmailDeliveryPrd.md`
+
+`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingCredentialContentPrd.md`
 
 ## API-USEREMAIL-001: Queue Email After User Creation
 
