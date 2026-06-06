@@ -225,12 +225,14 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
     return duplicateOpenMatError(formData);
   }
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin?panel=open-mats") ? returnTo : "/admin?panel=open-mats";
   await prisma.event.update({ where: { id }, data });
   revalidatePath("/admin");
   revalidatePath("/admin/open-mats");
   revalidatePath("/open-mats");
   revalidatePath(`/open-mats/${id}`);
-  redirect("/admin/open-mats");
+  redirect(redirectTo);
 }
 
 export async function deleteOpenMat(id: string) {

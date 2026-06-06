@@ -96,6 +96,14 @@ WHEN the mutation succeeds
 
 THEN the API SHALL write an admin audit log entry.
 
+## ADMIN-ACADEMY-011: Form-Post Update Redirect
+
+IF an authorized admin submits a non-delete `POST /api/admin/academies/[id]`
+
+WHEN the academy update succeeds
+
+THEN the API SHALL redirect to `/admin/academies` using HTTP 303.
+
 ---
 
 # Acceptance Criteria
@@ -105,3 +113,4 @@ THEN the API SHALL write an admin audit log entry.
 * Delete access requires super admin.
 * Invalid and duplicate updates return clear errors.
 * Successful mutations are audit logged.
+* Successful form-post updates return users to academy management.

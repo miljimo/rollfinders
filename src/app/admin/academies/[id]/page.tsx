@@ -83,7 +83,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
           </div>
         </section>
 
-        {!academyAdmin ? <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} /> : null}
+        {!academyAdmin ? <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" /> : null}
       </section>
     </PageShell>
   );

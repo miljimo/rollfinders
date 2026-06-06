@@ -32,7 +32,7 @@ export default async function EditOpenMatPage({ params }: { params: Promise<{ id
     <PageShell>
       <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <h1 className="text-3xl font-black text-stone-950">Edit Open Mat</h1>
-        <OpenMatForm action={updateOpenMat.bind(null, event.id)} academies={academies} event={event} />
+        <OpenMatForm action={updateOpenMat.bind(null, event.id)} academies={academies} cancelHref="/admin?panel=open-mats" event={event} returnTo="/admin?panel=open-mats" />
         <form action={deleteOpenMat.bind(null, event.id)} className="mt-4">
           <Button type="submit" variant="danger">Delete Open Mat</Button>
         </form>

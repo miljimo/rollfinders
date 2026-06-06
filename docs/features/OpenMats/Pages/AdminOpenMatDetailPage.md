@@ -14,6 +14,10 @@ IF authorized user opens an open mat detail
 WHEN event exists  
 THEN the page SHALL show open mat form populated with current values.
 
+IF an authorized user can edit the open mat  
+WHEN the edit form renders  
+THEN the page SHALL reuse the same `OpenMatForm` used by the New Open Mat flow with existing event values pre-filled.
+
 IF user lacks edit/delete access  
 WHEN route resolves  
 THEN access SHALL be rejected or redirected.
@@ -34,10 +38,15 @@ IF an admin changes a recurring open mat
 WHEN the save succeeds  
 THEN the system SHALL update the single source listing/rule rather than updating duplicate future event records.
 
+IF an authorized user saves changes from the standalone Edit Open Mat page  
+WHEN the save succeeds  
+THEN the user SHALL be returned to `/admin?panel=open-mats`.
+
 ## Done When
 
 * Existing OpenMat form is reused.
 * Academy-scoped access is respected.
-* Save/delete behaviors preserve existing admin flow.
+* Save/delete behaviors preserve existing open mat admin flow.
 * Recurrence edit scope is explicit.
 * Future recurring occurrences reflect one source listing/rule after save.
+* Edit Open Mat uses the same reusable form component as New Open Mat.

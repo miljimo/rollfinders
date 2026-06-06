@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Academy } from "@prisma/client";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useActionState, useEffect, useMemo, useState } from "react";
 import type { AcademyFormState } from "./actions";
 
 type AcademyAction = (state: AcademyFormState, formData: FormData) => Promise<AcademyFormState>;
@@ -69,17 +69,55 @@ const fieldStep = Object.fromEntries(
   Object.entries(fieldsByStep).flatMap(([step, fields]) => fields.map((field) => [field, step])),
 ) as Record<string, StepId>;
 
-export function AcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
-  if (academy) {
-    return <ClassicAcademyForm academy={academy} action={action} cancelHref={cancelHref} returnTo={returnTo} />;
-  }
-
-  return <MultiStepAcademyForm action={action} cancelHref={cancelHref} returnTo={returnTo} />;
+function checkboxValue(value?: boolean) {
+  return value ? "on" : "off";
 }
 
-function MultiStepAcademyForm({ action, cancelHref = "/admin?panel=academies", returnTo }: { action: AcademyAction; cancelHref?: string; returnTo?: string }) {
+function nullableValue(value?: string | null) {
+  return value ?? "";
+}
+
+function academyValues(academy?: Academy): AcademyValues {
+  if (!academy) return {};
+  return {
+    name: academy.name,
+    slug: academy.slug,
+    description: academy.description,
+    affiliation: nullableValue(academy.affiliation),
+    website: nullableValue(academy.website),
+    email: nullableValue(academy.email),
+    phone: nullableValue(academy.phone),
+    address: academy.address,
+    city: academy.city,
+    postcode: academy.postcode,
+    borough: nullableValue(academy.borough),
+    country: academy.country,
+    latitude: academy.latitude.toString(),
+    longitude: academy.longitude.toString(),
+    logoUrl: nullableValue(academy.logoUrl),
+    coverImageUrl: nullableValue(academy.coverImageUrl),
+    categories: nullableValue(academy.categories),
+    facebookUrl: nullableValue(academy.facebookUrl),
+    instagramUrl: nullableValue(academy.instagramUrl),
+    xUrl: nullableValue(academy.xUrl),
+    dropInPrice: academy.dropInPrice?.toString() ?? "",
+    giAvailable: checkboxValue(academy.giAvailable),
+    nogiAvailable: checkboxValue(academy.nogiAvailable),
+    beginnerFriendly: checkboxValue(academy.beginnerFriendly),
+    competitionFocused: checkboxValue(academy.competitionFocused),
+    featured: checkboxValue(academy.featured),
+    verificationStatus: academy.verificationStatus,
+  };
+}
+
+export function AcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
+  return <MultiStepAcademyForm academy={academy} action={action} cancelHref={cancelHref} returnTo={returnTo} />;
+}
+
+function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=academies", returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
-  const [values, setValues] = useState<AcademyValues>({ ...defaultValues, ...state.values });
+  const mode = academy ? "edit" : "create";
+  const [values, setValues] = useState<AcademyValues>(() => ({ ...defaultValues, ...academyValues(academy), ...state.values }));
   const [stepIndex, setStepIndex] = useState(0);
   const currentStep = steps[stepIndex].id;
 
@@ -125,16 +163,22 @@ function MultiStepAcademyForm({ action, cancelHref = "/admin?panel=academies", r
     setStepIndex((index) => Math.min(index + 1, steps.length - 1));
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (currentStep !== "review") {
+      event.preventDefault();
+    }
+  }
+
   return (
-    <form action={formAction} className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+    <form action={currentStep === "review" ? formAction : undefined} onSubmit={handleSubmit} className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
       {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
       {Object.entries(values).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
 
       <div className="border-b border-stone-100 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase text-teal-800">New Academy</p>
-            <h3 className="mt-1 text-2xl font-black text-stone-950">Guided academy setup</h3>
+            <p className="text-sm font-bold uppercase text-teal-800">{mode === "edit" ? "Edit Academy" : "New Academy"}</p>
+            <h3 className="mt-1 text-2xl font-black text-stone-950">{mode === "edit" ? "Guided academy update" : "Guided academy setup"}</h3>
           </div>
           <p className="text-sm font-bold text-stone-600">Step {stepIndex + 1} of {steps.length}</p>
         </div>
@@ -159,7 +203,7 @@ function MultiStepAcademyForm({ action, cancelHref = "/admin?panel=academies", r
           {currentStep === "location" ? <LocationStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
           {currentStep === "media" ? <MediaStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
           {currentStep === "settings" ? <SettingsStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
-          {currentStep === "review" ? <ReviewStep errors={clientErrors} setStepIndex={setStepIndex} values={values} /> : null}
+          {currentStep === "review" ? <ReviewStep errors={clientErrors} mode={mode} setStepIndex={setStepIndex} values={values} /> : null}
         </section>
 
         <aside className="grid gap-4 lg:sticky lg:top-4 lg:self-start">
@@ -180,13 +224,13 @@ function MultiStepAcademyForm({ action, cancelHref = "/admin?panel=academies", r
       <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 bg-white/95 p-4 backdrop-blur">
         <Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link>
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={() => setStepIndex((index) => Math.max(index - 1, 0))} disabled={stepIndex === 0} className="min-h-11 rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800 disabled:text-stone-400">Back</button>
+          <button type="button" onClick={(event) => { event.preventDefault(); setStepIndex((index) => Math.max(index - 1, 0)); }} disabled={stepIndex === 0} className="min-h-11 rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800 disabled:text-stone-400">Back</button>
           {currentStep === "review" ? (
-            <button disabled={isPending || Object.keys(clientErrors).length > 0} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
-              {isPending ? "Creating..." : "Create Academy"}
+            <button type="submit" disabled={isPending || Object.keys(clientErrors).length > 0} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
+              {isPending ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save Academy" : "Create Academy"}
             </button>
           ) : (
-            <button type="button" onClick={nextStep} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Next</button>
+            <button type="button" onClick={(event) => { event.preventDefault(); nextStep(); }} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Next</button>
           )}
         </div>
       </div>
@@ -276,13 +320,14 @@ function SettingsStep({ errors, updateField, values }: StepProps) {
   );
 }
 
-function ReviewStep({ errors, setStepIndex, values }: { errors: Record<string, string>; setStepIndex: (index: number) => void; values: AcademyValues }) {
+function ReviewStep({ errors, mode, setStepIndex, values }: { errors: Record<string, string>; mode: "create" | "edit"; setStepIndex: (index: number) => void; values: AcademyValues }) {
   const errorEntries = Object.entries(errors);
+  const actionLabel = mode === "edit" ? "saving" : "creating";
   return (
-    <StepSection title="Review" description="Confirm the academy information before creating the record.">
+    <StepSection title="Review" description={`Confirm the academy information before ${actionLabel} the record.`}>
       {errorEntries.length ? (
         <div className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">
-          <p className="font-black">Resolve these items before creating:</p>
+          <p className="font-black">Resolve these items before {actionLabel}:</p>
           <ul className="mt-2 list-disc pl-5">
             {errorEntries.map(([field, error]) => <li key={field}>{field}: {error}</li>)}
           </ul>

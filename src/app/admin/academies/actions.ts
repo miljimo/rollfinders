@@ -190,10 +190,12 @@ export async function updateAcademy(
     throw error;
   }
 
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin?panel=academies") ? returnTo : "/admin?panel=academies";
   revalidatePath("/admin");
   revalidatePath("/admin/academies");
   revalidatePath(`/admin/academies/${id}`);
-  redirect("/admin/academies");
+  redirect(redirectTo);
 }
 
 function invitationExpiry() {
