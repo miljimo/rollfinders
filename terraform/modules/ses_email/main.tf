@@ -1,7 +1,9 @@
 locals {
-  mail_from_domain = "${var.mail_from_subdomain}.${var.domain_name}"
-  smtp_domain      = "${var.smtp_subdomain}.${var.domain_name}"
-  ses_smtp_host    = "email-smtp.${var.aws_region}.amazonaws.com"
+  mail_from_domain             = "${var.mail_from_subdomain}.${var.domain_name}"
+  privateemail_dkim_txt_chunks = regexall(".{1,255}", var.privateemail_dkim_txt_value)
+  privateemail_dkim_txt_record = join("\"\"", local.privateemail_dkim_txt_chunks)
+  smtp_domain                  = "${var.smtp_subdomain}.${var.domain_name}"
+  ses_smtp_host                = "email-smtp.${var.aws_region}.amazonaws.com"
 }
 
 resource "aws_ses_domain_identity" "email" {
@@ -54,6 +56,34 @@ resource "aws_route53_record" "mail_from_spf" {
   type    = "TXT"
   ttl     = 600
   records = ["v=spf1 include:amazonses.com -all"]
+}
+
+resource "aws_route53_record" "apex_mx" {
+  zone_id = var.zone_id
+  name    = var.domain_name
+  type    = "MX"
+  ttl     = 600
+  records = [
+    "10 mx1.privateemail.com",
+    "10 mx2.privateemail.com"
+  ]
+}
+
+resource "aws_route53_record" "apex_spf" {
+  zone_id = var.zone_id
+  name    = var.domain_name
+  type    = "TXT"
+  ttl     = 600
+  records = ["v=spf1 include:amazonses.com include:spf.privateemail.com -all"]
+}
+
+resource "aws_route53_record" "privateemail_dkim" {
+  count   = var.privateemail_dkim_txt_value == "" ? 0 : 1
+  zone_id = var.zone_id
+  name    = "privateemail._domainkey.${var.domain_name}"
+  type    = "TXT"
+  ttl     = 600
+  records = [local.privateemail_dkim_txt_record]
 }
 
 resource "aws_route53_record" "dmarc" {

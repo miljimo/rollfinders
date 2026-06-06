@@ -29,3 +29,9 @@ variable "dmarc_rua_email" {
   type        = string
   description = "Aggregate DMARC report mailbox."
 }
+
+variable "privateemail_dkim_txt_value" {
+  type        = string
+  description = "Provider-supplied PrivateEmail DKIM public TXT value for privateemail._domainkey. Leave empty until PrivateEmail issues the value."
+  default     = ""
+}

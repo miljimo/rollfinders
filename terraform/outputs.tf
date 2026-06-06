@@ -95,7 +95,7 @@ output "email_sending_domain" {
 
 output "email_from_address" {
   description = "Default backend sender address."
-  value       = "no-reply@${module.email.sending_domain}"
+  value       = "support@${module.email.sending_domain}"
 }
 
 output "email_smtp_host" {

@@ -110,3 +110,9 @@ variable "super_admin_name" {
   description = "Protected super admin display name ensured after every environment deployment."
   default     = "RollFinder Admin"
 }
+
+variable "privateemail_dkim_txt_value" {
+  type        = string
+  description = "Provider-supplied PrivateEmail DKIM public TXT value for privateemail._domainkey.rollfinders.com. This is public DNS data, not a secret."
+  default     = ""
+}

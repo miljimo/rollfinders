@@ -9,7 +9,6 @@ export const metadata: Metadata = {
 };
 
 const contacts = [
-  ["General contact", "hello@rollfinders.com"],
   ["Support", "support@rollfinders.com"],
   ["Business enquiries", "business@rollfinders.com"],
 ];
@@ -23,7 +22,7 @@ export default function ContactPage() {
         <p className="mt-5 max-w-3xl text-lg leading-8 text-stone-700">
           Send listing corrections, open mat updates, academy claim questions, partnership ideas, or support requests to the relevant inbox below.
         </p>
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {contacts.map(([label, email]) => (
             <a key={email} href={`mailto:${email}`} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
               <Mail className="text-teal-700" size={22} aria-hidden />

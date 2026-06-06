@@ -1,5 +1,6 @@
-environment_name  = "production"
-desired_count     = 2
-db_instance_class = "db.t4g.small"
-domain_name       = "rollfinders.com"
-hosted_zone_name  = "rollfinders.com"
+environment_name            = "production"
+desired_count               = 2
+db_instance_class           = "db.t4g.small"
+domain_name                 = "rollfinders.com"
+hosted_zone_name            = "rollfinders.com"
+privateemail_dkim_txt_value = "v=DKIM1;k=rsa;p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8aFaprUsseTM6MQOvC9UAAL7OmfTxsriYHiDvlsxxLMdAby2broOafoosgLEgCrLrb9MVw9ludyXhjWP0CxxpCcPK3kuOWn5RlClNYaMBs1aO3Hfh5UN1dd++i44FOVQbUwwc4MVbRVlB72bkt//i5q46Ym2cmSzHQcIoRNdMjH7y1cKJBW1e8Ypnu8bimx6XCSZPqoXyCMprsaoIpJsAO6eLZRLzqWIZJs6mMZQPsLxRlglkDsqSUJSs3tr3Dl8mL0Rqlt/CLt1VhmZLC0+dFs+S/C3BMoa9WCpN67jruR+PzOaJ07KrK/vn3kw/mTdNjM7l/NdMVmfkEp2IYpGVQIDAQAB"

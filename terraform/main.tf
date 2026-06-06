@@ -140,11 +140,12 @@ module "database" {
 }
 
 module "email" {
-  source          = "./modules/ses_email"
-  domain_name     = var.hosted_zone_name
-  zone_id         = data.aws_route53_zone.public.zone_id
-  aws_region      = var.aws_region
-  dmarc_rua_email = "postmaster@${var.hosted_zone_name}"
+  source                      = "./modules/ses_email"
+  domain_name                 = var.hosted_zone_name
+  zone_id                     = data.aws_route53_zone.public.zone_id
+  aws_region                  = var.aws_region
+  dmarc_rua_email             = "postmaster@${var.hosted_zone_name}"
+  privateemail_dkim_txt_value = var.privateemail_dkim_txt_value
 }
 
 module "app_secrets" {
@@ -161,7 +162,7 @@ module "app_secrets" {
     DB_USER         = var.db_username
     DB_PASSWORD     = random_password.db.result
     DB_NAME         = var.db_name
-    EMAIL_FROM      = "no-reply@${module.email.sending_domain}"
+    EMAIL_FROM      = "support@${module.email.sending_domain}"
     EMAIL_REPLY_TO  = "support@${module.email.sending_domain}"
     EMAIL_REGION    = var.aws_region
     SMTP_HOST       = module.email.smtp_host
