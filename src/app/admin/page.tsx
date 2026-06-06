@@ -13,7 +13,7 @@ import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma }
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
-import { createAcademy } from "./academies/actions";
+import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders } from "./academies/actions";
 import { AcademyForm } from "./academies/AcademyForm";
 import { createOpenMat } from "./open-mats/actions";
 import { OpenMatForm } from "./open-mats/OpenMatForm";
@@ -61,6 +61,11 @@ function selectedClaimStatus(value: string | undefined) {
 function selectedClaimPageSize(value: string | undefined) {
   const parsed = Number(value ?? "20");
   return claimPageSizes.includes(parsed) ? parsed : 20;
+}
+
+function selectedAcademyReminderFilter(value: string | undefined) {
+  if (value === "eligible" || value === "recently-sent" || value === "unavailable") return value;
+  return "all";
 }
 
 function matchingAcademyVerificationStatus(search: string) {
@@ -116,6 +121,28 @@ function adminClaimsHref(searchParams: AdminSearchParams, overrides: Record<stri
   return `/admin?${params.toString()}`;
 }
 
+function adminAcademiesHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>) {
+  const params = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (!value) return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => item && params.append(key, item));
+      return;
+    }
+    params.set(key, value);
+  });
+  params.set("panel", "academies");
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (value === undefined || value === "" || value === "all" || value === 1) {
+      params.delete(key);
+      return;
+    }
+    params.set(key, String(value));
+  });
+  params.set("panel", "academies");
+  return `/admin?${params.toString()}`;
+}
+
 function claimApiParams({ page, pageSize, search, status }: { page: number; pageSize: number; search: string; status: string }) {
   const params = new URLSearchParams();
   params.set("page", String(page));
@@ -149,6 +176,8 @@ export default async function AdminPage({
   const panel = selectedPanel(firstParam(params.panel));
   const dialog = firstParam(params.dialog);
   const userDialogId = firstParam(params.userId);
+  const academyDialogId = firstParam(params.academyId);
+  const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
   const search = (firstParam(params.search) ?? "").trim();
   const emailConfig = getEmailProvisioningConfig();
   const superAdmin = isSuperAdminRole(currentUser.role);
@@ -160,11 +189,14 @@ export default async function AdminPage({
   const claimPage = pageFromParams(params, "claimsPage");
   const claimPageSize = selectedClaimPageSize(firstParam(params.pageSize));
   const claimStatus = selectedClaimStatus(firstParam(params.status));
+  const academyReminderFilter = selectedAcademyReminderFilter(firstParam(params.reminderFilter));
   const academyVerificationSearch = matchingAcademyVerificationStatus(search);
   const roleSearch = matchingRole(search);
   const userStatusSearch = matchingUserStatus(search);
+  const reminderCooldownStart = new Date();
+  reminderCooldownStart.setDate(reminderCooldownStart.getDate() - 30);
 
-  const academyWhere: Prisma.AcademyWhereInput = search
+  const academySearchWhere: Prisma.AcademyWhereInput = search
     ? {
         OR: [
           { name: { contains: search, mode: "insensitive" } },
@@ -175,6 +207,27 @@ export default async function AdminPage({
         ],
       }
     : {};
+  const academyReminderWhere: Prisma.AcademyWhereInput =
+    academyReminderFilter === "eligible"
+      ? {
+          email: { not: null },
+          members: { none: {} },
+          claims: { none: { status: { in: [ClaimStatus.APPROVED, ClaimStatus.PENDING] } } },
+          claimReminders: { none: { status: "QUEUED", createdAt: { gte: reminderCooldownStart } } },
+        }
+      : academyReminderFilter === "recently-sent"
+        ? { claimReminders: { some: { status: "QUEUED", createdAt: { gte: reminderCooldownStart } } } }
+        : academyReminderFilter === "unavailable"
+          ? {
+              OR: [
+                { email: null },
+                { email: "" },
+                { members: { some: {} } },
+                { claims: { some: { status: { in: [ClaimStatus.APPROVED, ClaimStatus.PENDING] } } } },
+              ],
+            }
+          : {};
+  const academyWhere: Prisma.AcademyWhereInput = { AND: [academySearchWhere, academyReminderWhere] };
   const eventWhere: Prisma.EventWhereInput = {
     active: true,
     ...(search
@@ -237,6 +290,11 @@ export default async function AdminPage({
       skip: (currentAcademyPage - 1) * pageSize,
       take: pageSize,
       orderBy: { name: "asc" },
+      include: {
+        claims: { select: { status: true } },
+        members: { select: { id: true }, take: 1 },
+        claimReminders: { orderBy: { createdAt: "desc" }, take: 1 },
+      },
     }),
     prisma.event.findMany({
       skip: (currentEventPage - 1) * pageSize,
@@ -263,6 +321,19 @@ export default async function AdminPage({
     getPlatformAdminActivitySummary(currentUser.id),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
+  const selectedReminderAcademy = academyDialogId
+    ? await prisma.academy.findUnique({
+        where: { id: academyDialogId },
+        select: { id: true, name: true, email: true },
+      })
+    : null;
+  const selectedBulkReminderAcademies = selectedAcademyIds.length
+    ? await prisma.academy.findMany({
+        where: { id: { in: selectedAcademyIds } },
+        select: { id: true, name: true, email: true },
+        orderBy: { name: "asc" },
+      })
+    : [];
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
@@ -353,13 +424,14 @@ export default async function AdminPage({
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
             <AdminPanel
-              action={<NewAcademyPanelAction />}
-              description="Newest operational slice of academy records."
+              action={<AcademiesPanelActions params={params} reminderFilter={academyReminderFilter} />}
+              description="Search academy records and send controlled claim reminders to eligible unclaimed academies."
               id="academies"
-              search={<PanelSearch panel={panel} search={search} />}
+              search={<AcademiesPanelSearch reminderFilter={academyReminderFilter} search={search} />}
               title="Academies"
             >
-              <AcademiesTable academies={academies} />
+              <ClaimReminderResult params={params} />
+              <AcademiesTable academies={academies} params={params} />
               <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
             </AdminPanel>
           ) : null}
@@ -428,6 +500,12 @@ export default async function AdminPage({
       ) : null}
       {panel === "academies" && dialog === "new-academy" && platformAdmin ? (
         <NewAcademyDialog />
+      ) : null}
+      {panel === "academies" && dialog === "claim-reminder" && selectedReminderAcademy ? (
+        <ClaimReminderDialog academy={selectedReminderAcademy} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} />
+      ) : null}
+      {panel === "academies" && dialog === "bulk-claim-reminders" ? (
+        <BulkClaimReminderDialog academies={selectedBulkReminderAcademies} closeHref={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} />
       ) : null}
       {panel === "open-mats" && dialog === "new-open-mat" ? (
         <NewOpenMatDialog academies={academyOptions} />
@@ -537,6 +615,126 @@ export function NewAcademyPanelAction() {
       <Plus size={18} aria-hidden />
       New Academy
     </Button>
+  );
+}
+
+function AcademiesPanelSearch({ reminderFilter, search }: { reminderFilter: string; search: string }) {
+  return (
+    <form action="/admin" className="flex min-w-0 gap-2">
+      <input type="hidden" name="panel" value="academies" />
+      {reminderFilter !== "all" ? <input type="hidden" name="reminderFilter" value={reminderFilter} /> : null}
+      <input
+        name="search"
+        defaultValue={search}
+        placeholder="Search academies"
+        className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
+      />
+      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label="Search academies">
+        <Search size={20} aria-hidden />
+      </Button>
+    </form>
+  );
+}
+
+function AcademiesPanelActions({ params, reminderFilter }: { params: AdminSearchParams; reminderFilter: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <Button
+        href={adminAcademiesHref(params, { reminderFilter: reminderFilter === "eligible" ? undefined : "eligible", academiesPage: 1 })}
+        variant={reminderFilter === "eligible" ? "primary" : "secondary"}
+        className="min-h-12 whitespace-nowrap"
+      >
+        <Mail size={18} aria-hidden />
+        Unclaimed with valid email
+      </Button>
+      {reminderFilter !== "all" ? (
+        <Button href={adminAcademiesHref(params, { reminderFilter: undefined, academiesPage: 1 })} variant="secondary" className="min-h-12 border-stone-200 text-slate-700">
+          Reset filters
+        </Button>
+      ) : null}
+      <NewAcademyPanelAction />
+    </div>
+  );
+}
+
+function ClaimReminderResult({ params }: { params: AdminSearchParams }) {
+  const result = firstParam(params.claimReminderResult);
+  if (!result) return null;
+  const reason = firstParam(params.claimReminderReason);
+  const queued = firstParam(params.queued) ?? "0";
+  const skipped = firstParam(params.skipped) ?? "0";
+  const failed = firstParam(params.failed) ?? "0";
+  const message = result === "queued"
+    ? "Claim reminder queued."
+    : result === "skipped"
+      ? `Claim reminder skipped${reason ? `: ${claimReminderReasonLabel(reason)}.` : "."}`
+      : result === "failed"
+        ? `Claim reminder failed${reason ? `: ${reason}.` : "."}`
+        : result === "bulk"
+          ? `${queued} queued. ${skipped} skipped. ${failed} failed.`
+          : result === "none_selected"
+            ? "Select at least one academy before sending claim reminders."
+            : result === "batch_too_large"
+              ? "Too many academies selected for one reminder batch."
+              : result === "unauthorized"
+                ? "You do not have permission to send claim reminders."
+                : null;
+  if (!message) return null;
+  return (
+    <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-900">
+      {message}
+    </div>
+  );
+}
+
+function ClaimReminderDialog({ academy, closeHref, returnTo }: { academy: { id: string; name: string; email: string | null }; closeHref: string; returnTo: string }) {
+  return (
+    <DialogShell closeHref={closeHref} description="The backend will re-check claim status, email validity, suppression, and cooldown before queueing." title="Send claim reminder?">
+      <div className="mt-6 grid gap-4">
+        <p className="text-sm font-semibold leading-6 text-slate-700">
+          This will queue a claim reminder for <strong>{academy.name}</strong>{academy.email ? <> at <strong>{academy.email}</strong></> : null}. The email links to the existing claim flow and does not grant access.
+        </p>
+        <form action={sendAcademyClaimReminder.bind(null, academy.id)} className="flex flex-wrap justify-end gap-3">
+          <input type="hidden" name="returnTo" value={returnTo} />
+          <Button href={closeHref} variant="secondary">Cancel</Button>
+          <Button type="submit" variant="primary">
+            <Send size={18} aria-hidden />
+            Queue reminder
+          </Button>
+        </form>
+      </div>
+    </DialogShell>
+  );
+}
+
+function BulkClaimReminderDialog({ academies, closeHref, returnTo }: { academies: { id: string; name: string; email: string | null }[]; closeHref: string; returnTo: string }) {
+  return (
+    <DialogShell closeHref={closeHref} description="Selected academies will be checked again before any reminder is queued." title="Send claim reminders?">
+      <div className="mt-6 grid gap-4">
+        <p className="text-sm font-semibold leading-6 text-slate-700">
+          Reminders will be attempted for {academies.length} selected {academies.length === 1 ? "academy" : "academies"}. Ineligible academies will be skipped with a reason.
+        </p>
+        {academies.length ? (
+          <ul className="max-h-56 overflow-auto rounded-md border border-stone-200 text-sm">
+            {academies.map((academy) => (
+              <li key={academy.id} className="flex items-center justify-between gap-3 border-b border-stone-100 px-3 py-2 last:border-b-0">
+                <span className="font-bold text-slate-900">{academy.name}</span>
+                <span className="break-all text-slate-500">{academy.email ?? "No email"}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <form action={sendBulkAcademyClaimReminders} className="flex flex-wrap justify-end gap-3">
+          <input type="hidden" name="returnTo" value={returnTo} />
+          {academies.map((academy) => <input key={academy.id} type="hidden" name="academyIds" value={academy.id} />)}
+          <Button href={closeHref} variant="secondary">Cancel</Button>
+          <Button type="submit" variant="primary" disabled={!academies.length}>
+            <Send size={18} aria-hidden />
+            Queue {academies.length} reminders
+          </Button>
+        </form>
+      </div>
+    </DialogShell>
   );
 }
 
@@ -922,9 +1120,13 @@ type AcademyRow = {
   borough: string | null;
   city: string;
   postcode: string;
+  email: string | null;
   verified: boolean;
   verificationStatus: string;
   featured: boolean;
+  claims: { status: ClaimStatus }[];
+  members: { id: string }[];
+  claimReminders: { status: string; skipReason: string | null; createdAt: Date; recipientEmail: string | null }[];
 };
 
 type OpenMatRow = {
@@ -956,50 +1158,122 @@ type UserRow = {
 const menuItemClass = "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
 const dangerMenuItemClass = "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50";
 
-function AcademiesTable({ academies }: { academies: AcademyRow[] }) {
+function claimReminderReasonLabel(reason: string) {
+  const labels: Record<string, string> = {
+    invalid_email: "Invalid email",
+    managed: "Already claimed",
+    missing_email: "No email",
+    not_found: "Academy not found",
+    pending_claim: "Pending claim",
+    recently_sent: "Recently sent",
+  };
+  return labels[reason] ?? sentenceCase(reason);
+}
+
+function academyClaimState(academy: AcademyRow) {
+  if (academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)) return "Claimed";
+  if (academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)) return "Pending claim";
+  return "Unclaimed";
+}
+
+function academyReminderState(academy: AcademyRow) {
+  const latest = academy.claimReminders[0];
+  if (latest?.status === "QUEUED") return { label: `Queued ${formatDate(latest.createdAt)}`, eligible: false, reason: "recently_sent" };
+  if (latest?.status === "FAILED") return { label: "Failed", eligible: true, reason: latest.skipReason ?? "failed" };
+  if (academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)) return { label: "Already claimed", eligible: false, reason: "managed" };
+  if (academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)) return { label: "Pending claim", eligible: false, reason: "pending_claim" };
+  if (!academy.email) return { label: "No email", eligible: false, reason: "missing_email" };
+  return { label: "Not sent", eligible: true, reason: null };
+}
+
+function AcademiesTable({ academies, params }: { academies: AcademyRow[]; params: AdminSearchParams }) {
+  const returnTo = adminAcademiesHref(params, { dialog: undefined, academyId: undefined, academyIds: undefined });
   return (
-    <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[920px] border-collapse text-left text-sm">
-        <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
-          <tr>
-            <th className="px-5 py-4">Name</th>
-            <th className="px-5 py-4">Location</th>
-            <th className="px-5 py-4">Postcode</th>
-            <th className="px-5 py-4">Verification</th>
-            <th className="px-5 py-4">Featured</th>
-            <th className="px-5 py-4 text-center">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {academies.map((academy) => (
-            <tr key={academy.id} className="border-t border-stone-100">
-              <td className="px-5 py-4 font-bold text-slate-950">{academy.name}</td>
-              <td className="px-5 py-4 text-slate-700">{academy.borough ?? academy.city}</td>
-              <td className="px-5 py-4 text-slate-700">{academy.postcode}</td>
-              <td className="px-5 py-4"><Badge>{academy.verificationStatus}</Badge></td>
-              <td className="px-5 py-4"><Badge>{academy.featured ? "Featured" : "No"}</Badge></td>
-              <td className="px-5 py-4 text-center">
-                <ActionMenu label={`Open actions for ${academy.name}`}>
-                  <Link href={`/academies/${academy.slug}`} className={menuItemClass}>
-                    <Eye size={18} aria-hidden />
-                    View Academy
-                  </Link>
-                  <Link href={`/admin/academies/${academy.id}`} className={menuItemClass}>
-                    <Edit3 size={18} aria-hidden />
-                    Edit Academy
-                  </Link>
-                </ActionMenu>
-              </td>
-            </tr>
-          ))}
-          {!academies.length ? (
+    <form action="/admin" className="mt-4">
+      <input type="hidden" name="panel" value="academies" />
+      <input type="hidden" name="dialog" value="bulk-claim-reminders" />
+      {firstParam(params.search) ? <input type="hidden" name="search" value={firstParam(params.search)} /> : null}
+      {firstParam(params.reminderFilter) ? <input type="hidden" name="reminderFilter" value={firstParam(params.reminderFilter)} /> : null}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-2">
+        <p className="text-sm font-semibold text-slate-600">Select academies on this page to review a bulk claim reminder.</p>
+        <Button type="submit" variant="secondary" className="min-h-10 border-teal-200 text-teal-800">
+          <Send size={16} aria-hidden />
+          Review selected reminders
+        </Button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1180px] border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
             <tr>
-              <td colSpan={6} className="px-4 py-8 text-center text-stone-600">No academies to show.</td>
+              <th className="px-4 py-4">Select</th>
+              <th className="px-5 py-4">Name</th>
+              <th className="px-5 py-4">Location</th>
+              <th className="px-5 py-4">Postcode</th>
+              <th className="px-5 py-4">Claim</th>
+              <th className="px-5 py-4">Email</th>
+              <th className="px-5 py-4">Claim reminder</th>
+              <th className="px-5 py-4">Featured</th>
+              <th className="px-5 py-4 text-center">Actions</th>
             </tr>
-          ) : null}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {academies.map((academy) => {
+              const reminder = academyReminderState(academy);
+              return (
+                <tr key={academy.id} className="border-t border-stone-100">
+                  <td className="px-4 py-4">
+                    <input className="size-4 accent-teal-700" type="checkbox" name="academyIds" value={academy.id} aria-label={`Select ${academy.name} for claim reminder`} />
+                  </td>
+                  <td className="px-5 py-4 font-bold text-slate-950">{academy.name}</td>
+                  <td className="px-5 py-4 text-slate-700">{academy.borough ?? academy.city}</td>
+                  <td className="px-5 py-4 text-slate-700">{academy.postcode}</td>
+                  <td className="px-5 py-4"><Badge>{academyClaimState(academy)}</Badge></td>
+                  <td className="px-5 py-4 text-slate-700">{academy.email ? <span className="break-all">{academy.email}</span> : <Badge>No email</Badge>}</td>
+                  <td className="px-5 py-4">
+                    <div className="grid gap-2">
+                      <Badge>{reminder.label}</Badge>
+                      {reminder.eligible ? (
+                        <Button href={adminAcademiesHref(params, { dialog: "claim-reminder", academyId: academy.id })} size="sm" variant="secondary" className="w-fit border-teal-200 text-teal-800">
+                          <Send size={16} aria-hidden />
+                          Send claim reminder
+                        </Button>
+                      ) : (
+                        <p className="text-xs font-semibold text-slate-500">{claimReminderReasonLabel(reminder.reason ?? "unavailable")}</p>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-5 py-4"><Badge>{academy.featured ? "Featured" : "No"}</Badge></td>
+                  <td className="px-5 py-4 text-center">
+                    <ActionMenu label={`Open actions for ${academy.name}`}>
+                      <Link href={`/academies/${academy.slug}`} className={menuItemClass}>
+                        <Eye size={18} aria-hidden />
+                        View Academy
+                      </Link>
+                      <Link href={`/admin/academies/${academy.id}`} className={menuItemClass}>
+                        <Edit3 size={18} aria-hidden />
+                        Edit Academy
+                      </Link>
+                      {reminder.eligible ? (
+                        <Link href={adminAcademiesHref(params, { dialog: "claim-reminder", academyId: academy.id })} className={menuItemClass}>
+                          <Send size={18} aria-hidden />
+                          Send claim reminder
+                        </Link>
+                      ) : null}
+                    </ActionMenu>
+                  </td>
+                </tr>
+              );
+            })}
+            {!academies.length ? (
+              <tr>
+                <td colSpan={9} className="px-4 py-8 text-center text-stone-600">No academies match the current search and filters.</td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+      <input type="hidden" name="returnTo" value={returnTo} />
+    </form>
   );
 }
 

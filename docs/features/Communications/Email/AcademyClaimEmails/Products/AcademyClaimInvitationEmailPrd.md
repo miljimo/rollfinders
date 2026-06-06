@@ -12,7 +12,7 @@ Review date: 2026-06-06
 
 When RollFinders adds an academy listing to the platform, send an invitation email to the academy contact so
  the rightful owner or authorized staff member can claim the academy and start managing the listing if an email is provided.
- RollFinders can also send a remainder emails manully via a UI interface with the Academic selected and a send remainder email.
+ RollFinders can also send claim reminder emails manually from the Admin Academies UI when an academy is unclaimed and has a valid usable email.
 
 ---
 
@@ -29,12 +29,13 @@ This email is not a generic user onboarding email. It is an academy ownership in
 
 In scope:
 
-* Email sent after a platform admin adds, resend reminder or imports an academy listing.
+* Email sent after a platform admin adds or imports an academy listing.
+* Manual claim reminder emails sent from the Admin Academies UI.
 * Email format and content for academy claim invitations.
 * HTML template requirement for the invitation email. See `AcademyClaimInvitationHtmlTemplatePrd.md`.
 * Claim invitation link generation.
 * Reliable email queueing and delivery tracking.
-* Admin feedback when the invitation is queued or fails.
+* Admin feedback when the invitation or reminder is queued, skipped, or fails.
 * Audit metadata for invitation generation.
 
 Out of scope:
@@ -179,16 +180,57 @@ WHEN the email payload is built
 
 THEN the email SHALL use `support@rollfinders.com` as sender and reply-to.
 
+## ACADEMY-CLAIM-EMAIL-013: Manual Reminder Eligibility
+
+IF a platform admin requests a manual claim reminder from the Admin Academies UI
+
+WHEN the backend evaluates the academy
+
+THEN the system SHALL only queue the reminder when the academy is unclaimed, has a valid usable email, is not suppressed, and is outside the configured reminder cooldown window.
+
+## ACADEMY-CLAIM-EMAIL-014: Manual Reminder Search And Filter Source
+
+IF the admin finds academies through search or claim reminder filters
+
+WHEN a manual reminder is requested
+
+THEN the email system SHALL still rely on backend eligibility checks and SHALL NOT trust frontend search or filter state as the sending authority.
+
+## ACADEMY-CLAIM-EMAIL-015: Manual Reminder Copy
+
+IF a manual claim reminder email is generated
+
+WHEN the email body is built
+
+THEN the copy SHALL explain that RollFinders has an academy listing that can be claimed, SHALL include the academy name, SHALL include a claim CTA, and SHALL state that claim approval is reviewed before management access is granted.
+
+## ACADEMY-CLAIM-EMAIL-016: Manual Reminder No Ownership Grant
+
+IF a recipient opens a manual claim reminder link
+
+WHEN they submit the claim flow
+
+THEN the system SHALL create or update a pending claim request and SHALL NOT grant management access without platform-admin approval.
+
+## ACADEMY-CLAIM-EMAIL-017: Manual Reminder Outcome Tracking
+
+IF a manual claim reminder is requested
+
+WHEN the system queues, skips, or fails the reminder
+
+THEN the system SHALL expose an outcome that the Admin Academies UI can display as queued, skipped, or failed.
+
 ---
 
 # Development Requirements
 
 * Add a platform-admin control to send or resend a claim invitation from academy create/edit workflows.
+* Add Admin Academies UI support for manual claim reminders to unclaimed academies with valid usable emails.
 * Use the approved HTML email template requirement from `AcademyClaimInvitationHtmlTemplatePrd.md`.
 * Generate a claim invitation URL that preselects the academy in the public claim flow.
 * Queue the email through the existing reliable email system.
 * Track outbound email status using existing email status and retry behavior.
-* Show admin success or queue-failure feedback.
+* Show admin queued, skipped, and failed feedback.
 * Reuse the existing academy claim review and approval workflow after the recipient submits a claim.
 * Add tests for email content, queueing behavior, duplicate protection, and failure feedback.
 
@@ -205,3 +247,5 @@ THEN the email SHALL use `support@rollfinders.com` as sender and reply-to.
 * Duplicate active invitations are prevented or replaced intentionally.
 * Admin feedback distinguishes academy save success from email queue failure.
 * Email uses `support@rollfinders.com`.
+* Manual reminders can be queued only for eligible unclaimed academies.
+* Manual reminder outcomes can be shown in the Admin Academies UI.

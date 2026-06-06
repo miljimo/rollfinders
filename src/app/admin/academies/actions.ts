@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { AcademyMemberRole, AcademyVerificationStatus, InvitationStatus } from "@prisma/client";
+import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { getCurrentUser, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
@@ -10,6 +10,9 @@ import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { queueEmail } from "@/lib/reliable-email";
 import { academySchema } from "@/lib/validators";
+
+const claimReminderCooldownDays = 30;
+const claimReminderBatchLimit = 50;
 
 export type AcademyFormState = {
   message: string;
@@ -219,6 +222,183 @@ function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 }
 
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function publicClaimUrl(slug: string) {
+  const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+  return `${baseUrl}/academies/${slug}/claim`;
+}
+
+function reminderCooldownStart() {
+  const date = new Date();
+  date.setDate(date.getDate() - claimReminderCooldownDays);
+  return date;
+}
+
+function adminAcademiesRedirect(formData: FormData, params: Record<string, string | number>) {
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const url = new URL(returnTo.startsWith("/admin") ? returnTo : "/admin?panel=academies", "http://localhost");
+  Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
+  revalidatePath("/admin");
+  redirect(`${url.pathname}${url.search}`);
+}
+
+async function queueAcademyClaimReminderEmail({
+  academyName,
+  academySlug,
+  recipientEmail,
+}: {
+  academyName: string;
+  academySlug: string;
+  recipientEmail: string;
+}) {
+  const claimUrl = publicClaimUrl(academySlug);
+  return queueEmail({
+    to: recipientEmail,
+    subject: `Claim your ${academyName} listing on RollFinders`,
+    text: [
+      "Hi,",
+      "",
+      `RollFinders has a listing for ${academyName}. If you are the owner or an authorized staff member, you can submit a claim so the listing can be reviewed for management access.`,
+      "",
+      "Claiming is free and lets you keep academy details accurate after approval.",
+      "",
+      `Submit a claim: ${claimUrl}`,
+      "",
+      "RollFinders",
+    ].join("\n"),
+    html: [
+      "<p>Hi,</p>",
+      `<p>RollFinders has a listing for <strong>${escapeHtml(academyName)}</strong>. If you are the owner or an authorized staff member, you can submit a claim so the listing can be reviewed for management access.</p>`,
+      "<p>Claiming is free and lets you keep academy details accurate after approval.</p>",
+      `<p><a href="${claimUrl}">Claim this academy</a></p>`,
+      "<p>RollFinders</p>",
+    ].join(""),
+  });
+}
+
+type ReminderOutcome =
+  | { status: "queued"; academyId: string; email: string; outboundEmailId: string }
+  | { status: "skipped"; academyId: string; reason: string; email?: string | null }
+  | { status: "failed"; academyId: string; reason: string; email?: string | null };
+
+async function createReminderAudit({
+  actorUserId,
+  academyId,
+  academyName,
+  email,
+  outcome,
+  reason,
+}: {
+  actorUserId: string;
+  academyId: string;
+  academyName?: string;
+  email?: string | null;
+  outcome: string;
+  reason?: string | null;
+}) {
+  await writeAdminAuditLog({
+    actorUserId,
+    action: "ACADEMY_CLAIM_REMINDER",
+    metadata: {
+      academyId,
+      academyName,
+      recipientEmail: email ?? null,
+      outcome,
+      reason: reason ?? null,
+      source: "admin_academies",
+    },
+  });
+}
+
+async function recordSkippedReminder(actorUserId: string, academyId: string, reason: string, email?: string | null, academyName?: string) {
+  await prisma.academyClaimReminder.create({
+    data: {
+      academyId,
+      actorUserId,
+      recipientEmail: email ?? null,
+      status: "SKIPPED",
+      skipReason: reason,
+    },
+  });
+  await createReminderAudit({ actorUserId, academyId, academyName, email, outcome: "skipped", reason });
+  return { status: "skipped", academyId, reason, email } satisfies ReminderOutcome;
+}
+
+async function sendReminderForAcademy(actorUserId: string, academyId: string): Promise<ReminderOutcome> {
+  const academy = await prisma.academy.findUnique({
+    where: { id: academyId },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      email: true,
+      claims: { select: { status: true } },
+      members: { select: { id: true }, take: 1 },
+      claimReminders: {
+        where: { status: "QUEUED", createdAt: { gte: reminderCooldownStart() } },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+      },
+    },
+  });
+
+  if (!academy) {
+    await createReminderAudit({ actorUserId, academyId, outcome: "skipped", reason: "not_found" });
+    return { status: "skipped", academyId, reason: "not_found" };
+  }
+  const email = academy.email ? normalizeEmail(academy.email) : null;
+  if (academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)) {
+    return recordSkippedReminder(actorUserId, academy.id, "managed", email, academy.name);
+  }
+  if (academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)) {
+    return recordSkippedReminder(actorUserId, academy.id, "pending_claim", email, academy.name);
+  }
+  if (!email) return recordSkippedReminder(actorUserId, academy.id, "missing_email", null, academy.name);
+  if (!isValidEmail(email)) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name);
+  const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { email } });
+  if (invalidEmail) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name);
+  if (academy.claimReminders.length > 0) return recordSkippedReminder(actorUserId, academy.id, "recently_sent", email, academy.name);
+
+  try {
+    const outboundEmail = await queueAcademyClaimReminderEmail({
+      academyName: academy.name,
+      academySlug: academy.slug,
+      recipientEmail: email,
+    });
+    await prisma.academyClaimReminder.create({
+      data: {
+        academyId: academy.id,
+        actorUserId,
+        recipientEmail: email,
+        outboundEmailId: outboundEmail.id,
+        status: "QUEUED",
+      },
+    });
+    await createReminderAudit({ actorUserId, academyId: academy.id, academyName: academy.name, email, outcome: "queued" });
+    return { status: "queued", academyId: academy.id, email, outboundEmailId: outboundEmail.id };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Reminder could not be queued.";
+    await prisma.academyClaimReminder.create({
+      data: {
+        academyId: academy.id,
+        actorUserId,
+        recipientEmail: email,
+        status: "FAILED",
+        skipReason: reason,
+      },
+    });
+    await createReminderAudit({ actorUserId, academyId: academy.id, academyName: academy.name, email, outcome: "failed", reason });
+    return { status: "failed", academyId: academy.id, reason, email };
+  }
+}
+
 async function queueAcademyInvitationEmail({
   invitedEmail,
   academyName,
@@ -284,6 +464,41 @@ export async function resendAcademyInvitation(academyId: string, invitationId: s
     token: invitation.token,
   });
   revalidatePath(`/admin/academies/${academyId}/team`);
+}
+
+export async function sendAcademyClaimReminder(academyId: string, formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!isPlatformAdminRole(actor?.role)) redirect("/admin?panel=academies&claimReminderResult=unauthorized");
+
+  const outcome = await sendReminderForAcademy(actor.id, academyId);
+  adminAcademiesRedirect(formData, {
+    claimReminderResult: outcome.status,
+    claimReminderReason: outcome.status === "queued" ? "queued" : outcome.reason,
+  });
+}
+
+export async function sendBulkAcademyClaimReminders(formData: FormData) {
+  const actor = await getCurrentUser();
+  if (!isPlatformAdminRole(actor?.role)) redirect("/admin?panel=academies&claimReminderResult=unauthorized");
+
+  const academyIds = formData.getAll("academyIds").map((value) => String(value)).filter(Boolean);
+  if (!academyIds.length) {
+    adminAcademiesRedirect(formData, { claimReminderResult: "none_selected" });
+  }
+  if (academyIds.length > claimReminderBatchLimit) {
+    adminAcademiesRedirect(formData, { claimReminderResult: "batch_too_large" });
+  }
+
+  const outcomes = await Promise.all([...new Set(academyIds)].map((academyId) => sendReminderForAcademy(actor.id, academyId)));
+  const queued = outcomes.filter((outcome) => outcome.status === "queued").length;
+  const skipped = outcomes.filter((outcome) => outcome.status === "skipped").length;
+  const failed = outcomes.filter((outcome) => outcome.status === "failed").length;
+  adminAcademiesRedirect(formData, {
+    claimReminderResult: "bulk",
+    queued,
+    skipped,
+    failed,
+  });
 }
 
 export async function removeAcademyMember(academyId: string, memberId: string) {

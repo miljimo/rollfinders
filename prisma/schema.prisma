@@ -200,6 +200,7 @@ model Academy {
   members            AcademyMember[]
   users              User[]                    @relation("AcademyUsers")
   invitations        AcademyInvitation[]
+  claimReminders     AcademyClaimReminder[]
 
   @@index([city])
   @@index([postcode])
@@ -299,6 +300,26 @@ model AcademyInvitation {
   @@index([academyId])
   @@index([invitedEmail])
   @@map("academy_invitations")
+}
+
+model AcademyClaimReminder {
+  id              String   @id @default(cuid())
+  academyId       String   @map("academy_id")
+  actorUserId     String   @map("actor_user_id")
+  recipientEmail  String?  @map("recipient_email")
+  outboundEmailId String?  @map("outbound_email_id")
+  idempotencyKey  String?  @map("idempotency_key")
+  status          String
+  skipReason      String?  @map("skip_reason")
+  source          String   @default("admin_academies")
+  createdAt       DateTime @default(now()) @map("created_at")
+  academy         Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  @@index([academyId, createdAt])
+  @@index([recipientEmail, createdAt])
+  @@index([status])
+  @@index([skipReason])
+  @@map("academy_claim_reminders")
 }
 
 model AdminAuditLog {
