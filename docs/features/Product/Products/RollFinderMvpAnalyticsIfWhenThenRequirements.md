@@ -4,11 +4,96 @@ Version: 1.0
 
 Priority: High
 
+Status: Ready for development
+
 Source Requirement: `docs/features/Product/Products/RollFinderMissingMvpRequirementsPrd.md` MR-003
 
-Review date: 2026-06-04
+Review date: 2026-06-06
+
+Provider decision: PostHog
 
 ---
+
+# Schema Impact
+
+No schema changes are required for this PRD.
+
+IF MVP analytics is implemented
+
+WHEN the deployment is prepared
+
+THEN no database migration script SHALL be required for this PRD.
+
+AND analytics SHALL be configured through environment variables.
+
+AND missing analytics configuration SHALL NOT break page rendering, navigation, search, directions clicks, or claim submission.
+
+---
+
+# Product Decision
+
+PostHog is the selected MVP analytics provider.
+
+IF MVP analytics is implemented
+
+WHEN the provider is configured
+
+THEN RollFinders SHALL use PostHog for public discovery and claim funnel analytics.
+
+AND the implementation SHALL include safe no-op behavior when PostHog configuration is missing or disabled.
+
+AND the implementation SHALL NOT add BI dashboards, session replay, heatmaps, A/B testing, revenue analytics, paid-placement analytics, admin rewards analytics, or full admin activity analytics in version 1.
+
+---
+
+# Cost Estimate
+
+Pricing source: PostHog public pricing, reviewed on 2026-06-06.
+
+PostHog Product Analytics currently includes:
+
+* 1,000,000 analytics events per month free.
+* Usage-based pricing after the free tier at `$0.00005` per event.
+
+This MVP analytics release SHALL only use Product Analytics events.
+
+IF the implementation does not enable Session Replay, Feature Flags, Surveys, Heatmaps, Experiments, Data Warehouse, or other paid PostHog products
+
+WHEN monthly usage is estimated
+
+THEN the expected analytics cost SHALL be based only on Product Analytics event volume.
+
+Estimated monthly Product Analytics cost:
+
+| Monthly events | Estimated monthly cost |
+| --- | ---: |
+| 100,000 | `$0` |
+| 500,000 | `$0` |
+| 1,000,000 | `$0` |
+| 2,000,000 | `$50` |
+| 5,000,000 | `$200` |
+
+Formula:
+
+```text
+max(0, monthly_events - 1,000,000) * 0.00005
+```
+
+Cost control requirements:
+
+IF analytics is implemented for MVP
+
+WHEN events are added
+
+THEN the implementation SHALL avoid noisy high-frequency events such as scroll depth, mouse movement, session replay, heatmaps, or repeated polling events.
+
+AND the implementation SHALL prefer meaningful product events tied to discovery, directions, and claims.
+
+IF monthly event volume approaches the free tier limit
+
+WHEN the founder reviews analytics usage
+
+THEN RollFinders SHOULD review event volume, remove low-value events, or set PostHog billing limits before accepting paid overage.
 
 # Implementation Branch
 
@@ -18,7 +103,7 @@ Use branch:
 
 Branch purpose:
 
-* Select and configure the MVP analytics provider.
+* Configure PostHog as the MVP analytics provider.
 * Configure production analytics.
 * Track page views, searches, profile/detail views, directions clicks, map events, and claim funnel events.
 * Make MVP visitor, active user, returning user, and search metrics measurable.
@@ -35,14 +120,14 @@ As the founder, I want analytics for discovery behavior so that I can measure wh
 
 In scope:
 
-* Analytics provider decision.
-* Production provider configuration.
+* PostHog provider configuration.
+* Safe analytics no-op behavior when disabled or unconfigured.
 * Page view tracking.
 * Search submission tracking.
 * Open mat and academy profile view tracking.
 * Directions click tracking.
 * Map view and marker click tracking.
-* Claim funnel tracking once academy claiming exists.
+* Claim funnel tracking for the implemented academy claiming flow.
 * Lightweight reporting path for MVP success metrics.
 
 Out of scope:
@@ -55,6 +140,38 @@ Out of scope:
 * Heatmaps.
 * Individual user profiling.
 * Advertising attribution beyond provider defaults.
+* Admin activity analytics.
+* Platform Admin activity target or reward analytics.
+* Custom interactive map work.
+
+---
+
+# Implementation Summary
+
+The first analytics release SHALL be limited to public discovery and academy claim funnel learning.
+
+Likely implementation areas:
+
+* `src/app/layout.tsx`
+* Public academy pages
+* Public Open Mat pages
+* Public map page
+* Academy claim start and submission flow
+* Shared analytics helper such as `src/lib/analytics.ts` or an equivalent client-safe helper
+
+IF analytics code runs in a browser context
+
+WHEN PostHog is configured
+
+THEN the app SHALL load and use PostHog.
+
+IF analytics code runs without PostHog configuration
+
+WHEN events are requested
+
+THEN the app SHALL silently no-op.
+
+AND the user flow SHALL continue.
 
 ---
 
@@ -75,6 +192,8 @@ Use these stable event names:
 Privacy rule:
 
 * Do not send raw email addresses, phone numbers, exact user latitude/longitude, free-form claim notes, or verification evidence to analytics.
+* Do not send raw free-text search terms when they may expose personal data.
+* Prefer boolean flags, counts, IDs, slugs, filter names, broad location fields, and source page identifiers.
 
 ---
 
@@ -95,19 +214,21 @@ Acceptance criteria:
 
 ---
 
-# Requirement 2: Provider Decision
+# Requirement 2: PostHog Provider Decision
 
-IF the analytics provider has not been selected
+IF MVP analytics implementation begins
 
-WHEN implementation work begins
+WHEN provider setup is documented
 
-THEN the team SHALL document whether RollFinder is using Google Analytics, PostHog, or another approved provider.
+THEN the team SHALL document PostHog as the selected MVP analytics provider.
 
 Acceptance criteria:
 
-* Decision names Google Analytics, PostHog, or another approved provider.
-* Decision explains how the provider will measure monthly visitors, weekly active users, returning users, and monthly searches.
+* Decision names PostHog.
+* Decision explains which environment variables enable or disable PostHog.
+* Decision explains how PostHog will measure monthly visitors, weekly active users, returning users, and monthly searches.
 * Decision explains whether cookie consent is required before tracking.
+* Decision confirms analytics remains disabled or no-op when configuration is missing.
 
 ---
 
