@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { RecurrenceType, type Event } from "@prisma/client";
 import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
+import { recordOpenMatCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { eventSchema } from "@/lib/validators";
 
@@ -197,7 +198,9 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
     return duplicateOpenMatError(formData);
   }
 
-  await prisma.event.create({ data: { ...data, createdById: access.userId } });
+  const event = await prisma.event.create({ data: { ...data, createdById: access.userId } });
+  await recordOpenMatCreatedActivity(access.userId, event.id);
+
   const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/open-mats";
   revalidatePath("/admin");

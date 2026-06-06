@@ -93,32 +93,54 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum PlatformAdminActivityAction {
+  ACADEMY_CREATED
+  OPEN_MAT_CREATED
+  ACADEMY_ADMIN_ACTIVATED
+}
+
+enum PlatformAdminActivitySource {
+  ACADEMY
+  OPEN_MAT
+  ACADEMY_ADMIN
+}
+
+enum PlatformAdminExemptionType {
+  TEMPORARY
+  PERMANENT
+}
+
 model User {
-  id           String   @id @default(cuid())
-  name         String?
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         Role     @default(STANDARD_USER)
-  academyId    String?  @map("academy_id")
-  status       UserStatus @default(ACTIVE)
-  disabled     Boolean  @default(false)
-  isProtected  Boolean  @default(false) @map("is_protected")
-  emailStatus  UserEmailStatus @default(VALID) @map("email_status")
-  emailInvalidReason String? @map("email_invalid_reason")
-  emailInvalidAt DateTime? @map("email_invalid_at")
-  lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime @default(now()) @map("created_at")
-  academyMemberships AcademyMember[]
-  academy      Academy? @relation("AcademyUsers", fields: [academyId], references: [id], onDelete: SetNull)
-  academyInvitations AcademyInvitation[] @relation("AcademyInvitationInviter")
-  adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogActor")
-  targetedAdminAuditLogs AdminAuditLog[] @relation("AdminAuditLogTarget")
-  reviewedClaimRequests ClaimRequest[] @relation("ClaimRequestReviewer")
-  linkedClaimRequests ClaimRequest[] @relation("ClaimRequestLinkedUser")
-  outboundEmails OutboundEmail[]
-  invalidEmailAddresses InvalidEmailAddress[]
-  passwordResetTokens PasswordResetToken[]
-  createdEvents Event[] @relation("EventCreator")
+  id                                     String                           @id @default(cuid())
+  name                                   String?
+  email                                  String                           @unique
+  passwordHash                           String                           @map("password_hash")
+  role                                   Role                             @default(STANDARD_USER)
+  academyId                              String?                          @map("academy_id")
+  status                                 UserStatus                       @default(ACTIVE)
+  disabled                               Boolean                          @default(false)
+  isProtected                            Boolean                          @default(false) @map("is_protected")
+  emailStatus                            UserEmailStatus                  @default(VALID) @map("email_status")
+  emailInvalidReason                     String?                          @map("email_invalid_reason")
+  emailInvalidAt                         DateTime?                        @map("email_invalid_at")
+  lastLoginAt                            DateTime?                        @map("last_login_at")
+  createdAt                              DateTime                         @default(now()) @map("created_at")
+  academyMemberships                     AcademyMember[]
+  academy                                Academy?                         @relation("AcademyUsers", fields: [academyId], references: [id], onDelete: SetNull)
+  academyInvitations                     AcademyInvitation[]              @relation("AcademyInvitationInviter")
+  adminAuditLogs                         AdminAuditLog[]                  @relation("AdminAuditLogActor")
+  targetedAdminAuditLogs                 AdminAuditLog[]                  @relation("AdminAuditLogTarget")
+  platformAdminProfile                   PlatformAdminProfile?
+  platformAdminActivityEvents            PlatformAdminActivityEvent[]     @relation("PlatformAdminActivityActor")
+  platformAdminActivityExemptions        PlatformAdminActivityExemption[] @relation("PlatformAdminActivityExemptUser")
+  createdPlatformAdminActivityExemptions PlatformAdminActivityExemption[] @relation("PlatformAdminActivityExemptCreator")
+  platformAdminWeeklyTarget              PlatformAdminWeeklyTarget?
+  reviewedClaimRequests                  ClaimRequest[]                   @relation("ClaimRequestReviewer")
+  linkedClaimRequests                    ClaimRequest[]                   @relation("ClaimRequestLinkedUser")
+  outboundEmails                         OutboundEmail[]
+  invalidEmailAddresses                  InvalidEmailAddress[]
+  passwordResetTokens                    PasswordResetToken[]
+  createdEvents                          Event[]                          @relation("EventCreator")
 
   @@index([academyId])
   @@map("users")
@@ -139,42 +161,42 @@ model PasswordResetToken {
 }
 
 model Academy {
-  id          String         @id @default(cuid())
-  name        String
-  slug        String         @unique
-  description String
-  affiliation String?
-  website     String?
-  email       String?
-  phone       String?
-  address     String
-  city        String
-  postcode    String
-  borough     String?
-  country     String         @default("United Kingdom")
-  latitude    Float
-  longitude   Float
-  logoUrl     String?        @map("logo_url")
-  coverImageUrl String?      @map("cover_image_url")
-  categories  String?
-  facebookUrl String?        @map("facebook_url")
-  instagramUrl String?       @map("instagram_url")
-  xUrl        String?        @map("x_url")
-  dropInPrice Float?         @map("drop_in_price")
-  giAvailable Boolean        @default(true) @map("gi_available")
-  nogiAvailable Boolean      @default(true) @map("nogi_available")
-  beginnerFriendly Boolean   @default(true) @map("beginner_friendly")
-  competitionFocused Boolean @default(false) @map("competition_focused")
+  id                 String                    @id @default(cuid())
+  name               String
+  slug               String                    @unique
+  description        String
+  affiliation        String?
+  website            String?
+  email              String?
+  phone              String?
+  address            String
+  city               String
+  postcode           String
+  borough            String?
+  country            String                    @default("United Kingdom")
+  latitude           Float
+  longitude          Float
+  logoUrl            String?                   @map("logo_url")
+  coverImageUrl      String?                   @map("cover_image_url")
+  categories         String?
+  facebookUrl        String?                   @map("facebook_url")
+  instagramUrl       String?                   @map("instagram_url")
+  xUrl               String?                   @map("x_url")
+  dropInPrice        Float?                    @map("drop_in_price")
+  giAvailable        Boolean                   @default(true) @map("gi_available")
+  nogiAvailable      Boolean                   @default(true) @map("nogi_available")
+  beginnerFriendly   Boolean                   @default(true) @map("beginner_friendly")
+  competitionFocused Boolean                   @default(false) @map("competition_focused")
   verificationStatus AcademyVerificationStatus @default(PENDING) @map("verification_status")
-  featured    Boolean        @default(false)
-  verified    Boolean        @default(false)
-  createdAt   DateTime       @default(now()) @map("created_at")
-  updatedAt   DateTime       @updatedAt @map("updated_at")
-  events      Event[]
-  claims      ClaimRequest[]
-  members     AcademyMember[]
-  users       User[] @relation("AcademyUsers")
-  invitations AcademyInvitation[]
+  featured           Boolean                   @default(false)
+  verified           Boolean                   @default(false)
+  createdAt          DateTime                  @default(now()) @map("created_at")
+  updatedAt          DateTime                  @updatedAt @map("updated_at")
+  events             Event[]
+  claims             ClaimRequest[]
+  members            AcademyMember[]
+  users              User[]                    @relation("AcademyUsers")
+  invitations        AcademyInvitation[]
 
   @@index([city])
   @@index([postcode])
@@ -187,24 +209,24 @@ model Academy {
 }
 
 model Event {
-  id          String   @id @default(cuid())
-  academyId   String   @map("academy_id")
-  createdById String?  @map("created_by_id")
-  title       String
-  description String
-  eventDate   DateTime @map("event_date")
-  startTime   String   @map("start_time")
-  endTime     String   @map("end_time")
-  giType      GiType   @map("gi_type")
-  price       Decimal  @db.Decimal(8, 2)
-  capacity    Int?
-  active      Boolean  @default(true)
-  recurrenceType RecurrenceType @default(NONE) @map("recurrence_type")
-  recurrenceEndDate DateTime? @map("recurrence_end_date")
-  recurrenceLimit Int? @map("recurrence_limit")
-  createdAt   DateTime @default(now()) @map("created_at")
-  academy     Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  createdBy   User?    @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  id                String         @id @default(cuid())
+  academyId         String         @map("academy_id")
+  createdById       String?        @map("created_by_id")
+  title             String
+  description       String
+  eventDate         DateTime       @map("event_date")
+  startTime         String         @map("start_time")
+  endTime           String         @map("end_time")
+  giType            GiType         @map("gi_type")
+  price             Decimal        @db.Decimal(8, 2)
+  capacity          Int?
+  active            Boolean        @default(true)
+  recurrenceType    RecurrenceType @default(NONE) @map("recurrence_type")
+  recurrenceEndDate DateTime?      @map("recurrence_end_date")
+  recurrenceLimit   Int?           @map("recurrence_limit")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  academy           Academy        @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  createdBy         User?          @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([eventDate])
   @@index([academyId])
@@ -215,25 +237,25 @@ model Event {
 }
 
 model ClaimRequest {
-  id                    String              @id @default(cuid())
-  academyId             String              @map("academy_id")
-  requesterName         String              @map("requester_name")
-  requesterEmail        String              @map("requester_email")
-  requesterPhone        String?             @map("requester_phone")
-  requesterRole         ClaimRequesterRole  @map("requester_role")
-  requesterBeltRank     BjjBeltRank?        @map("requester_belt_rank")
-  requesterBeltStripes  Int?                @map("requester_belt_stripes")
-  verificationNotes     String              @map("verification_notes")
-  publicProofLink       String?             @map("public_proof_link")
-  status                ClaimStatus         @default(PENDING)
-  reviewedAt            DateTime?           @map("reviewed_at")
-  reviewedById          String?             @map("reviewed_by_id")
-  rejectionReason       String?             @map("rejection_reason")
-  linkedUserId          String?             @map("linked_user_id")
-  createdAt             DateTime            @default(now()) @map("created_at")
-  academy               Academy             @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  reviewedBy            User?               @relation("ClaimRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  linkedUser            User?               @relation("ClaimRequestLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  id                   String             @id @default(cuid())
+  academyId            String             @map("academy_id")
+  requesterName        String             @map("requester_name")
+  requesterEmail       String             @map("requester_email")
+  requesterPhone       String?            @map("requester_phone")
+  requesterRole        ClaimRequesterRole @map("requester_role")
+  requesterBeltRank    BjjBeltRank?       @map("requester_belt_rank")
+  requesterBeltStripes Int?               @map("requester_belt_stripes")
+  verificationNotes    String             @map("verification_notes")
+  publicProofLink      String?            @map("public_proof_link")
+  status               ClaimStatus        @default(PENDING)
+  reviewedAt           DateTime?          @map("reviewed_at")
+  reviewedById         String?            @map("reviewed_by_id")
+  rejectionReason      String?            @map("rejection_reason")
+  linkedUserId         String?            @map("linked_user_id")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  academy              Academy            @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  reviewedBy           User?              @relation("ClaimRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  linkedUser           User?              @relation("ClaimRequestLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
 
   @@index([academyId])
   @@index([academyId, requesterEmail, status])
@@ -245,13 +267,13 @@ model ClaimRequest {
 
 model AcademyMember {
   id        String            @id @default(cuid())
-  academyId String           @map("academy_id")
-  userId    String           @map("user_id")
+  academyId String            @map("academy_id")
+  userId    String            @map("user_id")
   role      AcademyMemberRole
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
-  academy   Academy          @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+  academy   Academy           @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([academyId, userId])
   @@index([userId])
@@ -260,15 +282,15 @@ model AcademyMember {
 
 model AcademyInvitation {
   id           String           @id @default(cuid())
-  academyId    String          @map("academy_id")
-  invitedEmail String          @map("invited_email")
-  invitedById  String          @map("invited_by")
-  token        String          @unique
+  academyId    String           @map("academy_id")
+  invitedEmail String           @map("invited_email")
+  invitedById  String           @map("invited_by")
+  token        String           @unique
   status       InvitationStatus @default(PENDING)
-  expiresAt    DateTime        @map("expires_at")
-  createdAt    DateTime        @default(now()) @map("created_at")
-  academy      Academy         @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  invitedBy    User            @relation("AcademyInvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt    DateTime         @map("expires_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  academy      Academy          @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  invitedBy    User             @relation("AcademyInvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
 
   @@index([academyId])
   @@index([invitedEmail])
@@ -291,25 +313,83 @@ model AdminAuditLog {
   @@map("admin_audit_logs")
 }
 
+model PlatformAdminProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  contributionOptIn Boolean  @default(true) @map("contribution_opt_in")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("platform_admin_profiles")
+}
+
+model PlatformAdminWeeklyTarget {
+  id          String   @id @default(cuid())
+  userId      String?  @unique @map("user_id")
+  targetCount Int      @map("target_count")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("platform_admin_weekly_targets")
+}
+
+model PlatformAdminActivityExemption {
+  id          String                     @id @default(cuid())
+  userId      String                     @map("user_id")
+  type        PlatformAdminExemptionType
+  reason      String?
+  startsAt    DateTime                   @default(now()) @map("starts_at")
+  endsAt      DateTime?                  @map("ends_at")
+  createdById String?                    @map("created_by_id")
+  createdAt   DateTime                   @default(now()) @map("created_at")
+  user        User                       @relation("PlatformAdminActivityExemptUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy   User?                      @relation("PlatformAdminActivityExemptCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([userId, type, startsAt, endsAt])
+  @@index([createdById])
+  @@map("platform_admin_activity_exemptions")
+}
+
+model PlatformAdminActivityEvent {
+  id          String                      @id @default(cuid())
+  actorUserId String                      @map("actor_user_id")
+  actionType  PlatformAdminActivityAction @map("action_type")
+  sourceType  PlatformAdminActivitySource @map("source_type")
+  sourceId    String                      @map("source_id")
+  points      Int
+  occurredAt  DateTime                    @default(now()) @map("occurred_at")
+  createdAt   DateTime                    @default(now()) @map("created_at")
+  dedupeKey   String                      @unique @map("dedupe_key")
+  metadata    Json?
+  actor       User                        @relation("PlatformAdminActivityActor", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([actorUserId, occurredAt])
+  @@index([actionType, occurredAt])
+  @@index([sourceType, sourceId])
+  @@map("platform_admin_activity_events")
+}
+
 model OutboundEmail {
-  id              String              @id @default(cuid())
-  userId          String?             @map("user_id")
-  recipientEmail  String              @map("recipient_email")
-  subject         String
-  textBody        String              @map("text_body")
-  htmlBody        String?             @map("html_body")
-  status          OutboundEmailStatus @default(PENDING)
-  retryCount      Int                 @default(0) @map("retry_count")
-  maxRetries      Int                 @default(5) @map("max_retries")
-  nextAttemptAt   DateTime            @default(now()) @map("next_attempt_at")
-  lastAttemptAt   DateTime?           @map("last_attempt_at")
-  sentAt          DateTime?           @map("sent_at")
-  failureReason   String?             @map("failure_reason")
-  providerMessageId String?           @map("provider_message_id")
-  createdAt       DateTime            @default(now()) @map("created_at")
-  updatedAt       DateTime            @updatedAt @map("updated_at")
-  user            User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  statusHistory   OutboundEmailStatusHistory[]
+  id                String                       @id @default(cuid())
+  userId            String?                      @map("user_id")
+  recipientEmail    String                       @map("recipient_email")
+  subject           String
+  textBody          String                       @map("text_body")
+  htmlBody          String?                      @map("html_body")
+  status            OutboundEmailStatus          @default(PENDING)
+  retryCount        Int                          @default(0) @map("retry_count")
+  maxRetries        Int                          @default(5) @map("max_retries")
+  nextAttemptAt     DateTime                     @default(now()) @map("next_attempt_at")
+  lastAttemptAt     DateTime?                    @map("last_attempt_at")
+  sentAt            DateTime?                    @map("sent_at")
+  failureReason     String?                      @map("failure_reason")
+  providerMessageId String?                      @map("provider_message_id")
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+  user              User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  statusHistory     OutboundEmailStatusHistory[]
 
   @@index([status, nextAttemptAt])
   @@index([recipientEmail])

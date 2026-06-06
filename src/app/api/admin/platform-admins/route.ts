@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { Role, UserStatus } from "@prisma/client";
 import { getCurrentUser, isSuperAdminRole, writeAdminAuditLog } from "@/lib/admin";
+import { ensurePlatformAdminProfile } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 
 type PlatformAdminRequest = {
@@ -96,6 +97,8 @@ export async function POST(request: Request) {
         },
         select: platformAdminSelect,
       });
+
+  await ensurePlatformAdminProfile(platformAdmin.id);
 
   await writeAdminAuditLog({
     actorUserId: actor.id,

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
+import { ensurePlatformAdminProfile } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 
 function normalizeRole(value: string) {
@@ -86,6 +87,9 @@ export async function createManagedUser(formData: FormData) {
       disabled: false,
     },
   });
+  if (role === Role.PLATFORM_ADMIN) {
+    await ensurePlatformAdminProfile(user.id);
+  }
 
   await writeAdminAuditLog({
     actorUserId: actor.id,
@@ -181,6 +185,7 @@ export async function promoteManagedUser(userId: string) {
   if (!user || !canManageUser(actor.role, user) || !isSuperAdminRole(actor.role)) return;
 
   await prisma.user.update({ where: { id: userId }, data: { role: Role.PLATFORM_ADMIN } });
+  await ensurePlatformAdminProfile(userId);
   await writeAdminAuditLog({
     actorUserId: actor.id,
     targetUserId: userId,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Role, UserStatus } from "@prisma/client";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { ensurePlatformAdminProfile } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 
 function isSuperUser(user: { role: Role }) {
@@ -51,6 +52,9 @@ export async function mutateUser(
     { role: Role.STANDARD_USER };
 
   const updated = await prisma.user.update({ where: { id }, data });
+  if (mutation === "promote") {
+    await ensurePlatformAdminProfile(id);
+  }
   const action =
     mutation === "disable" ? "USER_DISABLED" :
     mutation === "enable" && target.role === Role.SUPER_ADMIN ? "SUPER_USER_ENABLED" :

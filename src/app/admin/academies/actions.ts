@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AcademyMemberRole, AcademyVerificationStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
-import { getCurrentUser, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
+import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { queueEmail } from "@/lib/reliable-email";
 import { academySchema } from "@/lib/validators";
@@ -87,8 +88,8 @@ async function findDuplicateAcademy({
 }
 
 export async function createAcademy(_state: AcademyFormState, formData: FormData): Promise<AcademyFormState> {
-  await requireSuperAdminPage();
   const actor = await getCurrentUser();
+  if (!isPlatformAdminRole(actor?.role)) redirect("/");
 
   const parsed = academySchema.safeParse(getFormValues(formData));
   if (!parsed.success) {
@@ -124,6 +125,8 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
         action: "ACADEMY_CREATED",
         metadata: { academyId: academy.id, academyName: academy.name },
       });
+
+      await recordAcademyCreatedActivity(actor.id, academy.id);
     }
   } catch (error) {
     if (isUniqueConstraintError(error)) {
