@@ -2,9 +2,9 @@
 
 Version: 1.0
 
-Priority: High
+Priority: Medium
 
-Status: Ready for development
+Status: Backlog - not required for immediate MVP launch
 
 Source Requirement: `docs/features/Product/Products/RollFinderMissingMvpRequirementsPrd.md` MR-003
 
@@ -34,6 +34,8 @@ AND missing analytics configuration SHALL NOT break page rendering, navigation, 
 
 PostHog is the selected MVP analytics provider.
 
+RollFinders' market wedge is live BJJ training discovery, not a generic gym directory. Analytics must prove whether practitioners can find real training opportunities and whether academies receive commercially meaningful attention.
+
 IF MVP analytics is implemented
 
 WHEN the provider is configured
@@ -43,6 +45,12 @@ THEN RollFinders SHALL use PostHog for public discovery and claim funnel analyti
 AND the implementation SHALL include safe no-op behavior when PostHog configuration is missing or disabled.
 
 AND the implementation SHALL NOT add BI dashboards, session replay, heatmaps, A/B testing, revenue analytics, paid-placement analytics, admin rewards analytics, or full admin activity analytics in version 1.
+
+IF a proposed analytics event does not help measure training discovery, schedule trust, academy-owner interest, or commercial intent
+
+WHEN the implementation scope is reviewed
+
+THEN the event SHALL be deferred from MVP analytics.
 
 ---
 
@@ -175,6 +183,36 @@ AND the user flow SHALL continue.
 
 ---
 
+# Future Market And Monetization Guidance
+
+Analytics may support future monetization, but monetization is not required for the immediate MVP launch.
+
+IF academy claiming is available during MVP
+
+WHEN academy owners are invited to claim listings
+
+THEN claiming SHALL remain free.
+
+AND basic academy listing presence SHALL remain free.
+
+AND practitioner access SHALL remain free.
+
+IF analytics demonstrates meaningful owner-facing demand after MVP launch
+
+WHEN commercial experiments are planned
+
+THEN RollFinders SHOULD test low-friction monetization through featured Open Mats, claimed academy performance reports, and later premium academy visibility.
+
+AND RollFinders SHALL NOT build paid billing flows, owner BI dashboards, or paid placement automation as part of this MVP analytics PRD.
+
+IF owner-facing analytics are packaged after MVP instrumentation
+
+WHEN the founder communicates value to academies
+
+THEN the reporting language SHOULD focus on commercial intent, such as profile views, Open Mat views, direction clicks, website clicks, and contact clicks.
+
+---
+
 # Event Names
 
 Use these stable event names:
@@ -184,10 +222,17 @@ Use these stable event names:
 * `open_mat_detail_viewed`
 * `academy_profile_viewed`
 * `directions_clicked`
+* `website_clicked`
+* `phone_clicked`
+* `email_clicked`
+* `social_clicked`
 * `map_viewed`
 * `map_marker_clicked`
 * `claim_profile_started`
 * `claim_profile_submitted`
+* `claim_approved`
+* `claim_rejected`
+* `recurring_open_mat_created`
 
 Privacy rule:
 
@@ -333,7 +378,29 @@ Acceptance criteria:
 
 ---
 
-# Requirement 9: Map View Tracking
+# Requirement 9: Website And Contact Click Tracking
+
+IF a user clicks an academy website, phone, email, or social link
+
+WHEN the application begins the click action or navigation
+
+THEN the system SHALL track the relevant commercial-intent event.
+
+Acceptance criteria:
+
+* Website clicks use `website_clicked`.
+* Phone clicks use `phone_clicked`.
+* Email clicks use `email_clicked`.
+* Social profile clicks use `social_clicked`.
+* Event includes `source`.
+* Event includes `academy_id` when available.
+* Event includes `open_mat_id` when the click comes from an Open Mat context.
+* Event SHALL NOT include the raw phone number, raw email address, full URL query string, or personal data.
+* Tracking SHALL NOT block external navigation or device actions.
+
+---
+
+# Requirement 10: Map View Tracking
 
 IF a user opens the RollFinder map page
 
@@ -350,7 +417,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 10: Map Marker Click Tracking
+# Requirement 11: Map Marker Click Tracking
 
 IF the RollFinder map displays data-driven academy or open mat markers
 
@@ -368,7 +435,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 11: Claim Profile Started Tracking
+# Requirement 12: Claim Profile Started Tracking
 
 IF a user starts the academy claim flow
 
@@ -386,7 +453,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 12: Claim Profile Submitted Tracking
+# Requirement 13: Claim Profile Submitted Tracking
 
 IF a user submits an academy claim request
 
@@ -406,7 +473,43 @@ Acceptance criteria:
 
 ---
 
-# Requirement 13: Monthly Visitor Reporting
+# Requirement 14: Claim Decision Tracking
+
+IF a Platform Admin or Super Admin approves or rejects an academy claim
+
+WHEN the claim decision succeeds
+
+THEN the system SHOULD track the claim outcome for funnel reporting.
+
+Acceptance criteria:
+
+* Approved claims use `claim_approved`.
+* Rejected claims use `claim_rejected`.
+* Event includes `academy_id`.
+* Event includes `claim_status`.
+* Event SHALL NOT include requester name, requester email, phone, verification notes, proof links, or evidence.
+* Claim decision analytics SHALL NOT expose protected admin information.
+
+---
+
+# Requirement 15: Recurring Open Mat Creation Tracking
+
+IF an authorized academy owner/admin creates a recurring Open Mat
+
+WHEN the recurring source listing is saved successfully
+
+THEN the system SHOULD track a `recurring_open_mat_created` event.
+
+Acceptance criteria:
+
+* Event fires only after the source listing is saved successfully.
+* Event includes `academy_id`, `open_mat_id`, and `recurrence_type`.
+* Event SHALL NOT fire for derived recurring occurrences.
+* Event supports reporting whether claimed academies are adding repeatable training supply.
+
+---
+
+# Requirement 16: Monthly Visitor Reporting
 
 IF the founder reviews MVP traction
 
@@ -422,7 +525,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 14: Weekly Active User Reporting
+# Requirement 17: Weekly Active User Reporting
 
 IF the founder reviews MVP traction
 
@@ -437,7 +540,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 15: Returning User Reporting
+# Requirement 18: Returning User Reporting
 
 IF the founder reviews retention signals
 
@@ -452,7 +555,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 16: Monthly Search Reporting
+# Requirement 19: Monthly Search Reporting
 
 IF the founder reviews discovery demand
 
@@ -469,7 +572,7 @@ Acceptance criteria:
 
 ---
 
-# Requirement 17: Discovery Behavior Reporting
+# Requirement 20: Discovery Behavior Reporting
 
 IF the founder reviews discovery behavior
 
@@ -482,13 +585,16 @@ Acceptance criteria:
 * Academy profile views are measurable.
 * Open mat detail views are measurable.
 * Directions clicks are measurable.
+* Website clicks are measurable.
+* Phone and email clicks are measurable where contact links exist.
+* Social clicks are measurable where social links exist.
 * Map views are measurable.
 * Map marker clicks are measurable once data-driven map markers exist.
 * Reporting helps identify which academies and open mats receive the most user interest.
 
 ---
 
-# Requirement 18: Claim Funnel Reporting
+# Requirement 21: Claim Funnel Reporting
 
 IF the founder reviews academy owner adoption
 
@@ -500,13 +606,56 @@ Acceptance criteria:
 
 * Claim profile starts are measurable.
 * Claim profile submissions are measurable.
+* Claim approvals are measurable.
+* Claim rejections are measurable.
 * Claim start-to-submit conversion rate is measurable.
+* Claim submit-to-approval conversion rate is measurable.
 * Claim funnel reporting excludes requester personal data.
 * Claim funnel reporting is required once academy claiming is implemented.
 
 ---
 
-# Requirement 19: Privacy-Safe Analytics
+# Requirement 22: Commercial Intent Reporting
+
+IF the founder reviews academy-owner value
+
+WHEN the founder opens the analytics reporting path
+
+THEN the system SHALL make commercial-intent signals measurable per academy where possible.
+
+Acceptance criteria:
+
+* Academy profile views are measurable per academy.
+* Open Mat views are measurable per academy.
+* Directions clicks are measurable per academy.
+* Website, phone, email, and social clicks are measurable per academy when those links exist.
+* Recurring Open Mat creation is measurable per academy when creator context is available.
+* Reporting can support a future monthly academy performance email without requiring a full owner dashboard in MVP.
+
+---
+
+# Requirement 23: Future Monetization Experiment Readiness
+
+IF analytics demonstrates meaningful user demand and academy-owner engagement after MVP launch
+
+WHEN the founder prepares commercial experiments
+
+THEN analytics SHOULD support evaluation of:
+
+* Free claiming plus concierge onboarding.
+* Monthly academy performance emails.
+* Featured Open Mat pilot.
+
+Acceptance criteria:
+
+* Analytics can compare Open Mat views and commercial-intent clicks before and after a featured Open Mat pilot.
+* Analytics can identify claimed academies with meaningful profile or Open Mat engagement.
+* Analytics can support owner outreach with aggregate performance numbers.
+* Analytics SHALL NOT require building billing, paid placement automation, or owner dashboards in MVP.
+
+---
+
+# Requirement 24: Privacy-Safe Analytics
 
 IF analytics events are tracked
 
@@ -518,6 +667,7 @@ Acceptance criteria:
 
 * Analytics SHALL NOT send raw email addresses.
 * Analytics SHALL NOT send phone numbers.
+* Analytics SHALL NOT send full website URLs with query strings.
 * Analytics SHALL NOT send exact user latitude or longitude.
 * Analytics SHALL NOT send free-form claim notes or verification evidence.
 * Analytics SHALL use academy IDs and open mat IDs where object-level reporting is needed.
@@ -525,11 +675,11 @@ Acceptance criteria:
 
 ---
 
-# Requirement 20: Analytics Failure Safety
+# Requirement 25: Analytics Failure Safety
 
 IF the analytics provider is unavailable or event tracking fails
 
-WHEN a user searches, views a page, clicks directions, opens the map, or submits a claim
+WHEN a user searches, views a page, clicks directions, clicks contact/website links, opens the map, or submits a claim
 
 THEN the system SHALL allow the user flow to continue.
 
@@ -538,12 +688,13 @@ Acceptance criteria:
 * Analytics failures do not block page rendering.
 * Analytics failures do not block search submissions.
 * Analytics failures do not block external directions navigation.
+* Analytics failures do not block website, phone, email, or social link actions.
 * Analytics failures do not block claim submission.
 * Analytics failures do not expose errors to public users unless required for debugging in non-production environments.
 
 ---
 
-# Requirement 21: Reporting Path
+# Requirement 26: Reporting Path
 
 IF analytics is configured for production
 
@@ -558,11 +709,13 @@ Acceptance criteria:
 * Reporting path identifies where to find weekly active users.
 * Reporting path identifies where to find returning users.
 * Reporting path identifies where to find monthly searches.
+* Reporting path identifies where to find directions, website, phone, email, and social clicks.
 * Reporting path identifies where to find claim funnel metrics.
+* Reporting path identifies how to build a simple monthly academy performance email from analytics exports or dashboards.
 
 ---
 
-# Requirement 22: Launch Readiness
+# Requirement 27: Launch Readiness
 
 IF RollFinder is considered ready for MVP production launch
 
@@ -578,7 +731,9 @@ Acceptance criteria:
 * Open mat detail views are tracked.
 * Academy profile views are tracked.
 * Direction clicks are tracked.
+* Website, phone, email, and social clicks are tracked where links exist.
 * Claim funnel events are tracked once academy claiming exists.
+* Commercial-intent reporting is possible for claimed academy outreach.
 * Monthly visitors are measurable.
 * Weekly active users are measurable.
 * Returning users are measurable.
