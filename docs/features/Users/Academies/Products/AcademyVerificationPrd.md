@@ -41,7 +41,7 @@ Existing UI/actions:
 * `src/app/api/admin/academies/route.ts`
 * `src/app/api/admin/academies/[id]/route.ts`
 * `src/app/academies/[slug]/page.tsx`
-* `src/components/ui.tsx` `AcademyCard`
+* `src/components/AcademyCard.tsx`
 
 Current behavior:
 
