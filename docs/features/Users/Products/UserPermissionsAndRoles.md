@@ -182,8 +182,9 @@ Cannot:
 | ------------------------ | ---------- | -------------- | -------------- | ------------- |
 | View All Academies       | Yes        | Yes            | No             | No            |
 | View Own Academy         | Yes        | Yes            | Yes            | Yes           |
-| Create Academy           | Yes        | No             | No             | No            |
-| Delete Academy           | Yes        | No             | No             | No            |
+| Create Academy           | Yes        | Yes            | No             | No            |
+| Edit Academy             | Yes        | Yes            | Own Only       | No            |
+| Delete Academy           | Yes        | Created Only   | No             | No            |
 | View All Users           | Yes        | Yes            | No             | No            |
 | View Academy Users       | Yes        | Yes            | Yes (Own Only) | No            |
 | Delete Users             | Yes        | Academy Only   | No             | No            |

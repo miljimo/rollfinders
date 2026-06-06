@@ -276,11 +276,66 @@ AND the system SHALL create an audit log entry.
 
 ---
 
-## Scenario: Prevent Academy Ownership Or Deletion Changes
+## Scenario: Create Academies
 
 IF the authenticated user has the role `PLATFORM_ADMIN`
 
-WHEN the user attempts to delete an academy, transfer ownership, or change protected academy ownership fields
+WHEN the user opens the Admin Dashboard Academies panel
+
+THEN the system SHALL make visible the `New Academy` button.
+
+WHEN the user selects `New Academy`
+
+THEN the system SHALL open a New Academy pop-up dialog without leaving the Admin Dashboard.
+
+WHEN the user fills all required academy inputs
+
+AND selects `Create Academy`
+
+THEN the system SHALL create the Academy record.
+
+AND the system SHALL NOT create the Academy record when required inputs are missing or invalid.
+
+AND the system SHALL store the Platform Admin actor as the academy creator.
+
+AND the system SHALL create an audit log entry.
+
+AND the page SHALL navigate back to the Admin Dashboard Academies panel at `/admin?panel=academies`.
+
+Acceptance criteria:
+
+* A user with role `PLATFORM_ADMIN` can see the `New Academy` button in the Admin Dashboard Academies panel.
+* Selecting `New Academy` opens a New Academy dialog.
+* Submitting valid required fields creates one Academy record.
+* The created Academy stores the authenticated Platform Admin as `createdById`.
+* Successful creation returns the user to `/admin?panel=academies`.
+* Missing or invalid required fields do not create an Academy record.
+* Missing or invalid required fields keep the user in the dialog flow with validation errors.
+* Users without a platform-level admin role cannot create Academies.
+
+---
+
+## Scenario: Delete Created Academy
+
+IF the authenticated user has the role `PLATFORM_ADMIN`
+
+AND the academy was created by that Platform Admin
+
+WHEN the user deletes the academy
+
+THEN the backend SHALL allow the delete operation.
+
+AND the system SHALL create an audit log entry.
+
+AND the system SHALL return the user to `/admin?panel=academies`.
+
+---
+
+## Scenario: Prevent Protected Academy Ownership Or Deletion Changes
+
+IF the authenticated user has the role `PLATFORM_ADMIN`
+
+WHEN the user attempts to delete an academy they did not create, transfer ownership, or change protected academy ownership fields
 
 THEN the backend SHALL reject the request.
 
@@ -390,6 +445,10 @@ WHEN automated tests run
 
 THEN tests SHALL verify Platform Admin access to permitted academy, user, and Open Mat management.
 
+AND tests SHALL verify Platform Admin can create Academies.
+
+AND tests SHALL verify Platform Admin can delete only Academies they created.
+
 AND tests SHALL verify Platform Admin cannot access or manage Super Admin users.
 
 AND tests SHALL verify Platform Admin cannot create, promote, demote, disable, or delete Platform Admin users.
@@ -423,7 +482,9 @@ Implemented:
 * Platform admin role helper exists.
 * Platform admins can access admin dashboard and permitted admin modules.
 * Platform admins can view/manage allowed users and are blocked from protected super-admin/platform-level targets by current user management logic.
+* Platform admins can create Academies through the Academies panel.
 * Platform admins can manage academy and open mat workflows through admin modules.
+* Platform admins can delete only Academies they created.
 * Change password exists through `/dashboard/password`.
 
 MVP gaps or notes:

@@ -82,6 +82,10 @@ export function canDeleteAcademy(access: AcademyAccess) {
   return access.superAdmin;
 }
 
+export function canDeleteAcademyRecord(access: AcademyAccess, academy: { createdById?: string | null }) {
+  return access.superAdmin || (access.platformAdmin && academy.createdById === access.userId);
+}
+
 export function canTransferAcademyOwnership(access: AcademyAccess) {
   return access.superAdmin || access.memberRole === AcademyMemberRole.OWNER;
 }

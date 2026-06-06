@@ -117,6 +117,7 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
         xUrl: toNullable(data.xUrl),
         dropInPrice: toNullableNumber(data.dropInPrice),
         verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
+        createdById: actor.id,
       },
     });
     if (actor) {
@@ -136,9 +137,8 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   }
 
   const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/academies";
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin?panel=academies";
   revalidatePath("/admin");
-  revalidatePath("/admin/academies");
   redirect(redirectTo);
 }
 
@@ -196,7 +196,6 @@ export async function updateAcademy(
   const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = returnTo.startsWith("/admin?panel=academies") ? returnTo : "/admin?panel=academies";
   revalidatePath("/admin");
-  revalidatePath("/admin/academies");
   revalidatePath(`/admin/academies/${id}`);
   redirect(redirectTo);
 }

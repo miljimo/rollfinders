@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
-import { canDeleteAcademy, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
+import { canDeleteAcademyRecord, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
 import { getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
@@ -27,7 +27,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
       <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <Link href="/admin/academies" className="text-sm font-bold text-teal-800">Academy Management</Link>
+            <Link href="/admin?panel=academies" className="text-sm font-bold text-teal-800">Academy Management</Link>
             <h1 className="mt-2 text-3xl font-black text-stone-950">{academy.name}</h1>
             <p className="mt-2 text-stone-700">{academy.city}, {academy.postcode}</p>
           </div>
@@ -74,7 +74,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
           <div className="mt-3 flex flex-wrap gap-2 text-sm">
             <StatusBadge>{academy.verificationStatus === AcademyVerificationStatus.VERIFIED ? "Verified" : "Awaiting verification action"}</StatusBadge>
             <StatusBadge>{academy.featured ? "Featured placement active" : "No featured placement"}</StatusBadge>
-            {canDeleteAcademy(access) ? (
+            {canDeleteAcademyRecord(access, academy) ? (
               <form action={`/api/admin/academies/${academy.id}`} method="post">
                 <input type="hidden" name="_method" value="DELETE" />
                 <Button type="submit" variant="danger">Delete Academy</Button>

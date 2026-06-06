@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { getCurrentUser, isAcademyAdminRole, requireAdminApi, requireSuperAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -43,6 +43,16 @@ function academyData(data: ReturnType<typeof academySchema.parse>) {
 
 function canAccessAcademy(actor: { role?: string; academyId?: string | null } | null, academyId: string) {
   return !isAcademyAdminRole(actor?.role) || actor?.academyId === academyId;
+}
+
+async function canDeleteAcademy(actor: { id: string; role?: string } | null, academyId: string) {
+  if (!actor || !isPlatformAdminRole(actor.role)) return false;
+  if (isSuperAdminRole(actor.role)) return true;
+  const academy = await prisma.academy.findUnique({
+    where: { id: academyId },
+    select: { createdById: true },
+  });
+  return academy?.createdById === actor.id;
 }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -91,11 +101,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { response } = await requireSuperAdminApi();
-  if (response) return response;
-
   const { id } = await params;
   const actor = await getCurrentUser();
+  if (!(await canDeleteAcademy(actor, id))) return NextResponse.json({ error: "Academy delete access denied" }, { status: 403 });
   const academy = await prisma.academy.delete({ where: { id } });
   if (actor) {
     await writeAdminAuditLog({
@@ -118,9 +126,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const formData = await request.formData();
 
   if (formData.get("_method") === "DELETE") {
-    const { response } = await requireSuperAdminApi();
-    if (response) return response;
     const actor = await getCurrentUser();
+    if (!(await canDeleteAcademy(actor, id))) return NextResponse.json({ error: "Academy delete access denied" }, { status: 403 });
     const academy = await prisma.academy.delete({ where: { id } });
     if (actor) {
       await writeAdminAuditLog({
@@ -129,7 +136,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         metadata: { academyId: id, academyName: academy.name },
       });
     }
-    return NextResponse.redirect(new URL("/admin/academies", request.url), { status: 303 });
+    return NextResponse.redirect(new URL("/admin?panel=academies", request.url), { status: 303 });
   }
   if (isAcademyAdminRole(actor?.role)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
 
@@ -153,5 +160,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     });
   }
 
-  return NextResponse.redirect(new URL("/admin/academies", request.url), { status: 303 });
+  return NextResponse.redirect(new URL("/admin?panel=academies", request.url), { status: 303 });
 }

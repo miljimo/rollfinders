@@ -200,7 +200,7 @@ AND the system SHALL return a clear error message explaining that at least one a
 
 ## Scenario: View All Academies
 
-IF the authenticated user has the role `SUPER_ADMIN`
+IF the authenticated user has the role `SUPER_ADMIN` or `PLATFORM_ADMIN`
 
 WHEN the user opens the academy management page
 
@@ -214,7 +214,7 @@ AND the system SHALL support search by academy name, location, status, and owner
 
 ## Scenario: Create Academy
 
-IF the authenticated user has the role `SUPER_ADMIN`
+IF the authenticated user has the role `SUPER_ADMIN` or `PLATFORM_ADMIN`
 
 WHEN the user submits valid academy creation details
 
@@ -228,7 +228,7 @@ AND the system SHALL create an audit log entry.
 
 ## Scenario: Edit Academy
 
-IF the authenticated user has the role `SUPER_ADMIN`
+IF the authenticated user has the role `SUPER_ADMIN` or `PLATFORM_ADMIN`
 
 WHEN the user edits an academy
 
@@ -242,7 +242,7 @@ AND the system SHALL create an audit log entry.
 
 ## Scenario: Delete Academy
 
-IF the authenticated user has the role `SUPER_ADMIN`
+IF the authenticated user has the role `SUPER_ADMIN`, or has the role `PLATFORM_ADMIN` and created the academy
 
 WHEN the user deletes an academy
 

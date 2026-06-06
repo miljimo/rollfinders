@@ -65,6 +65,14 @@ export async function requireSuperAdminPage() {
   return user;
 }
 
+export async function requirePlatformAdminPage() {
+  const user = await getCurrentUser();
+  if (!isPlatformAdminRole(user?.role)) {
+    redirect("/admin");
+  }
+  return user;
+}
+
 export async function requireAdminApi() {
   const user = await getCurrentUser();
   if (!isAnyAdminRole(user?.role) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {

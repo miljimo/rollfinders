@@ -1,8 +1,8 @@
 # PRD: Admin Academies Page
 
-Route: `/admin/academies`
+Route: `/admin?panel=academies`
 
-Source: `src/app/admin/academies/page.tsx`
+Source: `src/app/admin/page.tsx`
 
 ## Purpose
 

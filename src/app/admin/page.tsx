@@ -152,6 +152,7 @@ export default async function AdminPage({
   const search = (firstParam(params.search) ?? "").trim();
   const emailConfig = getEmailProvisioningConfig();
   const superAdmin = isSuperAdminRole(currentUser.role);
+  const platformAdmin = isPlatformAdminRole(currentUser.role);
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -352,12 +353,7 @@ export default async function AdminPage({
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
             <AdminPanel
-              action={superAdmin ? (
-                <Button href="/admin?panel=academies&dialog=new-academy" variant="primary" className="min-h-12 shadow-sm">
-                  <Plus size={18} aria-hidden />
-                  New Academy
-                </Button>
-              ) : null}
+              action={<NewAcademyPanelAction />}
               description="Newest operational slice of academy records."
               id="academies"
               search={<PanelSearch panel={panel} search={search} />}
@@ -430,7 +426,7 @@ export default async function AdminPage({
       {panel === "users" && dialog === "edit-user" && selectedDialogUser ? (
         <EditUserDialog academies={academyOptions} superAdmin={superAdmin} user={selectedDialogUser} />
       ) : null}
-      {panel === "academies" && dialog === "new-academy" && superAdmin ? (
+      {panel === "academies" && dialog === "new-academy" && platformAdmin ? (
         <NewAcademyDialog />
       ) : null}
       {panel === "open-mats" && dialog === "new-open-mat" ? (
@@ -532,6 +528,15 @@ function NewAcademyDialog() {
     <DialogShell closeHref="/admin?panel=academies" description="Create an academy record without leaving the dashboard." maxWidthClass="max-w-6xl" title="New Academy">
       <AcademyForm action={createAcademy} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" />
     </DialogShell>
+  );
+}
+
+export function NewAcademyPanelAction() {
+  return (
+    <Button href="/admin?panel=academies&dialog=new-academy" variant="primary" className="min-h-12 shadow-sm">
+      <Plus size={18} aria-hidden />
+      New Academy
+    </Button>
   );
 }
 

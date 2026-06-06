@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
-import { academyScopedAcademyWhere, getCurrentUser, requireAdminApi, requireSuperAdminApi } from "@/lib/admin";
+import { academyScopedAcademyWhere, getCurrentUser, isPlatformAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -90,8 +91,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { response } = await requireSuperAdminApi();
-  if (response) return response;
+  const actor = await getCurrentUser();
+  if (!actor || !isPlatformAdminRole(actor.role)) {
+    return NextResponse.json({ error: "Platform admin access required" }, { status: 403 });
+  }
 
   const formData = await request.formData();
   const parsed = academySchema.safeParse(Object.fromEntries(formData));
@@ -103,7 +106,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  await prisma.academy.create({
+  const academy = await prisma.academy.create({
     data: {
       ...data,
       borough: toNullable(data.borough),
@@ -117,8 +120,15 @@ export async function POST(request: Request) {
       xUrl: toNullable(data.xUrl),
       dropInPrice: toNullableNumber(data.dropInPrice),
       verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
+      createdById: actor.id,
     },
   });
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    action: "ACADEMY_CREATED",
+    metadata: { academyId: academy.id, academyName: academy.name },
+  });
+  await recordAcademyCreatedActivity(actor.id, academy.id);
 
-  return NextResponse.redirect(new URL("/admin/academies", request.url), { status: 303 });
+  return NextResponse.redirect(new URL("/admin?panel=academies", request.url), { status: 303 });
 }

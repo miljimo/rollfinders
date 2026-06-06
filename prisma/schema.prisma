@@ -140,6 +140,7 @@ model User {
   outboundEmails                         OutboundEmail[]
   invalidEmailAddresses                  InvalidEmailAddress[]
   passwordResetTokens                    PasswordResetToken[]
+  createdAcademies                       Academy[]                         @relation("AcademyCreator")
   createdEvents                          Event[]                          @relation("EventCreator")
 
   @@index([academyId])
@@ -192,6 +193,8 @@ model Academy {
   verified           Boolean                   @default(false)
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
+  createdById        String?                   @map("created_by_id")
+  createdBy          User?                     @relation("AcademyCreator", fields: [createdById], references: [id], onDelete: SetNull)
   events             Event[]
   claims             ClaimRequest[]
   members            AcademyMember[]
@@ -205,6 +208,7 @@ model Academy {
   @@index([featured])
   @@index([createdAt])
   @@index([updatedAt])
+  @@index([createdById])
   @@map("academies")
 }
 

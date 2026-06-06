@@ -51,8 +51,8 @@ The admin page now includes:
 * Anchored dashboard panels for academy, open mat, user, email, and audit sections.
 * Recent Admin Activity panel using `AdminAuditLog` for super admins.
 * Removed the duplicated Academy Management panel from `/admin`.
-* Changed the top dashboard action from `New Academy` to `Academies`, linking to `/admin/academies`.
-* Kept the `New Academy` action on `/admin/academies`.
+* Changed the top dashboard action from `New Academy` to the Academies panel at `/admin?panel=academies`.
+* Kept the academy creation action on the `/admin?panel=academies` panel.
 
 ## Acceptance Criteria
 
