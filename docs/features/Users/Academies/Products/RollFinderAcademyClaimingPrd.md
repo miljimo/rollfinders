@@ -79,6 +79,7 @@ In scope:
 * Academy access assignment using the existing role and academy membership model.
 * Claim status display for admins.
 * Owner notifications for submitted, approved, and rejected claims.
+* Platform-added academy claim invitation email, with detailed email format requirements in `docs/features/Communications/Email/AcademyClaimEmails/Products/AcademyClaimInvitationEmailPrd.md`.
 * Admin audit logging.
 * Basic analytics events that avoid personal or sensitive claim evidence.
 

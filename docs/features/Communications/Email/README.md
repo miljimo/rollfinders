@@ -4,6 +4,14 @@ This folder groups outbound email, email provisioning, and user account email re
 
 ## Feature Areas
 
+### Academy Claim Emails
+
+Academy claim invitation and ownership email requirements:
+
+* `AcademyClaimEmails/Products/AcademyClaimInvitationEmailPrd.md`
+* `AcademyClaimEmails/Products/AcademyClaimInvitationHtmlTemplatePrd.md`
+* `AcademyClaimEmails/Templates/academy-claim-invitation.html`
+
 ### Operations
 
 Email system enablement and queue operations:
@@ -14,11 +22,11 @@ Email system enablement and queue operations:
 
 ### User Account Emails
 
-All-user password reset and admin-created user onboarding emails:
+All-user password reset and onboarding emails:
 
 * `UserAccountEmails/APIs/UserPasswordResetApi.md`
-* `UserAccountEmails/Products/AdminUserOnboardingEmailDeliveryPrd.md`
-* `UserAccountEmails/Products/AdminUserOnboardingCredentialContentPrd.md`
+* `UserAccountEmails/Products/UserOnboardingEmailDeliveryPrd.md`
+* `UserAccountEmails/Products/UserOnboardingCredentialContentPrd.md`
 
 ## Ownership Notes
 

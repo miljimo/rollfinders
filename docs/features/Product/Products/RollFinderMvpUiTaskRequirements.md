@@ -40,7 +40,7 @@ Use these branches for implementation:
 * Analytics UI instrumentation: `feature/mvp-analytics-success-metrics`
 * Data-driven map UI: `feature/mvp-data-driven-map`
 * Open mat contact UI: `feature/open-mat-contact-info`
-* Admin-created user onboarding UI: `feature/admin-created-user-onboarding-email`
+* User onboarding UI: `feature/admin-created-user-onboarding-email`
 
 ---
 
@@ -324,13 +324,13 @@ THEN the UI SHALL show a clear fallback such as "Check with academy" without bre
 
 ---
 
-# Group 5: Admin-Created User Onboarding UI
+# Group 5: User Onboarding UI
 
 Source PRD:
 
-`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingEmailDeliveryPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingEmailDeliveryPrd.md`
 
-`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingCredentialContentPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingCredentialContentPrd.md`
 
 ## UI-USEREMAIL-001: Preserve Create User Form
 

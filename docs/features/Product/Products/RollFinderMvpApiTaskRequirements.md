@@ -36,7 +36,7 @@ Use these branches for implementation:
 * Analytics API/backend: `feature/mvp-analytics-success-metrics`
 * Data-driven map API/backend: `feature/mvp-data-driven-map`
 * Open mat contact backend: `feature/open-mat-contact-info`
-* Admin-created user onboarding backend: `feature/admin-created-user-onboarding-email`
+* User onboarding backend: `feature/admin-created-user-onboarding-email`
 * Search performance checks: `feature/search-performance-check`
 * Platform decision docs: `docs/current-platform-decisions`
 
@@ -380,13 +380,13 @@ THEN the backend SHALL expose only contact fields intended for public display.
 
 ---
 
-# Group 6: Admin-Created User Onboarding API And Backend
+# Group 6: User Onboarding API And Backend
 
 Source PRD:
 
-`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingEmailDeliveryPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingEmailDeliveryPrd.md`
 
-`docs/features/Communications/Email/UserAccountEmails/Products/AdminUserOnboardingCredentialContentPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingCredentialContentPrd.md`
 
 ## API-USEREMAIL-001: Queue Email After User Creation
 
