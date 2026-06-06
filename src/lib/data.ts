@@ -1,6 +1,7 @@
-import { Prisma, RecurrenceType } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, Prisma, RecurrenceType } from "@prisma/client";
 import {
   addDays,
+  combineDateAndTime,
   dedupeOccurrences,
   defaultOccurrenceWindowEnd,
   expandEventOccurrences,
@@ -24,35 +25,99 @@ function searchLocation(location?: LocationInput) {
   return hasLocation(location) ? location : defaultSearchLocation;
 }
 
-function addAcademyDistances<T extends { latitude: number; longitude: number; verified?: boolean }>(items: T[], location?: LocationInput) {
+type TrustRankAcademy = {
+  verified?: boolean;
+  verificationStatus?: AcademyVerificationStatus;
+  members?: unknown[];
+  claims?: { status: ClaimStatus }[];
+};
+
+function academyTrustRank(academy: TrustRankAcademy) {
+  const verified = academy.verificationStatus === AcademyVerificationStatus.VERIFIED || academy.verified === true;
+  const managed = Boolean(academy.members?.length) || Boolean(academy.claims?.some((claim) => claim.status === ClaimStatus.APPROVED));
+  if (verified && managed) return 3;
+  if (managed) return 2;
+  if (verified) return 1;
+  return 0;
+}
+
+function candidatePriority<T extends TrustRankAcademy>(item: T) {
+  return academyTrustRank(item);
+}
+
+function eventCandidatePriority<T extends { academy: TrustRankAcademy }>(item: T) {
+  return academyTrustRank(item.academy);
+}
+
+function sortByDistance<T extends { distanceMiles?: number | null; name?: string; title?: string }>(items: T[]) {
+  return [...items].sort((a, b) => (
+    (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)
+    || (a.name ?? a.title ?? "").localeCompare(b.name ?? b.title ?? "")
+  ));
+}
+
+function sortUpcomingNearYou<T extends { eventDate: Date; startTime: string; academy: TrustRankAcademy & { name?: string }; distanceMiles?: number | null; title?: string; occurrenceStatus?: string }>(items: T[]) {
+  return [...items]
+    .filter((item) => item.occurrenceStatus !== "COMPLETED")
+    .sort((a, b) => (
+      combineDateAndTime(a.eventDate, a.startTime).getTime() - combineDateAndTime(b.eventDate, b.startTime).getTime()
+      || eventCandidatePriority(b) - eventCandidatePriority(a)
+      || (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)
+      || (a.academy.name ?? a.title ?? "").localeCompare(b.academy.name ?? b.title ?? "")
+    ));
+}
+
+function selectTopCandidates<T>(items: T[], limit: number, score: (item: T) => number) {
+  return [...items]
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, limit);
+}
+
+const academyTrustInclude = {
+  members: { select: { id: true } },
+  claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
+} satisfies Prisma.AcademyInclude;
+
+function addAcademyDistances<T extends { latitude: number; longitude: number; verified?: boolean; verificationStatus?: AcademyVerificationStatus; members?: unknown[]; claims?: { status: ClaimStatus }[]; name?: string }>(items: T[], location?: LocationInput) {
   const origin = searchLocation(location);
   return items
     .map((item) => ({
       ...item,
       distanceMiles: distanceMiles(origin, { latitude: item.latitude, longitude: item.longitude }),
     }))
-    .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || Number(b.verified) - Number(a.verified));
+    .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || academyTrustRank(b) - academyTrustRank(a) || (a.name ?? "").localeCompare(b.name ?? ""));
 }
 
-function addEventDistances<T extends { eventDate: Date; startTime: string; academy: { latitude: number; longitude: number; verified?: boolean } }>(items: T[], location?: LocationInput) {
+function addEventDistances<T extends { eventDate: Date; startTime: string; title?: string; academy: { latitude: number; longitude: number; verified?: boolean; verificationStatus?: AcademyVerificationStatus; members?: unknown[]; claims?: { status: ClaimStatus }[]; name?: string } }>(items: T[], location?: LocationInput) {
   const origin = searchLocation(location);
   return items
     .map((item) => ({
       ...item,
       distanceMiles: distanceMiles(origin, { latitude: item.academy.latitude, longitude: item.academy.longitude }),
     }))
-    .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime() || a.startTime.localeCompare(b.startTime) || (a.distanceMiles ?? 0) - (b.distanceMiles ?? 0) || Number(b.academy.verified) - Number(a.academy.verified));
+    .sort((a, b) => (
+      (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)
+      || eventCandidatePriority(b) - eventCandidatePriority(a)
+      || a.eventDate.getTime() - b.eventDate.getTime()
+      || a.startTime.localeCompare(b.startTime)
+      || (a.academy.name ?? a.title ?? "").localeCompare(b.academy.name ?? b.title ?? "")
+    ));
 }
 
 export async function getFeaturedData(location?: LocationInput) {
   const [academies, events] = await Promise.all([
-    prisma.academy.findMany({ orderBy: { name: "asc" } }),
+    prisma.academy.findMany({ include: academyTrustInclude, orderBy: { name: "asc" } }),
     getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude }),
   ]);
+  const academiesWithDistances = addAcademyDistances(academies, location);
+  const featuredAcademies = sortByDistance(selectTopCandidates(academiesWithDistances, 6, candidatePriority));
+  const featuredEvents = sortByDistance(selectTopCandidates(events, 6, eventCandidatePriority));
+  const upcomingNearYou = sortUpcomingNearYou(events).slice(0, 3);
 
   return {
-    academies: addAcademyDistances(academies, location).slice(0, 6),
-    events: events.slice(0, 6),
+    academies: featuredAcademies,
+    events: featuredEvents,
+    upcomingNearYou,
   };
 }
 
@@ -76,6 +141,7 @@ export async function searchAcademies(query = "", location?: LocationInput) {
           ],
         }
       : undefined,
+    include: academyTrustInclude,
     orderBy: { name: "asc" },
     }),
     getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude }),
@@ -165,7 +231,7 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
       ...(explicitGi === "GI" ? { giType: { in: ["GI", "BOTH"] } } : {}),
       ...(explicitGi === "NO_GI" ? { giType: { in: ["NO_GI", "BOTH"] } } : {}),
     },
-    include: { academy: true },
+    include: { academy: { include: academyTrustInclude } },
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
   const location = { latitude: filters.latitude, longitude: filters.longitude };
@@ -181,7 +247,7 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
 
 export async function getMapItems() {
   const [academies, events] = await Promise.all([
-    prisma.academy.findMany({ orderBy: { name: "asc" } }),
+    prisma.academy.findMany({ include: academyTrustInclude, orderBy: { name: "asc" } }),
     getOpenMatRadar(),
   ]);
   const eventsByAcademy = new Map<string, typeof events>();
@@ -192,14 +258,14 @@ export async function getMapItems() {
     }
   }
 
-  return academies.map((academy) => ({
+  return addAcademyDistances(academies.map((academy) => ({
     ...academy,
     events: eventsByAcademy.get(academy.id) ?? [],
-  }));
+  })));
 }
 
 export async function getOpenMatOccurrence(id: string, occurrenceDateParam?: string) {
-  const event = await prisma.event.findUnique({ where: { id }, include: { academy: true } });
+  const event = await prisma.event.findUnique({ where: { id }, include: { academy: { include: academyTrustInclude } } });
   if (!event || !event.active) return null;
 
   const now = new Date();

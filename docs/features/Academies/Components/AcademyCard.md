@@ -19,7 +19,7 @@ IF academy data is provided
 WHEN `AcademyCard` renders  
 THEN it SHALL show academy name, location, description summary, tags, and details action.
 
-IF the academy is verified  
+IF the academy is verified and claimed
 WHEN the heading renders  
 THEN a verified indicator SHALL be shown.
 

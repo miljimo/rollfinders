@@ -8,7 +8,8 @@ import { PageShell } from "@/components/PageShell";
 import { AcademyCard } from "@/components/AcademyCard";
 import { EventCard } from "@/components/EventCard";
 import { getFeaturedData } from "@/lib/data";
-import { formatDate } from "@/lib/utils";
+import { dateKey } from "@/lib/open-mat-occurrences";
+import { formatDate, formatMoney } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
 export default async function Home({ searchParams }: { searchParams: Promise<{ lat?: string; lng?: string }> }) {
   const { lat, lng } = await searchParams;
   const location = lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : undefined;
-  const { academies, events } = await getFeaturedData(location);
+  const { academies, events, upcomingNearYou } = await getFeaturedData(location);
 
   return (
     <PageShell>
@@ -67,23 +68,22 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
               Upcoming Near You
             </div>
             <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
-              {events.slice(0, 3).map((event, index) => (
+              {upcomingNearYou.map((event) => (
                 <Link key={event.occurrenceId ?? event.id} href={openMatHref(event)} className={`grid min-h-24 grid-cols-[4px_1fr_auto_auto] items-center gap-4 border-b border-stone-100 last:border-b-0 ${event.occurrenceStatus === "IN_SESSION" ? "bg-teal-50/70" : ""}`}>
-                  <span className={`h-full ${event.occurrenceStatus === "IN_SESSION" ? "bg-teal-700" : index === 0 ? "bg-teal-700" : index === 1 ? "bg-orange-500" : "bg-violet-600"}`} aria-hidden />
+                  <span className={`h-full ${event.occurrenceStatus === "IN_SESSION" ? "bg-teal-700" : "bg-stone-300"}`} aria-hidden />
                   <span className="min-w-0 py-4">
                     {event.occurrenceStatus === "IN_SESSION" ? <span className="mb-1 inline-flex rounded-full bg-teal-700 px-3 py-1 text-xs font-black uppercase tracking-wide text-white">In progress now</span> : null}
                     <span className="block font-black text-slate-950">{event.title}</span>
                     <span className="mt-1 block truncate text-sm font-semibold text-slate-600">{event.academy.name} · {event.giType.replace("_", "-")}</span>
                     <span className="mt-2 flex flex-wrap gap-2 text-xs font-bold text-teal-800">
                       <span className="rounded-full bg-teal-50 px-3 py-1">{event.startTime}</span>
-                      <span className="rounded-full bg-teal-50 px-3 py-1">£{Number(event.price.toString()).toFixed(0)}</span>
+                      <span className="rounded-full bg-teal-50 px-3 py-1">{formatMoney(event.price)}</span>
                       {event.occurrenceStatus === "IN_SESSION" ? <span className="rounded-full bg-teal-700 px-3 py-1 text-white">Live</span> : null}
                       {event.isRecurringOccurrence ? <span className="rounded-full bg-stone-100 px-3 py-1 text-stone-700">{event.recurrenceLabel}</span> : null}
-                      <span className="rounded-full bg-teal-50 px-3 py-1">{index === 2 ? "All levels" : "Drop-in"}</span>
                     </span>
                   </span>
                   <span className="hidden text-right text-sm font-semibold text-slate-500 sm:block">
-                    <span className={`block ${event.occurrenceStatus === "IN_SESSION" ? "font-black text-teal-800" : ""}`}>{event.occurrenceStatus === "IN_SESSION" ? "Now" : index === 0 || index === 1 ? "Today" : formatDate(event.eventDate)}</span>
+                    <span className={`block ${event.occurrenceStatus === "IN_SESSION" ? "font-black text-teal-800" : ""}`}>{upcomingDateLabel(event)}</span>
                     <span className="mt-1 block text-base font-black text-slate-800">{event.startTime}</span>
                   </span>
                   <span className="mr-4 inline-flex size-9 items-center justify-center rounded-full border border-stone-200 text-teal-700 shadow-sm" aria-hidden>
@@ -91,7 +91,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
                   </span>
                 </Link>
               ))}
-              {!events.length ? (
+              {!upcomingNearYou.length ? (
                 <div className="p-5 text-sm font-semibold text-slate-600">No upcoming open mats are listed yet.</div>
               ) : null}
             </div>
@@ -147,6 +147,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
 
 function openMatHref(event: { id: string; isRecurringOccurrence?: boolean; occurrenceDateParam?: string }) {
   return `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
+}
+
+function upcomingDateLabel(event: { eventDate: Date; occurrenceStatus?: string }) {
+  if (event.occurrenceStatus === "IN_SESSION") return "Now";
+  return dateKey(event.eventDate) === dateKey(new Date()) ? "Today" : formatDate(event.eventDate);
 }
 
 function PopularSearch({ children, href }: { children: ReactNode; href: string }) {
