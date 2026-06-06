@@ -10,7 +10,7 @@ export function BrandLink() {
         width={1672}
         height={941}
         priority
-        className="h-10 w-auto shrink-0"
+        className="h-11 w-auto shrink-0"
         sizes="120px"
       />
       <span>RollFinders</span>

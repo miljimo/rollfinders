@@ -700,13 +700,29 @@ IF `/login` renders
 
 WHEN the user is not authenticated
 
-THEN the page SHALL show email, password, submit action, and error feedback.
+THEN the page SHALL show email, password, submit action, and error feedback according to `docs/features/Users/Standard/Components/LoginForm.md`.
+
+IF `/login` renders on a mobile viewport
+
+WHEN the public shell, heading, and form are visible
+
+THEN the page SHALL fit at `375x812` without horizontal overflow, clipped controls, or overlapping text.
+
+IF `/login` renders on a desktop viewport
+
+WHEN the public header navigation is visible
+
+THEN the login form SHALL remain compact, centered, and not stretched across the page.
 
 Done when:
 
 * Email input uses email type.
 * Password input uses password type.
+* Password field provides an accessible visibility toggle.
+* Submit action is full width with a minimum 44px touch target.
+* Pending sign-in disables repeated submissions.
 * Failed login can show feedback.
+* Error feedback uses alert or live-region semantics.
 * Successful login redirects according to current auth behavior.
 
 ---
