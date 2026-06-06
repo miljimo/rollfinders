@@ -34,6 +34,10 @@ IF the open mat is a derived recurring occurrence
 WHEN the detail page renders  
 THEN it SHALL show the selected occurrence date while using the recurring source listing as the canonical editable record.
 
+IF the open mat belongs to an academy that is not both claimed/managed and verified
+WHEN the detail page renders
+THEN it SHALL show a non-blocking notice immediately below the details card telling users prices and session details may change and that they should confirm with the academy before visiting.
+
 ## Done When
 
 * Directions use full address.
@@ -41,3 +45,4 @@ THEN it SHALL show the selected occurrence date while using the recurring source
 * Detail layout remains readable on mobile.
 * In-session and completed states are clear.
 * Recurring occurrence detail does not imply the occurrence is a separate admin-created listing.
+* Unclaimed or unverified academy sessions show a calm pre-visit confirmation notice near cost and location details.

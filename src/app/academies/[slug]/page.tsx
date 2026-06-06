@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { EventCard } from "@/components/EventCard";
+import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { getOpenMatRadar } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/utils";
+import { ClaimStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -13,15 +15,14 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
   const academy = await prisma.academy.findUnique({
     where: { slug },
     include: {
-      _count: {
-        select: { members: true },
-      },
+      claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
+      members: { select: { id: true } },
     },
   });
 
   if (!academy) notFound();
   const events = (await getOpenMatRadar()).filter((event) => event.academyId === academy.id);
-  const academyIsManaged = academy._count.members > 0;
+  const academyIsManaged = academy.members.length > 0;
 
   const address = `${academy.address}, ${academy.city} ${academy.postcode}`;
 
@@ -40,6 +41,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
             <p><strong>Website:</strong> {academy.website ? <a className="text-teal-800" href={academy.website}>{academy.website}</a> : "Not listed"}</p>
             <p><strong>Drop-in:</strong> {academy.dropInPrice !== null ? formatMoney(academy.dropInPrice) : "Check with academy"}</p>
           </div>
+          <PublicListingWarning academy={academy} className="mt-4 max-w-3xl" />
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-stone-700">
             {academy.giAvailable ? <span className="rounded-md bg-stone-100 px-3 py-2">Gi available</span> : null}
             {academy.nogiAvailable ? <span className="rounded-md bg-stone-100 px-3 py-2">No-Gi available</span> : null}

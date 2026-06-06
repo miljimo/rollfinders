@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { getOpenMatOccurrence } from "@/lib/data";
 import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ export default async function EventPage({
           <div><dt className="font-bold text-stone-950">Capacity</dt><dd>{event.capacity ?? "Check with academy"}</dd></div>
           <div className="sm:col-span-2"><dt className="font-bold text-stone-950">Location</dt><dd>{address}</dd></div>
         </dl>
+        <PublicListingWarning academy={event.academy} className="mt-4" />
         <p className="mt-6 text-lg leading-8 text-stone-700">{event.description}</p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
