@@ -1,10 +1,15 @@
 import Link from "next/link";
-import type { Academy, Event } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, type Academy, type Event } from "@prisma/client";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "./Button";
 import { formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
 
-type AcademyCardItem = Academy & { events: Event[]; distanceMiles?: number | null };
+type AcademyCardItem = Academy & {
+  claims?: { status: ClaimStatus }[];
+  events: Event[];
+  members?: unknown[];
+  distanceMiles?: number | null;
+};
 type AcademyCardEvent = Event & {
   occurrenceId?: string;
   occurrenceDateParam?: string;
@@ -16,6 +21,12 @@ function eventHref(event: AcademyCardEvent) {
   return `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
 }
 
+function isVerifiedAndClaimed(academy: AcademyCardItem) {
+  const verified = academy.verified || academy.verificationStatus === AcademyVerificationStatus.VERIFIED;
+  const claimed = Boolean(academy.members?.length) || Boolean(academy.claims?.some((claim) => claim.status === ClaimStatus.APPROVED));
+  return verified && claimed;
+}
+
 export function AcademyCard({ academy }: { academy: AcademyCardItem }) {
   return (
     <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
@@ -23,7 +34,7 @@ export function AcademyCard({ academy }: { academy: AcademyCardItem }) {
         <div>
           <h2 className="flex items-center gap-2 text-lg font-bold text-stone-950">
             <Link href={`/academies/${academy.slug}`}>{academy.name}</Link>
-            {academy.verified ? <CheckCircle2 size={16} className="text-teal-700" aria-label="Verified" /> : null}
+            {isVerifiedAndClaimed(academy) ? <CheckCircle2 size={16} className="text-teal-700" aria-label="Verified and claimed" /> : null}
           </h2>
           <p className="mt-1 flex items-center gap-1 text-sm text-stone-600">
             <MapPin size={15} aria-hidden /> {academy.borough ?? academy.city}, {academy.postcode}
