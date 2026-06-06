@@ -26,6 +26,8 @@ The template should help product review the exact email structure before develop
 
 # Ticket 1: Source-Controlled Template Deployment
 
+Status: Done
+
 This is the first development ticket for the academy claim invitation template because deployment traceability is required before the template can become operational email behavior.
 
 ## Requirement Summary
@@ -38,9 +40,9 @@ The canonical deployable template SHALL live outside `docs/` because it is runti
 
 Required source path:
 
-`src/lib/email/templates/academy-claim-invitation/AcademyClaimInvitation.html`
+`src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html`
 
-The current PRD mockup MAY remain in `docs/features/Communications/Email/AcademyClaimEmails/Templates/AcademyClaimInvitation.html` as product documentation until implementation moves the deployable template into the canonical source path.
+The current PRD mockup MAY remain in `docs/features/Communications/Email/AcademyClaimEmails/Templates/academy-claim-invitation.html` as product documentation.
 
 ## S3 Deployment Target
 
@@ -114,6 +116,16 @@ Template changes SHALL be reviewed as product-facing UI copy and deployment beha
 * Backend or platform review when placeholders, S3 paths, deployment upload behavior, or runtime rendering contracts change.
 
 Pull requests changing the template SHOULD include a rendered preview or before-and-after screenshot for product review.
+
+## Implementation Notes
+
+Implemented in:
+
+* `src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html`
+* `scripts/cicd/deploy-academy-claim-invitation-template.sh`
+* `scripts/cicd/deploy.sh`
+
+Production deployment now validates the canonical template before release work, uploads it to S3 after ECS stabilizes, verifies the uploaded checksum, and records upload details for traceability.
 
 ---
 
@@ -288,4 +300,4 @@ THEN it SHALL be direct, professional, free-claiming focused, and avoid implying
 * Template includes academy name, claim button, public profile link, benefits, review reassurance, and support footer.
 * Template uses only `support@rollfinders.com` for support contact.
 * Template is mobile-first and email-client safe.
-* Implementation remains out of scope until a development task is approved.
+* Remaining runtime email sending and academy-claim workflow wiring are out of scope until a development task is approved.
