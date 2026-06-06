@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { queueEmail } from "@/lib/reliable-email";
+import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
 
 const tokenBytes = 32;
 const resetExpiryHours = 24;
@@ -35,13 +35,14 @@ export async function queuePasswordResetEmail(user: { id: string; email: string;
     },
   });
 
-  await queueEmail({
+  const outboundEmail = await queueEmail({
     userId: user.id,
     to: user.email,
     subject: "Change your RollFinders password",
     text: `Use this link to change your RollFinders password. The link expires in ${resetExpiryHours} hours.\n\n${url}`,
     html: `<p>Use this link to change your RollFinders password. The link expires in ${resetExpiryHours} hours.</p><p><a href="${url}">Change password</a></p>`,
   });
+  await sendQueuedEmail(outboundEmail.id);
 
   return { expiresAt };
 }

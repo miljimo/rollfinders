@@ -1,5 +1,9 @@
 # Environment Resources PRD
 
+Status: Done
+
+Implementation evidence: `terraform/main.tf`, `terraform/environments/*/common.tfvars`, shared modules, environment outputs, and runtime secret wiring.
+
 ## Purpose
 
 Provision each runtime environment consistently while preserving naming, networking, database, compute, and secrets boundaries.

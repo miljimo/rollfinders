@@ -45,6 +45,7 @@ COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
 COPY --chown=nextjs:nodejs seed ./seed
+COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
 COPY --chown=nextjs:nodejs prisma.config.ts ./
 USER nextjs
 EXPOSE 3000

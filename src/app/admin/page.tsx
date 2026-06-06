@@ -430,6 +430,7 @@ export default async function AdminPage({
               search={<AcademiesPanelSearch reminderFilter={academyReminderFilter} search={search} />}
               title="Academies"
             >
+              <ClaimInvitationResult params={params} />
               <ClaimReminderResult params={params} />
               <AcademiesTable academies={academies} params={params} />
               <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
@@ -679,6 +680,29 @@ function ClaimReminderResult({ params }: { params: AdminSearchParams }) {
               : result === "unauthorized"
                 ? "You do not have permission to send claim reminders."
                 : null;
+  if (!message) return null;
+  return (
+    <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-900">
+      {message}
+    </div>
+  );
+}
+
+function ClaimInvitationResult({ params }: { params: AdminSearchParams }) {
+  const result = firstParam(params.claimInvitationResult);
+  if (!result) return null;
+  const reason = firstParam(params.claimInvitationReason);
+  const message = result === "queued"
+    ? "Academy saved and claim invitation queued."
+    : result === "skipped"
+      ? `Academy saved. Claim invitation skipped${reason ? `: ${claimReminderReasonLabel(reason)}.` : "."}`
+      : result === "failed"
+        ? `Academy saved. Claim invitation was not queued${reason ? `: ${reason}.` : "."}`
+        : result === "not_sent"
+          ? "Academy saved. Claim invitation not sent."
+          : result === "unauthorized"
+            ? "Academy saved. You do not have permission to send claim invitations."
+            : null;
   if (!message) return null;
   return (
     <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-900">

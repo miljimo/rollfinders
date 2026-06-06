@@ -46,7 +46,7 @@ Use these branches for implementation:
 
 Source PRD:
 
-`docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md`
+`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 
 ## API-CLAIM-001: Claim Data Model
 
@@ -262,9 +262,9 @@ THEN the implementation SHALL document where monthly visitors, weekly active use
 
 Source PRDs:
 
-`docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md` AC-024
+`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md` AC-024
 
-`docs/features/Academies/Products/AcademyVerificationPrd.md` AV-012
+`docs/features/Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` AV-012
 
 ## API-DISCOVERY-001: Academy Trust Ranking Signal
 
@@ -384,9 +384,9 @@ THEN the backend SHALL expose only contact fields intended for public display.
 
 Source PRD:
 
-`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingEmailDeliveryPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingEmailDeliveryPrd.md`
 
-`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingCredentialContentPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingCredentialContentPrd.md`
 
 ## API-USEREMAIL-001: Queue Email After User Creation
 

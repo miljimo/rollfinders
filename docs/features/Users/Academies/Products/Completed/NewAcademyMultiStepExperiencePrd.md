@@ -2,9 +2,13 @@
 
 Version: 1.0
 
+Status: Done
+
 Priority: High
 
 Review date: 2026-06-05
+
+Implementation evidence: `src/app/admin/academies/AcademyForm.tsx` implements the guided steps, review step, live preview, validation feedback, and sticky action controls.
 
 Branch:
 

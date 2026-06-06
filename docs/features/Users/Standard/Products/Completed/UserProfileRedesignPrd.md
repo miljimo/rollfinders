@@ -2,9 +2,13 @@
 
 Version: 1.1
 
+Status: Done
+
 Priority: Medium
 
 Review date: 2026-06-05
+
+Implementation evidence: `src/app/admin/page.tsx` includes `ViewUserDialog`, which provides the simple user profile modal.
 
 Branch:
 
@@ -79,12 +83,12 @@ Existing model:
 
 Reviewed against source code on 2026-06-05.
 
-Status: Missing.
+Status: Done.
 
 Current behavior:
 
-* User details and edit controls are shown inline inside the `/admin/users` table.
-* No separate user profile modal, drawer, or detail page is visible in source.
+* User details are available through a separate profile modal.
+* Dense inline table controls are no longer the only way to review account details.
 * Existing actions already support the required profile actions.
 
 MVP decision:

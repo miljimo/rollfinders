@@ -2,7 +2,7 @@
 
 Version: 1.1
 
-Source PRD: `docs/features/Product/Products/RollFinderMvpPrd.md`
+Source PRD: `docs/features/Product/Products/Reviewing/RollFinderMvpPrd.md`
 
 Review date: 2026-06-04
 
@@ -137,7 +137,7 @@ Implementation branch:
 
 Canonical PRD:
 
-`docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md`
+`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 
 User story:
 

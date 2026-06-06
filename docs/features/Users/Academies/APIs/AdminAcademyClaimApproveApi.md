@@ -10,7 +10,7 @@ Original implementation branch: `feature/academy-claiming-admin-approval`
 
 Proposed route: `POST /api/admin/academy-claims/[id]/approve`
 
-Source PRD: `docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md`
+Source PRD: `docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 
 ---
 

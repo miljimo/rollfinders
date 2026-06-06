@@ -1,5 +1,9 @@
 # AWS Resource Catalog PRD
 
+Status: Done
+
+Implementation evidence: this catalog documents the current Terraform and deployment-script AWS resource set.
+
 ## Purpose
 
 Document every AWS resource used by RollFinders, what each resource is for, and how it relates to the application, deployment pipeline, or infrastructure control plane.
@@ -88,4 +92,3 @@ IF a resource stores secrets, credentials, logs, state, or database records, WHE
 - Each resource has a short purpose written for engineers and operators.
 - Runtime, deployment-control, and state resources are documented separately.
 - New AWS resources require an update to this PRD or a linked Deployment PRD.
-

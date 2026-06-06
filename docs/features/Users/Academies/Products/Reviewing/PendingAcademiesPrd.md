@@ -2,9 +2,13 @@
 
 Version: 1.0
 
+Status: Reviewing
+
 Priority: High
 
 Review date: 2026-06-05
+
+Implementation evidence: pending counts and status rendering exist, but exact pending-filter navigation still needs final verification against the panel-based admin route.
 
 Branch:
 

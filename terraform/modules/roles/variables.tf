@@ -21,6 +21,11 @@ variable "statements" {
     actions   = optional(list(string), [])
     effect    = optional(string, "Allow")
     resources = optional(list(string), [])
+    condition = optional(object({
+      test     = string
+      variable = string
+      values   = list(string)
+    }), null)
   }))
   description = "The statements variable is a list of statement policies for the attached to the roles"
 

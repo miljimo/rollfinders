@@ -4,7 +4,7 @@ import { AcademyMemberRole, ClaimStatus, Role, UserStatus, type ClaimRequest, ty
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
-import { queueEmail } from "@/lib/reliable-email";
+import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
 
 type ClaimWithAcademy = ClaimRequest & {
   academy: { id: string; name: string; slug: string; city: string; postcode: string };
@@ -205,10 +205,11 @@ export async function queueClaimApprovedEmail(user: { id: string; email: string;
 }
 
 export async function queueClaimRejectedEmail(claim: { requesterEmail: string; requesterName: string; academyName: string }) {
-  await queueEmail({
+  const outboundEmail = await queueEmail({
     to: claim.requesterEmail,
     subject: "RollFinders academy claim update",
     text: `Hi ${claim.requesterName},\n\nYour claim for ${claim.academyName} was not approved at this time.\n\nRollFinders`,
     html: `<p>Hi ${claim.requesterName},</p><p>Your claim for ${claim.academyName} was not approved at this time.</p><p>RollFinders</p>`,
   });
+  await sendQueuedEmail(outboundEmail.id);
 }

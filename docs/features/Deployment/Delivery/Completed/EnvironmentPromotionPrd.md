@@ -1,5 +1,9 @@
 # Environment Promotion PRD
 
+Status: Done
+
+Implementation evidence: `scripts/cicd/promotion.sh`, `scripts/cicd/deploy-environment.sh`, and the production approval gate in `scripts/cicd/deploy.sh`.
+
 ## Purpose
 
 Promote application changes through dev, staging, and production using repeatable rules and traceable artifacts.
@@ -39,4 +43,3 @@ IF a promotion completes, WHEN the workflow finishes, THEN the source environmen
 - A promoted release can be traced back to the exact artifact tested in staging.
 - Environment-specific configuration does not require source changes.
 - Emergency promotion bypasses are visible in pipeline history.
-

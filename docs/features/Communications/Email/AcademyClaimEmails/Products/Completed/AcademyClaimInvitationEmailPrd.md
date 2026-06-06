@@ -2,6 +2,8 @@
 
 Version: 1.0
 
+Status: Done
+
 Priority: High
 
 Review date: 2026-06-06
@@ -23,6 +25,34 @@ These listings help practitioners discover where to train, but they should event
 
 This email is not a generic user onboarding email. It is an academy ownership invitation that asks the academy to claim an existing listing.
 
+Current implementation already includes manual claim reminders, backend eligibility checks, reliable outbound email queueing, reminder outcome tracking, the public claim flow, duplicate pending claim protection, and admin-reviewed claim approval. This PRD should build on those existing behaviours instead of introducing a separate access-granting invitation system.
+
+---
+
+# Implementation Direction
+
+RollFinders SHALL reuse the existing public academy claim flow for claim invitation links:
+
+`/academies/[slug]/claim`
+
+The system SHALL NOT introduce signed claim invitation tokens for this MVP requirement unless product later requires invite attribution, expiry, or private invite-only claim pages.
+
+Existing `AcademyInvitation` records SHALL NOT be reused for academy claim invitations because those invitations are for academy team/admin access after an academy is already managed. Academy claim invitation emails must only lead to a pending public claim request and must never grant academy management access directly.
+
+The first implementation ticket SHALL be:
+
+**Shared Academy Claim Invitation Template Renderer + Manual Reminder Conversion**
+
+This ticket SHALL:
+
+* Load the completed canonical HTML template from `src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html`.
+* Render the required placeholders with escaped dynamic values.
+* Fail safely when any required value is missing or any `{{...}}` placeholder remains unresolved.
+* Replace the existing inline manual reminder HTML in `src/app/admin/academies/actions.ts`.
+* Preserve the existing reminder eligibility checks, cooldown, skip/fail/queued outcomes, audit logging, and `AcademyClaimReminder` records.
+
+Later tickets SHALL add academy-created automatic invitation queueing and admin send/skip controls.
+
 ---
 
 # Scope
@@ -32,7 +62,7 @@ In scope:
 * Email sent after a platform admin adds or imports an academy listing.
 * Manual claim reminder emails sent from the Admin Academies UI.
 * Email format and content for academy claim invitations.
-* HTML template requirement for the invitation email. See `AcademyClaimInvitationHtmlTemplatePrd.md`.
+* Rendering and sending the completed academy claim invitation HTML template. See `../Completed/AcademyClaimInvitationHtmlTemplatePrd.md`.
 * Claim invitation link generation.
 * Reliable email queueing and delivery tracking.
 * Admin feedback when the invitation or reminder is queued, skipped, or fails.
@@ -49,6 +79,20 @@ Out of scope:
 ---
 
 # Email Format
+
+The academy claim invitation email SHALL use the completed `AcademyClaimInvitation` HTML template as its source of truth.
+
+Completed template PRD:
+
+`docs/features/Communications/Email/AcademyClaimEmails/Products/Completed/AcademyClaimInvitationHtmlTemplatePrd.md`
+
+Canonical template source:
+
+`src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html`
+
+Production S3 template object:
+
+`s3://rollfinders/mails/invitations/academy-claim-invitation.html`
 
 Subject:
 
@@ -80,9 +124,34 @@ Tone:
 * No pressure language.
 * No implication that the academy has already approved or partnered with RollFinders.
 
+Template variables:
+
+* `{{academyName}}`
+* `{{academyProfileUrl}}`
+* `{{claimInvitationUrl}}`
+* `{{recipientEmail}}`
+* `{{supportEmail}}`
+* `{{currentYear}}`
+
 ---
 
 # IF/WHEN/THEN Requirements
+
+## ACADEMY-CLAIM-EMAIL-000: Reuse Existing Public Claim Flow
+
+IF an academy claim invitation or manual claim reminder is generated
+
+WHEN the claim call to action URL is built
+
+THEN the system SHALL use the existing public academy claim route for the academy, such as `/academies/[slug]/claim`, and SHALL NOT use `AcademyInvitation` access tokens.
+
+## ACADEMY-CLAIM-EMAIL-000A: No Team Invitation Token Reuse
+
+IF the system sends an academy claim invitation
+
+WHEN it chooses a persistence or token model
+
+THEN it SHALL NOT reuse academy team/admin invitation tokens because those tokens belong to post-claim academy access management.
 
 ## ACADEMY-CLAIM-EMAIL-001: Queue After Academy Creation
 
@@ -106,7 +175,7 @@ IF an academy claim invitation email is queued
 
 WHEN the email body is built
 
-THEN the system SHALL include a claim invitation link that opens the academy claim flow with the academy preselected.
+THEN the system SHALL include a claim invitation link that opens the existing public academy claim flow with the academy preselected.
 
 ## ACADEMY-CLAIM-EMAIL-004: Academy Profile Link
 
@@ -120,9 +189,25 @@ THEN the system SHALL include the public academy profile URL.
 
 IF an academy claim invitation email is generated
 
-WHEN product reviews the email format
+WHEN the email body is built
 
-THEN the email SHALL include academy name, claim action, public profile link, claim review explanation, and support contact.
+THEN the system SHALL render the completed `AcademyClaimInvitation` HTML template with academy name, claim action, public profile link, claim review explanation, support contact, recipient email, and current year.
+
+## ACADEMY-CLAIM-EMAIL-005A: Completed Template Source
+
+IF the academy claim invitation email is queued
+
+WHEN the HTML body is resolved
+
+THEN the system SHALL use `src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html` or the deployed S3 object at `s3://rollfinders/mails/invitations/academy-claim-invitation.html` as the approved HTML template source.
+
+## ACADEMY-CLAIM-EMAIL-005B: Template Placeholder Safety
+
+IF the completed template is rendered
+
+WHEN any required template variable is missing
+
+THEN the system SHALL fail email generation, record a clear operational error, and SHALL NOT send an email with unresolved placeholders.
 
 ## ACADEMY-CLAIM-EMAIL-006: No Auto Approval
 
@@ -154,7 +239,7 @@ IF an academy already has a pending claim invitation or pending claim request fo
 
 WHEN another claim invitation is requested
 
-THEN the system SHALL prevent duplicate active invitations or clearly replace the prior invitation token.
+THEN the system SHALL prevent duplicate active invitation emails, skip the send, or record a clear replacement decision without creating an access-granting token.
 
 ## ACADEMY-CLAIM-EMAIL-010: Audit Metadata
 
@@ -202,7 +287,7 @@ IF a manual claim reminder email is generated
 
 WHEN the email body is built
 
-THEN the copy SHALL explain that RollFinders has an academy listing that can be claimed, SHALL include the academy name, SHALL include a claim CTA, and SHALL state that claim approval is reviewed before management access is granted.
+THEN the system SHALL render the same completed `AcademyClaimInvitation` HTML template and populate the claim CTA with the eligible academy's claim URL.
 
 ## ACADEMY-CLAIM-EMAIL-016: Manual Reminder No Ownership Grant
 
@@ -224,10 +309,53 @@ THEN the system SHALL expose an outcome that the Admin Academies UI can display 
 
 # Development Requirements
 
+## Ticket 1: Shared Template Renderer And Manual Reminder Conversion
+
+Status: Done
+
+* Add a shared academy claim invitation email renderer.
+* Load `src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html`.
+* Render required placeholders:
+  * `{{academyName}}`
+  * `{{academyProfileUrl}}`
+  * `{{claimInvitationUrl}}`
+  * `{{recipientEmail}}`
+  * `{{supportEmail}}`
+  * `{{currentYear}}`
+* Escape dynamic values before interpolation.
+* Fail email generation if a required value is missing.
+* Fail email generation if unresolved `{{...}}` placeholders remain.
+* Replace the existing hand-built manual reminder HTML/text in `src/app/admin/academies/actions.ts`.
+* Keep existing manual reminder eligibility, cooldown, invalid-email suppression, `AcademyClaimReminder`, and admin audit behaviour.
+* Add tests for renderer output, missing placeholders, and manual reminder queue content.
+
+## Ticket 2: Academy Creation Invitation Queueing
+
+Status: Done
+
+* Queue the same rendered academy claim invitation email after `createAcademy` saves a new academy with a valid usable email.
+* Record `AcademyClaimReminder.source = "academy_creation"` or equivalent audit metadata so automatic invitations are distinguishable from manual reminders.
+* Reuse existing invalid-email and pending-claim checks before queueing.
+* Surface partial success when the academy is saved but the email is skipped or fails to queue.
+* Add tests for successful queueing, invalid email skip, pending claim skip, and queue failure feedback.
+
+## Ticket 3: Admin Send Or Skip Control
+
+Status: Done
+
+* Add a create/edit academy UI control that lets platform admins choose whether to send the claim invitation.
+* Default behaviour SHOULD send when a valid academy email exists, unless product chooses an explicit opt-in default.
+* Preserve academy save behaviour when the admin chooses not to send.
+* Show clear admin feedback for queued, skipped, failed, or intentionally not sent.
+
+## Shared Requirements
+
 * Add a platform-admin control to send or resend a claim invitation from academy create/edit workflows.
 * Add Admin Academies UI support for manual claim reminders to unclaimed academies with valid usable emails.
-* Use the approved HTML email template requirement from `AcademyClaimInvitationHtmlTemplatePrd.md`.
-* Generate a claim invitation URL that preselects the academy in the public claim flow.
+* Use the completed HTML template requirement from `../Completed/AcademyClaimInvitationHtmlTemplatePrd.md`.
+* Render `src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html` or the deployed S3 object at `s3://rollfinders/mails/invitations/academy-claim-invitation.html`.
+* Do not maintain a separate inline HTML body for claim invitation or manual reminder emails.
+* Generate a claim invitation URL that uses the existing public academy claim flow and preselects the academy.
 * Queue the email through the existing reliable email system.
 * Track outbound email status using existing email status and retry behavior.
 * Show admin queued, skipped, and failed feedback.
@@ -239,7 +367,7 @@ THEN the system SHALL expose an outcome that the Admin Academies UI can display 
 # Acceptance Criteria
 
 * Platform admins can send a claim invitation when adding an academy.
-* Product has a defined email format for the invitation.
+* Product has a defined email format for the invitation through the completed `AcademyClaimInvitation` HTML template.
 * Invitation email includes academy name, public profile URL, and claim CTA.
 * Claim invitation opens the claim flow with the academy preselected.
 * Claim submission still requires platform admin approval.
@@ -247,5 +375,7 @@ THEN the system SHALL expose an outcome that the Admin Academies UI can display 
 * Duplicate active invitations are prevented or replaced intentionally.
 * Admin feedback distinguishes academy save success from email queue failure.
 * Email uses `support@rollfinders.com`.
+* Invitation and manual reminder emails render the same completed HTML template.
+* Email generation fails safely if required template variables are missing.
 * Manual reminders can be queued only for eligible unclaimed academies.
 * Manual reminder outcomes can be shown in the Admin Academies UI.

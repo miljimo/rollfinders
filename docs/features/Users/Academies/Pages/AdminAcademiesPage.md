@@ -7,7 +7,7 @@ Source: `src/app/admin/page.tsx`
 Related PRDs:
 
 * `docs/features/Users/Academies/APIs/AdminAcademiesApi.md`
-* `docs/features/Communications/Email/AcademyClaimEmails/Products/AcademyClaimInvitationEmailPrd.md`
+* `docs/features/Communications/Email/AcademyClaimEmails/Products/Completed/AcademyClaimInvitationEmailPrd.md`
 
 ## MVP Product Decisions
 

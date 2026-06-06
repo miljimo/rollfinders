@@ -200,7 +200,12 @@ module "task_role" {
     {
       id        = "ses-send-email"
       actions   = ["ses:SendEmail", "ses:SendRawEmail"]
-      resources = [module.email.domain_identity_arn]
+      resources = ["*"]
+      condition = {
+        test     = "StringEquals"
+        variable = "ses:FromAddress"
+        values   = ["support@${module.email.sending_domain}"]
+      }
     }
   ]
 }

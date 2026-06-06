@@ -55,13 +55,14 @@ const defaultValues: AcademyValues = {
   competitionFocused: "off",
   featured: "off",
   verificationStatus: AcademyVerificationStatus.PENDING,
+  sendClaimInvitation: "on",
 };
 
 const fieldsByStep: Record<StepId, string[]> = {
   basics: ["name", "slug", "description", "affiliation", "website", "email", "phone"],
   location: ["address", "city", "postcode", "borough", "country", "latitude", "longitude"],
   media: ["logoUrl", "coverImageUrl", "categories", "facebookUrl", "instagramUrl", "xUrl"],
-  settings: ["dropInPrice", "giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "verificationStatus"],
+  settings: ["dropInPrice", "giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "verificationStatus", "sendClaimInvitation"],
   review: [],
 };
 
@@ -107,6 +108,7 @@ function academyValues(academy?: Academy): AcademyValues {
     competitionFocused: checkboxValue(academy.competitionFocused),
     featured: checkboxValue(academy.featured),
     verificationStatus: academy.verificationStatus,
+    sendClaimInvitation: "off",
   };
 }
 
@@ -315,6 +317,10 @@ function SettingsStep({ errors, updateField, values }: StepProps) {
         <Toggle name="competitionFocused" label="Competition focused" updateField={updateField} values={values} />
         <Toggle name="featured" label="Featured academy" updateField={updateField} values={values} />
       </div>
+      <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
+        <Toggle name="sendClaimInvitation" label="Send claim invitation" updateField={updateField} values={values} />
+        <p className="mt-2 text-sm font-semibold text-teal-900">Queues an email to the academy contact when the saved email is valid, usable, unclaimed, and outside reminder cooldown.</p>
+      </div>
       <p className="text-sm font-semibold text-stone-600">Public verified status is derived from the selected verification status.</p>
     </StepSection>
   );
@@ -509,7 +515,7 @@ function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<
 }
 
 function displayValue(field: string, value: string) {
-  if (["giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured"].includes(field)) return value === "on" ? "Yes" : "No";
+  if (["giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "sendClaimInvitation"].includes(field)) return value === "on" ? "Yes" : "No";
   if (field === "verificationStatus") return value;
   return value || "Not provided";
 }

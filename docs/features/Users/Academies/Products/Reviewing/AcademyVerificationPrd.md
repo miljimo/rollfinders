@@ -2,9 +2,13 @@
 
 Version: 1.0
 
+Status: Reviewing
+
 Priority: High
 
 Review date: 2026-06-05
+
+Implementation evidence: verification status fields and admin controls exist, but dedicated verification audit metadata is still not complete.
 
 Branch:
 

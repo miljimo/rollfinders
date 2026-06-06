@@ -5,7 +5,7 @@
 - Source: `src/components/StaticSiteHeader.tsx`
 - Status: Ready for development
 - Related component: `NavLink`
-- Related PRD: `docs/features/SharedComponents/MobileFirstPublicNavigationPrd.md`
+- Related PRD: `docs/features/SharedComponents/Completed/MobileFirstPublicNavigationPrd.md`
 
 ## Purpose
 
@@ -19,7 +19,7 @@ THEN it SHALL show Home, Academies, Open Mats, Map, and Login.
 
 IF the viewport is mobile  
 WHEN desktop navigation is hidden  
-THEN it SHALL follow `docs/features/SharedComponents/MobileFirstPublicNavigationPrd.md` and keep Home, Academies, Open Mats, Map, and Login visible or immediately reachable.
+THEN it SHALL follow `docs/features/SharedComponents/Completed/MobileFirstPublicNavigationPrd.md` and keep Home, Academies, Open Mats, Map, and Login visible or immediately reachable.
 
 IF a nav link matches the current path  
 WHEN `NavLink` renders  

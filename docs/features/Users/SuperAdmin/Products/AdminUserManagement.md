@@ -269,7 +269,7 @@ Implemented:
 MVP gaps or notes:
 
 * Promote/demote are available through API routes and role editing, but the table does not expose separate visible `Promote` and `Demote` buttons.
-* Inline table editing works but is dense. Use `docs/features/Users/Standard/Products/UserProfileRedesignPrd.md` for the simpler follow-up user profile detail requirement.
+* Inline table editing works but is dense. Use `docs/features/Users/Standard/Products/Completed/UserProfileRedesignPrd.md` for the simpler follow-up user profile detail requirement.
 * Keep authorization behavior aligned between server actions and API routes when future UI changes are implemented.
 
 MVP decision:

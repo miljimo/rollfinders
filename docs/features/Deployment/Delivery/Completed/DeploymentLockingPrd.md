@@ -1,5 +1,9 @@
 # Deployment Locking PRD
 
+Status: Done
+
+Implementation evidence: `scripts/cicd/deployment-lock.sh`, `scripts/cicd/deploy-environment.sh`, and Terraform remote state locking.
+
 ## Purpose
 
 Prevent overlapping infrastructure and application deployments from corrupting state or racing service updates.
@@ -39,4 +43,3 @@ IF a stale lock blocks deployment, WHEN an operator clears it, THEN the cleanup 
 - Terraform state locking is enabled for every remote state layer.
 - Lock errors are actionable without requiring console inspection first.
 - Stale lock cleanup is documented and environment-scoped.
-

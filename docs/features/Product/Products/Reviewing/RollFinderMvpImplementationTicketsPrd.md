@@ -16,7 +16,7 @@ Sizing rule: Each ticket should be implementable by one human engineer within 2 
 
 Requirements reviewed:
 
-* `docs/features/Product/Products/RollFinderMvpPrd.md`
+* `docs/features/Product/Products/Reviewing/RollFinderMvpPrd.md`
 * `docs/features/Users/SuperAdmin/Products/AdminUserManagement.md`
 * `docs/features/Platform/Products/PublicBusinessInformation.md`
 * Current user role PRDs under `docs/features/Users/Products/`
@@ -571,7 +571,7 @@ Type: Documentation
 
 Likely files:
 
-* `docs/features/Product/Products/RollFinderMvpPrd.md` or separate technical decision record
+* `docs/features/Product/Products/Reviewing/RollFinderMvpPrd.md` or separate technical decision record
 * Deployment docs under `docs/features/Deployment/Provisioning/`, `docs/features/Deployment/Delivery/`, `docs/features/Deployment/Operations/`, or `docs/architecture/`
 
 IF MVP technical requirements are reviewed

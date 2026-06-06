@@ -4,19 +4,19 @@ Deployment requirements are split into smaller infrastructure PRDs by operationa
 
 ## Provisioning
 
-- [AWS Resource Catalog](Provisioning/AwsResourceCatalogPrd.md)
-- [Terraform State Layers](Provisioning/TerraformStateLayersPrd.md)
-- [Environment Resources](Provisioning/EnvironmentResourcesPrd.md)
-- [Route 53 Domain Bootstrap](Provisioning/Route53DomainBootstrapPrd.md)
-- [ACM Certificate Provisioning](Provisioning/AcmCertificateProvisioningPrd.md)
-- [SES Domain Verification](Provisioning/SesDomainVerificationPrd.md)
+- [AWS Resource Catalog](Provisioning/Completed/AwsResourceCatalogPrd.md)
+- [Terraform State Layers](Provisioning/Reviewing/TerraformStateLayersPrd.md)
+- [Environment Resources](Provisioning/Completed/EnvironmentResourcesPrd.md)
+- [Route 53 Domain Bootstrap](Provisioning/Completed/Route53DomainBootstrapPrd.md)
+- [ACM Certificate Provisioning](Provisioning/Completed/AcmCertificateProvisioningPrd.md)
+- [SES Domain Verification](Provisioning/Completed/SesDomainVerificationPrd.md)
 
 ## Delivery
 
-- [Deployment Validation](Delivery/DeploymentValidationPrd.md)
-- [Environment Promotion](Delivery/EnvironmentPromotionPrd.md)
-- [Seed Data and Migrations](Delivery/SeedDataAndMigrationsPrd.md)
-- [Deployment Locking](Delivery/DeploymentLockingPrd.md)
+- [Deployment Validation](Delivery/Reviewing/DeploymentValidationPrd.md)
+- [Environment Promotion](Delivery/Completed/EnvironmentPromotionPrd.md)
+- [Seed Data and Migrations](Delivery/Reviewing/SeedDataAndMigrationsPrd.md)
+- [Deployment Locking](Delivery/Completed/DeploymentLockingPrd.md)
 
 ## Operations
 

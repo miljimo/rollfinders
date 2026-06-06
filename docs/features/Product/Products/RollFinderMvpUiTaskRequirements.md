@@ -48,7 +48,7 @@ Use these branches for implementation:
 
 Source PRD:
 
-`docs/features/Academies/Products/RollFinderAcademyClaimingPrd.md`
+`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 
 ## UI-CLAIM-001: Claim Profile Action
 
@@ -328,9 +328,9 @@ THEN the UI SHALL show a clear fallback such as "Check with academy" without bre
 
 Source PRD:
 
-`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingEmailDeliveryPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingEmailDeliveryPrd.md`
 
-`docs/features/Communications/Email/UserAccountEmails/Products/UserOnboardingCredentialContentPrd.md`
+`docs/features/Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingCredentialContentPrd.md`
 
 ## UI-USEREMAIL-001: Preserve Create User Form
 

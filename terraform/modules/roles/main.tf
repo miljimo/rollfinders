@@ -32,11 +32,17 @@ resource "aws_iam_role_policy" "role_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      {
+      merge({
         Action   = each.value.actions
-        Effect   = "Allow"
+        Effect   = each.value.effect
         Resource = each.value.resources
-      },
+      }, each.value.condition == null ? {} : {
+        Condition = {
+          (each.value.condition.test) = {
+            (each.value.condition.variable) = each.value.condition.values
+          }
+        }
+      }),
     ]
   })
 }
