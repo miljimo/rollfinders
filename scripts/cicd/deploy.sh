@@ -32,6 +32,10 @@ fi
 
 source "${PROJECT_DIR}/image.env"
 
+if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
+  "${SCRIPT_DIR}/deploy-academy-claim-invitation-template.sh" --validate-only
+fi
+
 cd "${TERRAFORM_DIR}"
 terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
 terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
@@ -120,6 +124,10 @@ aws ecs wait services-stable \
   --region "${AWS_REGION}" \
   --cluster "${ECS_CLUSTER}" \
   --services "${ECS_SERVICE}"
+
+if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
+  "${SCRIPT_DIR}/deploy-academy-claim-invitation-template.sh"
+fi
 
 cat <<EOF
 ================================================
