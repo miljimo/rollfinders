@@ -5,6 +5,7 @@
 - Source: `src/components/SiteHeader.tsx`
 - Status: Ready for development
 - Related components: `NavLink`, `LogoutButton`
+- Related PRD: `docs/features/SharedComponents/MobileFirstPublicNavigationPrd.md`
 
 ## Purpose
 
@@ -25,8 +26,8 @@ WHEN the session exposes the user's role
 THEN academy admins and platform-level admins MAY receive admin-specific links through a separate requirement update.
 
 IF the viewport is mobile  
-WHEN desktop nav is hidden  
-THEN the header SHALL show an accessible icon link to `/academies`.
+WHEN logged-out public navigation renders  
+THEN the header SHALL follow `docs/features/SharedComponents/MobileFirstPublicNavigationPrd.md` and keep Home, Academies, Open Mats, Map, and Login visible or immediately reachable.
 
 IF navigation links render  
 WHEN the current route matches a link  
@@ -35,5 +36,5 @@ THEN active state SHALL be delegated to `NavLink`.
 ## Done When
 
 * Logged-in and logged-out links match current session behavior.
-* Mobile shortcut has an accessible label.
+* Mobile public navigation meets the mobile-first public navigation PRD.
 * Header remains sticky and responsive.

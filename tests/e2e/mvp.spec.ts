@@ -1,6 +1,39 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("RollFinder public MVP discovery", () => {
+  test("exposes public header navigation in a mobile menu without page overflow", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    const mobileMenu = page.getByRole("button", { name: "Menu" });
+    await expect(mobileMenu).toBeVisible();
+
+    const mobileNavigation = page.getByRole("navigation", { name: "Mobile primary navigation" });
+    await expect(mobileNavigation).toBeHidden();
+
+    await mobileMenu.click();
+    await expect(mobileNavigation).toBeVisible();
+
+    const expectedLinks = [
+      ["Home", "/"],
+      ["Academies", "/academies"],
+      ["Open Mats", "/open-mats"],
+      ["Map", "/map"],
+      ["Login", "/login"],
+    ];
+
+    for (const [name, href] of expectedLinks) {
+      const link = mobileNavigation.getByRole("link", { name });
+      await expect(link).toBeVisible();
+      await expect(link).toHaveAttribute("href", href);
+    }
+
+    await expect(mobileNavigation.getByRole("link", { name: "Home" })).toHaveAttribute("aria-current", "page");
+
+    const hasPageOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+    expect(hasPageOverflow).toBe(false);
+  });
+
   test("finds open mats, academy details, and map listings from the local production build", async ({ page }) => {
     await page.goto("/");
 

@@ -5,6 +5,7 @@
 - Source: `src/components/StaticSiteHeader.tsx`
 - Status: Ready for development
 - Related component: `NavLink`
+- Related PRD: `docs/features/SharedComponents/MobileFirstPublicNavigationPrd.md`
 
 ## Purpose
 
@@ -18,7 +19,7 @@ THEN it SHALL show Home, Academies, Open Mats, Map, and Login.
 
 IF the viewport is mobile  
 WHEN desktop navigation is hidden  
-THEN it SHALL show the academy search icon link.
+THEN it SHALL follow `docs/features/SharedComponents/MobileFirstPublicNavigationPrd.md` and keep Home, Academies, Open Mats, Map, and Login visible or immediately reachable.
 
 IF a nav link matches the current path  
 WHEN `NavLink` renders  
@@ -32,4 +33,4 @@ THEN the header SHALL still show logged-out public navigation.
 
 * Static header has no auth dependency.
 * Public navigation matches `SiteHeader` logged-out navigation.
-* Mobile behavior is consistent.
+* Mobile behavior meets the mobile-first public navigation PRD.
