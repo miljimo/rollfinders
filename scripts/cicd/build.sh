@@ -7,12 +7,30 @@ source "${SCRIPT_DIR}/aws-oidc.sh"
 
 cd "${PROJECT_DIR}"
 
+load_build_env_var() {
+  local env_file="$1"
+  local var_name="$2"
+  local value
+
+  if ! grep -Eq "^[[:space:]]*(export[[:space:]]+)?${var_name}=" "${env_file}"; then
+    return
+  fi
+
+  value="$(
+    bash -c '
+      source "$1" >/dev/null 2>&1
+      name="$2"
+      printf "%s" "${!name-}"
+    ' bash "${env_file}" "${var_name}"
+  )"
+  export "${var_name}=${value}"
+}
+
 for env_file in .env.local .env; do
   if [[ -f "${env_file}" ]]; then
-    set -a
-    # shellcheck disable=SC1090
-    source "${env_file}"
-    set +a
+    for build_var in GOOGLE_MAPS_API_KEY NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST; do
+      load_build_env_var "${env_file}" "${build_var}"
+    done
   fi
 done
 
