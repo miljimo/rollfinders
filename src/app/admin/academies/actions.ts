@@ -379,11 +379,6 @@ async function sendReminderForAcademy(actorUserId: string, academyId: string, so
       email: true,
       claims: { select: { status: true } },
       members: { select: { id: true }, take: 1 },
-      claimReminders: {
-        where: { status: "QUEUED", createdAt: { gte: reminderCooldownStart() } },
-        orderBy: { createdAt: "desc" },
-        take: 1,
-      },
     },
   });
 
@@ -402,7 +397,16 @@ async function sendReminderForAcademy(actorUserId: string, academyId: string, so
   if (!isValidEmail(email)) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name, source);
   const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { email } });
   if (invalidEmail) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name, source);
-  if (academy.claimReminders.length > 0) return recordSkippedReminder(actorUserId, academy.id, "recently_sent", email, academy.name, source);
+  const recentReminder = await prisma.academyClaimReminder.findFirst({
+    where: {
+      academyId: academy.id,
+      recipientEmail: email,
+      status: "QUEUED",
+      createdAt: { gte: reminderCooldownStart() },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  if (recentReminder) return recordSkippedReminder(actorUserId, academy.id, "recently_sent", email, academy.name, source);
 
   try {
     const outboundEmail = await queueAcademyClaimReminderEmail({
@@ -449,12 +453,13 @@ async function queueAcademyInvitationEmail({
   token: string;
 }) {
   const url = invitationUrl(token);
-  await queueEmail({
+  const outboundEmail = await queueEmail({
     to: invitedEmail,
     subject: `You've been invited to manage ${academyName} on RollFinders`,
     text: `You've been invited to manage ${academyName} on RollFinders.\n\nAccept the invitation here: ${url}`,
     html: `<p>You've been invited to manage <strong>${escapeHtml(academyName)}</strong> on RollFinders.</p><p><a href="${url}">Accept the invitation</a></p>`,
   });
+  await sendQueuedEmail(outboundEmail.id);
 }
 
 export async function inviteAcademyAdmin(academyId: string, formData: FormData) {

@@ -33,6 +33,28 @@ describe("email operations contracts", () => {
     );
   });
 
+  it("academy admin invitation emails are sent immediately after being queued", () => {
+    const source = readSource("src/app/admin/academies/actions.ts");
+
+    assert.match(source, /async\s+function\s+queueAcademyInvitationEmail/);
+    assert.match(source, /const\s+outboundEmail\s*=\s*await\s+queueEmail\(/);
+    assert.match(source, /await\s+sendQueuedEmail\(outboundEmail\.id\)/);
+    assert.ok(
+      source.indexOf("await sendQueuedEmail(outboundEmail.id)", source.indexOf("async function queueAcademyInvitationEmail")) >
+        source.indexOf("const outboundEmail = await queueEmail(", source.indexOf("async function queueAcademyInvitationEmail")),
+      "sendQueuedEmail must stay after the academy admin invitation email is queued",
+    );
+  });
+
+  it("academy claim reminder cooldown is scoped to the current recipient email", () => {
+    const source = readSource("src/app/admin/academies/actions.ts");
+
+    assert.match(source, /const\s+recentReminder\s*=\s*await\s+prisma\.academyClaimReminder\.findFirst\(/);
+    assert.match(source, /recipientEmail:\s*email/);
+    assert.match(source, /status:\s*"QUEUED"/);
+    assert.match(source, /recently_sent/);
+  });
+
   it("email delivery job reports the number of processed emails and returned ids", () => {
     const source = readSource("src/app/api/jobs/email-delivery/route.ts");
 
