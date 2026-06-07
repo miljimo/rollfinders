@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { ensurePlatformAdminProfile } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
@@ -57,11 +58,6 @@ function isSuperUser(user: { role: Role }) {
 
 function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
-}
-
-function managedUsersReturnPath(returnTo: string) {
-  if (returnTo.startsWith("/dashboard") || returnTo.startsWith("/admin")) return returnTo;
-  return "/admin/users";
 }
 
 async function hasAnotherActiveSuperUser(userId: string) {

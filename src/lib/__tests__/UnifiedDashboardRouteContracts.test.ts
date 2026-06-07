@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import { isAnyAdminRole, isStandardUserRole } from "../admin";
+import { managedUsersReturnPath } from "../managed-user-return-path";
 
 const root = process.cwd();
 
@@ -153,10 +154,22 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /return\s+query\s*\?\s*`\/dashboard\?\$\{query\}`\s*:\s*"\/dashboard"/);
     assert.match(source, /returnTo="\/dashboard\?panel=users"/);
     assert.match(source, /cancelHref="\/dashboard\?panel=users"/);
-    assert.match(userActionsSource, /function\s+managedUsersReturnPath/);
-    assert.match(userActionsSource, /returnTo\.startsWith\("\/dashboard"\)\s*\|\|\s*returnTo\.startsWith\("\/admin"\)/);
+    assert.match(userActionsSource, /managedUsersReturnPath\(returnTo\)/);
     assert.match(userActionsSource, /revalidatePath\("\/dashboard"\)/);
     assert.doesNotMatch(source, /return\s+query\s*\?\s*`\/dashboard\?`\s*:\s*"\/dashboard"/);
+  });
+
+  it("managed user actions only return to canonical admin or dashboard paths", () => {
+    assert.equal(managedUsersReturnPath("/dashboard?panel=users"), "/dashboard?panel=users");
+    assert.equal(managedUsersReturnPath("/dashboard/users?panel=users"), "/dashboard/users?panel=users");
+    assert.equal(managedUsersReturnPath("/admin?panel=users"), "/admin?panel=users");
+    assert.equal(managedUsersReturnPath("/admin/users"), "/admin/users");
+
+    assert.equal(managedUsersReturnPath("https://example.com/dashboard?panel=users"), "/admin/users");
+    assert.equal(managedUsersReturnPath("//example.com/dashboard?panel=users"), "/admin/users");
+    assert.equal(managedUsersReturnPath("/dashboardevil?panel=users"), "/admin/users");
+    assert.equal(managedUsersReturnPath("/administration/users"), "/admin/users");
+    assert.equal(managedUsersReturnPath("/admin.evil/users"), "/admin/users");
   });
 
   it("admin settings use quick actions to inject one selected settings detail panel", () => {
