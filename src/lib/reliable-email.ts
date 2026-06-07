@@ -46,9 +46,22 @@ function nextAttemptDate(retryCount: number) {
   return new Date(Date.now() + delayMinutes * 60 * 1000);
 }
 
+function errorText(error: unknown) {
+  return error instanceof Error ? `${error.name} ${error.message}` : String(error);
+}
+
+function isProviderConfigurationFailure(error: unknown) {
+  const text = errorText(error);
+  return /email address is not verified|identity.*failed.*check|production access|sandbox|configuration set|sending paused/i.test(
+    text,
+  );
+}
+
 function isPermanentFailure(error: unknown) {
-  const errorText = error instanceof Error ? `${error.name} ${error.message}` : String(error);
-  return /invalid|rejected recipient|address|mailbox|domain|suppressed|blacklist/i.test(errorText);
+  if (isProviderConfigurationFailure(error)) return false;
+
+  const text = errorText(error);
+  return /invalid|rejected recipient|address|mailbox|domain|suppressed|blacklist/i.test(text);
 }
 
 function failureReason(error: unknown) {

@@ -93,4 +93,13 @@ describe("email operations contracts", () => {
       assert.ok(usesSharedSummary || usesLegacyCounts, `${path} must show email operations counts from shared or equivalent queries`);
     }
   });
+
+  it("ses sandbox and identity verification failures are not classified as invalid recipient emails", () => {
+    const reliableEmail = readSource("src/lib/reliable-email.ts");
+
+    assert.match(reliableEmail, /function\s+isProviderConfigurationFailure/);
+    assert.match(reliableEmail, /email address is not verified/);
+    assert.match(reliableEmail, /identity\.\*failed\.\*check/);
+    assert.match(reliableEmail, /if\s*\(\s*isProviderConfigurationFailure\(error\)\s*\)\s*return\s+false/);
+  });
 });

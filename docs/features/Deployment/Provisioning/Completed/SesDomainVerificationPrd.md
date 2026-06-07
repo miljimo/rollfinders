@@ -153,6 +153,14 @@ IF RollFinders must send password reset or onboarding emails to normal users, WH
 
 IF SES production access is approved, WHEN the application sends password reset or onboarding email to a valid user email address, THEN the recipient SHALL NOT need to be individually verified in SES.
 
+#### SES-DOMAIN-031A: Sandbox Failure Classification
+
+IF SES rejects a send because the account is in sandbox mode, the recipient identity is not verified, or the selected SES region lacks production access, WHEN the reliable email system records the result, THEN the failure SHALL be treated as provider readiness failure and SHALL NOT mark the recipient email address invalid.
+
+#### SES-DOMAIN-031B: Provider Readiness Region Match
+
+IF production email readiness is reviewed, WHEN the application uses `EMAIL_REGION`, THEN SES production access, sending quota, sender identity verification, DKIM, custom MAIL FROM, SPF, and DMARC SHALL be verified in that exact AWS account and region.
+
 #### SES-DOMAIN-032: Mailbox Receipt Test
 
 IF `support@rollfinders.com` or `business@rollfinders.com` is configured for production, WHEN release readiness is reviewed, THEN both mailboxes SHALL be tested for inbound receipt.
@@ -176,4 +184,5 @@ IF production email sending is enabled, WHEN release readiness is reviewed, THEN
 - Sandbox test email subjects include `rollfinders.com`.
 - The PRD clearly states that SES production access is required to send to unverified user recipients.
 - After SES production access is approved, password reset and onboarding emails can be sent to normal user email addresses without verifying every recipient.
+- SES sandbox, missing production access, and unverified recipient identity failures are treated as provider readiness failures, not invalid recipient addresses.
 - Production readiness includes domain identity, SES DKIM, PrivateEmail DKIM, SPF, DMARC, custom MAIL FROM when enabled, PrivateEmail MX records, sandbox status, SES production access, and mailbox receipt checks.

@@ -70,6 +70,8 @@ Show compact metrics in the panel:
 
 Provider implementation details, such as AWS SES, SHALL NOT be displayed in the admin-facing panel.
 
+Provider readiness failures, such as a sandboxed sending account or an unverified provider identity, SHALL be counted as attention items and SHALL NOT increase the invalid-email count unless the recipient address itself is proven invalid.
+
 ### Metric Drilldown Tables
 
 Each metric card SHALL be selectable and SHALL replace the lower panel content with a table for that metric.
@@ -266,6 +268,14 @@ WHEN the operational summary renders
 
 THEN provider implementation details, including `AWS SES`, SHALL NOT be shown in the admin UI.
 
+## EMAIL-OPS-018: Provider Readiness Failures Are Not Invalid Emails
+
+IF the email provider rejects a send because production access, sandbox status, sender identity, recipient verification, or regional configuration is not ready
+
+WHEN the Email Operations panel displays the delivery failure
+
+THEN the failed item SHALL appear under attention or retryable queue items and SHALL NOT be counted as an invalid recipient email.
+
 ---
 
 ## Data Requirements
@@ -322,6 +332,7 @@ If a new status route is not created, the existing endpoint SHALL return enough 
 * Clicking `Queued now`, `Scheduled retry`, `Needs attention`, or `Invalid emails` changes the lower panel into a table for that selected metric.
 * Queue item tables show recipient, target audience, subject, status, retry metadata, timing metadata, and failure reason where applicable.
 * Invalid email table shows email address, target audience, last outbound subject, failure reason, failure count, and last failure time.
+* Provider readiness failures are shown as attention or retryable queue items, not invalid recipient emails.
 * The admin-facing panel does not expose the email provider name.
 * Admin can click `Process queue` from the Email Operations panel.
 * Successful runs show how many emails were processed.
