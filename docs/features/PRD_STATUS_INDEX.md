@@ -32,6 +32,7 @@ Use these folders to track product requirement state:
 * `Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingCredentialContentPrd.md`
 * `Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingEmailDeliveryPrd.md`
 * `Deployment/Delivery/Reviewing/DeploymentValidationPrd.md`
+* `Deployment/Delivery/Reviewing/PromoteDevToProductionReleaseTicket-20260607.md`
 * `Deployment/Delivery/Reviewing/SeedDataAndMigrationsPrd.md`
 * `Deployment/Operations/Reviewing/EnvironmentDestructionPrd.md`
 * `Deployment/Operations/Reviewing/ResourceInventoryAndCostPrd.md`
@@ -45,4 +46,7 @@ Use these folders to track product requirement state:
 
 ## Proposal
 
-* No PRDs currently classified here.
+* `SharedComponents/Proposal/UserProfileSurface.md`
+* `Users/Standard/Products/Proposal/SelfProfileDashboardPrd.md`
+* `Users/Standard/Products/Proposal/UserProfileExperienceStrategyPrd.md`
+* `Users/SuperAdmin/Products/Proposal/AdminUserProfileWorkflowPrd.md`
