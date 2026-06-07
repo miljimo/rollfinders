@@ -25,6 +25,7 @@ Use these folders to track product requirement state:
 
 ## Reviewing
 
+* `Communications/Email/Operations/Products/Reviewing/AdminEmailQueueOperationsPanelPrd.md`
 * `Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingCredentialContentPrd.md`
 * `Communications/Email/UserAccountEmails/Products/Reviewing/UserOnboardingEmailDeliveryPrd.md`
 * `Deployment/Delivery/Reviewing/DeploymentValidationPrd.md`

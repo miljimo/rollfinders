@@ -37,6 +37,11 @@ enum OutboundEmailStatus {
   PERMANENTLY_FAILED
 }
 
+enum EmailDeliveryJobRunStatus {
+  SUCCESS
+  FAILED
+}
+
 enum GiType {
   GI
   NO_GI
@@ -433,6 +438,28 @@ model OutboundEmailStatusHistory {
   @@index([outboundEmailId])
   @@index([status])
   @@map("outbound_email_status_history")
+}
+
+model EmailDeliveryJobRun {
+  id                String                    @id @default(cuid())
+  status            EmailDeliveryJobRunStatus
+  triggerSource     String                    @map("trigger_source")
+  triggeredByUserId String?                   @map("triggered_by_user_id")
+  triggeredByEmail  String?                   @map("triggered_by_email")
+  requestedLimit    Int                       @map("requested_limit")
+  processedCount    Int                       @default(0) @map("processed_count")
+  sentCount         Int                       @default(0) @map("sent_count")
+  retryPendingCount Int                       @default(0) @map("retry_pending_count")
+  failedCount       Int                       @default(0) @map("failed_count")
+  invalidCount      Int                       @default(0) @map("invalid_count")
+  startedAt         DateTime                  @default(now()) @map("started_at")
+  finishedAt        DateTime?                 @map("finished_at")
+  errorMessage      String?                   @map("error_message")
+
+  @@index([startedAt])
+  @@index([status, startedAt])
+  @@index([triggeredByUserId])
+  @@map("email_delivery_job_runs")
 }
 
 model InvalidEmailAddress {

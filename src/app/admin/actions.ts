@@ -3,8 +3,9 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { Role, UserEmailStatus, UserStatus } from "@prisma/client";
-import { isProtectedSuperAdmin, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { isProtectedSuperAdmin, requirePlatformAdminPage, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
+import { processEmailDeliveryJob } from "@/lib/reliable-email";
 
 export async function toggleUserDisabled(userId: string) {
   const actor = await requireSuperAdminPage();
@@ -121,4 +122,32 @@ export async function deleteInvalidEmailUser(invalidEmailId: string) {
   });
 
   revalidatePath("/admin");
+}
+
+export async function processEmailQueue(formData: FormData) {
+  const actor = await requirePlatformAdminPage();
+  const limit = Number(formData.get("limit") ?? "20");
+  const result = await processEmailDeliveryJob(Number.isFinite(limit) ? limit : 20, {
+    source: "Admin Settings",
+    userId: actor.id,
+    email: actor.email,
+  });
+
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    targetUserId: null,
+    action: "EMAIL_DELIVERY_JOB_TRIGGERED",
+    metadata: {
+      failedCount: result.run.failedCount,
+      invalidCount: result.run.invalidCount,
+      processedCount: result.run.processedCount,
+      retryPendingCount: result.run.retryPendingCount,
+      runId: result.run.id,
+      sentCount: result.run.sentCount,
+      status: result.run.status,
+    },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/settings");
 }

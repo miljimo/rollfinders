@@ -1,12 +1,14 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, Mail, RefreshCw, Send, Settings, ShieldCheck } from "lucide-react";
+import { ArrowRight, RefreshCw, Send, Settings, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { elevatedAdminPrivacyAuditLogWhere, requireAdminPage } from "@/lib/admin";
-import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
+import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { formatDate } from "@/lib/utils";
+import { processEmailQueue } from "../actions";
+import { EmailOperationsPanel } from "../EmailOperationsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +17,27 @@ export const metadata: Metadata = {
   description: "Manage email operations, audits, and application settings.",
 };
 
-export default async function SettingsPage() {
+type SettingsSearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function selectedEmailOperationsView(value: string | undefined) {
+  if (value === "attention" || value === "invalid-emails" || value === "queued" || value === "scheduled-retries") return value;
+  return "runs";
+}
+
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SettingsSearchParams>;
+}) {
   const currentUser = await requireAdminPage();
-  const emailConfig = getEmailProvisioningConfig();
-  const [outboundEmailCount, failedEmailCount, invalidEmailCount, recentAuditLogs] = await Promise.all([
-    prisma.outboundEmail.count(),
-    prisma.outboundEmail.count({ where: { status: { in: ["FAILED", "RETRY_PENDING", "INVALID_EMAIL", "PERMANENTLY_FAILED"] } } }),
-    prisma.invalidEmailAddress.count(),
+  const params = await searchParams;
+  const emailOperationsView = selectedEmailOperationsView(firstParam(params.emailView));
+  const [emailOperations, recentAuditLogs] = await Promise.all([
+    getEmailQueueOperationsSummary(),
     prisma.adminAuditLog.findMany({
       where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
       take: 8,
@@ -44,13 +60,17 @@ export default async function SettingsPage() {
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
-          <SettingsCard accent="teal" icon={<Mail size={22} aria-hidden />} title="Emails Overview">
-            <Info label="Provider" value={emailConfig.provider} />
-            <Info label="Outbound Emails" value={outboundEmailCount.toLocaleString()} />
-            <Info label="Email Attention" value={failedEmailCount.toLocaleString()} />
-            <Info label="Invalid Emails" value={invalidEmailCount.toLocaleString()} />
-            <CardLink href="/admin/settings">View email settings</CardLink>
-          </SettingsCard>
+          <EmailOperationsPanel
+            action={processEmailQueue}
+            activeView={emailOperationsView}
+            attentionHref="/admin/settings?emailView=attention"
+            invalidEmailsHref="/admin/settings?emailView=invalid-emails"
+            queuedHref="/admin/settings?emailView=queued"
+            refreshHref="/admin/settings"
+            scheduledRetriesHref="/admin/settings?emailView=scheduled-retries"
+            settingsHref="/admin/settings"
+            summary={emailOperations}
+          />
 
           <SettingsCard accent="violet" icon={<ShieldCheck size={22} aria-hidden />} title="Recent Audits">
             {recentAuditLogs.length ? (
@@ -108,15 +128,6 @@ function SettingsCard({ accent, children, icon, title }: { accent: "blue" | "tea
       </div>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
-      <p className="text-sm font-bold text-teal-800">{label}</p>
-      <p className="mt-1 break-all font-semibold text-stone-950">{value}</p>
-    </div>
   );
 }
 

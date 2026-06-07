@@ -1,5 +1,5 @@
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
-import { OutboundEmailStatus, UserEmailStatus, type Prisma } from "@prisma/client";
+import { EmailDeliveryJobRunStatus, OutboundEmailStatus, UserEmailStatus, type Prisma } from "@prisma/client";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 
@@ -263,4 +263,253 @@ export async function processDueEmails(limit = 20) {
     results.push(await sendQueuedEmail(email.id));
   }
   return results;
+}
+
+const attentionStatuses: OutboundEmailStatus[] = [
+  OutboundEmailStatus.FAILED,
+  OutboundEmailStatus.RETRY_PENDING,
+  OutboundEmailStatus.INVALID_EMAIL,
+  OutboundEmailStatus.PERMANENTLY_FAILED,
+];
+
+const outboundEmailQueueSelect = {
+  id: true,
+  recipientEmail: true,
+  subject: true,
+  status: true,
+  retryCount: true,
+  maxRetries: true,
+  nextAttemptAt: true,
+  lastAttemptAt: true,
+  sentAt: true,
+  failureReason: true,
+  createdAt: true,
+  updatedAt: true,
+  user: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      academy: { select: { id: true, name: true } },
+    },
+  },
+} satisfies Prisma.OutboundEmailSelect;
+
+export async function getEmailQueueOperationsSummary() {
+  const now = new Date();
+  const [
+    outboundEmailCount,
+    dueQueueCount,
+    scheduledRetryCount,
+    attentionCount,
+    invalidEmailCount,
+    lastRun,
+    recentRuns,
+    invalidEmailRecords,
+    dueQueueItems,
+    scheduledRetryItems,
+    attentionItems,
+  ] = await Promise.all([
+    prisma.outboundEmail.count(),
+    prisma.outboundEmail.count({
+      where: {
+        status: { in: [OutboundEmailStatus.PENDING, OutboundEmailStatus.RETRY_PENDING] },
+        nextAttemptAt: { lte: now },
+      },
+    }),
+    prisma.outboundEmail.count({
+      where: {
+        status: OutboundEmailStatus.RETRY_PENDING,
+        nextAttemptAt: { gt: now },
+      },
+    }),
+    prisma.outboundEmail.count({ where: { status: { in: attentionStatuses } } }),
+    prisma.invalidEmailAddress.count(),
+    prisma.emailDeliveryJobRun.findFirst({ orderBy: { startedAt: "desc" } }),
+    prisma.emailDeliveryJobRun.findMany({ orderBy: { startedAt: "desc" }, take: 5 }),
+    prisma.invalidEmailAddress.findMany({
+      orderBy: { lastFailureAt: "desc" },
+      take: 25,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+            academy: { select: { id: true, name: true } },
+          },
+        },
+      },
+    }),
+    prisma.outboundEmail.findMany({
+      where: {
+        status: { in: [OutboundEmailStatus.PENDING, OutboundEmailStatus.RETRY_PENDING] },
+        nextAttemptAt: { lte: now },
+      },
+      orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
+      take: 25,
+      select: outboundEmailQueueSelect,
+    }),
+    prisma.outboundEmail.findMany({
+      where: {
+        status: OutboundEmailStatus.RETRY_PENDING,
+        nextAttemptAt: { gt: now },
+      },
+      orderBy: [{ nextAttemptAt: "asc" }, { updatedAt: "desc" }],
+      take: 25,
+      select: outboundEmailQueueSelect,
+    }),
+    prisma.outboundEmail.findMany({
+      where: { status: { in: attentionStatuses } },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 25,
+      select: outboundEmailQueueSelect,
+    }),
+  ]);
+  const recipientEmails = Array.from(
+    new Set([
+      ...invalidEmailRecords.map((record) => record.email),
+      ...dueQueueItems.map((email) => email.recipientEmail),
+      ...scheduledRetryItems.map((email) => email.recipientEmail),
+      ...attentionItems.map((email) => email.recipientEmail),
+    ]),
+  );
+  const [matchedAcademies, recentOutboundEmails] = recipientEmails.length
+    ? await Promise.all([
+        prisma.academy.findMany({
+          where: { email: { in: recipientEmails } },
+          select: { id: true, name: true, email: true, slug: true },
+        }),
+        prisma.outboundEmail.findMany({
+          where: { recipientEmail: { in: recipientEmails } },
+          orderBy: [{ updatedAt: "desc" }],
+          take: 100,
+          select: {
+            id: true,
+            recipientEmail: true,
+            subject: true,
+            status: true,
+            updatedAt: true,
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+        }),
+      ])
+    : [[], []];
+  const academyByEmail = new Map(matchedAcademies.map((academy) => [academy.email?.toLowerCase(), academy]));
+  const latestOutboundByEmail = new Map<string, (typeof recentOutboundEmails)[number]>();
+  recentOutboundEmails.forEach((email) => {
+    if (!latestOutboundByEmail.has(email.recipientEmail)) {
+      latestOutboundByEmail.set(email.recipientEmail, email);
+    }
+  });
+
+  return {
+    outboundEmailCount,
+    dueQueueCount,
+    scheduledRetryCount,
+    attentionCount,
+    invalidEmailCount,
+    lastRun,
+    recentRuns,
+    dueQueueItems: dueQueueItems.map((email) => ({
+      ...email,
+      academy: academyByEmail.get(email.recipientEmail.toLowerCase()) ?? null,
+    })),
+    scheduledRetryItems: scheduledRetryItems.map((email) => ({
+      ...email,
+      academy: academyByEmail.get(email.recipientEmail.toLowerCase()) ?? null,
+    })),
+    attentionItems: attentionItems.map((email) => ({
+      ...email,
+      academy: academyByEmail.get(email.recipientEmail.toLowerCase()) ?? null,
+    })),
+    invalidEmails: invalidEmailRecords.map((record) => ({
+      id: record.id,
+      email: record.email,
+      failureReason: record.failureReason,
+      failureCount: record.failureCount,
+      lastFailureAt: record.lastFailureAt,
+      user: record.user,
+      academy: academyByEmail.get(record.email.toLowerCase()) ?? null,
+      latestOutboundEmail: latestOutboundByEmail.get(record.email) ?? null,
+    })),
+  };
+}
+
+export async function processEmailDeliveryJob(
+  limit = 20,
+  trigger: { source?: string; userId?: string | null; email?: string | null } = {},
+) {
+  const requestedLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 100) : 20;
+  const startedAt = new Date();
+  const triggerSource = trigger.source ?? "API";
+  const triggeredByUserId = trigger.userId ?? null;
+  const triggeredByEmail = trigger.email ?? null;
+
+  try {
+    const processed = await processDueEmails(requestedLimit);
+    const processedEmails = processed.filter(Boolean);
+    const sentCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.SENT).length;
+    const retryPendingCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.RETRY_PENDING).length;
+    const failedCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.FAILED || email?.status === OutboundEmailStatus.PERMANENTLY_FAILED).length;
+    const invalidCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.INVALID_EMAIL).length;
+    const summary = await getEmailQueueOperationsSummary();
+    const run = await prisma.emailDeliveryJobRun.create({
+      data: {
+        status: EmailDeliveryJobRunStatus.SUCCESS,
+        triggerSource,
+        triggeredByUserId,
+        triggeredByEmail,
+        requestedLimit,
+        processedCount: processedEmails.length,
+        sentCount,
+        retryPendingCount,
+        failedCount,
+        invalidCount,
+        startedAt,
+        finishedAt: new Date(),
+      },
+    });
+
+    return {
+      run,
+      processed,
+      summary: { ...summary, lastRun: run },
+    };
+  } catch (error) {
+    const reason = failureReason(error);
+    const summary = await getEmailQueueOperationsSummary();
+    const run = await prisma.emailDeliveryJobRun.create({
+      data: {
+        status: EmailDeliveryJobRunStatus.FAILED,
+        triggerSource,
+        triggeredByUserId,
+        triggeredByEmail,
+        requestedLimit,
+        processedCount: 0,
+        sentCount: 0,
+        retryPendingCount: 0,
+        failedCount: 0,
+        invalidCount: 0,
+        startedAt,
+        finishedAt: new Date(),
+        errorMessage: reason,
+      },
+    });
+
+    return {
+      run,
+      processed: [],
+      summary: { ...summary, lastRun: run },
+    };
+  }
 }

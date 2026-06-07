@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { requirePlatformAdminApi } from "@/lib/admin";
-import { processDueEmails } from "@/lib/reliable-email";
+import { EmailDeliveryJobRunStatus } from "@prisma/client";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import { processEmailDeliveryJob } from "@/lib/reliable-email";
 
 function hasCronAccess(request: Request) {
   const secret = process.env.CRON_SECRET;
@@ -9,22 +10,42 @@ function hasCronAccess(request: Request) {
 }
 
 async function authorize(request: Request) {
-  if (hasCronAccess(request)) return null;
-  return requirePlatformAdminApi();
+  if (hasCronAccess(request)) return { response: null, trigger: { source: "API" } };
+  const user = await getCurrentUser();
+  if (!isPlatformAdminRole(user?.role)) {
+    return { response: NextResponse.json({ error: "Platform admin access required" }, { status: 403 }), trigger: { source: "API" } };
+  }
+  return { response: null, trigger: { source: "Admin Board", userId: user.id, email: user.email } };
 }
 
 export async function GET(request: Request) {
-  const forbidden = await authorize(request);
-  if (forbidden) return forbidden;
+  const { response, trigger } = await authorize(request);
+  if (response) return response;
 
   const { searchParams } = new URL(request.url);
   const limit = Number(searchParams.get("limit") ?? "20");
-  const processed = await processDueEmails(Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 100) : 20);
+  const result = await processEmailDeliveryJob(limit, trigger);
+  const success = result.run.status === EmailDeliveryJobRunStatus.SUCCESS;
 
-  return NextResponse.json({
-    processed: processed.length,
-    ids: processed.filter(Boolean).map((email) => email?.id),
-  });
+  return NextResponse.json(
+    {
+      runId: result.run.id,
+      status: result.run.status,
+      processed: result.processed.length,
+      ids: result.processed.filter(Boolean).map((email) => email?.id),
+      queue: {
+        due: result.summary.dueQueueCount,
+        scheduledRetry: result.summary.scheduledRetryCount,
+        attention: result.summary.attentionCount,
+        invalid: result.summary.invalidEmailCount,
+      },
+      triggeredBy: result.run.triggeredByEmail ?? result.run.triggerSource,
+      startedAt: result.run.startedAt,
+      finishedAt: result.run.finishedAt,
+      error: result.run.errorMessage,
+    },
+    { status: success ? 200 : 500 },
+  );
 }
 
 export async function POST(request: Request) {

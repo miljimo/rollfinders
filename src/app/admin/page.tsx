@@ -6,9 +6,9 @@ import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, Che
 import { AcademyMap } from "@/components/AcademyMap";
 import { elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
-import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
+import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -18,9 +18,11 @@ import { AcademyForm } from "./academies/AcademyForm";
 import { createOpenMat } from "./open-mats/actions";
 import { OpenMatForm } from "./open-mats/OpenMatForm";
 import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "./users/actions";
+import { processEmailQueue } from "./actions";
 import { UserForm } from "./users/UserForm";
 import { ActionMenu } from "./ActionMenu";
 import { fetchAcademyClaims, type AcademyClaimListItem } from "./academy-claims/api";
+import { EmailOperationsPanel } from "./EmailOperationsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +68,11 @@ function selectedClaimPageSize(value: string | undefined) {
 function selectedAcademyReminderFilter(value: string | undefined) {
   if (value === "eligible" || value === "recently-sent" || value === "unavailable") return value;
   return "all";
+}
+
+function selectedEmailOperationsView(value: string | undefined) {
+  if (value === "attention" || value === "invalid-emails" || value === "queued" || value === "scheduled-retries") return value;
+  return "runs";
 }
 
 function matchingAcademyVerificationStatus(search: string) {
@@ -179,7 +186,6 @@ export default async function AdminPage({
   const academyDialogId = firstParam(params.academyId);
   const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
   const search = (firstParam(params.search) ?? "").trim();
-  const emailConfig = getEmailProvisioningConfig();
   const superAdmin = isSuperAdminRole(currentUser.role);
   const platformAdmin = isPlatformAdminRole(currentUser.role);
 
@@ -190,6 +196,7 @@ export default async function AdminPage({
   const claimPageSize = selectedClaimPageSize(firstParam(params.pageSize));
   const claimStatus = selectedClaimStatus(firstParam(params.status));
   const academyReminderFilter = selectedAcademyReminderFilter(firstParam(params.reminderFilter));
+  const emailOperationsView = selectedEmailOperationsView(firstParam(params.emailView));
   const academyVerificationSearch = matchingAcademyVerificationStatus(search);
   const roleSearch = matchingRole(search);
   const userStatusSearch = matchingUserStatus(search);
@@ -256,7 +263,7 @@ export default async function AdminPage({
   const visibleUserWhere = elevatedAdminPrivacyUserWhere({ role: currentUser.role });
   const userWhere: Prisma.UserWhereInput = { AND: [visibleUserWhere, userFilterWhere] };
 
-  const [academyCount, totalAcademyCount, verifiedAcademyCount, pendingAcademyCount, totalUserCount, activeEventCount, userCount, outboundEmailCount, failedEmailCount, invalidEmailCount] = await Promise.all([
+  const [academyCount, totalAcademyCount, verifiedAcademyCount, pendingAcademyCount, totalUserCount, activeEventCount, userCount, emailOperations] = await Promise.all([
     prisma.academy.count({ where: academyWhere }),
     prisma.academy.count(),
     prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.VERIFIED } }),
@@ -264,9 +271,7 @@ export default async function AdminPage({
     prisma.user.count({ where: visibleUserWhere }),
     prisma.event.count({ where: eventWhere }),
     prisma.user.count({ where: userWhere }),
-    prisma.outboundEmail.count(),
-    prisma.outboundEmail.count({ where: { status: { in: ["FAILED", "RETRY_PENDING", "INVALID_EMAIL", "PERMANENTLY_FAILED"] } } }),
-    prisma.invalidEmailAddress.count(),
+    getEmailQueueOperationsSummary(),
   ]);
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
@@ -384,10 +389,8 @@ export default async function AdminPage({
 
         {panel === "settings" ? (
           <SettingsDashboardContent
-            emailConfig={emailConfig}
-            failedEmailCount={failedEmailCount}
-            invalidEmailCount={invalidEmailCount}
-            outboundEmailCount={outboundEmailCount}
+            activeEmailView={emailOperationsView}
+            emailOperations={emailOperations}
             recentAuditLogs={recentAuditLogs}
           />
         ) : panel === "maps" ? (
@@ -968,16 +971,12 @@ type SettingsAuditLog = {
 };
 
 function SettingsDashboardContent({
-  emailConfig,
-  failedEmailCount,
-  invalidEmailCount,
-  outboundEmailCount,
+  activeEmailView,
+  emailOperations,
   recentAuditLogs,
 }: {
-  emailConfig: ReturnType<typeof getEmailProvisioningConfig>;
-  failedEmailCount: number;
-  invalidEmailCount: number;
-  outboundEmailCount: number;
+  activeEmailView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
+  emailOperations: Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
   recentAuditLogs: SettingsAuditLog[];
 }) {
   return (
@@ -993,13 +992,17 @@ function SettingsDashboardContent({
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <SettingsCard accent="teal" icon={<Mail size={22} aria-hidden />} title="Emails Overview">
-          <Info label="Provider" value={emailConfig.provider} />
-          <Info label="Outbound Emails" value={outboundEmailCount.toLocaleString()} />
-          <Info label="Email Attention" value={failedEmailCount.toLocaleString()} />
-          <Info label="Invalid Emails" value={invalidEmailCount.toLocaleString()} />
-          <CardLink href="/admin?panel=settings">View email settings</CardLink>
-        </SettingsCard>
+        <EmailOperationsPanel
+          action={processEmailQueue}
+          activeView={activeEmailView}
+          attentionHref="/admin?panel=settings&emailView=attention"
+          invalidEmailsHref="/admin?panel=settings&emailView=invalid-emails"
+          queuedHref="/admin?panel=settings&emailView=queued"
+          refreshHref="/admin?panel=settings"
+          scheduledRetriesHref="/admin?panel=settings&emailView=scheduled-retries"
+          settingsHref="/admin/settings"
+          summary={emailOperations}
+        />
 
         <SettingsCard accent="violet" icon={<ShieldCheck size={22} aria-hidden />} title="Recent Audits">
           {recentAuditLogs.length ? (
@@ -1056,15 +1059,6 @@ function SettingsCard({ accent, children, icon, title }: { accent: "blue" | "tea
       </div>
       <div className="mt-4">{children}</div>
     </section>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
-      <p className="text-sm font-bold text-teal-800">{label}</p>
-      <p className="mt-1 break-all font-semibold text-stone-950">{value}</p>
-    </div>
   );
 }
 

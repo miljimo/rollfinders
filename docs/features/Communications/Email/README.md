@@ -16,6 +16,7 @@ Academy claim invitation and ownership email requirements:
 
 Email system enablement and queue operations:
 
+* `Operations/Products/Reviewing/AdminEmailQueueOperationsPanelPrd.md`
 * `Operations/APIs/JobsEmailDeliveryApi.md`
 * `Operations/APIs/AdminEmailProvisioningApi.md`
 * Deployment provisioning: `../../Deployment/Provisioning/Completed/SesDomainVerificationPrd.md`
