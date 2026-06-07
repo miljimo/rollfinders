@@ -42,6 +42,70 @@ AND the dashboard SHALL display role management features.
 
 ---
 
+## Scenario: View Academies Created By Platform Admins
+
+IF the authenticated user has the role `SUPER_ADMIN`
+
+WHEN the user opens the Super Admin Dashboard
+
+THEN the dashboard SHALL include a dedicated "Academies Created By Platform Admins" surface.
+
+AND the surface SHALL list academies whose `createdById` belongs to a user with the `PLATFORM_ADMIN` role.
+
+AND the list SHALL include:
+
+* Academy name
+* Verification status
+* Created date
+* Creating Platform Admin name
+* Creating Platform Admin email
+* City or location summary where available
+* Linked academy detail action
+
+AND the list SHALL be paginated whenever records exist.
+
+AND the first page SHALL default to 5 rows.
+
+AND the surface SHALL show pagination controls as long as there is at least one record, even when the first page contains all records.
+
+AND the surface SHALL support sorting by created date and Platform Admin where the existing table component supports sortable columns.
+
+AND the surface SHALL preserve existing Super Admin access to the full academy management page.
+
+AND Platform Admin users SHALL NOT see this Super Admin review surface.
+
+AND Academy Admin and Standard User accounts SHALL NOT see this Super Admin review surface.
+
+---
+
+## Scenario: View Platform Admin Academy Creation Stats
+
+IF the authenticated user has the role `SUPER_ADMIN`
+
+WHEN the Super Admin Dashboard renders the "Academies Created By Platform Admins" surface
+
+THEN the dashboard SHALL display stats for Platform Admin-created academies.
+
+AND the stats SHALL include:
+
+* Total academies created by Platform Admins
+* Verified academies created by Platform Admins
+* Pending verification academies created by Platform Admins
+* Platform Admins who have created at least one academy
+* New Platform Admin-created academies this month
+
+AND each stat SHALL be calculated only from academies where `createdById` is a Platform Admin user.
+
+AND these stats SHALL NOT replace the existing platform-wide academy stats.
+
+AND these stats SHALL be visually grouped with the Platform Admin-created academy list so Super Admins can distinguish contribution review from global academy totals.
+
+AND any stat indicator copy SHALL follow the shared Admin Dashboard stat indicator requirements in:
+
+`docs/features/Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
+
+---
+
 # User Visibility
 
 ## Scenario: View All Users

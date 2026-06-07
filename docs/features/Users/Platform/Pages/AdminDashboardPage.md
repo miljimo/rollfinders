@@ -30,6 +30,14 @@ IF the current user is platform-level admin
 WHEN page renders  
 THEN platform-level module options SHALL appear according to permissions.
 
+IF the current user is super admin  
+WHEN page renders  
+THEN the page SHALL include the Super Admin-only Platform Admin-created academy list and stats defined in:
+
+`docs/features/Users/SuperAdmin/Products/SuperUserDashboardRoles.md`
+
+AND this page PRD SHALL NOT duplicate or override the canonical Super Admin dashboard requirements.
+
 IF the admin sidebar brand is clicked  
 WHEN the user activates the RollFinders logo or name  
 THEN the UI SHALL navigate to `/`.
