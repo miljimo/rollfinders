@@ -40,6 +40,7 @@ Use these folders to track product requirement state:
 * `Product/Products/Reviewing/RollFinderMissingMvpRequirementsPrd.md`
 * `Product/Products/Reviewing/RollFinderMvpImplementationTicketsPrd.md`
 * `Product/Products/Reviewing/RollFinderMvpPrd.md`
+* `SharedComponents/Reviewing/SidePanelControlPrd.md`
 * `SharedComponents/Reviewing/ReusableUiComponentPrd.md`
 * `Users/Academies/Products/Reviewing/AcademyVerificationPrd.md`
 * `Users/Academies/Products/Reviewing/PendingAcademiesPrd.md`

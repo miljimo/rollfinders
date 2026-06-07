@@ -1,8 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, HelpCircle, Home, LogOut, Mail, Map, Menu, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Mail, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
@@ -13,6 +12,7 @@ import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma }
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
+import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicator";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders } from "./academies/actions";
 import { AcademyForm } from "./academies/AcademyForm";
@@ -360,24 +360,24 @@ export default async function AdminPage({
         orderBy: { name: "asc" },
       })
     : [];
+  const adminNavigationItems: SidePanelItem[] = [
+    { active: panel === "academies" || panel === "open-mats" || panel === "users", href: "/admin", icon: "dashboard", label: "Dashboard" },
+    { active: panel === "settings", href: "/admin?panel=settings", icon: "settings", label: "Settings" },
+    { active: panel === "academy-claims", href: "/admin?panel=academy-claims", icon: "claims", label: "Academy Claims" },
+    { active: panel === "maps", href: "/admin?panel=maps", icon: "map", label: "Map" },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
-      <input id="admin-mobile-menu" type="checkbox" className="peer sr-only" aria-hidden />
-      <label htmlFor="admin-mobile-menu" className="fixed inset-0 z-40 hidden bg-slate-950/40 peer-checked:block lg:hidden" aria-label="Close admin menu" />
-      <aside className="fixed inset-y-0 left-0 z-50 flex w-[min(22rem,88vw)] -translate-x-full flex-col border-r border-stone-200 bg-white shadow-2xl transition-transform duration-200 peer-checked:translate-x-0 lg:hidden">
-        <AdminSidebar panel={panel} showClose />
-      </aside>
+      <SidePanelControl
+        accountLabel={account?.name ?? account?.email ?? currentUser.email}
+        navigationItems={adminNavigationItems}
+        roleLabel={roleLabel(account?.role ?? currentUser.role)}
+      />
 
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-stone-200 bg-white lg:flex lg:flex-col">
-        <AdminSidebar panel={panel} />
-      </aside>
-
-      <main className="lg:pl-72">
+      <main className="transition-[padding] duration-200 lg:pl-[var(--admin-side-panel-width,16rem)]">
         <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
-          <label htmlFor="admin-mobile-menu" className="inline-flex size-11 items-center justify-center rounded-md border border-stone-200 text-slate-700 lg:hidden" aria-label="Open admin menu">
-            <Menu size={22} aria-hidden />
-          </label>
+          <div className="size-11 lg:hidden" aria-hidden />
           <ActionMenu
             buttonClassName="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
             label="Open account profile menu"
@@ -859,47 +859,6 @@ function ClaimsPanelSearch({ pageSize, search, status }: { pageSize: number; sea
         <Search size={20} aria-hidden />
       </Button>
     </form>
-  );
-}
-
-function AdminSidebar({ panel, showClose }: { panel: string; showClose?: boolean }) {
-  return (
-    <>
-      <div className="flex h-24 items-center gap-3 border-b border-stone-200 px-7">
-        <Link href="/" className="flex min-w-0 items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" aria-label="Go to RollFinders home">
-          <Image src="/logo.png" alt="" width={52} height={52} className="h-12 w-auto" />
-          <span className="text-2xl font-black text-slate-950">RollFinders</span>
-        </Link>
-        {showClose ? (
-          <label htmlFor="admin-mobile-menu" className="ml-auto inline-flex size-10 items-center justify-center rounded-md border border-stone-200 text-slate-600" aria-label="Close admin menu">
-            <X size={20} aria-hidden />
-          </label>
-        ) : null}
-      </div>
-      <nav className="flex flex-1 flex-col gap-2 px-4 py-7 text-sm font-bold text-slate-600">
-        <AdminNavItem active={panel === "academies" || panel === "open-mats" || panel === "users"} href="/admin" icon={<Home size={20} aria-hidden />}>Dashboard</AdminNavItem>
-        <AdminNavItem active={panel === "settings"} href="/admin?panel=settings" icon={<Settings size={20} aria-hidden />}>Settings</AdminNavItem>
-        <div className="my-5 border-t border-stone-200" />
-        <AdminNavItem active={panel === "academy-claims"} href="/admin?panel=academy-claims" icon={<ClipboardCheck size={20} aria-hidden />}>Academy Claims</AdminNavItem>
-        <AdminNavItem active={panel === "maps"} href="/admin?panel=maps" icon={<Map size={20} aria-hidden />}>Map</AdminNavItem>
-      </nav>
-      <div className="grid gap-2 border-t border-stone-200 px-4 py-5 text-sm font-bold text-slate-600">
-        <AdminNavItem href="/contact" icon={<HelpCircle size={20} aria-hidden />}>Help & Support</AdminNavItem>
-        <div className="flex min-h-12 items-center gap-3 rounded-md px-3">
-          <LogOut size={20} aria-hidden />
-          <LogoutButton />
-        </div>
-      </div>
-    </>
-  );
-}
-
-function AdminNavItem({ active, children, href, icon }: { active?: boolean; children: React.ReactNode; href: string; icon: React.ReactNode }) {
-  return (
-    <Link href={href} className={`flex min-h-12 items-center gap-3 rounded-md px-3 ${active ? "bg-teal-50 text-teal-800" : "hover:bg-stone-50"}`}>
-      {icon}
-      {children}
-    </Link>
   );
 }
 
