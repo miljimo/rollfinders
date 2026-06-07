@@ -23,7 +23,9 @@ case "${ENVIRONMENT_NAME}" in
     ;;
 esac
 
-if [[ "${ENVIRONMENT_NAME}" == "staging" ]]; then
+if [[ "${ENVIRONMENT_NAME}" != "dev" && "${ALLOW_DIRECT_ENV_DEPLOY:-}" == "true" ]]; then
+  echo "${ENVIRONMENT_NAME} direct deployment override enabled; using image.env artifact."
+elif [[ "${ENVIRONMENT_NAME}" == "staging" ]]; then
   promotion_require dev staging
 elif [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
   promotion_require staging production
