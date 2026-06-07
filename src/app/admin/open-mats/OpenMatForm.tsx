@@ -65,10 +65,8 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
           <FieldError errors={state.fieldErrors.recurrenceType} />
           <span className="text-xs font-medium text-stone-600">Recurring open mats use one source listing. Future dates are derived automatically and update when this listing changes.</span>
         </label>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field name="recurrenceEndDate" label="Repeat Until" type="date" value={state.values.recurrenceEndDate ?? recurrenceEndDate ?? ""} required={false} errors={state.fieldErrors.recurrenceEndDate} />
-          <Field name="recurrenceLimit" label="Occurrence Limit" type="number" value={state.values.recurrenceLimit ?? event?.recurrenceLimit?.toString() ?? ""} required={false} errors={state.fieldErrors.recurrenceLimit} />
-        </div>
+        <input type="hidden" name="recurrenceLimit" value="" />
+        <Field name="recurrenceEndDate" label="Repeat Until" type="date" value={state.values.recurrenceEndDate ?? recurrenceEndDate ?? ""} required={false} errors={state.fieldErrors.recurrenceEndDate} />
       </fieldset>
       <div className="flex flex-wrap gap-3">
         <Button type="submit" disabled={isPending} variant="primary">
