@@ -48,6 +48,25 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /if\s*\(\s*!panel\s*\)\s*redirect\("\/dashboard"\)/);
   });
 
+  it("standard dashboard uses the shared side-panel shell pattern with standard-user-only navigation", () => {
+    const source = readSource("src/app/dashboard/page.tsx");
+    const standardSource = source.split(/if\s*\(\s*platformAdminUser\s*\|\|\s*academyAdminUser\s*\)\s*return\s+<AdminDashboardWorkspace[^;]+;/)[1] ?? source;
+
+    assert.match(source, /import\s+\{\s*SidePanelControl,\s*type\s+SidePanelItem\s*\}\s+from\s+"@\/components\/SidePanelControl"/);
+    assert.match(source, /const\s+standardNavigationItems:\s*SidePanelItem\[\]\s*=\s*\[/);
+    assert.match(standardSource, /<SidePanelControl[\s\S]*navigationItems=\{standardNavigationItems\}/);
+    assert.match(standardSource, /supportHref="\/contact"/);
+
+    assert.match(source, /label:\s*"Dashboard"[\s\S]*href:\s*"\/dashboard"/);
+    assert.match(source, /label:\s*"My Academy Rolls"[\s\S]*href:\s*"\/dashboard\?panel=rolls"/);
+    assert.match(source, /label:\s*"Members"[\s\S]*href:\s*"\/dashboard\?panel=members"/);
+    assert.match(source, /label:\s*"Password \/ Account Settings"[\s\S]*href:\s*"\/dashboard\?panel=password"/);
+
+    for (const adminLabel of ["Platform Administration", "Academy Administration", "User Administration", "Email Operations", "Academy Claims", "Map Settings", "System Settings"]) {
+      assert.doesNotMatch(standardSource, new RegExp(adminLabel));
+    }
+  });
+
   it("standard-user dashboard rolls are read-only and scoped to the user's academy", () => {
     const dashboardPage = readSource("src/app/dashboard/page.tsx");
     const rollsRoute = readSource("src/app/api/dashboard/rolls/route.ts");

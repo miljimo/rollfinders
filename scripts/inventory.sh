@@ -9,9 +9,9 @@ BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars
 source "${ROOT_DIR}/scripts/cicd/terraform-backend.sh"
 
 case "${ENVIRONMENT_NAME}" in
-  dev|staging|production) ;;
+  dev|production) ;;
   *)
-    echo "Usage: ./scripts/inventory.sh dev|staging|production"
+    echo "Usage: ./scripts/inventory.sh dev|production"
     exit 1
     ;;
 esac

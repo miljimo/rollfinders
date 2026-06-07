@@ -16,19 +16,17 @@ source "${SCRIPT_DIR}/promotion.sh"
 source "${SCRIPT_DIR}/super-admin-env.sh"
 
 case "${ENVIRONMENT_NAME}" in
-  dev|staging|production) ;;
+  dev|production) ;;
   *)
-    echo "ENVIRONMENT_NAME must be dev, staging, or production."
+    echo "ENVIRONMENT_NAME must be dev or production."
     exit 1
     ;;
 esac
 
 if [[ "${ENVIRONMENT_NAME}" != "dev" && "${ALLOW_DIRECT_ENV_DEPLOY:-}" == "true" ]]; then
   echo "${ENVIRONMENT_NAME} direct deployment override enabled; using image.env artifact."
-elif [[ "${ENVIRONMENT_NAME}" == "staging" ]]; then
-  promotion_require dev staging
 elif [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
-  promotion_require staging production
+  promotion_require dev production
 fi
 
 deployment_lock_acquire

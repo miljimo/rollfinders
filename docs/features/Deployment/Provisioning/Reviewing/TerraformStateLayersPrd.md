@@ -8,8 +8,9 @@ Separate infrastructure state into clear layers so shared resources, environment
 
 - Bootstrap state backend resources.
 - Shared account resources used across environments.
-- Environment-specific infrastructure for dev, staging, and production.
+- Environment-specific infrastructure for dev and production.
 - Application-level resources that change more frequently than base infrastructure.
+- Removal of retired environment state prefixes.
 
 ## Requirements
 
@@ -29,6 +30,17 @@ IF a layer needs outputs from another layer, WHEN Terraform runs, THEN it must c
 
 IF production infrastructure is changed, WHEN Terraform state is selected, THEN production must use its own workspace or backend key and must not share mutable state with lower environments.
 
+### Retired Environment State
+
+IF an environment is retired, WHEN bootstrap state is applied, THEN the retired environment SHALL be removed from managed backend prefixes.
+
+AND the current Terraform state object for the retired environment SHALL be removed after its resources are destroyed.
+
+For the retired staging environment, the supported state keys SHALL be limited to:
+
+- `dev/terraform.tfstate`
+- `production/terraform.tfstate`
+
 ### Safe Outputs
 
 IF a layer publishes outputs, WHEN those outputs are consumed by another layer or CI job, THEN only non-secret values should be exposed unless a secure secret store is used.
@@ -39,4 +51,5 @@ IF a layer publishes outputs, WHEN those outputs are consumed by another layer o
 - Production state cannot be modified by applying a lower-environment plan.
 - Required layer outputs are documented and consumed through remote state.
 - The bootstrap process can be run from a clean AWS account without manual state edits.
-
+- Bootstrap outputs do not include a staging state key.
+- The shared state bucket does not keep a current `staging/terraform.tfstate` object after staging destroy.

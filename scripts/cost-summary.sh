@@ -7,7 +7,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "Active RollFinders resources by environment"
 echo
 
-for env in dev staging production; do
+for env in dev production; do
   echo "================================================"
   echo "${env}"
   echo "================================================"

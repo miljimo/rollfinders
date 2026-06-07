@@ -10,9 +10,9 @@ BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars
 source "${ROOT_DIR}/scripts/cicd/terraform-backend.sh"
 
 case "${ENVIRONMENT_NAME}" in
-  dev|staging|production) ;;
+  dev|production) ;;
   *)
-    echo "Usage: ./scripts/destroy-env.sh dev|staging|production"
+    echo "Usage: ./scripts/destroy-env.sh dev|production"
     exit 1
     ;;
 esac
@@ -34,17 +34,6 @@ fi
 cd "${TERRAFORM_DIR}"
 terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
 "${TERRAFORM_BIN}" init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
-
-if [[ "${ENVIRONMENT_NAME}" == "staging" ]]; then
-  confirmation="${CONFIRM_DESTROY:-}"
-  if [[ -z "${confirmation}" ]]; then
-    read -r -p "Type destroy staging to continue: " confirmation
-  fi
-  if [[ "${confirmation}" != "destroy staging" ]]; then
-    echo "Staging destroy cancelled."
-    exit 1
-  fi
-fi
 
 if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
   if [[ "${ALLOW_PRODUCTION_DESTROY:-}" != "true" ]]; then

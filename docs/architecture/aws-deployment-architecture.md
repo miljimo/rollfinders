@@ -124,7 +124,6 @@ Key controls:
 | Environment | Domain | Desired ECS Tasks | RDS Class | Production Controls |
 | --- | --- | ---: | --- | --- |
 | dev | `dev.rollfinders.com` | 1 | `db.t4g.micro` | 7-day backups, no deletion protection |
-| staging | `staging.rollfinders.com` | 1 | `db.t4g.micro` | 7-day backups, no deletion protection |
 | production | `rollfinders.com` | 2 | `db.t4g.small` | Multi-AZ, 14-day backups, deletion protection, final snapshot |
 
 ## DNS Names

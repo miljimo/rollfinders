@@ -2,7 +2,7 @@
 
 Bootstrap owns resources that must exist before remote Terraform state can be used:
 
-- S3 backend buckets for `dev`, `staging`, and `production`
+- S3 backend buckets for `dev` and `production`
 - backend bucket security controls and versioning
 
 Run it with:

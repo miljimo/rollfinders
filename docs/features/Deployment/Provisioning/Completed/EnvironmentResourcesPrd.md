@@ -10,10 +10,11 @@ Provision each runtime environment consistently while preserving naming, network
 
 ## Scope
 
-- Development, staging, and production infrastructure.
+- Development and production infrastructure.
 - Resource naming and tagging.
 - Network, ECS, database, storage, and secrets provisioning.
 - Environment-specific configuration outputs.
+- Staging infrastructure retirement and prevention.
 
 ## Requirements
 
@@ -24,6 +25,20 @@ IF a resource is created for an environment, WHEN its name or tags are generated
 ### Runtime Infrastructure
 
 IF an environment is provisioned, WHEN Terraform applies, THEN it must create or update the required compute, networking, load balancer, database, storage, IAM, and logging resources for that environment.
+
+### Supported Runtime Environments
+
+IF Terraform receives an `environment_name`, WHEN variable validation runs, THEN only `dev` and `production` SHALL be valid values.
+
+AND `staging` SHALL be rejected.
+
+### Staging Resource Retirement
+
+IF staging is no longer used, WHEN Terraform and AWS cleanup is performed, THEN staging-specific runtime resources SHALL be destroyed.
+
+AND the repository SHALL NOT keep `terraform/environments/staging` configuration files.
+
+AND pipeline configuration SHALL NOT recreate staging infrastructure.
 
 ### Secrets
 
@@ -43,3 +58,5 @@ IF provisioning succeeds, WHEN the run completes, THEN it must publish the servi
 - Resource names and tags clearly identify ownership and environment.
 - Runtime services receive configuration from environment variables and secret references.
 - Production database deletion is protected by default.
+- Staging environment files are absent.
+- Staging cannot be provisioned through the supported Terraform variable validation path.

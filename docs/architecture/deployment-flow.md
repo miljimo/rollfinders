@@ -44,30 +44,24 @@ flowchart LR
 | Any branch/default pipeline | Static validation only | None |
 | `feature/*` | Validate, build image, deploy | dev |
 | `develop` | Validate, build image, deploy | dev |
-| `staging` | Validate, manual promotion using dev promotion marker image | staging |
-| `main` | Validate, manual promotion using staging promotion marker image with production flags | production |
+| `main` | Validate, manual promotion using dev promotion marker image with production flags | production |
 
 ## Promotion Controls
 
 ```mermaid
 flowchart TD
   dev[Dev Deploy Success]
-  staging_check{Deploy staging?}
-  staging[Staging Deploy Success]
   prod_check{Deploy production?}
   prod[Production Deploy Success]
 
-  dev --> staging_check
-  staging_check -->|requires dev success marker<br/>and image URI| staging
-  staging --> prod_check
-  prod_check -->|requires staging success marker<br/>PRODUCTION_APPROVED=true<br/>PRODUCTION_MIGRATION_APPROVED=true| prod
+  dev --> prod_check
+  prod_check -->|requires dev success marker<br/>PRODUCTION_APPROVED=true<br/>PRODUCTION_MIGRATION_APPROVED=true| prod
 ```
 
 Controls implemented by the deployment scripts:
 
 - `scripts/cicd/deploy-environment.sh` validates environment names.
-- Staging requires a successful dev promotion marker.
-- Production requires a successful staging promotion marker.
+- Production requires a successful dev promotion marker.
 - Production deploys require `PRODUCTION_APPROVED=true`.
 - Production migrations require `PRODUCTION_MIGRATION_APPROVED=true`.
 - Deployments must hold the global deployment lock before `scripts/cicd/deploy.sh` runs.
@@ -95,7 +89,7 @@ sequenceDiagram
   Pipeline->>App: Local container health check /api/health
   Pipeline->>ECR: Push commit, latest, and environment tags
   Pipeline->>S3: Acquire deployment lock
-  Pipeline->>S3: Read promotion marker for staging/production
+  Pipeline->>S3: Read promotion marker for production
   Pipeline->>TF: terraform init with environment backend
   Pipeline->>TF: terraform plan with image_uri
   Pipeline->>TF: terraform apply
@@ -126,7 +120,7 @@ After Terraform apply and ECS stabilization, the deployment script prints:
 Each environment uses:
 
 - Shared Terraform artefact bucket named `rollfinder-<account-id>-terraform-artefact`
-- Separate Terraform state keys under `dev/`, `staging/`, and `production/`
+- Separate Terraform state keys under `dev/` and `production/`
 - Separate environment config under `terraform/environments/<env>/common.tfvars`
 - Separate ECR repository path: `rollfinder/<env>/app`
 - Separate Terraform-created resource names prefixed as `rollfinder-<env>`

@@ -99,7 +99,7 @@ export function SidePanelControl({
         type="button"
         ref={mobileOpenButtonRef}
         className="fixed left-4 top-4 z-30 inline-flex size-11 items-center justify-center rounded-md border border-stone-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2 lg:hidden"
-        aria-label="Open admin navigation"
+        aria-label="Open dashboard navigation"
         aria-expanded={mobileOpen}
         aria-controls={drawerId}
         onClick={() => setMobileOpen(true)}
@@ -112,7 +112,7 @@ export function SidePanelControl({
           <button
             type="button"
             className="absolute inset-0 bg-slate-950/40"
-            aria-label="Close admin navigation"
+            aria-label="Close dashboard navigation"
             onClick={() => setMobileOpen(false)}
           />
           <aside
@@ -182,7 +182,7 @@ function PanelContent({
           <span id={drawerTitleId} className={collapsed ? "sr-only" : "min-w-0 truncate text-xl font-black text-slate-950"}>RollFinders</span>
         </Link>
         {showClose ? (
-          <button type="button" className="absolute right-4 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-md border border-stone-200 bg-white text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" aria-label="Close admin navigation" onClick={onClose}>
+          <button type="button" className="absolute right-4 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-md border border-stone-200 bg-white text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" aria-label="Close dashboard navigation" onClick={onClose}>
             <X size={20} aria-hidden />
           </button>
         ) : null}
@@ -190,7 +190,7 @@ function PanelContent({
           <button
             type="button"
             className={`${collapsed ? "-right-4 size-10 rounded-full shadow-md" : "right-4 size-11 rounded-md shadow-sm"} absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center border border-stone-200 bg-white text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2`}
-            aria-label={collapsed ? "Expand admin navigation" : "Collapse admin navigation"}
+            aria-label={collapsed ? "Expand dashboard navigation" : "Collapse dashboard navigation"}
             onClick={onToggleCollapsed}
           >
             {collapsed ? <ChevronRight size={22} aria-hidden /> : <ChevronLeft size={20} aria-hidden />}
@@ -205,7 +205,7 @@ function PanelContent({
         </div>
       ) : null}
 
-      <nav className={`flex flex-1 flex-col gap-2 py-6 text-sm font-bold text-slate-600 ${collapsed ? "px-3" : "px-4"}`} aria-label="Admin navigation">
+      <nav className={`flex flex-1 flex-col gap-2 py-6 text-sm font-bold text-slate-600 ${collapsed ? "px-3" : "px-4"}`} aria-label="Dashboard navigation">
         {navigationItems.map((item) => (
           <SidePanelNavItem key={item.href} item={item} collapsed={collapsed} onNavigate={onClose} />
         ))}

@@ -36,7 +36,7 @@ resource "aws_iam_role_policy" "role_policy" {
         Action   = each.value.actions
         Effect   = each.value.effect
         Resource = each.value.resources
-      }, each.value.condition == null ? {} : {
+        }, each.value.condition == null ? {} : {
         Condition = {
           (each.value.condition.test) = {
             (each.value.condition.variable) = each.value.condition.values

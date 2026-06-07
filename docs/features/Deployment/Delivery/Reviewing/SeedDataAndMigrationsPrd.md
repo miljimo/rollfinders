@@ -27,7 +27,7 @@ IF production seed jobs run, WHEN seed data is applied, THEN only required idemp
 
 ### Lower Environment Seed Data
 
-IF dev or staging is provisioned, WHEN seed jobs run, THEN demo data may be added only when the environment variable or pipeline option enables it.
+IF dev is provisioned, WHEN seed jobs run, THEN demo data may be added only when the environment variable or pipeline option enables it.
 
 ### Failure Handling
 
@@ -39,4 +39,3 @@ IF a migration or seed step fails, WHEN deployment continues evaluating, THEN th
 - Production seed operations are idempotent and do not create demo content.
 - Lower environments can be reseeded without manual database changes.
 - Migration and seed failures block deployment.
-

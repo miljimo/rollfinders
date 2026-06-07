@@ -11,10 +11,10 @@ const items: SidePanelItem[] = [
 ];
 
 describe("SidePanelControl", () => {
-  it("renders shared admin navigation with route and panel query targets intact", () => {
+  it("renders shared dashboard navigation with route and panel query targets intact", () => {
     const markup = renderToStaticMarkup(<SidePanelControl accountLabel="Ada Admin" navigationItems={items} roleLabel="Platform Admin" />);
 
-    assert.match(markup, /aria-label="Admin navigation"/);
+    assert.match(markup, /aria-label="Dashboard navigation"/);
     assert.match(markup, /href="\/admin"/);
     assert.match(markup, /href="\/admin\?panel=settings"/);
     assert.match(markup, /href="\/admin\?panel=academy-claims"/);
@@ -30,7 +30,7 @@ describe("SidePanelControl", () => {
     assert.match(markup, /before:bg-teal-700/);
   });
 
-  it("only renders navigation items supplied by the admin page", () => {
+  it("only renders navigation items supplied by the caller", () => {
     const markup = renderToStaticMarkup(
       <SidePanelControl navigationItems={[{ href: "/admin?panel=settings", icon: "settings", label: "Settings" }]} />,
     );
@@ -40,11 +40,32 @@ describe("SidePanelControl", () => {
     assert.doesNotMatch(markup, /Map/);
   });
 
+  it("supports limited standard-user dashboard navigation", () => {
+    const markup = renderToStaticMarkup(
+      <SidePanelControl
+        navigationItems={[
+          { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
+          { href: "/dashboard?panel=rolls", icon: "events", label: "My Academy Rolls" },
+          { href: "/dashboard/members", icon: "users", label: "Members" },
+          { href: "/dashboard/password", icon: "settings", label: "Password / Account Settings" },
+        ]}
+        roleLabel="Standard User"
+      />,
+    );
+
+    assert.match(markup, /Standard User/);
+    assert.match(markup, /My Academy Rolls/);
+    assert.match(markup, /Members/);
+    assert.match(markup, /Password \/ Account Settings/);
+    assert.doesNotMatch(markup, /Academy Claims/);
+    assert.doesNotMatch(markup, /Platform Admin/);
+  });
+
   it("renders accessible open, collapse, support, and logout controls", () => {
     const markup = renderToStaticMarkup(<SidePanelControl navigationItems={items} />);
 
-    assert.match(markup, /aria-label="Open admin navigation"/);
-    assert.match(markup, /aria-label="Collapse admin navigation"/);
+    assert.match(markup, /aria-label="Open dashboard navigation"/);
+    assert.match(markup, /aria-label="Collapse dashboard navigation"/);
     assert.match(markup, /Help &amp; Support/);
     assert.match(markup, /Logout/);
   });

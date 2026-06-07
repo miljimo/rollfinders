@@ -1,6 +1,6 @@
 # Environment Layer
 
-Environment deployment owns long-lived runtime infrastructure for `dev`, `staging`, and `production`:
+Environment deployment owns long-lived runtime infrastructure for `dev` and `production`:
 
 - networking, ALB, DNS, and certificate wiring
 - ECS service, RDS, Secrets Manager, CloudFront assets, EventBridge

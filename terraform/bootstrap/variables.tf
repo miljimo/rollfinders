@@ -13,5 +13,5 @@ variable "project_name" {
 variable "environments" {
   type        = set(string)
   description = "Environment names that need isolated state."
-  default     = ["dev", "staging", "production"]
+  default     = ["dev", "production"]
 }
