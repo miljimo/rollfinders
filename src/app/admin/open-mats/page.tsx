@@ -189,7 +189,7 @@ export default async function OpenMatManagementPage({
             <p className="mt-2 text-stone-700">Search, filter, and manage open mat events from one operational view.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button href="/admin" variant="secondary">Dashboard</Button>
+            <Button href="/dashboard" variant="secondary">Dashboard</Button>
             <Button href="/admin/open-mats/new" variant="primary">New Open Mat</Button>
           </div>
         </div>

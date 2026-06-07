@@ -15,10 +15,6 @@ const navItems = [
 export async function SiteHeader() {
   const session = await getServerSession(authOptions);
   const isLoggedIn = Boolean(session?.user);
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  const dashboardHref = role === "ACADEMY_ADMIN" || role === "ACADEMY_OWNER" || role === "PLATFORM_ADMIN" || role === "SUPER_ADMIN" || role === "ADMIN"
-    ? "/admin"
-    : "/dashboard";
 
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
@@ -35,7 +31,7 @@ export async function SiteHeader() {
           ))}
           {isLoggedIn ? (
             <>
-              <NavLink href={dashboardHref}>Dashboard</NavLink>
+              <NavLink href="/dashboard">Dashboard</NavLink>
               <LogoutButton />
             </>
           ) : (
@@ -62,7 +58,7 @@ export async function SiteHeader() {
             ))}
             {isLoggedIn ? (
               <>
-                <NavLink href={dashboardHref}>Dashboard</NavLink>
+                <NavLink href="/dashboard">Dashboard</NavLink>
                 <LogoutButton />
               </>
             ) : (

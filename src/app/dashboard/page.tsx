@@ -8,6 +8,7 @@ import { PageShell } from "@/components/PageShell";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
 import { formatDate, formatMoney } from "@/lib/utils";
+import AdminDashboardWorkspace from "./AdminDashboardWorkspace";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +17,31 @@ export const metadata: Metadata = {
   description: "View your profile, roles, security, academy, and dashboard activity.",
 };
 
-export default async function StandardDashboardPage() {
+type DashboardSearchParams = Record<string, string | string[] | undefined>;
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function standardPanel(value: string | undefined) {
+  if (!value || value === "dashboard" || value === "rolls") return value ?? "dashboard";
+  if (value === "members" || value === "password" || value === "support") return value;
+  return null;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<DashboardSearchParams>;
+}) {
   const { user, academy } = await requireDashboardUser();
   const platformAdminUser = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || user.role === Role.PLATFORM_ADMIN;
-  const academyAdminUser = user.role === Role.ACADEMY_ADMIN;
-  if (platformAdminUser || academyAdminUser) redirect("/admin");
+  const academyAdminUser = user.role === Role.ACADEMY_ADMIN || user.role === Role.ACADEMY_OWNER;
+  if (platformAdminUser || academyAdminUser) return <AdminDashboardWorkspace searchParams={searchParams} />;
+
+  const params = await searchParams;
+  const panel = standardPanel(firstParam(params.panel));
+  if (!panel) redirect("/dashboard");
 
   const rolls = academy
     ? await prisma.event.findMany({

@@ -66,13 +66,31 @@ IF claim reminder columns are added
 WHEN the table renders  
 THEN the table SHALL include enough information for an admin to understand claim reminder eligibility, including claim state, email state, and last reminder state.
 
-IF an academy appears eligible for a reminder  
-WHEN its row renders  
-THEN the row SHOULD expose a `Send claim reminder` action.
+IF claim reminder status is shown in the academy table
+WHEN the table renders
+THEN the status column SHALL be labelled `Claim Invite`.
+
+AND the status column SHALL show only compact reminder state, such as `No email`, `Not sent`, `Queued`, `Recently sent`, or `Failed`.
+
+AND the status column SHALL NOT include a large inline `Send claim reminder` button.
+
+IF an academy appears eligible for a reminder
+WHEN its row action menu is opened
+THEN the overflow menu SHALL expose a `Send claim reminder` action.
+
+AND the table SHALL NOT duplicate the same send action as both an inline column button and an overflow menu item.
+
+AND the row action menu SHALL remain the primary list-view location for sending a single claim reminder.
+
+IF the `Claim Invite` status column renders an eligible academy
+WHEN the admin scans the table
+THEN the column SHALL show status only and SHALL NOT contain an inline link or button that opens the single reminder dialog.
 
 IF an academy appears ineligible for a reminder  
 WHEN its row renders  
 THEN the row SHALL show a human-readable reason such as `Already claimed`, `No email`, `Invalid email`, or `Recently sent`.
+
+AND the row action menu SHALL NOT expose an unsafe send action for ineligible academies.
 
 IF status badges are used  
 WHEN statuses render  
@@ -208,6 +226,7 @@ THEN it SHALL provide enough response data for the UI to update reminder status 
 * The existing search textbox remains visible and usable after reminder controls are added.
 * The Academies panel supports an `Unclaimed with valid email` filter preset.
 * Eligible academy rows expose `Send claim reminder`.
+* Eligible academy rows expose `Send claim reminder` from the row action menu, not from the `Claim Invite` status column.
 * Ineligible academy rows show the reason the reminder action is unavailable.
 * Single reminder sends require confirmation.
 * Bulk reminder sends require confirmation and show sent, skipped, and failed counts separately.

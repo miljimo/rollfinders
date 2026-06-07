@@ -81,7 +81,7 @@ describe("email operations contracts", () => {
     assert.match(reliableEmail, /OutboundEmailStatus\.PERMANENTLY_FAILED/);
     assert.match(reliableEmail, /prisma\.invalidEmailAddress\.count\(\)/);
 
-    const dashboards = ["src/app/admin/page.tsx", "src/app/admin/settings/page.tsx"];
+    const dashboards = ["src/app/dashboard/AdminDashboardWorkspace.tsx", "src/app/admin/settings/page.tsx"];
     for (const path of dashboards) {
       const source = readSource(path);
       const usesSharedSummary = source.includes("getEmailQueueOperationsSummary()");

@@ -28,7 +28,7 @@ export async function requireDashboardUser() {
 export async function requireStandardDashboardUser() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!isStandardUserRole(user.role)) redirect("/admin");
+  if (!isStandardUserRole(user.role)) redirect("/dashboard");
 
   const account = await prisma.user.findUnique({
     where: { id: user.id },

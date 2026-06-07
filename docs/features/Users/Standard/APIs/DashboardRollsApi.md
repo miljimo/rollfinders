@@ -40,6 +40,10 @@ WHEN the API responds
 
 THEN the API SHALL return JSON with a `rolls` array.
 
+AND the response SHALL contain only fields needed for read-only display.
+
+AND the response SHALL NOT expose mutation capability.
+
 ## DASH-ROLLS-004: Empty State
 
 IF no roll records exist for the academy
@@ -55,3 +59,4 @@ THEN the API SHALL return `{ "rolls": [] }`.
 * Unauthenticated users cannot access roll data.
 * Users cannot access rolls for unrelated academies.
 * Response shape remains stable for dashboard UI consumers.
+* The API remains read-only for Standard User dashboard consumers.

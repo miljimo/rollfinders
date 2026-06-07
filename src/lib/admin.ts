@@ -60,7 +60,7 @@ export async function requireAdminPage() {
 export async function requireSuperAdminPage() {
   const user = await getCurrentUser();
   if (!isSuperAdminRole(user?.role)) {
-    redirect("/admin");
+    redirect("/dashboard");
   }
   return user;
 }
@@ -68,7 +68,7 @@ export async function requireSuperAdminPage() {
 export async function requirePlatformAdminPage() {
   const user = await getCurrentUser();
   if (!isPlatformAdminRole(user?.role)) {
-    redirect("/admin");
+    redirect("/dashboard");
   }
   return user;
 }

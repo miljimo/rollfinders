@@ -8,6 +8,6 @@ describe("NewAcademyPanelAction", () => {
     const markup = renderToStaticMarkup(<NewAcademyPanelAction />);
 
     assert.match(markup, /New Academy/);
-    assert.match(markup, /href="\/admin\?panel=academies&amp;dialog=new-academy"/);
+    assert.match(markup, /href="\/dashboard\?panel=academies&amp;dialog=new-academy"/);
   });
 });

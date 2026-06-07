@@ -16,6 +16,8 @@ WHEN the user enters a valid username and password and submits the login form
 
 THEN the system SHALL authenticate the user and redirect them to the User Dashboard.
 
+AND the User Dashboard route SHALL be `/dashboard`.
+
 AND the dashboard SHALL display:
 
 * User full name
@@ -146,6 +148,14 @@ THEN only rolls belonging to the user's academy SHALL be returned.
 AND rolls from other academies SHALL NOT be visible.
 
 AND results SHALL be sorted by newest first.
+
+AND the roll view SHALL use the shared dashboard experience pattern where practical.
+
+AND the roll view SHALL be read-only for Standard Users.
+
+AND Standard Users SHALL NOT see create, edit, delete, publish, unpublish, or admin-only roll actions.
+
+See also: `StandardUserSharedDashboardPrd.md`.
 
 
 ##  Change Password 
