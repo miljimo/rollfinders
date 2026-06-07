@@ -59,6 +59,11 @@ function isUniqueConstraintError(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
 
+function managedUsersReturnPath(returnTo: string) {
+  if (returnTo.startsWith("/dashboard") || returnTo.startsWith("/admin")) return returnTo;
+  return "/admin/users";
+}
+
 async function hasAnotherActiveSuperUser(userId: string) {
   const count = await prisma.user.count({
     where: {
@@ -85,7 +90,7 @@ export async function createManagedUser(formData: FormData) {
   if (!email || !email.includes("@")) return;
   if (academyId === undefined) return;
   const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
+  const redirectTo = managedUsersReturnPath(returnTo);
   const passwordHash = await bcrypt.hash(password, 10);
   let user: { id: string };
   try {
@@ -121,6 +126,7 @@ export async function createManagedUser(formData: FormData) {
 
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   redirect(redirectTo);
 }
 
@@ -170,9 +176,10 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   });
 
   const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
+  const redirectTo = managedUsersReturnPath(returnTo);
   revalidatePath("/admin/users");
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   redirect(redirectTo);
 }
 

@@ -146,10 +146,16 @@ describe("unified dashboard route contracts", () => {
 
   it("admin dashboard canonical links and pagination stay on /dashboard with complete query strings", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const userActionsSource = readSource("src/app/admin/users/actions.ts");
 
     assert.match(source, /href:\s*"\/dashboard"/);
     assert.match(source, /href:\s*"\/dashboard\?panel=settings"/);
     assert.match(source, /return\s+query\s*\?\s*`\/dashboard\?\$\{query\}`\s*:\s*"\/dashboard"/);
+    assert.match(source, /returnTo="\/dashboard\?panel=users"/);
+    assert.match(source, /cancelHref="\/dashboard\?panel=users"/);
+    assert.match(userActionsSource, /function\s+managedUsersReturnPath/);
+    assert.match(userActionsSource, /returnTo\.startsWith\("\/dashboard"\)\s*\|\|\s*returnTo\.startsWith\("\/admin"\)/);
+    assert.match(userActionsSource, /revalidatePath\("\/dashboard"\)/);
     assert.doesNotMatch(source, /return\s+query\s*\?\s*`\/dashboard\?`\s*:\s*"\/dashboard"/);
   });
 
