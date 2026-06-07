@@ -28,6 +28,11 @@ function selectedEmailOperationsView(value: string | undefined) {
   return "runs";
 }
 
+function pageFromParams(searchParams: SettingsSearchParams, key: string) {
+  const value = Number(firstParam(searchParams[key]) ?? "1");
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
+}
+
 export default async function SettingsPage({
   searchParams,
 }: {
@@ -36,6 +41,7 @@ export default async function SettingsPage({
   const currentUser = await requireAdminPage();
   const params = await searchParams;
   const emailOperationsView = selectedEmailOperationsView(firstParam(params.emailView));
+  const emailPage = pageFromParams(params, "emailPage");
   const [emailOperations, recentAuditLogs] = await Promise.all([
     getEmailQueueOperationsSummary(),
     prisma.adminAuditLog.findMany({
@@ -62,6 +68,7 @@ export default async function SettingsPage({
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <EmailOperationsPanel
             action={processEmailQueue}
+            activePage={emailPage}
             activeView={emailOperationsView}
             attentionHref="/admin/settings?emailView=attention"
             invalidEmailsHref="/admin/settings?emailView=invalid-emails"

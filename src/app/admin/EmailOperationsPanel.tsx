@@ -9,11 +9,15 @@ import { formatDate } from "@/lib/utils";
 type EmailOperationsSummary = Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
 type EmailOperationsView = "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
 
+const emailOperationsTablePageSize = 5;
+
 type EmailOperationsPanelProps = {
   action: (formData: FormData) => void | Promise<void>;
+  activePage?: number;
   activeView?: EmailOperationsView;
   attentionHref: string;
   invalidEmailsHref: string;
+  pageSize?: number;
   queuedHref: string;
   refreshHref: string;
   scheduledRetriesHref: string;
@@ -23,9 +27,11 @@ type EmailOperationsPanelProps = {
 
 export function EmailOperationsPanel({
   action,
+  activePage = 1,
   activeView = "runs",
   attentionHref,
   invalidEmailsHref,
+  pageSize = emailOperationsTablePageSize,
   queuedHref,
   refreshHref,
   scheduledRetriesHref,
@@ -84,6 +90,20 @@ export function EmailOperationsPanel({
     triggeredBy: run.triggeredByEmail ?? run.triggerSource,
     startedAt: formatDate(run.startedAt),
   }));
+  const paginatedQueueRows = {
+    queued: paginateRows(queueRows.queued, activePage, pageSize),
+    "scheduled-retries": paginateRows(queueRows["scheduled-retries"], activePage, pageSize),
+    attention: paginateRows(queueRows.attention, activePage, pageSize),
+  };
+  const paginatedInvalidEmailRows = paginateRows(invalidEmailRows, activePage, pageSize);
+  const paginatedRunRows = paginateRows(runRows, activePage, pageSize);
+  const paginationHrefs = {
+    queued: queuedHref,
+    "scheduled-retries": scheduledRetriesHref,
+    attention: attentionHref,
+    "invalid-emails": invalidEmailsHref,
+    runs: refreshHref,
+  };
   const queueColumns: TableColumn<ReturnType<typeof queueItemsToRows>[number]>[] = [
     {
       key: "recipient",
@@ -230,45 +250,50 @@ export function EmailOperationsPanel({
         {activeView === "queued" ? (
           <Table
             columns={queueColumns}
-            data={queueRows.queued}
+            data={paginatedQueueRows.queued.rows}
             emptyMessage="No emails are currently due for delivery."
             getRowId={(row) => row.id}
             minWidthClassName="min-w-[980px]"
+            pagination={tablePagination(paginatedQueueRows.queued, paginationHrefs.queued)}
             title="Queued email items"
           />
         ) : activeView === "scheduled-retries" ? (
           <Table
             columns={queueColumns}
-            data={queueRows["scheduled-retries"]}
+            data={paginatedQueueRows["scheduled-retries"].rows}
             emptyMessage="No emails are scheduled for retry."
             getRowId={(row) => row.id}
             minWidthClassName="min-w-[980px]"
+            pagination={tablePagination(paginatedQueueRows["scheduled-retries"], paginationHrefs["scheduled-retries"])}
             title="Scheduled retry items"
           />
         ) : activeView === "attention" ? (
           <Table
             columns={queueColumns}
-            data={queueRows.attention}
+            data={paginatedQueueRows.attention.rows}
             emptyMessage="No email queue items need attention."
             getRowId={(row) => row.id}
             minWidthClassName="min-w-[980px]"
+            pagination={tablePagination(paginatedQueueRows.attention, paginationHrefs.attention)}
             title="Email items needing attention"
           />
         ) : activeView === "invalid-emails" ? (
           <Table
             columns={invalidEmailColumns}
-            data={invalidEmailRows}
+            data={paginatedInvalidEmailRows.rows}
             emptyMessage="No invalid email addresses are recorded."
             getRowId={(row) => row.id}
             minWidthClassName="min-w-[920px]"
+            pagination={tablePagination(paginatedInvalidEmailRows, paginationHrefs["invalid-emails"])}
             title="Invalid email audience"
           />
         ) : (
           <Table
             columns={runColumns}
-            data={runRows}
+            data={paginatedRunRows.rows}
             emptyMessage="No email delivery job has been run yet."
             getRowId={(row) => row.id}
+            pagination={tablePagination(paginatedRunRows, paginationHrefs.runs)}
             title={(
               <span className="inline-flex items-center gap-2">
                 <Clock3 size={18} aria-hidden /> Recent runs
@@ -279,6 +304,48 @@ export function EmailOperationsPanel({
       </div>
     </section>
   );
+}
+
+type PaginatedRows<T> = {
+  currentPage: number;
+  rows: T[];
+  totalPages: number;
+};
+
+function paginateRows<T>(rows: T[], page: number, pageSize: number): PaginatedRows<T> {
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const totalPages = Math.max(1, Math.ceil(rows.length / safePageSize));
+  const currentPage = Math.min(Math.max(1, Math.floor(page)), totalPages);
+  const start = (currentPage - 1) * safePageSize;
+
+  return {
+    currentPage,
+    rows: rows.slice(start, start + safePageSize),
+    totalPages,
+  };
+}
+
+function tablePagination<T>({ currentPage, totalPages }: PaginatedRows<T>, baseHref: string) {
+  return {
+    page: currentPage,
+    totalPages,
+    previousHref: emailPageHref(baseHref, currentPage - 1),
+    nextHref: emailPageHref(baseHref, currentPage + 1),
+  };
+}
+
+function emailPageHref(baseHref: string, page: number) {
+  const [path, query = ""] = baseHref.split("?");
+  const params = new URLSearchParams(query);
+
+  if (page > 1) {
+    params.set("emailPage", String(page));
+  } else {
+    params.delete("emailPage");
+  }
+
+  const nextQuery = params.toString();
+  return nextQuery ? `${path}?${nextQuery}` : path;
 }
 
 function queueItemsToRows(items: EmailOperationsSummary["dueQueueItems"]) {

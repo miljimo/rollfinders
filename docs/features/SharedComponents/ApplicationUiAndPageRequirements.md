@@ -578,6 +578,31 @@ Done when:
 
 ---
 
+## UI-ADMIN-006: Dynamic Admin Table Pagination
+
+IF an admin panel renders a dynamic table or drilldown table
+
+AND the dataset may exceed one page
+
+WHEN the table renders
+
+THEN the table SHALL be paginated.
+
+AND pagination SHALL preserve the current panel, selected metric, filter, search, and view state while changing pages.
+
+AND empty, single-page, first-page, and last-page states SHALL render without broken controls.
+
+AND unbounded dynamic datasets SHALL NOT render as one long unpaginated table.
+
+Done when:
+
+* Email operations `Queued now`, `Scheduled retry`, `Needs attention`, and `Invalid emails` drilldown tables render no more than five rows per page before showing pagination.
+* Email operations drilldown tables show `Page 1 of 1` pagination when one to five records are present.
+* Future admin drilldown tables use the reusable table pagination behavior.
+* Pagination controls remain reachable and accessible on desktop and mobile.
+
+---
+
 # Group 6: Admin Management Forms
 
 Likely files:

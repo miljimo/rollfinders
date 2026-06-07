@@ -275,6 +275,30 @@ AND disabled controls SHALL NOT be clickable.
 
 ---
 
+## Scenario: Require Pagination For Dynamic Tables
+
+IF a table renders dynamic or operational data
+
+AND the dataset can exceed the configured page size
+
+WHEN the table is implemented by a page, panel, or drilldown view
+
+THEN the consumer SHALL pass pagination information to the reusable `Table`.
+
+AND the consumer SHALL preserve the current filter, search, tab, metric, or drilldown view while changing pages.
+
+AND the table SHALL handle empty, single-page, first-page, middle-page, and last-page states without broken controls.
+
+AND the component SHALL remain data-source agnostic.
+
+AND the component SHALL render pagination controls from props.
+
+AND the component SHALL allow each consuming page or panel to define its own page size.
+
+AND the component SHALL NOT own business-specific fetching, filtering, routing, or URL state.
+
+---
+
 # Loading State
 
 ## Scenario: Render Loading State

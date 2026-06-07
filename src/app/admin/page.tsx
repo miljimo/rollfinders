@@ -194,6 +194,7 @@ export default async function AdminPage({
   const eventPage = pageFromParams(params, "eventsPage");
   const userPage = pageFromParams(params, "usersPage");
   const claimPage = pageFromParams(params, "claimsPage");
+  const emailPage = pageFromParams(params, "emailPage");
   const claimPageSize = selectedClaimPageSize(firstParam(params.pageSize));
   const claimStatus = selectedClaimStatus(firstParam(params.status));
   const academyReminderFilter = selectedAcademyReminderFilter(firstParam(params.reminderFilter));
@@ -409,6 +410,7 @@ export default async function AdminPage({
 
         {panel === "settings" ? (
           <SettingsDashboardContent
+            activeEmailPage={emailPage}
             activeEmailView={emailOperationsView}
             emailOperations={emailOperations}
             recentAuditLogs={recentAuditLogs}
@@ -1033,10 +1035,12 @@ type SettingsAuditLog = {
 };
 
 function SettingsDashboardContent({
+  activeEmailPage,
   activeEmailView,
   emailOperations,
   recentAuditLogs,
 }: {
+  activeEmailPage: number;
   activeEmailView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
   emailOperations: Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
   recentAuditLogs: SettingsAuditLog[];
@@ -1056,6 +1060,7 @@ function SettingsDashboardContent({
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <EmailOperationsPanel
           action={processEmailQueue}
+          activePage={activeEmailPage}
           activeView={activeEmailView}
           attentionHref="/admin?panel=settings&emailView=attention"
           invalidEmailsHref="/admin?panel=settings&emailView=invalid-emails"

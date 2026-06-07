@@ -62,4 +62,23 @@ describe("Table", () => {
     assert.match(markup, /href="\/open-mats\/open-mat-1"/);
     assert.match(markup, /Archive/);
   });
+
+  it("renders pagination controls when pagination props are provided", () => {
+    const markup = renderToStaticMarkup(
+      <Table
+        columns={columns}
+        data={rows}
+        pagination={{
+          page: 2,
+          totalPages: 3,
+          previousHref: "/admin?panel=settings&emailView=attention",
+          nextHref: "/admin?panel=settings&emailView=attention&emailPage=3",
+        }}
+      />,
+    );
+
+    assert.match(markup, /Page 2 of 3/);
+    assert.match(markup, /href="\/admin\?panel=settings&amp;emailView=attention"/);
+    assert.match(markup, /href="\/admin\?panel=settings&amp;emailView=attention&amp;emailPage=3"/);
+  });
 });

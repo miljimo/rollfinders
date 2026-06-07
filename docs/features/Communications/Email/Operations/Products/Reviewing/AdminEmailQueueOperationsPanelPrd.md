@@ -76,6 +76,18 @@ Provider readiness failures, such as a sandboxed sending account or an unverifie
 
 Each metric card SHALL be selectable and SHALL replace the lower panel content with a table for that metric.
 
+Each metric drilldown table SHALL display the reusable `Table` pagination footer whenever one or more records are present.
+
+The Email Operations panel SHALL use a default drilldown page size of five rows for `Queued now`, `Scheduled retry`, `Needs attention`, and `Invalid emails`.
+
+Pagination SHALL include previous and next controls, current page, total pages, and disabled states for first-page, single-page, and last-page boundaries.
+
+Single-page record sets SHALL still show the pagination footer as `Page 1 of 1` with disabled previous and next controls.
+
+Pagination SHALL preserve the selected metric view while changing pages.
+
+The panel SHALL NOT render email drilldown datasets as one long unpaginated table.
+
 `Queued now` table rows SHALL show:
 
 * Recipient email
@@ -236,6 +248,12 @@ WHEN the Email Operations panel refreshes
 
 THEN the lower table panel SHALL list due queue items with recipient, target audience, subject, status, retry metadata, next attempt, last attempt, and failure reason.
 
+AND the table SHALL render no more than five due queue rows per page.
+
+AND the table SHALL show the reusable pagination footer when one or more due queue rows are present.
+
+AND the table SHALL preserve the `Queued now` view while changing pages.
+
 ## EMAIL-OPS-014: Scheduled Retry Drilldown
 
 IF a platform admin clicks `Scheduled retry`
@@ -243,6 +261,12 @@ IF a platform admin clicks `Scheduled retry`
 WHEN the Email Operations panel refreshes
 
 THEN the lower table panel SHALL list scheduled retry queue items with recipient, target audience, subject, status, retry metadata, next attempt, last attempt, and failure reason.
+
+AND the table SHALL render no more than five scheduled retry rows per page.
+
+AND the table SHALL show the reusable pagination footer when one or more scheduled retry rows are present.
+
+AND the table SHALL preserve the `Scheduled retry` view while changing pages.
 
 ## EMAIL-OPS-015: Attention Drilldown
 
@@ -252,6 +276,12 @@ WHEN the Email Operations panel refreshes
 
 THEN the lower table panel SHALL list failed, retry-pending, invalid, and permanently failed queue items with recipient, target audience, subject, status, retry metadata, next attempt, last attempt, and failure reason.
 
+AND the table SHALL render no more than five attention rows per page.
+
+AND the table SHALL show the reusable pagination footer when one or more attention rows are present.
+
+AND the table SHALL preserve the `Needs attention` view while changing pages.
+
 ## EMAIL-OPS-016: Invalid Email Drilldown
 
 IF a platform admin clicks `Invalid emails`
@@ -259,6 +289,12 @@ IF a platform admin clicks `Invalid emails`
 WHEN the Email Operations panel refreshes
 
 THEN the lower table panel SHALL list invalid email records with the email address, target audience, last outbound email subject when available, failure reason, failure count, and last failure time.
+
+AND the table SHALL render no more than five invalid email rows per page.
+
+AND the table SHALL show the reusable pagination footer when one or more invalid email rows are present.
+
+AND the table SHALL preserve the `Invalid emails` view while changing pages.
 
 ## EMAIL-OPS-017: Hide Provider Internals
 
@@ -332,6 +368,10 @@ If a new status route is not created, the existing endpoint SHALL return enough 
 * Clicking `Queued now`, `Scheduled retry`, `Needs attention`, or `Invalid emails` changes the lower panel into a table for that selected metric.
 * Queue item tables show recipient, target audience, subject, status, retry metadata, timing metadata, and failure reason where applicable.
 * Invalid email table shows email address, target audience, last outbound subject, failure reason, failure count, and last failure time.
+* `Queued now`, `Scheduled retry`, `Needs attention`, and `Invalid emails` drilldown tables render no more than five rows per page.
+* Email drilldown tables show the pagination footer when one or more records are present, including single-page datasets.
+* Pagination preserves the active metric filter, such as `queued`, `scheduled-retries`, `attention`, or `invalid-emails`.
+* Empty, single-page, first-page, and last-page pagination states render without broken controls.
 * Provider readiness failures are shown as attention or retryable queue items, not invalid recipient emails.
 * The admin-facing panel does not expose the email provider name.
 * Admin can click `Process queue` from the Email Operations panel.
