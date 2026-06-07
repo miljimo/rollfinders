@@ -49,8 +49,9 @@ AND the menu SHALL include:
 * display name or email fallback
 * email address
 * role label
-* Settings link
 * Logout action
+
+AND the menu SHALL NOT include a Settings link unless a dedicated account-menu settings workflow is implemented.
 
 AND the menu SHALL preserve the existing popup positioning, outside-click close behavior, and accessible menu semantics.
 
@@ -90,7 +91,7 @@ AND the popup menu SHALL remain functional after the visual change.
 
 * All dashboard users see the compact initials-plus-chevron trigger.
 * Clicking the trigger opens the existing account popup menu.
-* The popup includes account details, Settings, and Logout.
+* The popup includes account details and Logout.
 * Standard and admin dashboard variants use the same behavior.
 * Existing dashboard panels, settings routes, logout, and role scoping are unchanged.
 * Automated checks cover that the trigger remains an account menu, not static markup.

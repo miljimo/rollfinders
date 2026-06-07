@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Mail, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Mail, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
@@ -662,8 +662,7 @@ export default async function AdminDashboardWorkspace({
                 <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(account?.role ?? currentUser.role)}</p>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <Link href="/dashboard?panel=settings" className="rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Settings</Link>
+            <div className="mt-3 flex justify-end">
               <LogoutButton />
             </div>
           </ActionMenu>
@@ -1224,14 +1223,14 @@ function SettingsDashboardContent({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-slate-950">Settings</h1>
-          <p className="mt-2 text-slate-600">Manage email operations, audit activity, and future application settings.</p>
+          <p className="mt-2 text-slate-600">Manage email operations and audit activity.</p>
         </div>
         <Button href="/dashboard?panel=settings" variant="secondary">
           <RefreshCw size={16} aria-hidden /> Refresh
         </Button>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <EmailOperationsPanel
           action={processEmailQueue}
           activePage={activeEmailPage}
@@ -1261,26 +1260,7 @@ function SettingsDashboardContent({
           )}
           <CardLink href="/dashboard?panel=settings">View all audits</CardLink>
         </SettingsCard>
-
-        <SettingsCard accent="blue" icon={<Settings size={22} aria-hidden />} title="Application Settings">
-          <p className="max-w-sm text-sm font-semibold leading-6 text-stone-700">Configure future platform behavior and system preferences.</p>
-          <div className="mx-auto my-8 flex size-24 items-center justify-center rounded-lg bg-blue-50 text-blue-500">
-            <Settings size={48} aria-hidden />
-          </div>
-          <p className="mx-auto max-w-xs text-center text-sm font-bold leading-6 text-stone-700">Application settings will be available here when configuration requirements are ready.</p>
-          <CardLink href="/dashboard?panel=settings">Learn more</CardLink>
-        </SettingsCard>
       </div>
-
-      <section className="mt-6 rounded-lg border border-blue-100 bg-blue-50 p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xl font-black text-blue-950">What&apos;s coming next?</h2>
-            <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-blue-900">More application settings and configuration controls will be available here. We&apos;re working on bringing powerful tools to manage your platform better.</p>
-          </div>
-          <Send className="hidden text-blue-300 sm:block" size={56} aria-hidden />
-        </div>
-      </section>
     </section>
   );
 }

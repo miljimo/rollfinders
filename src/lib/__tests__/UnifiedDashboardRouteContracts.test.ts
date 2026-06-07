@@ -120,9 +120,13 @@ describe("unified dashboard route contracts", () => {
     for (const source of [standardSource, adminSource]) {
       assert.match(source, /<ActionMenu[\s\S]*label="Open account profile menu"/);
       assert.match(source, /trigger=\{\(\s*<>\s*[\s\S]*rounded-full bg-teal-100[\s\S]*<ChevronDown/);
-      assert.match(source, /href="\/dashboard\?panel=settings"/);
       assert.match(source, /<LogoutButton/);
     }
+
+    const standardMenuSource = standardSource.match(/<ActionMenu[\s\S]*?<\/ActionMenu>/)?.[0] ?? "";
+    const adminMenuSource = adminSource.match(/<ActionMenu[\s\S]*?<\/ActionMenu>/)?.[0] ?? "";
+    assert.doesNotMatch(standardMenuSource, /href="\/dashboard\?panel=settings"|>Settings<\/Link>/);
+    assert.doesNotMatch(adminMenuSource, /href="\/dashboard\?panel=settings"|>Settings<\/Link>/);
   });
 
   it("standard users are not treated as admin roles for admin APIs or admin page guards", () => {

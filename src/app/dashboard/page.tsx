@@ -184,8 +184,7 @@ export default async function DashboardPage({
                 <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(user.role)}</p>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-between gap-3">
-              <Link href="/dashboard?panel=settings" className="rounded-md px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50">Settings</Link>
+            <div className="mt-3 flex justify-end">
               <LogoutButton />
             </div>
           </ActionMenu>
