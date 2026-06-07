@@ -12,6 +12,7 @@ import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma }
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
+import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicator";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders } from "./academies/actions";
@@ -397,6 +398,44 @@ export default async function AdminPage({
         ]
       : []),
   ];
+  const quickActionItems: QuickActionPanelItem[] = [
+    {
+      active: panel === "academies",
+      description: academyAdmin ? "View and manage your academy profile" : "Search, verify and manage academies",
+      href: "/admin?panel=academies",
+      icon: <Building2 size={24} aria-hidden />,
+      id: "academies",
+      title: academyAdmin ? "My Academy" : "Manage Academies",
+    },
+    ...(elevatedAdmin
+      ? [
+          {
+            active: panel === "academy-claims",
+            description: "Review ownership access requests",
+            href: "/admin?panel=academy-claims",
+            icon: <ClipboardCheck size={24} aria-hidden />,
+            id: "academy-claims",
+            title: "Academy Claims",
+          } satisfies QuickActionPanelItem,
+        ]
+      : []),
+    {
+      active: panel === "open-mats",
+      description: academyAdmin ? "Create and manage academy rolls" : "Create, edit and manage events",
+      href: "/admin?panel=open-mats",
+      icon: <CalendarDays size={24} aria-hidden />,
+      id: "open-mats",
+      title: academyAdmin ? "Manage Rolls" : "Manage Open Mats",
+    },
+    {
+      active: panel === "users",
+      description: academyAdmin ? "Create and manage academy users" : "Create, edit and manage users",
+      href: "/admin?panel=users",
+      icon: <Users size={24} aria-hidden />,
+      id: "users",
+      title: "Manage Users",
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
@@ -469,13 +508,7 @@ export default async function AdminPage({
             <PlatformAdminActivitySummaryPanel summary={platformAdminActivitySummary} />
           ) : null}
 
-          <h2 className="mt-7 text-xl font-black text-slate-950">Quick Actions</h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-3">
-            <ActionCard active={panel === "academies"} description={academyAdmin ? "View and manage your academy profile" : "Search, verify and manage academies"} href="/admin?panel=academies" icon={<Building2 size={24} aria-hidden />} title={academyAdmin ? "My Academy" : "Manage Academies"} />
-            {elevatedAdmin ? <ActionCard active={panel === "academy-claims"} description="Review ownership access requests" href="/admin?panel=academy-claims" icon={<ClipboardCheck size={24} aria-hidden />} title="Academy Claims" /> : null}
-            <ActionCard active={panel === "open-mats"} description={academyAdmin ? "Create and manage academy rolls" : "Create, edit and manage events"} href="/admin?panel=open-mats" icon={<CalendarDays size={24} aria-hidden />} title={academyAdmin ? "Manage Rolls" : "Manage Open Mats"} />
-            <ActionCard active={panel === "users"} description={academyAdmin ? "Create and manage academy users" : "Create, edit and manage users"} href="/admin?panel=users" icon={<Users size={24} aria-hidden />} title="Manage Users" />
-          </div>
+          <QuickActionPanel className="mt-7" items={quickActionItems} />
 
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
@@ -1002,19 +1035,6 @@ function ActivityMetric({ label, value }: { label: string; value: number }) {
       <p className="text-sm font-bold text-slate-600">{label}</p>
       <p className="mt-1 text-2xl font-black text-slate-950">{value.toLocaleString()}</p>
     </div>
-  );
-}
-
-function ActionCard({ active, description, href, icon, title }: { active?: boolean; description: string; href: string; icon: React.ReactNode; title: string }) {
-  return (
-    <Link href={href} className={`flex min-h-24 items-center gap-4 rounded-lg border bg-white p-4 shadow-sm transition hover:border-teal-500 ${active ? "border-teal-500" : "border-stone-200"}`}>
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-black text-slate-950">{title}</span>
-        <span className="mt-1 block text-sm font-semibold text-slate-500">{description}</span>
-      </span>
-      <ChevronRight size={20} aria-hidden />
-    </Link>
   );
 }
 

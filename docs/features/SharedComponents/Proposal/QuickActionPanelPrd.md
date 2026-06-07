@@ -34,6 +34,7 @@ Related requirements:
 ## In Scope
 
 * A reusable `QuickActionPanel` component.
+* A reusable `ActionItem` component owned by the Quick Action component set.
 * Compact responsive layout that fits the number of visible actions.
 * Configurable maximum number of visible items.
 * Role-aware item filtering through caller-provided action data.
@@ -81,6 +82,28 @@ AND the component SHALL NOT know platform-specific permission rules internally.
 
 AND permission filtering SHALL be performed by the caller before items are passed to the component.
 
+### Component Composition
+
+IF Quick Actions are implemented
+
+WHEN the component set is created
+
+THEN `QuickActionPanel` SHALL compose smaller reusable components instead of keeping all markup inside one component.
+
+AND each rendered action SHALL be rendered by an `ActionItem` component.
+
+AND `ActionItem` SHALL live inside the Quick Action component module or folder.
+
+AND `ActionItem` SHALL be reusable by `QuickActionPanel` and any closely related action-list variant.
+
+AND `QuickActionPanel` SHALL own layout, heading, item limiting, and empty-state behavior.
+
+AND `ActionItem` SHALL own the visual rendering, active state, disabled state, icon tile, text wrapping, focus treatment, and link behavior for a single action.
+
+AND callers SHALL pass action data to `QuickActionPanel`, not hand-written action card JSX.
+
+AND callers SHOULD NOT import `ActionItem` directly unless there is a clear future usage that needs one-off item rendering.
+
 ### Configurable Item Count
 
 IF the caller provides more actions than should be shown
@@ -103,11 +126,15 @@ WHEN the panel renders on desktop
 
 THEN the action card SHALL fit its content with a sensible maximum width instead of stretching across the entire dashboard.
 
+AND the action card SHALL NOT be forced to the same width as sibling action cards on tablet or desktop.
+
+AND each action card width SHALL be determined by its own title and description content, with minimum and maximum width constraints only to preserve usability.
+
 IF the component receives two visible actions
 
 WHEN the panel renders on desktop
 
-THEN the layout SHALL use two compact columns or an equivalent fit-to-content row without a third empty column.
+THEN the layout SHALL use a compact fit-to-content row without a third empty column.
 
 IF the component receives three or more visible actions
 
@@ -138,6 +165,8 @@ IF the viewport is tablet or desktop width
 WHEN multiple actions are visible
 
 THEN the component SHALL use a wrapping layout with bounded card widths.
+
+AND each action item SHALL keep an independent content-driven width instead of sharing equal grid tracks.
 
 AND the component SHALL avoid large empty gaps caused by fixed full-width grid columns.
 
@@ -220,7 +249,7 @@ The panel SHALL avoid creating a large blank row when only one or two actions ar
 ## Proposed API
 
 ```ts
-type QuickActionPanelItem = {
+type ActionItemData = {
   id: string;
   title: string;
   description: string;
@@ -233,13 +262,40 @@ type QuickActionPanelItem = {
 
 type QuickActionPanelProps = {
   title?: string;
-  items: QuickActionPanelItem[];
+  items: ActionItemData[];
   maxItems?: number;
   emptyBehavior?: "hide" | "message";
   emptyMessage?: string;
   className?: string;
 };
+
+type ActionItemProps = {
+  item: ActionItemData;
+};
 ```
+
+## Component Structure Specification
+
+The implementation SHOULD use a dedicated component folder so future action panel variants can reuse the same item component.
+
+Recommended structure:
+
+```text
+src/components/QuickActionPanel/
+├── ActionItem.tsx
+├── QuickActionPanel.tsx
+├── index.ts
+└── __tests__/
+    └── QuickActionPanel.test.tsx
+```
+
+`index.ts` SHOULD export:
+
+* `QuickActionPanel`
+* `type QuickActionPanelProps`
+* `type ActionItemData`
+
+`ActionItem` MAY be exported from the folder if implementation requires direct testing or future reuse, but normal admin pages SHOULD consume `QuickActionPanel` only.
 
 ## Layout Implementation Specification
 
@@ -248,10 +304,11 @@ The implementation SHOULD use a wrapping layout instead of a fixed `lg:grid-cols
 Recommended approach:
 
 * Use `flex flex-wrap`.
-* Give each card a bounded width such as `min-w-[18rem]` and `max-w-[28rem]`.
+* Give each card content-driven width such as `w-fit`.
+* Add safety bounds such as `min-w-[18rem]` and `max-w-[34rem]`.
 * Use `w-full` on mobile.
-* Use `sm:w-[min(28rem,100%)]` or equivalent responsive constraints on wider screens.
-* Avoid `flex-1` when it causes one or two cards to stretch across large desktop widths.
+* Use `sm:w-fit` or equivalent responsive constraints on wider screens.
+* Avoid `flex-1`, fixed equal widths, or equal grid tracks when they cause cards to share the same width regardless of content.
 
 The exact classes may differ if the implementation produces the same fit-to-content behavior.
 
@@ -279,15 +336,17 @@ AND the current links SHALL remain unchanged unless another PRD changes them:
 ## Acceptance Criteria
 
 1. `QuickActionPanel` is implemented as a reusable component outside `src/app/admin/page.tsx`.
-2. The admin dashboard uses `QuickActionPanel` for its Quick Actions section.
-3. `maxItems` controls the number of rendered actions.
-4. Hidden actions do not reserve empty visual space.
-5. One or two visible actions fit their content instead of stretching across the full dashboard width.
-6. Mobile layout stacks actions cleanly.
-7. Existing admin action titles, descriptions, icons, active states, and routes remain functionally unchanged.
-8. Academy Admins do not see platform-only quick actions.
-9. Platform Admin and Super Admin functionality is not removed or regressed.
-10. TypeScript, unit tests, and production build checks pass.
+2. `ActionItem` is implemented as a component inside the `QuickActionPanel` component set.
+3. `QuickActionPanel` renders actions through `ActionItem`, not duplicated inline action card markup.
+4. The admin dashboard uses `QuickActionPanel` for its Quick Actions section.
+5. `maxItems` controls the number of rendered actions.
+6. Hidden actions do not reserve empty visual space.
+7. One or two visible actions fit their content instead of stretching across the full dashboard width.
+8. Mobile layout stacks actions cleanly.
+9. Existing admin action titles, descriptions, icons, active states, and routes remain functionally unchanged.
+10. Academy Admins do not see platform-only quick actions.
+11. Platform Admin and Super Admin functionality is not removed or regressed.
+12. TypeScript, unit tests, and production build checks pass.
 
 ## Test Requirements
 
@@ -299,6 +358,8 @@ Automated tests SHOULD verify:
 * Active action state is exposed.
 * Disabled action state does not provide navigation.
 * Empty behavior can hide the component.
+* `QuickActionPanel` renders the expected number of `ActionItem` outputs.
+* `ActionItem` renders title, description, icon, active state, disabled state, and accessible label correctly.
 * Admin dashboard passes role-filtered action items.
 
 Visual or browser verification SHOULD cover:
