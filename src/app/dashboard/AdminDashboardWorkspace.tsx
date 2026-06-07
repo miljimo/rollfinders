@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Mail, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, KeyRound, Mail, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
@@ -26,6 +26,7 @@ import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
 import { fetchAcademyClaims, type AcademyClaimListItem } from "../admin/academy-claims/api";
 import { EmailOperationsPanel } from "../admin/EmailOperationsPanel";
+import { ChangePasswordForm } from "./password/ChangePasswordForm";
 
 export const dynamic = "force-dynamic";
 
@@ -99,6 +100,11 @@ function selectedAcademyReminderFilter(value: string | undefined) {
 function selectedEmailOperationsView(value: string | undefined) {
   if (value === "attention" || value === "invalid-emails" || value === "queued" || value === "scheduled-retries") return value;
   return "runs";
+}
+
+function selectedSettingsAction(value: string | undefined) {
+  if (value === "change-password" || value === "email-options" || value === "recent-audits") return value;
+  return "change-password";
 }
 
 function matchingAcademyVerificationStatus(search: string) {
@@ -252,6 +258,7 @@ export default async function AdminDashboardWorkspace({
   if (!superAdmin && isSuperOnlyPanel(requestedPanel)) redirect("/dashboard");
   const panel = requestedPanel;
   const dialog = firstParam(params.dialog);
+  const activeSettingsAction = selectedSettingsAction(firstParam(params.settingsAction) ?? firstParam(params.settingsView));
   const userDialogId = firstParam(params.userId);
   const academyDialogId = firstParam(params.academyId);
   const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
@@ -670,10 +677,11 @@ export default async function AdminDashboardWorkspace({
 
         {panel === "settings" ? (
           <SettingsDashboardContent
-            activeEmailPage={emailPage}
-            activeEmailView={emailOperationsView}
+            emailPage={emailPage}
+            emailOperationsView={emailOperationsView}
             emailOperations={emailOperations}
             recentAuditLogs={recentAuditLogs}
+            activeSettingsAction={activeSettingsAction}
           />
         ) : panel === "maps" ? (
           <MapDashboardContent academies={mapItems} />
@@ -872,7 +880,7 @@ function DialogShell({
   title: string;
 }) {
   return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role="dialog" aria-modal="true" aria-labelledby="admin-dialog-title">
+    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role={"dialog"} aria-modal="true" aria-labelledby="admin-dialog-title">
       <Link href={closeHref} className="fixed inset-0" aria-label={`Close ${title} dialog`} />
       <section className={`relative z-[71] w-full rounded-lg bg-white p-5 shadow-2xl sm:p-6 ${maxWidthClass}`}>
         <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4">
@@ -1208,86 +1216,120 @@ type SettingsAuditLog = {
 };
 
 function SettingsDashboardContent({
-  activeEmailPage,
-  activeEmailView,
+  activeSettingsAction,
+  emailPage,
+  emailOperationsView,
   emailOperations,
   recentAuditLogs,
 }: {
-  activeEmailPage: number;
-  activeEmailView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
+  activeSettingsAction: "change-password" | "email-options" | "recent-audits";
+  emailPage: number;
+  emailOperationsView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
   emailOperations: Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
   recentAuditLogs: SettingsAuditLog[];
 }) {
+  const emailOptionsHref = "/dashboard?panel=settings&settingsAction=email-options";
+  const settingsActionItems: QuickActionPanelItem[] = [
+    {
+      active: activeSettingsAction === "change-password",
+      title: "Change Password",
+      description: "Set a new password for your administrator account",
+      href: "/dashboard?panel=settings&settingsAction=change-password",
+      icon: <KeyRound size={24} aria-hidden />,
+      id: "change-password",
+    },
+    {
+      active: activeSettingsAction === "email-options",
+      title: "Email Options",
+      description: "Process queue runs and inspect delivery issues",
+      href: "/dashboard?panel=settings&settingsAction=email-options",
+      icon: <Mail size={24} aria-hidden />,
+      id: "email-options",
+    },
+    {
+      active: activeSettingsAction === "recent-audits",
+      title: "Recent Audits",
+      description: "Review recent administrative audit activity",
+      href: "/dashboard?panel=settings&settingsAction=recent-audits",
+      icon: <ShieldCheck size={24} aria-hidden />,
+      id: "recent-audits",
+    },
+  ];
+
   return (
     <section className="px-4 py-8 sm:px-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-slate-950">Settings</h1>
-          <p className="mt-2 text-slate-600">Manage email operations and audit activity.</p>
+          <p className="mt-2 text-slate-600">Manage email operations, audit activity, and your account password.</p>
         </div>
         <Button href="/dashboard?panel=settings" variant="secondary">
           <RefreshCw size={16} aria-hidden /> Refresh
         </Button>
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <EmailOperationsPanel
-          action={processEmailQueue}
-          activePage={activeEmailPage}
-          activeView={activeEmailView}
-          attentionHref="/dashboard?panel=settings&emailView=attention"
-          invalidEmailsHref="/dashboard?panel=settings&emailView=invalid-emails"
-          queuedHref="/dashboard?panel=settings&emailView=queued"
-          refreshHref="/dashboard?panel=settings"
-          scheduledRetriesHref="/dashboard?panel=settings&emailView=scheduled-retries"
-          settingsHref="/admin/settings"
-          summary={emailOperations}
-        />
+      <QuickActionPanel className="mt-7" items={settingsActionItems} />
 
-        <SettingsCard accent="violet" icon={<ShieldCheck size={22} aria-hidden />} title="Recent Audits">
-          {recentAuditLogs.length ? (
-            recentAuditLogs.map((log) => (
-              <div key={log.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-stone-950">{sentenceCase(log.action)}</p>
-                  <p className="truncate text-sm text-stone-600">{log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}</p>
-                </div>
-                <p className="shrink-0 text-xs font-semibold text-stone-500">{formatDate(log.createdAt)}</p>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-stone-600">No audit activity yet.</p>
-          )}
-          <CardLink href="/dashboard?panel=settings">View all audits</CardLink>
-        </SettingsCard>
-      </div>
+      <SettingsDetailPanel title={settingsActionItems.find((item) => item.active)?.title ?? "Settings"}>
+        {activeSettingsAction === "change-password" ? (
+          <div className="max-w-xl">
+            <p className="text-sm font-semibold leading-6 text-slate-600">Set a new password for your administrator account.</p>
+            <div className="mt-5">
+              <ChangePasswordForm cancelHref="/dashboard?panel=settings" embedded />
+            </div>
+          </div>
+        ) : null}
+
+        {activeSettingsAction === "email-options" ? (
+          <EmailOperationsPanel
+            action={processEmailQueue}
+            activePage={emailPage}
+            activeView={emailOperationsView}
+            attentionHref={`${emailOptionsHref}&emailView=attention`}
+            className="border-0 p-0 shadow-none sm:p-0 lg:col-span-1"
+            invalidEmailsHref={`${emailOptionsHref}&emailView=invalid-emails`}
+            queuedHref={`${emailOptionsHref}&emailView=queued`}
+            refreshHref={emailOptionsHref}
+            scheduledRetriesHref={`${emailOptionsHref}&emailView=scheduled-retries`}
+            settingsHref="/admin/settings?settingsAction=email-options"
+            summary={emailOperations}
+          />
+        ) : null}
+
+        {activeSettingsAction === "recent-audits" ? (
+          <RecentAuditList logs={recentAuditLogs} />
+        ) : null}
+      </SettingsDetailPanel>
     </section>
   );
 }
 
-function SettingsCard({ accent, children, icon, title }: { accent: "blue" | "teal" | "violet"; children: React.ReactNode; icon: React.ReactNode; title: string }) {
-  const accentClass = {
-    blue: "border-blue-200 text-blue-700",
-    teal: "border-teal-100 text-teal-700",
-    violet: "border-violet-200 text-violet-700",
-  }[accent];
-
+function SettingsDetailPanel({ children, title }: { children: React.ReactNode; title: string }) {
   return (
-    <section className={`rounded-lg border bg-white p-4 shadow-sm ${accentClass}`}>
-      <div className="flex items-center gap-3">
-        <span className="inline-flex size-10 items-center justify-center rounded-md bg-current/10">{icon}</span>
-        <h2 className="text-lg font-black">{title}</h2>
-      </div>
-      <div className="mt-4">{children}</div>
+    <section className="mt-7 rounded-lg border border-blue-300 bg-blue-50/20 p-4 shadow-sm sm:p-5" aria-labelledby="settings-detail-title">
+      <h2 id="settings-detail-title" className="text-xl font-black text-blue-950">{title}</h2>
+      <div className="mt-5">{children}</div>
     </section>
   );
 }
 
-function CardLink({ children, href }: { children: React.ReactNode; href: string }) {
+function RecentAuditList({ logs }: { logs: SettingsAuditLog[] }) {
   return (
-    <Link href={href} className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-teal-800">
-      {children} <ArrowRight size={16} aria-hidden />
-    </Link>
+    <div>
+      {logs.length ? (
+        logs.map((log) => (
+          <div key={log.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3 last:border-b-0">
+            <div className="min-w-0">
+              <p className="truncate font-semibold text-stone-950">{sentenceCase(log.action)}</p>
+              <p className="truncate text-sm text-stone-600">{log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}</p>
+            </div>
+            <p className="shrink-0 text-xs font-semibold text-stone-500">{formatDate(log.createdAt)}</p>
+          </div>
+        ))
+      ) : (
+        <p className="text-sm text-stone-600">No audit activity yet.</p>
+      )}
+    </div>
   );
 }
 
@@ -1594,7 +1636,7 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
         </Button>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1180px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
             <tr>
               <th className="px-4 py-4">Select</th>
@@ -1603,7 +1645,7 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
               <th className="px-5 py-4">Postcode</th>
               <th className="px-5 py-4">Claim</th>
               <th className="px-5 py-4">Email</th>
-              <th className="px-5 py-4">Claim Invite</th>
+              <th className="w-40 whitespace-nowrap px-3 py-4">Claim Invite</th>
               <th className="px-5 py-4">Featured</th>
               <th className="px-5 py-4 text-center">Actions</th>
             </tr>
@@ -1621,7 +1663,7 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
                   <td className="px-5 py-4 text-slate-700">{academy.postcode}</td>
                   <td className="px-5 py-4"><Badge>{academyClaimState(academy)}</Badge></td>
                   <td className="px-5 py-4 text-slate-700">{academy.email ? <span className="break-all">{academy.email}</span> : <Badge>No email</Badge>}</td>
-                  <td className="px-5 py-4">
+                  <td className="w-40 whitespace-nowrap px-3 py-4">
                     <div className="grid gap-2">
                       <Badge>{reminder.label}</Badge>
                       {!reminder.eligible ? (

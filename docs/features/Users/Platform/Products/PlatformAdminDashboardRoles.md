@@ -423,13 +423,19 @@ AND self-delete, self-disable, and self-demotion actions SHALL NOT be displayed.
 
 IF the authenticated user has the role `PLATFORM_ADMIN`
 
-AND there is a Change Password button or link
+AND the user opens the admin Settings panel
 
-WHEN the user clicks the Change Password button or link and enters a valid new password
+WHEN the user clicks the Change Password card action
+
+THEN the system SHALL open a modal dialog containing the Change Password form.
+
+WHEN the user enters a valid new password in the modal Change Password form
 
 THEN the system SHALL update the user's password.
 
 AND the user's password SHALL be changed to the new password successfully.
+
+AND the password change SHALL apply only to the authenticated Platform Admin's own account.
 
 AND the system SHALL create an audit log entry for the password change without storing the password value.
 

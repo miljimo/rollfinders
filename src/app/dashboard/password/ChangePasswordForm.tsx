@@ -3,7 +3,7 @@
 import { Button } from "@/components/Button";
 import { clsx } from "clsx";
 import { useActionState } from "react";
-import { changeStandardUserPassword, type ChangePasswordState } from "./PasswordActions";
+import { changeDashboardUserPassword, type ChangePasswordState } from "./PasswordActions";
 
 const initialState: ChangePasswordState = {
   message: "",
@@ -11,10 +11,10 @@ const initialState: ChangePasswordState = {
 };
 
 export function ChangePasswordForm({ cancelHref = "/dashboard", embedded = false }: { cancelHref?: string; embedded?: boolean }) {
-  const [state, action, isPending] = useActionState(changeStandardUserPassword, initialState);
+  const [state, action, isPending] = useActionState(changeDashboardUserPassword, initialState);
 
   return (
-    <form action={action} className={clsx("grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm", !embedded && "mt-6")}>
+    <form action={action} className={clsx("grid gap-4", embedded ? "bg-white" : "mt-6 rounded-lg border border-stone-200 bg-white p-4 shadow-sm")}>
       {state.message ? (
         <p className={`rounded-md p-3 text-sm font-semibold ${state.success ? "bg-teal-50 text-teal-800" : "bg-red-50 text-red-800"}`}>
           {state.message}

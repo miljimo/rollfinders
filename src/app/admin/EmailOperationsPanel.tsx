@@ -5,6 +5,7 @@ import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicato
 import { Table, type TableColumn } from "@/components/Table";
 import type { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { formatDate } from "@/lib/utils";
+import { clsx } from "clsx";
 
 type EmailOperationsSummary = Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
 type EmailOperationsView = "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
@@ -16,6 +17,7 @@ type EmailOperationsPanelProps = {
   activePage?: number;
   activeView?: EmailOperationsView;
   attentionHref: string;
+  className?: string;
   invalidEmailsHref: string;
   pageSize?: number;
   queuedHref: string;
@@ -30,6 +32,7 @@ export function EmailOperationsPanel({
   activePage = 1,
   activeView = "runs",
   attentionHref,
+  className,
   invalidEmailsHref,
   pageSize = emailOperationsTablePageSize,
   queuedHref,
@@ -185,7 +188,7 @@ export function EmailOperationsPanel({
   ];
 
   return (
-    <section className="rounded-lg border border-teal-100 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2">
+    <section className={clsx("rounded-lg border border-teal-100 bg-white p-4 shadow-sm sm:p-5 lg:col-span-2", className)}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-700">

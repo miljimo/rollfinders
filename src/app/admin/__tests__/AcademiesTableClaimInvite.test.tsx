@@ -45,6 +45,7 @@ describe("AcademiesTable claim invite UX", () => {
     );
 
     assert.match(markup, /Claim Invite/);
+    assert.match(markup, /w-40 whitespace-nowrap/);
     assert.match(markup, /Not sent/);
     assert.match(markup, /No email/);
     assert.doesNotMatch(markup, /Claim reminder<\/th>/i);

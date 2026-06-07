@@ -406,13 +406,19 @@ AND tests SHALL verify the last active Super User cannot be disabled, deleted, o
 ##  Change Password 
 IF the authenticated user has the role `SUPER_ADMIN`
 
-AND there is a Change Password button or link
+AND the user opens the admin Settings panel
 
-WHEN the user clicks the Change Password button or link and enters a valid new password
+WHEN the user clicks the Change Password card action
+
+THEN the system should open a modal dialog containing the Change Password form.
+
+WHEN the user enters a valid new password in the modal Change Password form
 
 THEN the system should update the user's password
 
 AND the user's password should be changed to the new password successfully.
+
+AND the password change should apply only to the authenticated Super Admin's own account.
 
 
 Acceptable Criteria

@@ -152,4 +152,31 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /return\s+query\s*\?\s*`\/dashboard\?\$\{query\}`\s*:\s*"\/dashboard"/);
     assert.doesNotMatch(source, /return\s+query\s*\?\s*`\/dashboard\?`\s*:\s*"\/dashboard"/);
   });
+
+  it("admin settings use quick actions to inject one selected settings detail panel", () => {
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const legacySettingsSource = readSource("src/app/admin/settings/page.tsx");
+    const passwordActionSource = readSource("src/app/dashboard/password/PasswordActions.ts");
+
+    for (const source of [dashboardSource, legacySettingsSource]) {
+      assert.match(source, /import\s+\{\s*QuickActionPanel,\s*type\s+QuickActionPanelItem\s*\}\s+from\s+"@\/components\/QuickActionPanel"/);
+      assert.match(source, /const\s+settingsActionItems:\s*QuickActionPanelItem\[\]\s*=\s*\[/);
+      assert.match(source, /title:\s*"Change Password"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=change-password"/);
+      assert.match(source, /title:\s*"Email Options"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=email-options"/);
+      assert.match(source, /title:\s*"Recent Audits"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=recent-audits"/);
+      assert.match(source, /<QuickActionPanel[\s\S]*items=\{settingsActionItems\}/);
+      assert.match(source, /activeSettingsAction\s*===\s*"change-password"\s*\?\s*\([\s\S]*<ChangePasswordForm[\s\S]*embedded/);
+      assert.match(source, /activeSettingsAction\s*===\s*"email-options"\s*\?\s*\([\s\S]*<EmailOperationsPanel[\s\S]*activePage=\{[^}]*emailPage[^}]*\}[\s\S]*activeView=\{[^}]*emailOperationsView[^}]*\}/);
+      assert.match(source, /activeSettingsAction\s*===\s*"recent-audits"\s*\?\s*\(/);
+      assert.match(source, /rounded-lg border border-blue-300 bg-blue-50\/20/);
+      assert.doesNotMatch(source, /role="dialog"[\s\S]*Change Password/);
+    }
+
+    assert.match(passwordActionSource, /changeDashboardUserPassword/);
+    assert.match(passwordActionSource, /where:\s*\{\s*id:\s*user\.id\s*\}/);
+    assert.match(passwordActionSource, /action:\s*"DASHBOARD_PASSWORD_CHANGED"/);
+    assert.match(passwordActionSource, /metadata:\s*\{\s*role:\s*user\.role\s*\}/);
+    const metadataLine = passwordActionSource.match(/metadata:\s*\{[^\n]+\}/)?.[0] ?? "";
+    assert.doesNotMatch(metadataLine, /password/i);
+  });
 });

@@ -1,6 +1,8 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { revalidatePath } from "next/cache";
+import { writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 
@@ -9,7 +11,7 @@ export type ChangePasswordState = {
   success: boolean;
 };
 
-export async function changeStandardUserPassword(
+export async function changeDashboardUserPassword(
   _state: ChangePasswordState,
   formData: FormData,
 ): Promise<ChangePasswordState> {
@@ -30,6 +32,18 @@ export async function changeStandardUserPassword(
     where: { id: user.id },
     data: { passwordHash },
   });
+  await writeAdminAuditLog({
+    actorUserId: user.id,
+    targetUserId: user.id,
+    action: "DASHBOARD_PASSWORD_CHANGED",
+    metadata: { role: user.role },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/password");
+  revalidatePath("/admin/settings");
 
   return { success: true, message: "Password changed successfully." };
 }
+
+export const changeStandardUserPassword = changeDashboardUserPassword;
