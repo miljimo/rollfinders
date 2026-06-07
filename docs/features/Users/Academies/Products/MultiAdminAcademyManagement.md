@@ -79,20 +79,11 @@ Academy Owners can:
 
 ## Academy Admin Capabilities
 
-Academy Admins can:
+Academy Admin dashboard capabilities, same-academy user management, academy profile management, and academy-scoped open mat permissions are defined in:
 
-* Edit academy profile
-* Create open mats
-* Update open mats
-* Update academy information
+`docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 
-Academy Admins cannot:
-
-* Delete academy
-* Transfer ownership
-* Add admins
-* Remove admins
-* Modify owner permissions
+This multi-admin PRD SHALL NOT duplicate or override the canonical Academy Admin dashboard PRD.
 
 ---
 
@@ -236,17 +227,11 @@ Denied:
 
 ## Academy Admin
 
-Allowed:
+Academy Admin dashboard and content-management permissions are governed by:
 
-* Edit Academy
-* Create Open Mat
-* Update Open Mat
+`docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 
-Denied:
-
-* Invite Admin
-* Remove Admin
-* Transfer Ownership
+This workflow PRD only governs academy membership/team invitation, removal, transfer, resend, cancel, and accept-invitation workflows.
 
 ---
 

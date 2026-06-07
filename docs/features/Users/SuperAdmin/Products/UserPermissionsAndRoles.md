@@ -112,37 +112,11 @@ Cannot:
 
 ## 3. Academy Admin
 
-### Purpose
+Summary only. Canonical Academy Admin permissions are defined in:
 
-Administrator of a single academy.
+`docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 
-### Scope
-
-Limited to their assigned academy.
-
-### Permissions
-
-Can:
-
-* View their academy
-* Edit academy profile information (excluding ownership)
-* View users belonging to their academy
-* Manage Open Mats belonging to their academy
-* Create Open Mats
-* Edit Open Mats
-* Delete Open Mats
-* Approve academy content (if applicable)
-
-Cannot:
-
-* Delete academy
-* Transfer academy ownership
-* View other academies
-* View users outside their academy
-* Manage platform users
-* Access platform administration
-* View platform analytics
-* Promote users beyond academy scope
+This permissions overview SHALL NOT duplicate or override same-academy user management, academy profile management, roll/open mat management, shared Admin Board visibility, or platform-control restrictions for Academy Admins.
 
 ---
 
@@ -257,12 +231,9 @@ Cannot:
 
 ## Academy Admin
 
-Cannot:
+Summary only. Academy Admin same-academy user creation, role changes, demotion, deletion, and disablement rules are governed by:
 
-* Create admin users
-* Promote users
-* Demote users
-* Delete users
+`docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 
 ---
 
@@ -414,16 +385,13 @@ Hide:
 
 ## Academy Admin Dashboard
 
-Display:
+Summary only. Canonical requirements live in:
 
-* Academy users
-* Academy Open Mats
-* Academy settings
+`docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 
-Hide:
+The Academy Admin dashboard uses the shared `/admin` Admin Board and is scoped to the administrator's assigned academy by policy.
 
-* Platform controls
-* Other academies
+This permissions overview SHALL NOT duplicate or override the canonical Academy Admin dashboard PRD.
 
 ---
 
