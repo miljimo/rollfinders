@@ -13,6 +13,7 @@ import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma }
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
+import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicator";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders } from "./academies/actions";
 import { AcademyForm } from "./academies/AcademyForm";
 import { createOpenMat } from "./open-mats/actions";
@@ -202,6 +203,8 @@ export default async function AdminPage({
   const userStatusSearch = matchingUserStatus(search);
   const reminderCooldownStart = new Date();
   reminderCooldownStart.setDate(reminderCooldownStart.getDate() - 30);
+  const monthStart = startOfMonth(new Date());
+  const weekStart = startOfWeek(new Date());
 
   const academySearchWhere: Prisma.AcademyWhereInput = search
     ? {
@@ -263,7 +266,20 @@ export default async function AdminPage({
   const visibleUserWhere = elevatedAdminPrivacyUserWhere({ role: currentUser.role });
   const userWhere: Prisma.UserWhereInput = { AND: [visibleUserWhere, userFilterWhere] };
 
-  const [academyCount, totalAcademyCount, verifiedAcademyCount, pendingAcademyCount, totalUserCount, activeEventCount, userCount, emailOperations] = await Promise.all([
+  const [
+    academyCount,
+    totalAcademyCount,
+    verifiedAcademyCount,
+    pendingAcademyCount,
+    totalUserCount,
+    activeEventCount,
+    userCount,
+    newAcademyCountThisMonth,
+    verifiedAcademyCountThisMonth,
+    newUserCountThisMonth,
+    activeEventCountThisWeek,
+    emailOperations,
+  ] = await Promise.all([
     prisma.academy.count({ where: academyWhere }),
     prisma.academy.count(),
     prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.VERIFIED } }),
@@ -271,6 +287,10 @@ export default async function AdminPage({
     prisma.user.count({ where: visibleUserWhere }),
     prisma.event.count({ where: eventWhere }),
     prisma.user.count({ where: userWhere }),
+    prisma.academy.count({ where: { createdAt: { gte: monthStart } } }),
+    prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.VERIFIED, updatedAt: { gte: monthStart } } }),
+    prisma.user.count({ where: { AND: [visibleUserWhere, { createdAt: { gte: monthStart } }] } }),
+    prisma.event.count({ where: { ...eventWhere, createdAt: { gte: weekStart } } }),
     getEmailQueueOperationsSummary(),
   ]);
 
@@ -405,11 +425,11 @@ export default async function AdminPage({
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard color="teal" icon={<Building2 size={34} aria-hidden />} label="Total Academies" trend="8% vs last 7 days" value={totalAcademyCount} />
-            <StatCard color="teal" icon={<ShieldCheck size={34} aria-hidden />} label="Verified Academies" trend="15% vs last 7 days" value={verifiedAcademyCount} />
-            <StatCard color="orange" icon={<CalendarDays size={34} aria-hidden />} label="Pending Verification" trend="12% vs last 7 days" value={pendingAcademyCount} />
-            <StatCard color="blue" icon={<Users size={34} aria-hidden />} label="Total Users" trend="6% vs last 7 days" value={totalUserCount} />
-            <StatCard color="violet" icon={<CalendarDays size={34} aria-hidden />} label="Open Mats" trend="20% vs last 7 days" value={activeEventCount} />
+            <StatCard color="teal" icon={<Building2 size={34} aria-hidden />} indicator={{ label: "new this month", value: newAcademyCountThisMonth }} label="Total Academies" value={totalAcademyCount} />
+            <StatCard color="teal" icon={<ShieldCheck size={34} aria-hidden />} indicator={{ label: "verified this month", value: verifiedAcademyCountThisMonth }} label="Verified Academies" value={verifiedAcademyCount} />
+            <StatCard color="orange" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "pending review", tone: pendingAcademyCount > 0 ? "warning" : "neutral" }} label="Pending Verification" value={pendingAcademyCount} />
+            <StatCard color="blue" icon={<Users size={34} aria-hidden />} indicator={{ label: "new this month", value: newUserCountThisMonth }} label="Total Users" value={totalUserCount} />
+            <StatCard color="violet" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "created this week", value: activeEventCountThisWeek }} label="Open Mats" value={activeEventCount} />
           </div>
 
           {platformAdminActivitySummary ? (
@@ -865,7 +885,31 @@ function AdminNavItem({ active, children, href, icon }: { active?: boolean; chil
   );
 }
 
-function StatCard({ color, icon, label, trend, value }: { color: "blue" | "orange" | "teal" | "violet"; icon: React.ReactNode; label: string; trend: string; value: number }) {
+function startOfMonth(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function startOfWeek(date: Date) {
+  const day = date.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+  start.setUTCDate(start.getUTCDate() - diff);
+  return start;
+}
+
+function StatCard({
+  color,
+  icon,
+  indicator,
+  label,
+  value,
+}: {
+  color: "blue" | "orange" | "teal" | "violet";
+  icon: React.ReactNode;
+  indicator?: { label: string; tone?: StatIndicatorTone; value?: number | string };
+  label: string;
+  value: number;
+}) {
   const colorClass = {
     blue: "bg-blue-50 text-blue-600",
     orange: "bg-orange-50 text-orange-600",
@@ -880,7 +924,9 @@ function StatCard({ color, icon, label, trend, value }: { color: "blue" | "orang
         <div>
           <p className="text-sm font-bold text-slate-600">{label}</p>
           <p className="mt-1 text-3xl font-black text-slate-950">{value.toLocaleString()}</p>
-          <p className="mt-2 text-xs font-bold text-emerald-600">↗ {trend}</p>
+          {indicator ? (
+            <StatIndicator className="mt-2" label={indicator.label} tone={indicator.tone} value={indicator.value} />
+          ) : null}
         </div>
       </div>
     </section>

@@ -14,17 +14,25 @@ Implement Academy Administrator access control using strict IF/WHEN/THEN require
 
 The Academy Administrator SHALL only have visibility and management capabilities within their assigned academy.
 
+Academy Administrators SHALL use the same shared Admin Board as Platform Admins and Super Admins, with visible data and available actions customized by policy and privileges.
+
 ---
 
-# Academy Administrator Dashboard Access
+# Shared Admin Board Access
 
-## Scenario: Access Academy Administrator Dashboard
+## Scenario: Access Shared Admin Board
 
 IF the authenticated user has the role `ACADEMY_ADMIN`
 
 WHEN the user logs in successfully
 
-THEN the system SHALL redirect the user to the Academy Administrator Dashboard.
+THEN the system SHALL redirect the user to the shared Admin Board at `/admin`.
+
+AND RollFinders SHALL have one single Admin Board for `SUPER_ADMIN`, legacy `ADMIN`, `PLATFORM_ADMIN`, and `ACADEMY_ADMIN` users.
+
+AND the Admin Board SHALL use the same admin shell, layout, and board route for all admin roles.
+
+AND the Admin Board SHALL customize visible panels, records, and actions by the authenticated user's policy and privileges.
 
 AND the dashboard SHALL display:
 * User full name
@@ -36,9 +44,15 @@ AND the dashboard SHALL display academy-level administration features for the ad
 
 AND the dashboard SHALL display user management features for the administrator's assigned academy only.
 
-AND the dashboard SHALL NOT display platform administration features.
+AND the dashboard SHALL display roll Mats management features for the administrator's assigned academy only.
+
+AND the dashboard SHALL NOT display platform-wide administration features.
+
+AND the dashboard SHALL NOT display Super Admin, legacy Admin, or Platform Admin controls.
 
 AND the dashboard SHALL NOT display data belonging to any other academy.
+
+AND an `ACADEMY_ADMIN` without an assigned `academy_id` SHALL NOT be granted Admin Board access.
 
 ---
 
@@ -54,7 +68,11 @@ THEN the system SHALL display users belonging to the administrator's assigned ac
 
 AND the system SHALL include Academy Administrators and Standard Users from the same academy only.
 
+AND the system SHALL include legacy `ACADEMY_OWNER` and legacy `USER` records from the same academy only when those roles exist.
+
 AND the system SHALL NOT display users from other academies.
+
+AND the system SHALL NOT display `PLATFORM_ADMIN`, `SUPER_ADMIN`, or legacy `ADMIN` users.
 
 AND the system SHALL allow filtering and searching by name, email, role, and status within the administrator's academy only.
 
@@ -96,6 +114,26 @@ AND the system SHALL create an audit log entry.
 
 ---
 
+## Scenario: Create Academy Administrator
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user creates a new Academy Administrator
+
+THEN the system SHALL create the user within the authenticated administrator's assigned academy.
+
+AND the system SHALL automatically assign the authenticated administrator's `academy_id` to the new user.
+
+AND the administrator SHALL NOT be able to assign the new Academy Administrator to another academy.
+
+AND the administrator SHALL NOT be able to create `PLATFORM_ADMIN`, `SUPER_ADMIN`, or legacy `ADMIN` users.
+
+AND the system SHALL validate required user fields.
+
+AND the system SHALL create an audit log entry.
+
+---
+
 # User Editing
 
 ## Scenario: Edit User Within Assigned Academy
@@ -108,7 +146,11 @@ THEN the system SHALL allow editing permitted user profile details.
 
 AND the system SHALL allow updating account status.
 
+AND the system SHALL allow managing Standard Users, legacy Users, Academy Administrators, and legacy Academy Owners from the assigned academy only.
+
 AND the system SHALL prevent changing the user's academy assignment.
+
+AND the system SHALL prevent changing any same-academy user to `PLATFORM_ADMIN`, `SUPER_ADMIN`, or legacy `ADMIN`.
 
 AND the system SHALL create an audit log entry.
 
@@ -120,7 +162,7 @@ AND the system SHALL create an audit log entry.
 
 IF the authenticated user has the role `ACADEMY_ADMIN`
 
-WHEN the user disables a Standard User account belonging to their assigned academy
+WHEN the user disables a Standard User or Academy Administrator account belonging to their assigned academy
 
 THEN the system SHALL mark the account as disabled.
 
@@ -162,6 +204,26 @@ AND the administrator account SHALL remain active.
 
 ---
 
+# User Role Management
+
+## Scenario: Manage Same-Academy User Roles
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user changes a same-academy user's role
+
+THEN the system SHALL allow role changes between `STANDARD_USER` and `ACADEMY_ADMIN` only.
+
+AND the system SHALL preserve the user's assigned academy as the authenticated administrator's academy.
+
+AND the system SHALL reject role changes for users outside the authenticated administrator's academy.
+
+AND the system SHALL reject role changes to `PLATFORM_ADMIN`, `SUPER_ADMIN`, or legacy `ADMIN`.
+
+AND the system SHALL create an audit log entry.
+
+---
+
 # Academy Visibility
 
 ## Scenario: View Assigned Academy
@@ -173,6 +235,20 @@ WHEN the user opens academy information
 THEN the system SHALL display details for the administrator's assigned academy only.
 
 AND the system SHALL NOT display information for other academies.
+
+---
+
+## Scenario: Edit Assigned Academy Information
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user edits academy information for their assigned academy
+
+THEN the system SHALL update permitted academy profile fields for that assigned academy only.
+
+AND the system SHALL preserve protected platform-controlled fields unless the user's policy explicitly allows changing them.
+
+AND the system SHALL create an audit log entry.
 
 ---
 
@@ -204,6 +280,64 @@ AND the system SHALL NOT display Open Mats belonging to other academies.
 
 ---
 
+# Roll Event Management
+
+## Scenario: Create Roll Event For Assigned Academy
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user creates a roll event or Open Mat
+
+THEN the system SHALL create the event for the administrator's assigned academy only.
+
+AND the administrator SHALL NOT be able to select or submit another academy for the event.
+
+AND the system SHALL validate required event fields.
+
+AND the system SHALL create an audit log entry.
+
+---
+
+## Scenario: Edit Roll Event For Assigned Academy
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user edits a roll event or Open Mat belonging to their assigned academy
+
+THEN the system SHALL allow editing permitted event details.
+
+AND the system SHALL prevent moving the event to another academy.
+
+AND the system SHALL create an audit log entry.
+
+---
+
+## Scenario: Delete Roll Event For Assigned Academy
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user deletes a roll event or Open Mat belonging to their assigned academy
+
+THEN the system SHALL delete or deactivate the event according to the existing event deletion behavior.
+
+AND the system SHALL create an audit log entry.
+
+---
+
+## Scenario: Prevent Cross-Academy Roll Event Management
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user attempts to view, create, edit, delete, or manage a roll event or Open Mat for another academy
+
+THEN the backend SHALL reject the request.
+
+AND the API SHALL return HTTP 403 Forbidden.
+
+AND the event SHALL remain unchanged.
+
+---
+
 # API Authorization
 
 ## Scenario: Academy Administrator API Access
@@ -222,21 +356,27 @@ AND the backend SHALL validate that the requested resource belongs to the admini
 
 AND the backend SHALL reject cross-academy access with HTTP 403 Forbidden.
 
+AND every server action and API route used by the shared Admin Board SHALL enforce the same academy-scoped policy as the frontend.
+
 ---
 
 # Frontend Requirements
 
-## Scenario: Render Academy Administrator Navigation
+## Scenario: Render Shared Admin Board Navigation
 
 IF the authenticated user has the role `ACADEMY_ADMIN`
 
-WHEN the frontend renders the navigation menu
+WHEN the frontend renders the shared Admin Board navigation menu
 
-THEN the menu SHALL display academy administration features only.
+THEN the menu SHALL display the shared Admin Board navigation shell.
+
+AND the menu SHALL display academy administration features for the assigned academy only.
 
 AND the menu SHALL display user management for the assigned academy only.
 
-AND the menu SHALL NOT display platform administration areas.
+AND the menu SHALL display roll event management for the assigned academy only.
+
+AND the menu SHALL NOT display platform administration areas, platform settings, academy claim review, email operations, Platform Admin activity surfaces, or Super Admin-only features.
 
 AND the menu SHALL NOT display academy management for other academies.
 

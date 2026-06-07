@@ -18,9 +18,12 @@ Use these folders to track product requirement state:
 * `Deployment/Provisioning/Completed/Route53DomainBootstrapPrd.md`
 * `Deployment/Provisioning/Completed/SesDomainVerificationPrd.md`
 * `OpenMats/Products/Completed/RollFindersRecurringRollingsPrd.md`
+* `Product/Products/Completed/StatIndicatorDataRequirements.md`
 * `SharedComponents/Completed/MobileFirstPublicNavigationPrd.md`
+* `SharedComponents/Completed/StatIndicator.md`
 * `Users/Academies/Products/Completed/NewAcademyMultiStepExperiencePrd.md`
 * `Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
+* `Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
 * `Users/Standard/Products/Completed/UserProfileRedesignPrd.md`
 
 ## Reviewing

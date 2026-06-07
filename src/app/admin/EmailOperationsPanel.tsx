@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle, Clock3, Mail, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/Button";
+import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicator";
 import { Table, type TableColumn } from "@/components/Table";
 import type { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { formatDate } from "@/lib/utils";
@@ -329,20 +330,27 @@ function Metric({
   tone: "amber" | "blue" | "red" | "teal";
   value: number;
 }) {
-  const toneClass = {
+  const toneClass: Record<typeof tone, string> = {
     amber: "border-amber-100 bg-amber-50 text-amber-800",
     blue: "border-blue-100 bg-blue-50 text-blue-800",
     red: "border-red-100 bg-red-50 text-red-800",
     teal: "border-teal-100 bg-teal-50 text-teal-800",
-  }[tone];
+  };
+  const indicatorTone: Record<typeof tone, StatIndicatorTone> = {
+    amber: "warning",
+    blue: "neutral",
+    red: "negative",
+    teal: "neutral",
+  };
 
   return (
-    <Link href={href} className={`rounded-md border p-4 transition hover:border-slate-400 ${toneClass} ${active ? "ring-2 ring-slate-950/10" : ""}`}>
+    <Link href={href} className={`rounded-md border p-4 transition hover:border-slate-400 ${toneClass[tone]} ${active ? "ring-2 ring-slate-950/10" : ""}`}>
       <p className="flex items-center gap-2 text-sm font-black">
         {tone === "amber" || tone === "red" ? <AlertTriangle size={15} aria-hidden /> : null}
         {label}
       </p>
       <p className="mt-2 text-3xl font-black text-slate-950">{value.toLocaleString()}</p>
+      <StatIndicator className="mt-2" label={value === 1 ? "email item" : "email items"} tone={indicatorTone[tone]} value={value} />
     </Link>
   );
 }

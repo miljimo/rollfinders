@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { GiType, RecurrenceType, type Event, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { StatIndicator } from "@/components/StatIndicator";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { occurrenceStatus, recurrenceLabel } from "@/lib/open-mat-occurrences";
 import { prisma } from "@/lib/prisma";
@@ -147,7 +148,8 @@ export default async function OpenMatManagementPage({
   };
 
   const now = new Date();
-  const [totalItems, totalOpenMats, activeOpenMats, upcomingOpenMats, inactiveOpenMats] = await Promise.all([
+  const weekStart = startOfWeek(now);
+  const [totalItems, totalOpenMats, activeOpenMats, upcomingOpenMats, inactiveOpenMats, openMatsCreatedThisWeek] = await Promise.all([
     prisma.event.count({ where }),
     prisma.event.count({ where: accessWhere }),
     prisma.event.count({ where: { ...accessWhere, active: true } }),
@@ -162,6 +164,7 @@ export default async function OpenMatManagementPage({
       },
     }),
     prisma.event.count({ where: { ...accessWhere, active: false } }),
+    prisma.event.count({ where: { ...accessWhere, createdAt: { gte: weekStart } } }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -192,10 +195,10 @@ export default async function OpenMatManagementPage({
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Total Open Mats" value={totalOpenMats} />
-          <Metric label="Active Open Mats" value={activeOpenMats} />
-          <Metric label="Upcoming Active" value={upcomingOpenMats} />
-          <Metric label="Inactive Open Mats" value={inactiveOpenMats} />
+          <Metric indicator={{ label: "created this week", value: openMatsCreatedThisWeek }} label="Total Open Mats" value={totalOpenMats} />
+          <Metric indicator={{ label: "currently active", value: activeOpenMats }} label="Active Open Mats" value={activeOpenMats} />
+          <Metric indicator={{ label: "scheduled ahead", value: upcomingOpenMats }} label="Upcoming Active" value={upcomingOpenMats} />
+          <Metric indicator={{ label: "inactive records", value: inactiveOpenMats }} label="Inactive Open Mats" value={inactiveOpenMats} />
         </div>
 
         <form action="/admin/open-mats" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
@@ -305,11 +308,20 @@ export default async function OpenMatManagementPage({
   );
 }
 
-function Metric({ label, value }: { label: string; value: number }) {
+function startOfWeek(date: Date) {
+  const day = date.getUTCDay();
+  const diff = day === 0 ? 6 : day - 1;
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+  start.setUTCDate(start.getUTCDate() - diff);
+  return start;
+}
+
+function Metric({ indicator, label, value }: { indicator?: { label: string; value?: number | string }; label: string; value: number }) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
       <p className="mt-2 text-2xl font-black text-stone-950">{value.toLocaleString()}</p>
+      {indicator ? <StatIndicator className="mt-2" label={indicator.label} value={indicator.value} /> : null}
     </div>
   );
 }
