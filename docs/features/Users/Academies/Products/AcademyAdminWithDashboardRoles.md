@@ -18,6 +18,40 @@ Academy Administrators SHALL use the same shared Admin Board as Platform Admins 
 
 ---
 
+# Requirement Source Of Truth
+
+This PRD is the canonical source of truth for Academy Administrator access to the shared Admin Board.
+
+Related docs may summarize Academy Admin behavior, but SHALL NOT introduce separate or conflicting Academy Admin dashboard requirements.
+
+If another PRD describes Academy Admin dashboard visibility, same-academy user management, academy profile management, roll/open mat management, or platform-control restrictions, it SHALL reference this PRD instead of duplicating the requirement text.
+
+---
+
+# Requirement Status Summary
+
+Reviewed against source code on 2026-06-07.
+
+| Area | Status | Evidence / notes |
+| --- | --- | --- |
+| Shared `/admin` access for `ACADEMY_ADMIN` with assigned academy | Done | `requireAdminPage` accepts any admin role and rejects academy admins without `academyId`. |
+| Single shared Admin Board route | Done | `/admin` is the shared admin-board route; no separate academy-admin dashboard route is required. |
+| Academy admin role helper | Done | `isAcademyAdminRole` supports `ACADEMY_ADMIN` and legacy `ACADEMY_OWNER`. |
+| Academy-scoped query helper functions | Done | `academyScopedUserWhere`, `academyScopedAcademyWhere`, and `academyScopedEventWhere` exist. |
+| Backend academy access helper for academy/open-mat ownership | Done | `getAcademyAccess`, `requireAcademyEditor`, `requireAcademyOpenMatCreator`, and related helpers exist. |
+| Assigned-academy open mat create/edit/delete authorization | Partially Done | Open mat server actions and detail pages use academy access helpers; shared `/admin?panel=open-mats` listing still needs explicit academy-admin scoping verification. |
+| Assigned-academy user visibility on shared Admin Board | Open | Shared `/admin` currently needs explicit `academyScopedUserWhere` application for academy admins. |
+| Assigned-academy academy visibility on shared Admin Board | Open | Shared `/admin` currently needs explicit `academyScopedAcademyWhere` application for academy admins. |
+| Assigned-academy event visibility on shared Admin Board | Open | Shared `/admin` currently needs explicit `academyScopedEventWhere` application for academy admins. |
+| Create Standard User inside assigned academy | Open | User actions currently need academy-admin-specific academy assignment enforcement. |
+| Create Academy Administrator inside assigned academy | Open | User actions currently need academy-admin-specific role and academy assignment enforcement. |
+| Edit/disable same-academy users | Open | User actions currently need academy-admin-specific `canViewManagedUser`/same-academy enforcement. |
+| Prevent self-disable for Academy Admin | Open | Existing self-disable protection covers super users; academy-admin-specific protection still needs verification/implementation. |
+| Hide platform-only panels and controls | Open | Shared Admin Board navigation/actions currently need explicit academy-admin policy filtering. |
+| Automated academy-isolation regression tests | Open | Complete coverage for all listed academy isolation paths is not visible. |
+
+---
+
 # Shared Admin Board Access
 
 ## Scenario: Access Shared Admin Board
@@ -443,20 +477,24 @@ AND tests SHALL verify academy isolation is enforced on all protected API endpoi
 
 # Current Implementation Status
 
-Reviewed against source code on 2026-06-05.
+Reviewed against source code on 2026-06-07.
 
-Status: Mostly implemented.
+Status: Partially implemented.
 
 Implemented:
 
 * Academy admin role helper exists.
 * Academy-scoped query helpers exist for users, academies, and events.
-* Academy admins are scoped to their assigned academy in admin users, academies, and open mats flows.
-* Academy admins can manage users within their academy according to current permission rules.
-* Academy admins cannot access platform-level admin functionality.
+* Admin page authorization accepts `ACADEMY_ADMIN` and rejects academy admins without an assigned academy.
+* Backend academy access helpers exist for assigned-academy academy/open-mat ownership checks.
+* Open mat server actions and detail pages use academy access helpers.
 * Change password exists through `/dashboard/password`.
 
 MVP gaps or notes:
 
-* The separate simple user profile view is not implemented yet.
+* Shared `/admin` dashboard queries still need explicit academy-admin scoping for academy, user, and event panels.
+* Shared `/admin` navigation and quick actions still need explicit academy-admin policy filtering to hide platform-only panels and controls.
+* User creation/edit/disable actions still need academy-admin-specific same-academy enforcement.
+* Academy Admin self-disable protection still needs explicit verification or implementation.
+* The reusable `UserProfile` replacement is proposed but not implemented yet.
 * Automated tests for every academy-isolation path are not visible.

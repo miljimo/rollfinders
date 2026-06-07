@@ -121,15 +121,11 @@ Can:
 
 ## ACADEMY_ADMIN
 
-Can:
+Academy Admin dashboard, same-academy user management, academy profile management, and academy-scoped open mat permissions are defined in:
 
-* Manage academy profile
-* Manage open mats
+`docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 
-Cannot:
-
-* Invite admins
-* Transfer ownership
+This platform moderation PRD SHALL NOT duplicate or override those Academy Admin requirements.
 
 ---
 

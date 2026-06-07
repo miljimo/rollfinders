@@ -48,13 +48,17 @@ WHEN the API responds
 
 THEN the API SHALL return the academy JSON object.
 
-## ADMIN-ACADEMY-005: Update Restrictions
+## ADMIN-ACADEMY-005: Academy Admin Update Policy
 
-IF an academy admin attempts to update an academy through `PUT` or non-delete `POST`
+IF an academy admin attempts to update their assigned academy through `PUT` or non-delete `POST`
 
 WHEN the request reaches the API
 
-THEN the API SHALL return HTTP 403.
+THEN the API SHALL follow the canonical assigned-academy profile update policy in `docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`.
+
+AND the API SHALL preserve protected platform-controlled fields unless the canonical policy explicitly allows changing them.
+
+AND cross-academy update attempts SHALL return HTTP 403.
 
 ## ADMIN-ACADEMY-006: Update Validation
 
@@ -109,7 +113,7 @@ THEN the API SHALL redirect to `/admin/academies` using HTTP 303.
 # Acceptance Criteria
 
 * Read access is academy-scoped.
-* Update access excludes academy admins.
+* Update access follows the canonical Academy Admin assigned-academy profile policy.
 * Delete access requires super admin.
 * Invalid and duplicate updates return clear errors.
 * Successful mutations are audit logged.
