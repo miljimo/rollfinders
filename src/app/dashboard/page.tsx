@@ -20,7 +20,7 @@ export default async function StandardDashboardPage() {
   const { user, academy } = await requireDashboardUser();
   const platformAdminUser = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || user.role === Role.PLATFORM_ADMIN;
   const academyAdminUser = user.role === Role.ACADEMY_ADMIN;
-  if (platformAdminUser) redirect("/admin");
+  if (platformAdminUser || academyAdminUser) redirect("/admin");
 
   const rolls = academy
     ? await prisma.event.findMany({

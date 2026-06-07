@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ArrowRight, Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Mail, Plus, RefreshCw, Search, Send, Settings, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
-import { elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
@@ -54,6 +54,10 @@ function clampPage(page: number, totalItems: number) {
 function selectedPanel(value: string | undefined) {
   if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "academy-claims") return value;
   return "academies";
+}
+
+function isPlatformOnlyPanel(panel: string) {
+  return panel === "settings" || panel === "maps" || panel === "academy-claims";
 }
 
 function selectedClaimStatus(value: string | undefined) {
@@ -165,6 +169,22 @@ function claimPaginationPages(currentPage: number, totalPages: number) {
   return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
 }
 
+function emptyEmailOperationsSummary(): Awaited<ReturnType<typeof getEmailQueueOperationsSummary>> {
+  return {
+    outboundEmailCount: 0,
+    dueQueueCount: 0,
+    scheduledRetryCount: 0,
+    attentionCount: 0,
+    invalidEmailCount: 0,
+    lastRun: null,
+    recentRuns: [],
+    dueQueueItems: [],
+    scheduledRetryItems: [],
+    attentionItems: [],
+    invalidEmails: [],
+  };
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -173,15 +193,19 @@ export default async function AdminPage({
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/login");
 
-  if (!isPlatformAdminRole(currentUser.role)) {
+  if (!isPlatformAdminRole(currentUser.role) && !isAcademyAdminRole(currentUser.role)) {
     redirect("/");
   }
+  if (isAcademyAdminRole(currentUser.role) && !currentUser.academyId) redirect("/");
   const account = await prisma.user.findUnique({
     where: { id: currentUser.id },
     select: { name: true, email: true, role: true },
   });
   const params = await searchParams;
-  const panel = selectedPanel(firstParam(params.panel));
+  const requestedPanel = selectedPanel(firstParam(params.panel));
+  const academyAdmin = isAcademyAdminRole(currentUser.role);
+  if (academyAdmin && isPlatformOnlyPanel(requestedPanel)) redirect("/admin");
+  const panel = requestedPanel;
   const dialog = firstParam(params.dialog);
   const userDialogId = firstParam(params.userId);
   const academyDialogId = firstParam(params.academyId);
@@ -189,6 +213,7 @@ export default async function AdminPage({
   const search = (firstParam(params.search) ?? "").trim();
   const superAdmin = isSuperAdminRole(currentUser.role);
   const platformAdmin = isPlatformAdminRole(currentUser.role);
+  const elevatedAdmin = !academyAdmin && platformAdmin;
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -238,21 +263,22 @@ export default async function AdminPage({
               ],
             }
           : {};
-  const academyWhere: Prisma.AcademyWhereInput = { AND: [academySearchWhere, academyReminderWhere] };
-  const eventWhere: Prisma.EventWhereInput = {
-    active: true,
-    ...(search
-      ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-            { startTime: { contains: search, mode: "insensitive" } },
-            { endTime: { contains: search, mode: "insensitive" } },
-            { academy: { name: { contains: search, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
-  };
+  const academyScopeWhere = academyScopedAcademyWhere(currentUser);
+  const eventScopeWhere = academyScopedEventWhere(currentUser);
+  const userScopeWhere = academyScopedUserWhere(currentUser);
+  const academyWhere: Prisma.AcademyWhereInput = { AND: [academyScopeWhere, academySearchWhere, elevatedAdmin ? academyReminderWhere : {}] };
+  const eventFilterWhere: Prisma.EventWhereInput = search
+    ? {
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+          { startTime: { contains: search, mode: "insensitive" } },
+          { endTime: { contains: search, mode: "insensitive" } },
+          { academy: { name: { contains: search, mode: "insensitive" } } },
+        ],
+      }
+    : {};
+  const eventWhere: Prisma.EventWhereInput = { AND: [eventScopeWhere, { active: true }, eventFilterWhere] };
   const userFilterWhere: Prisma.UserWhereInput = search
     ? {
         OR: [
@@ -266,6 +292,7 @@ export default async function AdminPage({
     : {};
   const visibleUserWhere = elevatedAdminPrivacyUserWhere({ role: currentUser.role });
   const userWhere: Prisma.UserWhereInput = { AND: [visibleUserWhere, userFilterWhere] };
+  const scopedUserWhere: Prisma.UserWhereInput = { AND: [userScopeWhere, visibleUserWhere, userFilterWhere] };
 
   const [
     academyCount,
@@ -282,17 +309,17 @@ export default async function AdminPage({
     emailOperations,
   ] = await Promise.all([
     prisma.academy.count({ where: academyWhere }),
-    prisma.academy.count(),
-    prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.VERIFIED } }),
-    prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.PENDING } }),
-    prisma.user.count({ where: visibleUserWhere }),
+    prisma.academy.count({ where: academyScopeWhere }),
+    prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED }] } }),
+    prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.PENDING }] } }),
+    prisma.user.count({ where: { AND: [userScopeWhere, visibleUserWhere] } }),
     prisma.event.count({ where: eventWhere }),
-    prisma.user.count({ where: userWhere }),
-    prisma.academy.count({ where: { createdAt: { gte: monthStart } } }),
-    prisma.academy.count({ where: { verificationStatus: AcademyVerificationStatus.VERIFIED, updatedAt: { gte: monthStart } } }),
-    prisma.user.count({ where: { AND: [visibleUserWhere, { createdAt: { gte: monthStart } }] } }),
+    prisma.user.count({ where: scopedUserWhere }),
+    prisma.academy.count({ where: { AND: [academyScopeWhere, { createdAt: { gte: monthStart } }] } }),
+    prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED, updatedAt: { gte: monthStart } }] } }),
+    prisma.user.count({ where: { AND: [userScopeWhere, visibleUserWhere, { createdAt: { gte: monthStart } }] } }),
     prisma.event.count({ where: { ...eventWhere, createdAt: { gte: weekStart } } }),
-    getEmailQueueOperationsSummary(),
+    elevatedAdmin ? getEmailQueueOperationsSummary() : Promise.resolve(emptyEmailOperationsSummary()),
   ]);
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
@@ -330,7 +357,7 @@ export default async function AdminPage({
       orderBy: { eventDate: "asc" },
     }),
     prisma.user.findMany({
-      where: userWhere,
+      where: scopedUserWhere,
       skip: (currentUserPage - 1) * pageSize,
       take: pageSize,
       include: { academy: true },
@@ -343,8 +370,8 @@ export default async function AdminPage({
       orderBy: { createdAt: "desc" },
     }),
     panel === "maps" ? getMapItems() : Promise.resolve([]),
-    prisma.academy.findMany({ orderBy: { name: "asc" } }),
-    getPlatformAdminActivitySummary(currentUser.id),
+    prisma.academy.findMany({ where: academyScopeWhere, orderBy: { name: "asc" } }),
+    elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
   const selectedReminderAcademy = academyDialogId
@@ -362,9 +389,13 @@ export default async function AdminPage({
     : [];
   const adminNavigationItems: SidePanelItem[] = [
     { active: panel === "academies" || panel === "open-mats" || panel === "users", href: "/admin", icon: "dashboard", label: "Dashboard" },
-    { active: panel === "settings", href: "/admin?panel=settings", icon: "settings", label: "Settings" },
-    { active: panel === "academy-claims", href: "/admin?panel=academy-claims", icon: "claims", label: "Academy Claims" },
-    { active: panel === "maps", href: "/admin?panel=maps", icon: "map", label: "Map" },
+    ...(elevatedAdmin
+      ? [
+          { active: panel === "settings", href: "/admin?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
+          { active: panel === "academy-claims", href: "/admin?panel=academy-claims", icon: "claims", label: "Academy Claims" } satisfies SidePanelItem,
+          { active: panel === "maps", href: "/admin?panel=maps", icon: "map", label: "Map" } satisfies SidePanelItem,
+        ]
+      : []),
   ];
 
   return (
@@ -421,17 +452,17 @@ export default async function AdminPage({
         <section className="px-4 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-slate-950">Dashboard</h1>
-              <p className="mt-2 text-slate-600">Review platform health and manage operational records.</p>
+              <h1 className="text-3xl font-black text-slate-950">{academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and rolls." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
           <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard color="teal" icon={<Building2 size={34} aria-hidden />} indicator={{ label: "new this month", value: newAcademyCountThisMonth }} label="Total Academies" value={totalAcademyCount} />
-            <StatCard color="teal" icon={<ShieldCheck size={34} aria-hidden />} indicator={{ label: "verified this month", value: verifiedAcademyCountThisMonth }} label="Verified Academies" value={verifiedAcademyCount} />
+            <StatCard color="teal" icon={<Building2 size={34} aria-hidden />} indicator={{ label: "new this month", value: newAcademyCountThisMonth }} label={academyAdmin ? "My Academy" : "Total Academies"} value={totalAcademyCount} />
+            <StatCard color="teal" icon={<ShieldCheck size={34} aria-hidden />} indicator={{ label: "verified this month", value: verifiedAcademyCountThisMonth }} label={academyAdmin ? "Verified" : "Verified Academies"} value={verifiedAcademyCount} />
             <StatCard color="orange" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "pending review", tone: pendingAcademyCount > 0 ? "warning" : "neutral" }} label="Pending Verification" value={pendingAcademyCount} />
-            <StatCard color="blue" icon={<Users size={34} aria-hidden />} indicator={{ label: "new this month", value: newUserCountThisMonth }} label="Total Users" value={totalUserCount} />
-            <StatCard color="violet" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "created this week", value: activeEventCountThisWeek }} label="Open Mats" value={activeEventCount} />
+            <StatCard color="blue" icon={<Users size={34} aria-hidden />} indicator={{ label: "new this month", value: newUserCountThisMonth }} label={academyAdmin ? "Academy Users" : "Total Users"} value={totalUserCount} />
+            <StatCard color="violet" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "created this week", value: activeEventCountThisWeek }} label={academyAdmin ? "Academy Rolls" : "Open Mats"} value={activeEventCount} />
           </div>
 
           {platformAdminActivitySummary ? (
@@ -439,21 +470,21 @@ export default async function AdminPage({
           ) : null}
 
           <h2 className="mt-7 text-xl font-black text-slate-950">Quick Actions</h2>
-          <div className="mt-4 grid gap-4 lg:grid-cols-4">
-            <ActionCard active={panel === "academies"} description="Search, verify and manage academies" href="/admin?panel=academies" icon={<Building2 size={24} aria-hidden />} title="Manage Academies" />
-            <ActionCard active={panel === "academy-claims"} description="Review ownership access requests" href="/admin?panel=academy-claims" icon={<ClipboardCheck size={24} aria-hidden />} title="Academy Claims" />
-            <ActionCard active={panel === "open-mats"} description="Create, edit and manage events" href="/admin?panel=open-mats" icon={<CalendarDays size={24} aria-hidden />} title="Manage Open Mats" />
-            <ActionCard active={panel === "users"} description="Create, edit and manage users" href="/admin?panel=users" icon={<Users size={24} aria-hidden />} title="Manage Users" />
+          <div className="mt-4 grid gap-4 lg:grid-cols-3">
+            <ActionCard active={panel === "academies"} description={academyAdmin ? "View and manage your academy profile" : "Search, verify and manage academies"} href="/admin?panel=academies" icon={<Building2 size={24} aria-hidden />} title={academyAdmin ? "My Academy" : "Manage Academies"} />
+            {elevatedAdmin ? <ActionCard active={panel === "academy-claims"} description="Review ownership access requests" href="/admin?panel=academy-claims" icon={<ClipboardCheck size={24} aria-hidden />} title="Academy Claims" /> : null}
+            <ActionCard active={panel === "open-mats"} description={academyAdmin ? "Create and manage academy rolls" : "Create, edit and manage events"} href="/admin?panel=open-mats" icon={<CalendarDays size={24} aria-hidden />} title={academyAdmin ? "Manage Rolls" : "Manage Open Mats"} />
+            <ActionCard active={panel === "users"} description={academyAdmin ? "Create and manage academy users" : "Create, edit and manage users"} href="/admin?panel=users" icon={<Users size={24} aria-hidden />} title="Manage Users" />
           </div>
 
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
             <AdminPanel
-              action={<AcademiesPanelActions params={params} reminderFilter={academyReminderFilter} />}
-              description="Search academy records and send controlled claim reminders to eligible unclaimed academies."
+              action={elevatedAdmin ? <AcademiesPanelActions params={params} reminderFilter={academyReminderFilter} /> : null}
+              description={academyAdmin ? "Review your assigned academy record." : "Search academy records and send controlled claim reminders to eligible unclaimed academies."}
               id="academies"
-              search={<AcademiesPanelSearch reminderFilter={academyReminderFilter} search={search} />}
-              title="Academies"
+              search={academyAdmin ? null : <AcademiesPanelSearch reminderFilter={academyReminderFilter} search={search} />}
+              title={academyAdmin ? "My Academy" : "Academies"}
             >
               <ClaimInvitationResult params={params} />
               <ClaimReminderResult params={params} />
@@ -508,7 +539,7 @@ export default async function AdminPage({
               title="Users & Roles"
             >
               <UserResult params={params} />
-              <UsersTable actorId={currentUser.id} actorRole={currentUser.role} users={users} />
+              <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} users={users} />
               <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
             </AdminPanel>
           ) : null}
@@ -517,13 +548,13 @@ export default async function AdminPage({
         )}
       </main>
       {panel === "users" && dialog === "new-user" ? (
-        <NewUserDialog academies={academyOptions} superAdmin={superAdmin} />
+        <NewUserDialog academies={academyOptions} academyAdmin={academyAdmin} superAdmin={superAdmin} />
       ) : null}
       {panel === "users" && dialog === "view-user" && selectedDialogUser ? (
         <ViewUserDialog user={selectedDialogUser} />
       ) : null}
       {panel === "users" && dialog === "edit-user" && selectedDialogUser ? (
-        <EditUserDialog academies={academyOptions} superAdmin={superAdmin} user={selectedDialogUser} />
+        <EditUserDialog academies={academyOptions} academyAdmin={academyAdmin} superAdmin={superAdmin} user={selectedDialogUser} />
       ) : null}
       {panel === "academies" && dialog === "new-academy" && platformAdmin ? (
         <NewAcademyDialog />
@@ -571,7 +602,7 @@ function ViewUserDialog({ user }: { user: UserRow }) {
   );
 }
 
-function EditUserDialog({ academies, superAdmin, user }: { academies: { id: string; name: string }[]; superAdmin: boolean; user: UserRow }) {
+function EditUserDialog({ academies, academyAdmin, superAdmin, user }: { academies: { id: string; name: string }[]; academyAdmin: boolean; superAdmin: boolean; user: UserRow }) {
   return (
     <DialogShell closeHref="/admin?panel=users" description="Edit this user's details, role, status, and academy access." title="Edit User">
       <UserForm
@@ -580,6 +611,7 @@ function EditUserDialog({ academies, superAdmin, user }: { academies: { id: stri
         cancelHref="/admin?panel=users"
         mode="edit"
         returnTo="/admin?panel=users"
+        academyAdmin={academyAdmin}
         superAdmin={superAdmin}
         user={{ name: user.name, email: user.email, role: user.role, status: user.status, academyId: user.academyId }}
       />
@@ -811,7 +843,7 @@ function NewOpenMatDialog({ academies }: { academies: Awaited<ReturnType<typeof 
   );
 }
 
-function NewUserDialog({ academies, superAdmin }: { academies: { id: string; name: string }[]; superAdmin: boolean }) {
+function NewUserDialog({ academies, academyAdmin, superAdmin }: { academies: { id: string; name: string }[]; academyAdmin: boolean; superAdmin: boolean }) {
   return (
     <DialogShell closeHref="/admin?panel=users" description="Create a user and assign role and academy access." title="New User">
       <UserForm
@@ -820,6 +852,7 @@ function NewUserDialog({ academies, superAdmin }: { academies: { id: string; nam
         cancelHref="/admin?panel=users"
         mode="create"
         returnTo="/admin?panel=users"
+        academyAdmin={academyAdmin}
         superAdmin={superAdmin}
       />
     </DialogShell>
@@ -1139,7 +1172,7 @@ function roleLabel(role: string) {
   return "Standard User";
 }
 
-function AdminPanel({ title, description, action, children, id, search }: { title: string; description: string; action?: React.ReactNode; children: React.ReactNode; id?: string; search: React.ReactNode }) {
+function AdminPanel({ title, description, action, children, id, search }: { title: string; description: string; action?: React.ReactNode; children: React.ReactNode; id?: string; search?: React.ReactNode }) {
   return (
     <section id={id}>
       <div className="grid gap-4 border-b border-stone-100 pb-4 lg:grid-cols-[minmax(240px,360px)_1fr] lg:items-start">
@@ -1147,10 +1180,12 @@ function AdminPanel({ title, description, action, children, id, search }: { titl
           <h2 className="text-xl font-black text-stone-950">{title}</h2>
           <p className="text-sm text-stone-600">{description}</p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-          {search}
-          {action}
-        </div>
+        {search || action ? (
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+            {search}
+            {action}
+          </div>
+        ) : null}
       </div>
       <div className="mt-3">{children}</div>
     </section>
@@ -1321,7 +1356,7 @@ function AcademiesTable({ academies, params }: { academies: AcademyRow[]; params
   );
 }
 
-function UsersTable({ actorId, actorRole, users }: { actorId: string; actorRole: Role; users: UserRow[] }) {
+function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcademyId?: string | null; actorId: string; actorRole: Role; users: UserRow[] }) {
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
@@ -1339,7 +1374,8 @@ function UsersTable({ actorId, actorRole, users }: { actorId: string; actorRole:
         <tbody>
           {users.map((user) => {
             const protectedUser = isProtectedSuperAdmin(user);
-            const canManage = isSuperAdminRole(actorRole) || (isPlatformAdminRole(actorRole) && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
+            const academyCanManage = isAcademyAdminRole(actorRole) && actorId !== user.id && actorAcademyId === user.academyId && (user.role === Role.STANDARD_USER || user.role === Role.USER || user.role === Role.ACADEMY_ADMIN || user.role === Role.ACADEMY_OWNER);
+            const canManage = academyCanManage || isSuperAdminRole(actorRole) || (isPlatformAdminRole(actorRole) && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
             const superUserTarget = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
             const canDelete = canManage && actorId !== user.id && !superUserTarget;
             const disabled = user.status === UserStatus.DISABLED || user.disabled;
