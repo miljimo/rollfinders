@@ -14,7 +14,7 @@ Scope:
 
 | Requirement | Evidence | Status |
 | --- | --- | --- |
-| `/dashboard` is canonical after login | `src/lib/__tests__/unified-dashboard-route-contracts.test.ts` checks `LoginForm` uses `/dashboard` callback and fallback URL. | Covered |
+| `/dashboard` is canonical after login | `src/lib/__tests__/UnifiedDashboardRouteContracts.test.ts` checks `LoginForm` uses `/dashboard` callback and fallback URL. | Covered |
 | `/admin` redirects to `/dashboard` and preserves query params | Contract test checks `src/app/admin/page.tsx` redirects to `/dashboard?${query}` and preserves array query params. | Covered |
 | Admin roles continue under unified dashboard | Contract test checks `src/app/dashboard/page.tsx` renders `AdminDashboardWorkspace` for admin roles instead of redirecting to `/admin`. | Covered |
 | Standard users get only allowlisted standard panels | Contract test checks `standardPanel` allowlist and invalid panel redirect to `/dashboard`. | Covered |

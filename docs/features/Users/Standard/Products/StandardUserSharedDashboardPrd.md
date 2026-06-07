@@ -45,11 +45,84 @@ AND the menu SHALL NOT show platform administration, academy administration, use
 Recommended standard-user navigation:
 
 * Dashboard
-* My Academy Rolls
-* Members
+* Profile
 * Password / Account Settings
 * Help & Support
 * Logout
+
+### Standard User Side Panel
+
+IF a Standard User views the dashboard side panel
+
+WHEN navigation items are rendered
+
+THEN the side panel SHALL include only:
+
+* Dashboard
+* Profile
+* Settings
+* Help & Support
+* Logout
+
+AND the side panel SHALL NOT include admin-only destinations.
+
+AND Help & Support and Logout SHALL behave consistently with the shared admin-style side panel.
+
+### Dashboard Panel
+
+IF a Standard User opens the Dashboard panel
+
+WHEN the panel renders
+
+THEN the page title SHALL be the user's assigned academy name.
+
+AND the panel SHALL include a search text box for searching rolls within that academy.
+
+AND the panel SHALL include a paginated roll table.
+
+AND the table SHALL contain only rolls from the user's assigned academy.
+
+AND rolls SHALL be sorted by the next occurrence first, from nearest upcoming roll to furthest upcoming roll.
+
+AND the table SHALL remain read-only.
+
+AND the table SHALL NOT include create, edit, delete, publish, unpublish, reminder, or admin-only actions.
+
+### Profile Panel
+
+IF a Standard User opens the Profile panel
+
+WHEN profile data loads
+
+THEN the panel SHALL show the user's information.
+
+AND the panel SHALL show the user's academy information.
+
+AND the panel SHALL NOT expose academy-management actions.
+
+### Settings Panel
+
+IF a Standard User opens the Settings panel
+
+WHEN settings actions are rendered
+
+THEN the panel SHALL use an action-panel layout consistent with the dashboard design.
+
+AND the panel SHALL include Change Password using the existing password-change functionality.
+
+AND the panel SHALL include Edit Profile for user-editable personal details.
+
+AND when Change Password is clicked, the system SHALL inject only the Change Password form into the settings detail panel.
+
+AND when Edit Profile is clicked, the system SHALL inject only the Edit Profile form into the settings detail panel.
+
+AND the settings detail panel SHALL NOT show both forms at the same time.
+
+AND Edit Profile SHOULD reuse existing user create/edit form field patterns where practical.
+
+AND profile editing SHALL only expose fields that Standard Users are allowed to change.
+
+AND fields the Standard User is not allowed to change SHALL be visible as read-only fields when they are relevant to the reused user form pattern.
 
 ### Read-Only Academy Rolls
 

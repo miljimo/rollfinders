@@ -343,7 +343,17 @@ WHEN the table renders
 
 THEN the component SHALL remain usable.
 
-AND horizontal scrolling SHALL be supported.
+AND the component SHALL render a mobile-first card list on small viewports.
+
+AND each mobile card SHALL show the first configured column as the primary row value.
+
+AND remaining configured columns SHALL render as labelled detail rows.
+
+AND mobile cards SHALL use the same column order, custom render functions, links, badges, and row actions as the desktop table.
+
+AND the semantic HTML table SHALL remain available for medium and larger viewports.
+
+AND horizontal scrolling SHALL be supported for the desktop table layout when required.
 
 AND columns SHALL remain readable.
 
@@ -444,7 +454,8 @@ Implemented:
 * `src/components/Table/index.tsx` exists.
 * Child components exist for actions, body, cell, empty state, header, loading state, pagination, row, status badge, and types.
 * Dynamic title, columns, row data, custom render functions, configurable actions, pagination, loading state, empty state, responsive horizontal overflow, and semantic table markup are implemented.
-* Unit tests exist for table rendering, custom render functions, row actions, empty/loading states, and pagination.
+* Mobile card rendering is implemented for small viewports while preserving the desktop semantic table from medium viewports upward.
+* Unit tests exist for table rendering, mobile card rendering, custom render functions, row actions, empty/loading states, and pagination.
 
 MVP gaps or notes:
 

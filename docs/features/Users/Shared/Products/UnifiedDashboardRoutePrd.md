@@ -58,20 +58,9 @@ THEN the user SHALL see only standard-user navigation and read-only academy data
 AND the user SHALL be able to view rolls within their academy.
 
 AND the user SHALL NOT see create, edit, delete, publish, unpublish, reminder, user-management, platform-management, email-operations, or academy-claim controls.
-And the User SidePanel should only have 
--   Dashbord
-    On the dashboard  title = [Academy Name]
-    A search text box to used to search for rolls with the academy.
-    A pagination table that contains all the rolls from its Academy sorted in order from top to button base on which one will occur first from nerest to farest.
- -  Profile
-    On the profile page it should contain the User informations , Academic Informations
- -  Settings
-    A ActionPanel that contains "changed password" for the user to changed their password, (existing function should be integrated)
-    Edit profiles that shows the user details that are changable on an edit form (reused the create user form for editing)
-  - help & support as its in the other admin panel
-  - Logout as its in the other amin panel.
 
-  
+Detailed Standard User dashboard navigation, rolls, profile, and settings requirements SHALL live in `docs/features/Users/Standard/Products/StandardUserSharedDashboardPrd.md`.
+
 ### DASH-ROUTE-004: Legacy Admin Route Compatibility
 
 IF an authenticated admin user opens `/admin`

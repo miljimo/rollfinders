@@ -3,6 +3,7 @@ import { TableBody } from "./TableBody";
 import { TableEmptyState } from "./TableEmptyState";
 import { TableHeader } from "./TableHeader";
 import { TableLoadingState } from "./TableLoadingState";
+import { TableMobileCards } from "./TableMobileCards";
 import { TablePagination } from "./TablePagination";
 import type { TableProps, TableRecord } from "./types";
 
@@ -45,7 +46,8 @@ export function Table<T extends TableRecord>({
     <section className={className}>
       {title ? <h2 className="text-2xl font-black text-stone-950">{title}</h2> : null}
       <div className={clsx("overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm", title && "mt-4")}>
-        <div className="overflow-x-auto">
+        <TableMobileCards columns={columns} data={data} actions={actions} getRowId={getRowId} />
+        <div className="hidden overflow-x-auto md:block">
           <table className={clsx("w-full border-collapse text-left text-sm", minWidthClassName)}>
             <TableHeader columns={columns} hasActions={actions.length > 0} />
             <TableBody columns={columns} data={data} actions={actions} getRowId={getRowId} />

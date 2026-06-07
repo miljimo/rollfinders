@@ -32,6 +32,10 @@ WHEN roll records are queried
 
 THEN the API SHALL return only rolls associated with the user's assigned academy.
 
+AND any search query SHALL be applied only within the user's assigned academy scope.
+
+AND results SHALL be ordered by nearest upcoming occurrence first where occurrence data is available.
+
 ## DASH-ROLLS-003: Response Shape
 
 IF roll records exist

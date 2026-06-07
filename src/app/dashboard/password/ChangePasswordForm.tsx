@@ -1,19 +1,20 @@
 "use client";
 
 import { Button } from "@/components/Button";
+import { clsx } from "clsx";
 import { useActionState } from "react";
-import { changeStandardUserPassword, type ChangePasswordState } from "./actions";
+import { changeStandardUserPassword, type ChangePasswordState } from "./PasswordActions";
 
 const initialState: ChangePasswordState = {
   message: "",
   success: false,
 };
 
-export function ChangePasswordForm() {
+export function ChangePasswordForm({ cancelHref = "/dashboard", embedded = false }: { cancelHref?: string; embedded?: boolean }) {
   const [state, action, isPending] = useActionState(changeStandardUserPassword, initialState);
 
   return (
-    <form action={action} className="mt-6 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+    <form action={action} className={clsx("grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm", !embedded && "mt-6")}>
       {state.message ? (
         <p className={`rounded-md p-3 text-sm font-semibold ${state.success ? "bg-teal-50 text-teal-800" : "bg-red-50 text-red-800"}`}>
           {state.message}
@@ -31,8 +32,8 @@ export function ChangePasswordForm() {
         <Button type="submit" disabled={isPending} variant="neutral">
           {isPending ? "Changing..." : "Change Password"}
         </Button>
-        <Button href="/dashboard" variant="secondary">
-          Dashboard
+        <Button href={cancelHref} variant="secondary">
+          Cancel
         </Button>
       </div>
     </form>

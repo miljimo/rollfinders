@@ -63,6 +63,26 @@ describe("Table", () => {
     assert.match(markup, /Archive/);
   });
 
+  it("renders a mobile card list using the same columns and actions", () => {
+    const markup = renderToStaticMarkup(
+      <Table
+        title="Open Mats"
+        columns={columns}
+        data={rows}
+        actions={[{ label: "Open", href: (row) => `/open-mats/${row.id}`, ariaLabel: (row) => `Open ${row.title}` }]}
+        getRowId={(row) => row.id}
+      />,
+    );
+
+    assert.match(markup, /md:hidden/);
+    assert.match(markup, /md:block/);
+    assert.match(markup, /<article/);
+    assert.match(markup, /Title/);
+    assert.match(markup, /Academy/);
+    assert.match(markup, /Friday Rounds/);
+    assert.match(markup, /href="\/open-mats\/open-mat-1"/);
+  });
+
   it("renders pagination controls when pagination props are provided", () => {
     const markup = renderToStaticMarkup(
       <Table

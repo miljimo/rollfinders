@@ -41,9 +41,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /function\s+standardPanel/);
     assert.match(source, /value\s*===\s*"dashboard"/);
     assert.match(source, /value\s*===\s*"rolls"/);
-    assert.match(source, /value\s*===\s*"members"/);
+    assert.match(source, /value\s*===\s*"profile"/);
+    assert.match(source, /value\s*===\s*"settings"/);
     assert.match(source, /value\s*===\s*"password"/);
-    assert.match(source, /value\s*===\s*"support"/);
     assert.match(source, /return\s+null/);
     assert.match(source, /if\s*\(\s*!panel\s*\)\s*redirect\("\/dashboard"\)/);
   });
@@ -58,9 +58,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(standardSource, /supportHref="\/contact"/);
 
     assert.match(source, /label:\s*"Dashboard"[\s\S]*href:\s*"\/dashboard"/);
-    assert.match(source, /label:\s*"My Academy Rolls"[\s\S]*href:\s*"\/dashboard\?panel=rolls"/);
-    assert.match(source, /label:\s*"Members"[\s\S]*href:\s*"\/dashboard\?panel=members"/);
-    assert.match(source, /label:\s*"Password \/ Account Settings"[\s\S]*href:\s*"\/dashboard\?panel=password"/);
+    assert.match(source, /label:\s*"Profile"[\s\S]*href:\s*"\/dashboard\?panel=profile"/);
+    assert.match(source, /label:\s*"Settings"[\s\S]*href:\s*"\/dashboard\?panel=settings"/);
+    assert.doesNotMatch(standardSource, /My Academy Rolls|Members|Password \/ Account Settings/);
 
     for (const adminLabel of ["Platform Administration", "Academy Administration", "User Administration", "Email Operations", "Academy Claims", "Map Settings", "System Settings"]) {
       assert.doesNotMatch(standardSource, new RegExp(adminLabel));
@@ -71,15 +71,58 @@ describe("unified dashboard route contracts", () => {
     const dashboardPage = readSource("src/app/dashboard/page.tsx");
     const rollsRoute = readSource("src/app/api/dashboard/rolls/route.ts");
 
-    assert.match(dashboardPage, /where:\s*\{\s*academyId:\s*academy\.id,\s*active:\s*true\s*\}/);
-    assert.match(dashboardPage, /orderBy:\s*\{\s*createdAt:\s*"desc"\s*\}/);
-    assert.match(dashboardPage, /<Link href=\{`\/open-mats\/\$\{roll\.id\}`\}>/);
+    assert.match(dashboardPage, /academyId,\s*\n\s*active:\s*true,\s*\n\s*eventDate:\s*\{\s*gte:\s*startOfToday\(\)\s*\}/);
+    assert.match(dashboardPage, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
+    assert.match(dashboardPage, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
+    assert.match(dashboardPage, /take:\s*standardRollsPageSize/);
+    assert.match(dashboardPage, /<Link href=\{`\/open-mats\/\$\{row\.id\}`\}/);
     assert.doesNotMatch(dashboardPage, /dialog=new-open-mat|dialog=edit-user|deleteManagedUser|createOpenMat|updateOpenMat/);
 
-    assert.match(rollsRoute, /requireStandardDashboardUser\(\)/);
-    assert.match(rollsRoute, /where:\s*\{\s*academyId:\s*academy\.id,\s*active:\s*true\s*\}/);
+    assert.match(rollsRoute, /isStandardUserRole\(user\.role\)/);
+    assert.match(rollsRoute, /return\s+NextResponse\.json\(\{\s*rolls:\s*\[\]\s*\}\)/);
+    assert.match(rollsRoute, /academyId,\s*\n\s*active:\s*true,\s*\n\s*eventDate:\s*\{\s*gte:\s*startOfToday\(\)\s*\}/);
+    assert.match(rollsRoute, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
     assert.match(rollsRoute, /select:\s*\{/);
+    assert.match(rollsRoute, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
     assert.doesNotMatch(rollsRoute, /POST|PUT|PATCH|DELETE|create\(|update\(|delete\(/);
+  });
+
+  it("standard dashboard profile and settings expose only self-service fields", () => {
+    const dashboardPage = readSource("src/app/dashboard/page.tsx");
+    const dashboardActions = readSource("src/app/dashboard/DashboardActions.ts");
+
+    assert.match(dashboardPage, /<ProfilePanel[\s\S]*academy=\{academy\}/);
+    assert.match(dashboardPage, /Academy Information/);
+    assert.match(dashboardPage, /<QuickActionPanel title="Account Actions"/);
+    assert.match(dashboardPage, /title:\s*"Change Password"/);
+    assert.match(dashboardPage, /title:\s*"Edit Profile"/);
+    assert.match(dashboardPage, /href:\s*"\/dashboard\?panel=settings&settingsAction=change-password"/);
+    assert.match(dashboardPage, /href:\s*"\/dashboard\?panel=settings&settingsAction=edit-profile"/);
+    assert.match(dashboardPage, /activeAction\s*===\s*"change-password"\s*\?\s*\(\s*\n\s*<ChangePasswordForm[\s\S]*embedded/);
+    assert.match(dashboardPage, /activeAction\s*===\s*"edit-profile"\s*\?\s*\(\s*\n\s*<EditProfileForm[\s\S]*email=\{user\.email\}[\s\S]*name=\{user\.name\}/);
+    assert.match(dashboardPage, /Choose Change Password or Edit Profile to open the form here/);
+    assert.match(dashboardPage, /rounded-lg border border-teal-300 bg-teal-50\/20/);
+
+    const editProfileForm = readSource("src/app/dashboard/EditProfileForm.tsx");
+    assert.match(editProfileForm, /<ReadOnlyField label="Email" value=\{email\} \/>/);
+    assert.match(editProfileForm, /<ReadOnlyField label="Role" value=\{roleLabel\} \/>/);
+    assert.match(editProfileForm, /<ReadOnlyField label="Status" value=\{statusLabel\} \/>/);
+    assert.match(editProfileForm, /<ReadOnlyField label="Academy" value=\{academyName\} \/>/);
+    assert.match(dashboardActions, /isStandardUserRole\(user\.role\)/);
+    assert.match(dashboardActions, /data:\s*\{\s*name:\s*name\s*\|\|\s*null\s*\}/);
+    assert.doesNotMatch(dashboardActions, /data:[\s\S]*\b(role|status|academyId|disabled|isProtected)\b/);
+  });
+
+  it("dashboard top account trigger keeps the popup menu while using compact initials and chevron", () => {
+    const standardSource = readSource("src/app/dashboard/page.tsx");
+    const adminSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    for (const source of [standardSource, adminSource]) {
+      assert.match(source, /<ActionMenu[\s\S]*label="Open account profile menu"/);
+      assert.match(source, /trigger=\{\(\s*<>\s*[\s\S]*rounded-full bg-teal-100[\s\S]*<ChevronDown/);
+      assert.match(source, /href="\/dashboard\?panel=settings"/);
+      assert.match(source, /<LogoutButton/);
+    }
   });
 
   it("standard users are not treated as admin roles for admin APIs or admin page guards", () => {

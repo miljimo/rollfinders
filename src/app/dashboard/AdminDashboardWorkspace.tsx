@@ -644,17 +644,13 @@ export default async function AdminDashboardWorkspace({
         <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
           <div className="size-11 lg:hidden" aria-hidden />
           <ActionMenu
-            buttonClassName="inline-flex items-center gap-3 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+            buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
             label="Open account profile menu"
             menuClassName="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl"
             trigger={(
               <>
                 <span className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</span>
-                <span className="hidden sm:block">
-                  <span className="block font-black text-slate-950">{account?.name ?? currentUser.email}</span>
-                  <span className="block text-sm font-semibold text-slate-500">{roleLabel(account?.role ?? currentUser.role)}</span>
-                </span>
-                <ChevronDown size={18} aria-hidden />
+                <ChevronDown size={18} aria-hidden className="text-slate-400" />
               </>
             )}
           >
