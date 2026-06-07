@@ -38,9 +38,9 @@ export function LoginForm() {
 
       const session = await getSession();
       const role = (session?.user as { role?: string } | undefined)?.role;
-      window.location.href = role === "PLATFORM_ADMIN"
-        ? "/dashboard"
-        : role === "ACADEMY_ADMIN" || role === "SUPER_ADMIN" || role === "ADMIN" ? "/admin" : result?.url ?? "/dashboard";
+      window.location.href = role === "ACADEMY_ADMIN" || role === "ACADEMY_OWNER" || role === "PLATFORM_ADMIN" || role === "SUPER_ADMIN" || role === "ADMIN"
+        ? "/admin"
+        : result?.url ?? "/dashboard";
     } finally {
       setIsSubmitting(false);
     }

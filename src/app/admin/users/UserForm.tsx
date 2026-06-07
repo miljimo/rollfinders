@@ -16,6 +16,7 @@ type UserFormUser = {
 };
 
 export function UserForm({
+  academyAdmin = false,
   academies,
   action,
   cancelHref = "/admin/users",
@@ -24,6 +25,7 @@ export function UserForm({
   superAdmin,
   user,
 }: {
+  academyAdmin?: boolean;
   academies: UserFormAcademy[];
   action: (formData: FormData) => Promise<void>;
   cancelHref?: string;
@@ -36,6 +38,7 @@ export function UserForm({
     id: academy.id,
     label: academy.name,
   }));
+  const lockedAcademy = academyAdmin ? academies[0] : null;
 
   return (
     <form action={action} className="mt-8 rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
@@ -63,21 +66,29 @@ export function UserForm({
           <select name="role" defaultValue={user?.role ?? Role.STANDARD_USER} className="min-h-14 rounded-md border border-stone-300 px-4 text-base font-normal">
             <option value={Role.STANDARD_USER}>Standard user</option>
             <option value={Role.ACADEMY_ADMIN}>Academy admin</option>
-            {superAdmin ? <option value={Role.PLATFORM_ADMIN}>Platform admin</option> : null}
-            {superAdmin ? <option value={Role.SUPER_ADMIN}>Super admin</option> : null}
-            {superAdmin && user?.role === Role.ADMIN ? <option value={Role.ADMIN}>Admin</option> : null}
+            {!academyAdmin && superAdmin ? <option value={Role.PLATFORM_ADMIN}>Platform admin</option> : null}
+            {!academyAdmin && superAdmin ? <option value={Role.SUPER_ADMIN}>Super admin</option> : null}
+            {!academyAdmin && superAdmin && user?.role === Role.ADMIN ? <option value={Role.ADMIN}>Admin</option> : null}
           </select>
         </label>
 
-        <AutoCompleteTextField
-          label="Academy"
-          name="academyId"
-          options={academyOptions}
-          selectedId={user?.academyId ?? ""}
-          placeholder="Search academy by name"
-          emptyMessage="No academies found."
-          size="lg"
-        />
+        {lockedAcademy ? (
+          <div className="grid gap-2 text-lg font-bold text-stone-950">
+            Academy
+            <input type="hidden" name="academyId" value={lockedAcademy.id} />
+            <p className="min-h-14 rounded-md border border-stone-200 bg-stone-50 px-4 py-4 text-base font-semibold text-stone-800">{lockedAcademy.name}</p>
+          </div>
+        ) : (
+          <AutoCompleteTextField
+            label="Academy"
+            name="academyId"
+            options={academyOptions}
+            selectedId={user?.academyId ?? ""}
+            placeholder="Search academy by name"
+            emptyMessage="No academies found."
+            size="lg"
+          />
+        )}
 
         {mode === "edit" ? (
           <label className="grid gap-2 text-lg font-bold text-stone-950">
