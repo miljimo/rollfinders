@@ -42,9 +42,11 @@ Super Admin and legacy Admin metrics MAY include platform-wide data.
 
 Platform Admin metrics MAY include permitted platform operational data but SHALL continue hiding Super Admin-only data.
 
-Academy Admin metrics SHALL include assigned-academy data only.
+Academy Admin metrics SHALL include assigned-academy user and roll data only.
 
 Academy Admins without an assigned academy SHALL NOT receive admin metric data.
+
+Academy Admin metrics SHALL NOT include academy record count, verified academy count, or pending verification count.
 
 ## Initial Admin Indicator Examples
 
@@ -61,9 +63,7 @@ Platform-wide examples:
 Academy-scoped examples:
 
 * `Academy Users`: indicator `new this month`
-* `Academy Admins`: indicator `added this month`
-* `Active Rolls`: indicator `created this month`
-* `Upcoming This Week`: indicator `scheduled this week`
+* `Academy Rolls`: indicator `created this week`
 
 Email-operations examples:
 

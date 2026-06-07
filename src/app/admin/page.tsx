@@ -14,7 +14,7 @@ import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
-import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicator";
+import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders } from "./academies/actions";
 import { AcademyForm } from "./academies/AcademyForm";
 import { createOpenMat } from "./open-mats/actions";
@@ -398,6 +398,67 @@ export default async function AdminPage({
         ]
       : []),
   ];
+  const statCards: StatsPanelItem[] = academyAdmin
+    ? [
+        {
+          iconTone: "blue",
+          icon: <Users size={34} aria-hidden />,
+          indicator: { label: "new this month", value: newUserCountThisMonth },
+          id: "academy-users",
+          label: "Academy Users",
+          value: totalUserCount,
+        },
+        {
+          iconTone: "violet",
+          icon: <CalendarDays size={34} aria-hidden />,
+          indicator: { label: "created this week", value: activeEventCountThisWeek },
+          id: "academy-rolls",
+          label: "Academy Rolls",
+          value: activeEventCount,
+        },
+      ]
+    : [
+        {
+          iconTone: "teal",
+          icon: <Building2 size={34} aria-hidden />,
+          indicator: { label: "new this month", value: newAcademyCountThisMonth },
+          id: "total-academies",
+          label: "Total Academies",
+          value: totalAcademyCount,
+        },
+        {
+          iconTone: "teal",
+          icon: <ShieldCheck size={34} aria-hidden />,
+          indicator: { label: "verified this month", value: verifiedAcademyCountThisMonth },
+          id: "verified-academies",
+          label: "Verified Academies",
+          value: verifiedAcademyCount,
+        },
+        {
+          iconTone: "orange",
+          icon: <CalendarDays size={34} aria-hidden />,
+          indicator: { label: "pending review", tone: pendingAcademyCount > 0 ? "warning" : "neutral" },
+          id: "pending-verification",
+          label: "Pending Verification",
+          value: pendingAcademyCount,
+        },
+        {
+          iconTone: "blue",
+          icon: <Users size={34} aria-hidden />,
+          indicator: { label: "new this month", value: newUserCountThisMonth },
+          id: "total-users",
+          label: "Total Users",
+          value: totalUserCount,
+        },
+        {
+          iconTone: "violet",
+          icon: <CalendarDays size={34} aria-hidden />,
+          indicator: { label: "created this week", value: activeEventCountThisWeek },
+          id: "open-mats",
+          label: "Open Mats",
+          value: activeEventCount,
+        },
+      ];
   const quickActionItems: QuickActionPanelItem[] = [
     {
       active: panel === "academies",
@@ -496,13 +557,7 @@ export default async function AdminPage({
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <StatCard color="teal" icon={<Building2 size={34} aria-hidden />} indicator={{ label: "new this month", value: newAcademyCountThisMonth }} label={academyAdmin ? "My Academy" : "Total Academies"} value={totalAcademyCount} />
-            <StatCard color="teal" icon={<ShieldCheck size={34} aria-hidden />} indicator={{ label: "verified this month", value: verifiedAcademyCountThisMonth }} label={academyAdmin ? "Verified" : "Verified Academies"} value={verifiedAcademyCount} />
-            <StatCard color="orange" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "pending review", tone: pendingAcademyCount > 0 ? "warning" : "neutral" }} label="Pending Verification" value={pendingAcademyCount} />
-            <StatCard color="blue" icon={<Users size={34} aria-hidden />} indicator={{ label: "new this month", value: newUserCountThisMonth }} label={academyAdmin ? "Academy Users" : "Total Users"} value={totalUserCount} />
-            <StatCard color="violet" icon={<CalendarDays size={34} aria-hidden />} indicator={{ label: "created this week", value: activeEventCountThisWeek }} label={academyAdmin ? "Academy Rolls" : "Open Mats"} value={activeEventCount} />
-          </div>
+          <StatsPanel className="mt-6" items={statCards} />
 
           {platformAdminActivitySummary ? (
             <PlatformAdminActivitySummaryPanel summary={platformAdminActivitySummary} />
@@ -938,42 +993,6 @@ function startOfWeek(date: Date) {
   const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
   start.setUTCDate(start.getUTCDate() - diff);
   return start;
-}
-
-function StatCard({
-  color,
-  icon,
-  indicator,
-  label,
-  value,
-}: {
-  color: "blue" | "orange" | "teal" | "violet";
-  icon: React.ReactNode;
-  indicator?: { label: string; tone?: StatIndicatorTone; value?: number | string };
-  label: string;
-  value: number;
-}) {
-  const colorClass = {
-    blue: "bg-blue-50 text-blue-600",
-    orange: "bg-orange-50 text-orange-600",
-    teal: "bg-teal-50 text-teal-700",
-    violet: "bg-violet-50 text-violet-600",
-  }[color];
-
-  return (
-    <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-4">
-        <div className={`flex size-16 shrink-0 items-center justify-center rounded-full ${colorClass}`}>{icon}</div>
-        <div>
-          <p className="text-sm font-bold text-slate-600">{label}</p>
-          <p className="mt-1 text-3xl font-black text-slate-950">{value.toLocaleString()}</p>
-          {indicator ? (
-            <StatIndicator className="mt-2" label={indicator.label} tone={indicator.tone} value={indicator.value} />
-          ) : null}
-        </div>
-      </div>
-    </section>
-  );
 }
 
 export function PlatformAdminActivitySummaryPanel({ summary }: { summary: PlatformAdminActivitySummary }) {

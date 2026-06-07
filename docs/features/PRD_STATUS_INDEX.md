@@ -48,6 +48,7 @@ Use these folders to track product requirement state:
 ## Proposal
 
 * `SharedComponents/Proposal/QuickActionPanelPrd.md`
+* `SharedComponents/Proposal/StatsPanelPrd.md`
 * `Users/Profile/Components/Proposal/UserProfile.md`
 * `Users/Profile/Products/Proposal/AdminUserProfileWorkflowPrd.md`
 * `Users/Profile/Products/Proposal/SelfProfileDashboardPrd.md`

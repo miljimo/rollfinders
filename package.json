@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test": "npm run typecheck && npm run test:unit",
-    "test:unit": "node --import tsx --test \"src/components/{Button,QuickActionPanel,Table}/__tests__/*.test.tsx\" \"src/components/__tests__/*.test.tsx\" \"src/app/admin/__tests__/*.test.tsx\" \"src/lib/__tests__/*.test.ts\"",
+    "test:unit": "node --import tsx --test \"src/components/{Button,QuickActionPanel,StatsPanel,Table}/__tests__/*.test.tsx\" \"src/components/__tests__/*.test.tsx\" \"src/app/admin/__tests__/*.test.tsx\" \"src/lib/__tests__/*.test.ts\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:dev": "prisma migrate dev",
