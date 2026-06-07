@@ -50,6 +50,10 @@ function isSuperUser(user: { role: Role }) {
   return user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
 }
 
+function isUniqueConstraintError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
 async function hasAnotherActiveSuperUser(userId: string) {
   const count = await prisma.user.count({
     where: {
@@ -75,18 +79,30 @@ export async function createManagedUser(formData: FormData) {
 
   if (!email || !email.includes("@")) return;
   if (academyId === undefined) return;
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      name: name || null,
-      email,
-      passwordHash,
-      role,
-      academyId,
-      status: UserStatus.ACTIVE,
-      disabled: false,
-    },
-  });
+  let user: { id: string };
+  try {
+    user = await prisma.user.create({
+      data: {
+        name: name || null,
+        email,
+        passwordHash,
+        role,
+        academyId,
+        status: UserStatus.ACTIVE,
+        disabled: false,
+      },
+      select: { id: true },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    const url = new URL(redirectTo, "http://localhost");
+    url.searchParams.set("userResult", "duplicate_email");
+    url.searchParams.set("email", email);
+    redirect(`${url.pathname}${url.search}`);
+  }
   if (role === Role.PLATFORM_ADMIN) {
     await ensurePlatformAdminProfile(user.id);
   }
@@ -98,8 +114,6 @@ export async function createManagedUser(formData: FormData) {
     metadata: { email, role, academyId },
   });
 
-  const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const redirectTo = returnTo.startsWith("/admin") ? returnTo : "/admin/users";
   revalidatePath("/admin/users");
   revalidatePath("/admin");
   redirect(redirectTo);

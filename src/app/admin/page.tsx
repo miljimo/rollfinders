@@ -505,6 +505,7 @@ export default async function AdminPage({
               search={<PanelSearch panel={panel} search={search} />}
               title="Users & Roles"
             >
+              <UserResult params={params} />
               <UsersTable actorId={currentUser.id} actorRole={currentUser.role} users={users} />
               <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
             </AdminPanel>
@@ -729,6 +730,21 @@ function ClaimInvitationResult({ params }: { params: AdminSearchParams }) {
   if (!message) return null;
   return (
     <div className="mt-4 rounded-md border border-teal-100 bg-teal-50 px-4 py-3 text-sm font-semibold text-teal-900">
+      {message}
+    </div>
+  );
+}
+
+function UserResult({ params }: { params: AdminSearchParams }) {
+  const result = firstParam(params.userResult);
+  if (!result) return null;
+  const email = firstParam(params.email);
+  const message = result === "duplicate_email"
+    ? `A user with ${email ?? "that email address"} already exists.`
+    : null;
+  if (!message) return null;
+  return (
+    <div className="mt-4 rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
       {message}
     </div>
   );

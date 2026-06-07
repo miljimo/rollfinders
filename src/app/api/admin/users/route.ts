@@ -32,6 +32,10 @@ function parseEmailStatus(value: string) {
   return Object.values(UserEmailStatus).includes(value as UserEmailStatus) ? value as UserEmailStatus : null;
 }
 
+function isUniqueConstraintError(error: unknown) {
+  return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
+}
+
 export async function GET(request: Request) {
   const forbidden = await requireAdminApi();
   if (forbidden) return forbidden;
@@ -105,17 +109,23 @@ export async function POST(request: Request) {
     if (!academyExists) return NextResponse.json({ error: "Academy not found" }, { status: 400 });
   }
   const passwordHash = await bcrypt.hash(body?.password || "rollfinder-user", 10);
-  const created = await prisma.user.create({
-    data: {
-      name: body?.name?.trim() || null,
-      email,
-      passwordHash,
-      role,
-      academyId,
-      status: UserStatus.ACTIVE,
-    },
-    select: { id: true, name: true, email: true, role: true, academyId: true, status: true, createdAt: true },
-  });
+  let created: { id: string; name: string | null; email: string; role: Role; academyId: string | null; status: UserStatus; createdAt: Date };
+  try {
+    created = await prisma.user.create({
+      data: {
+        name: body?.name?.trim() || null,
+        email,
+        passwordHash,
+        role,
+        academyId,
+        status: UserStatus.ACTIVE,
+      },
+      select: { id: true, name: true, email: true, role: true, academyId: true, status: true, createdAt: true },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+  }
 
   await writeAdminAuditLog({
     actorUserId: actor.id,
