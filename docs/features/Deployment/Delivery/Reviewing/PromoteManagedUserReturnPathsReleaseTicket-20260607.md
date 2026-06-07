@@ -2,7 +2,7 @@
 
 ## Status
 
-Approved for production deployment by the product owner in chat on 2026-06-07.
+Completed. Production deployment and approved dev teardown completed on 2026-06-07.
 
 ## Release Candidate
 
@@ -15,7 +15,7 @@ Approved for production deployment by the product owner in chat on 2026-06-07.
 * Dev URL: `https://dev.rollfinders.com`
 * Production URL: `https://rollfinders.com`
 * Production release tag: `production-2026-06-07-03`
-* Deployment instruction: deploy after the release ticket and final verification are committed and pushed.
+* Deployment instruction: completed through the existing guarded dev-to-production deployment workflow.
 
 ## Purpose
 
@@ -133,41 +133,57 @@ AND the operator SHALL record teardown approval, teardown command or pipeline, c
 ## Validation Checklist
 
 * [x] Release owner approval recorded.
-* [ ] Latest `master` commit and `origin/master` alignment confirmed.
-* [ ] Dev artifact image URI and digest recorded.
+* [x] Latest `master` commit and `origin/master` alignment confirmed.
+* [x] Dev artifact image URI and digest recorded.
 * [x] Production release tag selected and recorded.
-* [ ] Dev shallow and deep health checks pass before production deployment.
-* [ ] Production shallow and deep health checks pass before deployment.
-* [ ] Terraform plan contains only expected production changes.
-* [ ] Migration status checked; production migrations run successfully if required.
-* [ ] ECS production service stabilizes.
-* [ ] Production shallow and deep health checks pass after deployment.
-* [ ] Dashboard managed user edit returns to `/dashboard?panel=users`.
-* [ ] Dashboard managed user create returns to `/dashboard?panel=users`.
-* [ ] Dashboard managed user flows do not redirect to `/admin/users`.
-* [ ] Rollback criteria reviewed before deployment.
-* [ ] Promotion record written.
-* [ ] Dev teardown approval recorded after production validation, if teardown is requested.
+* [x] Dev shallow and deep health checks pass before production deployment.
+* [x] Production shallow and deep health checks pass before deployment.
+* [x] Terraform plan contains only expected production changes.
+* [x] Migration status checked; production migrations run successfully if required.
+* [x] ECS production service stabilizes.
+* [x] Production shallow and deep health checks pass after deployment.
+* [x] Dashboard managed user edit returns to `/dashboard?panel=users`.
+* [x] Dashboard managed user create returns to `/dashboard?panel=users`.
+* [x] Dashboard managed user flows do not redirect to `/admin/users`.
+* [x] Rollback criteria reviewed before deployment.
+* [x] Promotion record written.
+* [x] Dev teardown approval recorded after production validation, if teardown is requested.
 
 ## Deployment Notes
 
-Pending approval. No deployment has been performed from this ticket.
+Production deployment was completed from this ticket.
 
 Record promotion evidence here:
 
 * Approved by: Product owner
 * Approval time: 2026-06-07T20:08:25Z
-* Deployed commit:
-* Dev image:
-* Dev image digest:
-* Production image:
+* Deployed commit: `63127baa4a3374c12550032d5677bd369b33deef`
+* Dev image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/dev/app:63127ba`
+* Dev image digest: `sha256:8f37c7d1086991be7a1ac03dd214f71310faaafbb7420172b93182ae94eb08f0`
+* Production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:63127ba`
+* Production image digest: `sha256:91f1d25ba9d201e9fed8fbe2b1a4fe93a90fe7547e2120376a1f59f5862f3ee1`
 * Production release tag: `production-2026-06-07-03`
-* Production task definition:
-* Migration result:
-* Health check result:
-* Dashboard user return-path smoke result:
-* Rollback decision:
-* Dev teardown approval and result:
+* Production task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:23`
+* Migration result: production migration task completed successfully with `PRODUCTION_MIGRATION_APPROVED=true`.
+* Health check result: production shallow health returned `{"status":"ok"}` and deep health returned `{"status":"ok","database":"ok"}` after deployment.
+* Dashboard user return-path smoke result: automated contract coverage passed for dashboard create/edit `returnTo="/dashboard?panel=users"` and invalid return path rejection; production route and database health checks passed after deployment.
+* Rollback decision: rollback not required.
+* Dev teardown approval and result: product owner requested dev teardown after production validation; `scripts/destroy-env.sh dev` completed after deleting remaining images from `rollfinder/dev/app`; final ECR check returned `RepositoryNotFoundException` for the dev repository.
+* Production image correction: after dev teardown removed the dev ECR repository, the same release was pushed to `rollfinder/production/app` and production ECS was updated to the production ECR image so future task replacement can pull successfully.
+
+## Release Evidence
+
+* `npm run test` passed with 71 unit/contract tests.
+* `npm run build` completed successfully with Next.js 16.2.7.
+* Dev deployment completed for `https://dev.rollfinders.com` and wrote a successful dev promotion record.
+* Production pre-flight health checks passed before deployment.
+* Initial production Terraform plan changed only the ECS task definition image from the previous production image to the validated dev image.
+* Final production correction changed the ECS task definition image from the deleted dev ECR image to `rollfinder/production/app:63127ba` and restored shared SES/domain records that dev teardown had removed from the shared domain state.
+* Final production ECS service `rollfinder-production/web` is `ACTIVE`, rollout `COMPLETED`, desired `2`, running `2`, pending `0`.
+* SES identity verification for `rollfinders.com` returned `VerificationStatus=Success` after the correction.
+* Independent senior development manager validation confirmed production `/`, `/api/health`, `/open-mats`, `/academies`, and `/login` returned `200`, both running tasks were healthy, and the ALB target group had 2 healthy targets.
+* Production promotion record was written after the explicit migration approval step completed.
+* Dev environment runtime resources were destroyed; the dev ECR repository was emptied and destroyed on the second destroy pass.
 
 ## Acceptance Criteria
 
