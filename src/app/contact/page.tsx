@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Mail } from "lucide-react";
-import { StaticPageShell } from "@/components/StaticPageShell";
+import { PageShell } from "@/components/PageShell";
 
 export const metadata: Metadata = {
   title: "Contact RollFinders | Support and business enquiries",
@@ -15,7 +15,7 @@ const contacts = [
 
 export default function ContactPage() {
   return (
-    <StaticPageShell>
+    <PageShell>
       <section className="mx-auto max-w-4xl px-4 py-10 sm:px-6">
         <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Contact</p>
         <h1 className="mt-3 text-4xl font-black text-stone-950">Get in touch with RollFinders.</h1>
@@ -32,6 +32,6 @@ export default function ContactPage() {
           ))}
         </div>
       </section>
-    </StaticPageShell>
+    </PageShell>
   );
 }
