@@ -481,10 +481,19 @@ export default async function AdminDashboardWorkspace({
       })
     : [];
   const adminNavigationItems: SidePanelItem[] = [
-    { active: panel === "academies" || panel === "open-mats" || panel === "users", href: "/dashboard", icon: "dashboard", label: "Dashboard" },
+    { active: !firstParam(params.panel), href: "/dashboard", icon: "dashboard", label: "Dashboard" },
+    {
+      active: panel === "academies",
+      href: academyAdmin && currentUser.academyId ? `/admin/academies/${currentUser.academyId}` : "/dashboard?panel=academies",
+      icon: "academies",
+      label: academyAdmin ? "Academy Profile" : "Manage Academies",
+    },
+    { active: panel === "open-mats", href: "/dashboard?panel=open-mats", icon: "events", label: academyAdmin ? "Manage Rolls" : "Manage Open Mats" },
+    { active: panel === "users", href: "/dashboard?panel=users", icon: "users", label: "Manage Users" },
     ...(superAdmin
       ? [
           { active: panel === "analytics", href: "/dashboard?panel=analytics", icon: "dashboard", label: "Analytics" } satisfies SidePanelItem,
+          { active: panel === "platform-admin-academies", href: "/dashboard?panel=platform-admin-academies", icon: "academies", label: "Academy Review" } satisfies SidePanelItem,
         ]
       : []),
     ...(elevatedAdmin

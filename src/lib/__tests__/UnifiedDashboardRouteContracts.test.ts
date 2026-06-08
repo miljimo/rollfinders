@@ -198,7 +198,22 @@ describe("unified dashboard route contracts", () => {
     const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
 
     assert.notEqual(navigationSource, "", "Expected admin navigation source to be present");
-    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    for (const label of ["Dashboard", "Manage Users", "Analytics", "Academy Review", "Academy Claims", "Map", "Settings"]) {
+      assert.match(navigationSource, new RegExp(`label:\\s*"${label}"`));
+    }
+    assert.match(navigationSource, /label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"/);
+    assert.match(navigationSource, /label:\s*academyAdmin\s*\?\s*"Manage Rolls"\s*:\s*"Manage Open Mats"/);
+    assert.match(navigationSource, /href:\s*academyAdmin\s*&&\s*currentUser\.academyId\s*\?\s*`\/admin\/academies\/\$\{currentUser\.academyId\}`\s*:\s*"\/dashboard\?panel=academies"/);
+    assert.match(navigationSource, /href:\s*"\/dashboard\?panel=open-mats"/);
+    assert.match(navigationSource, /href:\s*"\/dashboard\?panel=users"/);
+    assert.match(navigationSource, /href:\s*"\/dashboard\?panel=platform-admin-academies"/);
+    assert.match(navigationSource, /active:\s*!firstParam\(params\.panel\)/);
+    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*academyAdmin\s*\?\s*"Manage Rolls"\s*:\s*"Manage Open Mats"[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Academies"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Open Mats"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Users"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Analytics"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Review"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Claims"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Map"/);
   });
