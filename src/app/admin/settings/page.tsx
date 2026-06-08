@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { BarChart3, KeyRound, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { elevatedAdminPrivacyAuditLogWhere, isPlatformAdminRole, requireAdminPage } from "@/lib/admin";
 import { getPlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
@@ -10,7 +11,6 @@ import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { formatDate } from "@/lib/utils";
 import { processEmailQueue } from "../actions";
 import { EmailOperationsPanel } from "../EmailOperationsPanel";
-import { PlatformAdminActivitySummaryPanel } from "../../dashboard/AdminDashboardWorkspace";
 import { ChangePasswordForm } from "../../dashboard/password/ChangePasswordForm";
 
 export const dynamic = "force-dynamic";
