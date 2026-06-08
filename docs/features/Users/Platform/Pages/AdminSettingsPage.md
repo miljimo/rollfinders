@@ -18,7 +18,7 @@ Provide platform/admin settings, email operations, audit visibility, and passwor
 
 ## Requirements
 
-IF permitted admin opens settings
+IF permitted Platform Admin or Super Admin opens settings
 WHEN page renders
 THEN the page SHALL show Quick Actions for Change Password, Email Options, and Recent Audits.
 
@@ -56,6 +56,21 @@ AND Weekly Activity Summary SHALL be removed from the primary dashboard surface 
 
 AND the Weekly Activity Summary content SHALL show current-week Platform Admin contribution progress, academy goal progress, points, and suggested next action where available.
 
+IF a permitted Academy Admin opens the Settings panel
+WHEN the page renders
+THEN the page SHALL show Quick Actions for Change Password and Edit Profile only.
+
+AND Academy Admin Settings SHALL use the same selected-detail-panel pattern as other dashboard Settings actions.
+
+WHEN the Academy Admin clicks Edit Profile
+THEN `settingsAction=edit-profile` SHALL render the self-service Edit Profile form in the settings detail panel.
+
+AND the Edit Profile form SHALL update only the authenticated Academy Admin's own display name.
+
+AND the Edit Profile form SHALL keep email, role, status, academy assignment, disabled state, and protected-user state read-only or hidden.
+
+AND Academy Admin Settings SHALL NOT render Email Options, Recent Audits, Weekly Activity Summary, platform settings, or other elevated-admin actions.
+
 IF unauthorized user opens settings  
 WHEN authorization runs  
 THEN access SHALL be rejected or redirected.
@@ -73,3 +88,5 @@ THEN feedback SHALL be visible.
 * Email operations filters and pagination keep working inside the Email Options detail view.
 * Weekly Activity Summary is visible only to Platform Admin and Super Admin users.
 * Weekly Activity Summary is no longer rendered as a standalone primary dashboard panel.
+* Academy Admin Settings exposes Change Password and Edit Profile only.
+* Academy Admin Edit Profile updates only the authenticated user's own display name.

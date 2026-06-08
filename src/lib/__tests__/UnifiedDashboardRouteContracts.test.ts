@@ -110,6 +110,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(editProfileForm, /<ReadOnlyField label="Status" value=\{statusLabel\} \/>/);
     assert.match(editProfileForm, /<ReadOnlyField label="Academy" value=\{academyName\} \/>/);
     assert.match(dashboardActions, /isStandardUserRole\(user\.role\)/);
+    assert.match(dashboardActions, /isAcademyAdminRole\(user\.role\)/);
     assert.match(dashboardActions, /data:\s*\{\s*name:\s*name\s*\|\|\s*null\s*\}/);
     assert.doesNotMatch(dashboardActions, /data:[\s\S]*\b(role|status|academyId|disabled|isProtected)\b/);
   });
@@ -206,6 +207,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(navigationSource, /href:\s*academyAdmin\s*&&\s*currentUser\.academyId\s*\?\s*`\/admin\/academies\/\$\{currentUser\.academyId\}`\s*:\s*"\/dashboard\?panel=academies"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=open-mats"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=users"/);
+    assert.match(navigationSource, /academyAdmin[\s\S]*href:\s*"\/dashboard\?panel=settings"[\s\S]*label:\s*"Settings"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=platform-admin-academies"/);
     assert.match(navigationSource, /active:\s*!firstParam\(params\.panel\)/);
     assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*academyAdmin\s*\?\s*"Manage Rolls"\s*:\s*"Manage Open Mats"[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
@@ -249,14 +251,19 @@ describe("unified dashboard route contracts", () => {
       assert.match(source, /title:\s*"Recent Audits"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=recent-audits"/);
       assert.match(source, /title:\s*"Weekly Activity Summary"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=weekly-activity"/);
       assert.match(source, /<QuickActionPanel[\s\S]*items=\{settingsActionItems\}/);
-      assert.match(source, /activeSettingsAction\s*===\s*"change-password"\s*\?\s*\([\s\S]*<ChangePasswordForm[\s\S]*embedded/);
-      assert.match(source, /activeSettingsAction\s*===\s*"email-options"\s*\?\s*\([\s\S]*<EmailOperationsPanel[\s\S]*activePage=\{[^}]*emailPage[^}]*\}[\s\S]*activeView=\{[^}]*emailOperationsView[^}]*\}/);
-      assert.match(source, /activeSettingsAction\s*===\s*"recent-audits"\s*\?\s*\(/);
-      assert.match(source, /activeSettingsAction\s*===\s*"weekly-activity"[\s\S]*<PlatformAdminActivitySummaryPanel embedded summary=\{platformAdminActivitySummary\}/);
       assert.match(source, /rounded-lg border border-blue-300 bg-blue-50\/20/);
       assert.doesNotMatch(source, /role="dialog"[\s\S]*Change Password/);
     }
 
+    assert.match(dashboardSource, /const\s+effectiveSettingsAction\s*=/);
+    assert.match(dashboardSource, /title:\s*"Edit Profile"[\s\S]*href:\s*"\/dashboard\?panel=settings&settingsAction=edit-profile"/);
+    assert.match(dashboardSource, /academyAdmin[\s\S]*id:\s*"edit-profile"/);
+    assert.match(dashboardSource, /elevatedAdmin[\s\S]*id:\s*"email-options"[\s\S]*id:\s*"recent-audits"/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"change-password"[\s\S]*<ChangePasswordForm[\s\S]*embedded/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"edit-profile"[\s\S]*<EditProfileForm/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"email-options"\s*&&\s*elevatedAdmin[\s\S]*<EmailOperationsPanel[\s\S]*activePage=\{[^}]*emailPage[^}]*\}[\s\S]*activeView=\{[^}]*emailOperationsView[^}]*\}/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"recent-audits"\s*&&\s*elevatedAdmin/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"weekly-activity"\s*&&\s*elevatedAdmin[\s\S]*<PlatformAdminActivitySummaryPanel embedded summary=\{platformAdminActivitySummary\}/);
     assert.doesNotMatch(dashboardSource, /<PlatformAdminActivitySummaryPanel summary=\{platformAdminActivitySummary\}/);
 
     assert.match(passwordActionSource, /changeDashboardUserPassword/);
@@ -265,5 +272,14 @@ describe("unified dashboard route contracts", () => {
     assert.match(passwordActionSource, /metadata:\s*\{\s*role:\s*user\.role\s*\}/);
     const metadataLine = passwordActionSource.match(/metadata:\s*\{[^\n]+\}/)?.[0] ?? "";
     assert.doesNotMatch(metadataLine, /password/i);
+  });
+
+  it("academy admin user tables hide visible role columns while elevated admins keep them", () => {
+    const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(source, /const\s+canViewRoleColumn\s*=\s*isPlatformAdminRole\(actorRole\)/);
+    assert.match(source, /canViewRoleColumn\s*\?\s*<th className="px-5 py-4">Role<\/th>\s*:\s*null/);
+    assert.match(source, /canViewRoleColumn\s*\?\s*<td className="px-5 py-4"><RolePill role=\{user\.role\} \/><\/td>\s*:\s*null/);
+    assert.match(source, /const\s+emptyColSpan\s*=\s*canViewRoleColumn\s*\?\s*7\s*:\s*6/);
   });
 });

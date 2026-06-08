@@ -110,6 +110,14 @@ AND the system SHALL NOT display `PLATFORM_ADMIN`, `SUPER_ADMIN`, or legacy `ADM
 
 AND the system SHALL allow filtering and searching by name, email, role, and status within the administrator's academy only.
 
+AND the user management table SHALL NOT display a visible Role column to Academy Admin users.
+
+AND Academy Admin users SHALL NOT see role badges in the user list rows.
+
+AND role data MAY still be used internally for authorization, filtering, form defaults, and API policy enforcement.
+
+AND Platform Admin and Super Admin users MAY see the Role column according to their own role permissions.
+
 ---
 
 # User Profile Access
@@ -422,7 +430,7 @@ AND the side panel SHALL include, at minimum, permitted scoped links for:
 
 AND Settings SHALL be the final primary side-panel item before Help & Support and Logout.
 
-AND the menu SHALL NOT display platform administration areas, platform settings, academy claim review, email operations, Platform Admin activity surfaces, or Super Admin-only features.
+AND the menu SHALL NOT display platform administration areas, academy claim review, email operations, Platform Admin activity surfaces, or Super Admin-only features.
 
 AND the menu SHALL NOT display academy management for other academies.
 
@@ -430,19 +438,45 @@ AND self-disable actions SHALL NOT be displayed.
 
 ---
 
-# Change Password
+# Settings
 
 ## Scenario: Change Password
 
 IF the authenticated user has the role `ACADEMY_ADMIN`
 
-AND there is a Change Password button or link
+WHEN the user opens the Settings panel
+
+THEN the Settings panel SHALL display a Change Password action.
 
 WHEN the user clicks the Change Password button or link and enters a valid new password
 
 THEN the system SHALL update the user's password.
 
 AND the user's password SHALL be changed to the new password successfully.
+
+AND the password change SHALL apply only to the authenticated Academy Admin account.
+
+---
+
+## Scenario: Edit Own Profile
+
+IF the authenticated user has the role `ACADEMY_ADMIN`
+
+WHEN the user opens the Settings panel
+
+THEN the Settings panel SHALL display an Edit Profile action.
+
+WHEN the user clicks Edit Profile
+
+THEN the system SHALL render the same self-service profile form pattern used by dashboard users.
+
+AND the Academy Admin SHALL be able to update their own display name.
+
+AND email, role, status, academy assignment, disabled state, and protected-user state SHALL remain read-only or hidden.
+
+AND the profile update SHALL apply only to the authenticated Academy Admin account.
+
+AND the Settings panel SHALL NOT display Email Options, Recent Audits, Weekly Activity Summary, platform settings, or other elevated-admin actions to Academy Admin users.
 
 ---
 

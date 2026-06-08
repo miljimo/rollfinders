@@ -161,6 +161,7 @@ Cannot:
 | Delete Academy           | Yes        | Created Only   | No             | No            |
 | View All Users           | Yes        | Yes            | No             | No            |
 | View Academy Users       | Yes        | Yes            | Yes (Own Only) | No            |
+| View User Role Column    | Yes        | Yes            | No             | No            |
 | Delete Users             | Yes        | Academy Only   | No             | No            |
 | Promote Users            | Yes        | Academy Only   | No             | No            |
 | Demote Users             | Yes        | Academy Only   | No             | No            |

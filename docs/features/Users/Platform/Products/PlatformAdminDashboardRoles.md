@@ -429,6 +429,18 @@ AND the menu SHALL NOT include Super Admin-only areas, billing controls, feature
 
 AND self-delete, self-disable, and self-demotion actions SHALL NOT be displayed.
 
+## Scenario: View User Role Column
+
+IF the authenticated user has the role `PLATFORM_ADMIN`
+
+WHEN the user opens the user management table
+
+THEN the table MAY display the Role column for users visible under Platform Admin user-management policy.
+
+AND the Role column SHALL NOT expose Super Admin, legacy Admin, or peer Platform Admin records that are hidden by privacy policy.
+
+AND Academy Admin users SHALL NOT inherit this Role column visibility.
+
 ---
 
 # Change Password

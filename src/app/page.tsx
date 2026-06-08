@@ -127,7 +127,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
             <Link href="/academies" className="inline-flex items-center gap-1 text-sm font-bold text-teal-800">Browse academies <ArrowRight size={16} /></Link>
           </div>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {academies.map((academy) => <AcademyCard key={academy.id} academy={{ ...academy, events: [] }} />)}
+            {/* {academies.map((academy) => <AcademyCard key={academy.id} academy={{ ...academy, events: [] }} />)} */}
           </div>
         </div>
       </section>

@@ -28,6 +28,7 @@ import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
 import { fetchAcademyClaims, type AcademyClaimListItem } from "../admin/academy-claims/api";
 import { EmailOperationsPanel } from "../admin/EmailOperationsPanel";
+import { EditProfileForm } from "./EditProfileForm";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
@@ -79,7 +80,7 @@ function selectedPanel(value: string | undefined) {
 }
 
 function isPlatformOnlyPanel(panel: string) {
-  return panel === "settings" || panel === "maps" || panel === "academy-claims";
+  return panel === "maps" || panel === "academy-claims";
 }
 
 function isSuperOnlyPanel(panel: string) {
@@ -107,7 +108,7 @@ function selectedEmailOperationsView(value: string | undefined) {
 }
 
 function selectedSettingsAction(value: string | undefined) {
-  if (value === "change-password" || value === "email-options" || value === "recent-audits" || value === "weekly-activity") return value;
+  if (value === "change-password" || value === "edit-profile" || value === "email-options" || value === "recent-audits" || value === "weekly-activity") return value;
   return "change-password";
 }
 
@@ -252,7 +253,14 @@ export default async function AdminDashboardWorkspace({
   if (isAcademyAdminRole(currentUser.role) && !currentUser.academyId) redirect("/");
   const account = await prisma.user.findUnique({
     where: { id: currentUser.id },
-    select: { name: true, email: true, role: true },
+    select: {
+      academy: { select: { name: true } },
+      disabled: true,
+      email: true,
+      name: true,
+      role: true,
+      status: true,
+    },
   });
   const params = await searchParams;
   const requestedPanel = selectedPanel(firstParam(params.panel));
@@ -506,6 +514,11 @@ export default async function AdminDashboardWorkspace({
           { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
         ]
       : []),
+    ...(academyAdmin
+      ? [
+          { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
+        ]
+      : []),
   ];
   const statCards: StatsPanelItem[] = academyAdmin
     ? [
@@ -707,11 +720,14 @@ export default async function AdminDashboardWorkspace({
 
         {panel === "settings" ? (
           <SettingsDashboardContent
+            account={account}
             activeSettingsAction={activeSettingsAction}
+            academyAdmin={academyAdmin}
             canViewWeeklyActivity={elevatedAdmin}
             emailPage={emailPage}
             emailOperations={emailOperations}
             emailOperationsView={emailOperationsView}
+            elevatedAdmin={elevatedAdmin}
             platformAdminActivitySummary={platformAdminActivitySummary}
             recentAuditLogs={recentAuditLogs}
           />
@@ -1315,16 +1331,29 @@ type SettingsAuditLog = {
 };
 
 function SettingsDashboardContent({
+  account,
   activeSettingsAction,
+  academyAdmin,
   canViewWeeklyActivity,
+  elevatedAdmin,
   emailPage,
   emailOperationsView,
   emailOperations,
   platformAdminActivitySummary,
   recentAuditLogs,
 }: {
-  activeSettingsAction: "change-password" | "email-options" | "recent-audits" | "weekly-activity";
+  account: {
+    academy: { name: string } | null;
+    disabled: boolean;
+    email: string;
+    name: string | null;
+    role: Role;
+    status: UserStatus;
+  } | null;
+  activeSettingsAction: "change-password" | "edit-profile" | "email-options" | "recent-audits" | "weekly-activity";
+  academyAdmin: boolean;
   canViewWeeklyActivity: boolean;
+  elevatedAdmin: boolean;
   emailPage: number;
   emailOperationsView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
   emailOperations: Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
@@ -1332,35 +1361,55 @@ function SettingsDashboardContent({
   recentAuditLogs: SettingsAuditLog[];
 }) {
   const emailOptionsHref = "/dashboard?panel=settings&settingsAction=email-options";
+  const effectiveSettingsAction =
+    elevatedAdmin || activeSettingsAction === "change-password" || (academyAdmin && activeSettingsAction === "edit-profile")
+      ? activeSettingsAction
+      : "change-password";
   const settingsActionItems: QuickActionPanelItem[] = [
     {
-      active: activeSettingsAction === "change-password",
+      active: effectiveSettingsAction === "change-password",
       title: "Change Password",
       description: "Set a new password for your administrator account",
       href: "/dashboard?panel=settings&settingsAction=change-password",
       icon: <KeyRound size={24} aria-hidden />,
       id: "change-password",
     },
-    {
-      active: activeSettingsAction === "email-options",
-      title: "Email Options",
-      description: "Process queue runs and inspect delivery issues",
-      href: "/dashboard?panel=settings&settingsAction=email-options",
-      icon: <Mail size={24} aria-hidden />,
-      id: "email-options",
-    },
-    {
-      active: activeSettingsAction === "recent-audits",
-      title: "Recent Audits",
-      description: "Review recent administrative audit activity",
-      href: "/dashboard?panel=settings&settingsAction=recent-audits",
-      icon: <ShieldCheck size={24} aria-hidden />,
-      id: "recent-audits",
-    },
+    ...(academyAdmin
+      ? [
+          {
+            active: effectiveSettingsAction === "edit-profile",
+            title: "Edit Profile",
+            description: "Update your personal display name",
+            href: "/dashboard?panel=settings&settingsAction=edit-profile",
+            icon: <Edit3 size={24} aria-hidden />,
+            id: "edit-profile",
+          } satisfies QuickActionPanelItem,
+        ]
+      : []),
+    ...(elevatedAdmin
+      ? [
+          {
+            active: effectiveSettingsAction === "email-options",
+            title: "Email Options",
+            description: "Process queue runs and inspect delivery issues",
+            href: "/dashboard?panel=settings&settingsAction=email-options",
+            icon: <Mail size={24} aria-hidden />,
+            id: "email-options",
+          } satisfies QuickActionPanelItem,
+          {
+            active: effectiveSettingsAction === "recent-audits",
+            title: "Recent Audits",
+            description: "Review recent administrative audit activity",
+            href: "/dashboard?panel=settings&settingsAction=recent-audits",
+            icon: <ShieldCheck size={24} aria-hidden />,
+            id: "recent-audits",
+          } satisfies QuickActionPanelItem,
+        ]
+      : []),
     ...(canViewWeeklyActivity
       ? [
           {
-            active: activeSettingsAction === "weekly-activity",
+            active: effectiveSettingsAction === "weekly-activity",
             title: "Weekly Activity Summary",
             description: "Review current-week contribution momentum",
             href: "/dashboard?panel=settings&settingsAction=weekly-activity",
@@ -1377,7 +1426,7 @@ function SettingsDashboardContent({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-slate-950">Settings</h1>
-          <p className="mt-2 text-slate-600">Manage email operations, audit activity, and your account password.</p>
+          <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your account password and profile information." : "Manage email operations, audit activity, and your account password."}</p>
         </div>
         <Button href="/dashboard?panel=settings" variant="secondary">
           <RefreshCw size={16} aria-hidden /> Refresh
@@ -1387,7 +1436,7 @@ function SettingsDashboardContent({
       <QuickActionPanel className="mt-7" items={settingsActionItems} />
 
       <SettingsDetailPanel title={selectedSettingsItem?.title ?? "Settings"}>
-        {activeSettingsAction === "change-password" ? (
+        {effectiveSettingsAction === "change-password" ? (
           <div className="max-w-xl">
             <p className="text-sm font-semibold leading-6 text-slate-600">Set a new password for your administrator account.</p>
             <div className="mt-5">
@@ -1396,7 +1445,18 @@ function SettingsDashboardContent({
           </div>
         ) : null}
 
-        {activeSettingsAction === "email-options" ? (
+        {effectiveSettingsAction === "edit-profile" && academyAdmin && account ? (
+          <EditProfileForm
+            academyName={account.academy?.name ?? "No academy assigned"}
+            cancelHref="/dashboard?panel=settings"
+            email={account.email}
+            name={account.name}
+            roleLabel={roleLabel(account.role)}
+            statusLabel={account.status === UserStatus.DISABLED || account.disabled ? "Disabled" : "Active"}
+          />
+        ) : null}
+
+        {effectiveSettingsAction === "email-options" && elevatedAdmin ? (
           <EmailOperationsPanel
             action={processEmailQueue}
             activePage={emailPage}
@@ -1412,11 +1472,11 @@ function SettingsDashboardContent({
           />
         ) : null}
 
-        {activeSettingsAction === "recent-audits" ? (
+        {effectiveSettingsAction === "recent-audits" && elevatedAdmin ? (
           <RecentAuditList logs={recentAuditLogs} />
         ) : null}
 
-        {activeSettingsAction === "weekly-activity" ? (
+        {effectiveSettingsAction === "weekly-activity" && elevatedAdmin ? (
           platformAdminActivitySummary ? (
             <PlatformAdminActivitySummaryPanel embedded summary={platformAdminActivitySummary} />
           ) : (
@@ -1840,13 +1900,16 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
 }
 
 function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcademyId?: string | null; actorId: string; actorRole: Role; users: UserRow[] }) {
+  const canViewRoleColumn = isPlatformAdminRole(actorRole);
+  const emptyColSpan = canViewRoleColumn ? 7 : 6;
+
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className="w-full min-w-[1120px] border-collapse text-left text-sm">
+      <table className={`w-full border-collapse text-left text-sm ${canViewRoleColumn ? "min-w-[1120px]" : "min-w-[980px]"}`}>
         <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
           <tr>
             <th className="px-5 py-4">User</th>
-            <th className="px-5 py-4">Role</th>
+            {canViewRoleColumn ? <th className="px-5 py-4">Role</th> : null}
             <th className="px-5 py-4">Academy</th>
             <th className="px-5 py-4">Status</th>
             <th className="px-5 py-4">Last Login</th>
@@ -1876,7 +1939,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
                   </div>
                   {protectedUser ? <p className="mt-2 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
                 </td>
-                <td className="px-5 py-4"><RolePill role={user.role} /></td>
+                {canViewRoleColumn ? <td className="px-5 py-4"><RolePill role={user.role} /></td> : null}
                 <td className="px-5 py-4 text-slate-700">{user.academy?.name ?? "None"}</td>
                 <td className="px-5 py-4"><StatusPill disabled={disabled} /></td>
                 <td className="px-5 py-4 text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
@@ -1916,7 +1979,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
           })}
           {!users.length ? (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-stone-600">No users to show.</td>
+              <td colSpan={emptyColSpan} className="px-4 py-8 text-center text-stone-600">No users to show.</td>
             </tr>
           ) : null}
         </tbody>
