@@ -2,15 +2,16 @@
 
 ## Status
 
-Reviewing.
+Completed. Production deployment completed on 2026-06-08 UTC.
 
 ## Release Candidate
 
 * Source branch: `master`
 * Target environment: `production`
 * Current master commit at ticket creation: `bf35433c361e34fe7e7a413ea319db9943f9e385`
+* Deployed master commit: `0f2eb929b814d739cacdcbf91b76cb50828ca165`
 * Production URL: `https://rollfinders.com`
-* Proposed production release tag: `production-2026-06-09-01`
+* Production release tag: `production-2026-06-09-01`
 * Change scope: public home-page mobile simplification, Open Mat Radar mobile count layout, Upcoming Open Mats naming, and Featured Academies review documentation.
 
 ## Purpose
@@ -126,39 +127,44 @@ AND this ticket SHALL be updated with rollback reason, user impact, and follow-u
 
 ## Validation Checklist
 
-* [ ] Release owner approval recorded.
+* [x] Release owner approval recorded.
 * [x] `master` and `origin/master` alignment confirmed.
 * [x] `npm run typecheck` passed.
 * [x] Unit tests passed.
 * [x] Production build passed.
-* [ ] Production release tag selected and recorded.
-* [ ] Production shallow and deep health checks pass before deployment.
-* [ ] Migration status checked; production migrations run successfully if required.
-* [ ] ECS production service stabilizes.
-* [ ] Production shallow and deep health checks pass after deployment.
-* [ ] Public home page smoke check passed.
-* [ ] Open Mat Radar smoke check passed.
-* [ ] Academies page smoke check passed.
-* [ ] Login page smoke check passed.
-* [ ] Mobile public layout smoke check passed.
-* [ ] Rollback criteria reviewed before deployment.
-* [ ] Promotion record written.
+* [x] Production release tag selected and recorded.
+* [x] Production shallow and deep health checks pass before deployment.
+* [x] Migration status checked; production migrations run successfully if required.
+* [x] ECS production service stabilizes.
+* [x] Production shallow and deep health checks pass after deployment.
+* [x] Public home page smoke check passed.
+* [x] Open Mat Radar smoke check passed.
+* [x] Academies page smoke check passed.
+* [x] Login page smoke check passed.
+* [x] Mobile public layout smoke check passed.
+* [x] Rollback criteria reviewed before deployment.
+* [x] Promotion record written.
 
 ## Deployment Notes
 
 Record promotion evidence here:
 
-* Approved by:
-* Approval time:
-* Deployed commit:
-* Production image:
-* Production image digest:
-* Production release tag:
-* Production task definition:
-* Migration result:
-* Health check result:
-* Public page smoke result:
-* Rollback decision:
+* Approved by: Product owner.
+* Approval time: 2026-06-08T23:49:54Z.
+* Deployed commit: `0f2eb929b814d739cacdcbf91b76cb50828ca165`.
+* Production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:0f2eb92`.
+* Production image digest: `sha256:d1b155078a1e479472ff54ed3c952ef00c4122687de818ade9efe327eb53bb91`.
+* Production release tag: `production-2026-06-09-01`.
+* Production task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:25`.
+* Migration result: production migration task completed successfully with `PRODUCTION_MIGRATION_APPROVED=true`.
+* Health check result: production shallow health returned `{"status":"ok"}` and deep health returned `{"status":"ok","database":"ok"}` after deployment.
+* Public page smoke result: `/`, `/open-mats`, `/academies`, and `/login` returned `200`.
+* Mobile public layout smoke result: production `/open-mats` HTML includes `grid grid-cols-3 gap-2` for the Today, Tomorrow, and This Weekend count row.
+* Home page content smoke result: production `/` includes `Upcoming Open Mats` and does not include `Featured Open Mats` or `Featured Academies`.
+* ECS result: production service `rollfinder-production/web` is `ACTIVE`, rollout `COMPLETED`, desired `2`, running `2`, pending `0`; target group settled to two healthy targets.
+* Academy claim invitation template upload: `s3://rollfinders/mails/invitations/academy-claim-invitation.html`, SHA-256 `e2283eadb1265f74aa668063e32cf793086bb9452da2a62f6c0b542c7c8088ad`, version `k7BCP2pf.dBj02WhexLyXGOhlZriyIKy`.
+* Direct deploy override: used `ALLOW_DIRECT_ENV_DEPLOY=true` because dev environment was not available as the promotion source and the production image was built directly from the approved `master` commit.
+* Rollback decision: rollback not required.
 
 ## Pre-Deployment Evidence
 
