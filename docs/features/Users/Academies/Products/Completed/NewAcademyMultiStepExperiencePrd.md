@@ -1,6 +1,6 @@
 # PRD: New Academy Multi-Step Experience
 
-Version: 1.0
+Version: 1.1
 
 Status: Done
 
@@ -9,6 +9,8 @@ Priority: High
 Review date: 2026-06-05
 
 Implementation evidence: `src/app/admin/academies/AcademyForm.tsx` implements the guided steps, review step, live preview, validation feedback, and sticky action controls.
+
+Pending requirement update: Location coordinates SHOULD be automatically resolved from the academy postcode or address when possible, while still allowing manual latitude and longitude entry.
 
 Branch:
 
@@ -123,6 +125,13 @@ Required:
 Optional:
 
 * `borough`
+
+Location automation:
+
+* The system SHOULD automatically populate `latitude` and `longitude` from the academy postcode or full address when a geocoding result is available.
+* Manual `latitude` and `longitude` input SHALL remain available.
+* Manually entered coordinates SHALL be treated as an explicit override and SHALL NOT be replaced without an admin action.
+* If automatic lookup fails, the admin SHALL be able to continue by entering coordinates manually.
 
 ## Media And Social
 
@@ -258,7 +267,48 @@ Done when:
 * Required location fields validate before review or submit.
 * Default city remains `London`.
 * Default country remains `United Kingdom`.
-* Default coordinates remain available when no coordinates are entered.
+* Latitude and longitude fields remain visible and editable.
+* Default coordinates remain available only as a fallback when no coordinates have been entered or resolved.
+
+---
+
+## NAM-006A: Automatic Coordinate Lookup
+
+IF the admin enters or updates the academy postcode or address
+
+WHEN enough location information is available to run a lookup
+
+THEN the system SHOULD automatically resolve and populate `latitude` and `longitude`.
+
+Done when:
+
+* Lookup can use postcode alone when supported by the selected provider.
+* Lookup can use the combined address, city, postcode, and country when postcode alone is not enough.
+* Automatically populated coordinates are shown in the latitude and longitude fields.
+* The UI indicates whether coordinates were auto-filled, manually edited, or still required.
+* Lookup failures show non-blocking feedback and do not erase existing coordinates.
+* The admin can trigger or retry lookup through an explicit action if automatic lookup does not run or fails.
+* Manual edits to either coordinate mark the coordinate pair as manually overridden.
+* Once manually overridden, automatic lookup SHALL NOT replace coordinates unless the admin explicitly chooses to refresh or use suggested coordinates.
+
+---
+
+## NAM-006B: Coordinate Validation And Source
+
+IF coordinates are auto-filled or manually entered
+
+WHEN the form validates the `Location` step
+
+THEN the system SHALL validate the coordinate values before review or submit.
+
+Done when:
+
+* `latitude` accepts numeric values from `-90` to `90`.
+* `longitude` accepts numeric values from `-180` to `180`.
+* Empty coordinates remain invalid unless the backend schema is changed to support missing coordinates.
+* Invalid manual coordinates show inline errors.
+* The review step identifies coordinates as `Auto-filled` or `Manual` when the source is known.
+* Coordinate source tracking MAY be UI-only unless product analytics or audit requirements require persistence.
 
 ---
 
@@ -273,6 +323,7 @@ THEN the preview panel SHOULD reflect the latest location summary.
 Done when:
 
 * Preview shows city and country.
+* Preview reflects the current latitude and longitude values after auto-fill or manual edits.
 * Invalid coordinates show inline validation before submit.
 * No map provider dependency is required for MVP unless already available.
 
@@ -469,6 +520,8 @@ Done when:
 * New Academy no longer appears as one long ungrouped form.
 * Admin can create an academy using a guided multi-step experience.
 * All existing academy fields remain supported.
+* Latitude and longitude can be auto-filled from postcode or address when lookup succeeds.
+* Admin can manually enter or override latitude and longitude.
 * Verification status remains part of academy creation.
 * Public `verified` state is derived from verification status.
 * Admin can review all values before creating the academy.
@@ -482,11 +535,13 @@ Done when:
 1. Create multi-step form shell and stepper.
 2. Move existing fields into step components.
 3. Add client-side step validation while keeping backend validation.
-4. Add live preview panel.
-5. Add review step and edit-step links.
-6. Submit through existing `createAcademy`.
-7. Remove or hide independent `Legacy verified flag` from the UI.
-8. Add tests or manual QA for required fields, step navigation, verification derivation, and responsive layout.
+4. Add coordinate lookup from postcode or address using the configured geocoding provider.
+5. Preserve manual latitude and longitude editing with explicit override behavior.
+6. Add live preview panel.
+7. Add review step and edit-step links.
+8. Submit through existing `createAcademy`.
+9. Remove or hide independent `Legacy verified flag` from the UI.
+10. Add tests or manual QA for required fields, coordinate lookup, manual coordinate override, step navigation, verification derivation, and responsive layout.
 
 ---
 
@@ -494,6 +549,10 @@ Done when:
 
 * Create academy with minimum required fields.
 * Create academy with all optional fields.
+* Verify postcode or address lookup auto-fills latitude and longitude when a valid result exists.
+* Verify failed coordinate lookup keeps the user on the Location step with non-blocking feedback and allows manual entry.
+* Verify manually edited latitude and longitude are not overwritten by automatic lookup unless the admin explicitly refreshes or accepts suggested coordinates.
+* Verify invalid latitude and longitude values show inline errors.
 * Verify duplicate slug error appears on Basics step.
 * Verify duplicate academy error appears with Basics and Location field hints.
 * Verify `Pending` creates `verified = false`.

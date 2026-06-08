@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Academy } from "@prisma/client";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { type FormEvent, useActionState, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import type { AcademyFormState } from "./actions";
 
 type AcademyAction = (state: AcademyFormState, formData: FormData) => Promise<AcademyFormState>;
@@ -26,6 +26,8 @@ const steps = [
 type StepId = typeof steps[number]["id"];
 
 type AcademyValues = Record<string, string>;
+type CoordinateSource = "default" | "auto" | "manual" | "existing";
+type CoordinateLookupStatus = "idle" | "looking" | "found" | "failed";
 
 const defaultValues: AcademyValues = {
   name: "",
@@ -120,7 +122,12 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
   const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
   const mode = academy ? "edit" : "create";
   const [values, setValues] = useState<AcademyValues>(() => ({ ...defaultValues, ...academyValues(academy), ...state.values }));
+  const [coordinateSource, setCoordinateSource] = useState<CoordinateSource>(academy ? "existing" : "default");
+  const [coordinateStatus, setCoordinateStatus] = useState<CoordinateLookupStatus>("idle");
+  const [coordinateMessage, setCoordinateMessage] = useState("");
   const [stepIndex, setStepIndex] = useState(0);
+  const lookupKeyRef = useRef("");
+  const lookupRequestRef = useRef(0);
   const currentStep = steps[stepIndex].id;
 
   useEffect(() => {
@@ -139,7 +146,76 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
   const completedSteps = useMemo(() => new Set(steps.slice(0, stepIndex).map((step) => step.id)), [stepIndex]);
 
   function updateField(name: string, value: string) {
+    if (name === "latitude" || name === "longitude") {
+      lookupRequestRef.current += 1;
+      setCoordinateSource("manual");
+      setCoordinateStatus("idle");
+      setCoordinateMessage("Manual coordinates will be used.");
+    }
     setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  useEffect(() => {
+    if (coordinateSource === "manual") return;
+    const lookupKey = coordinateLookupKey(values);
+    if (!canAttemptCoordinateLookup(values) || lookupKey === lookupKeyRef.current) return;
+    const timeout = window.setTimeout(() => {
+      void lookupCoordinates(false);
+    }, 900);
+    return () => window.clearTimeout(timeout);
+    // lookupCoordinates intentionally reads the latest values and coordinate state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values.address, values.city, values.postcode, values.country, coordinateSource]);
+
+  async function lookupCoordinates(force: boolean) {
+    if (!force && coordinateSource === "manual") return;
+    if (!canAttemptCoordinateLookup(values)) {
+      setCoordinateStatus("failed");
+      setCoordinateMessage("Enter a postcode or address before looking up coordinates.");
+      return;
+    }
+
+    const lookupKey = coordinateLookupKey(values);
+    const requestId = lookupRequestRef.current + 1;
+    lookupRequestRef.current = requestId;
+    lookupKeyRef.current = lookupKey;
+    setCoordinateStatus("looking");
+    setCoordinateMessage(force ? "Looking up coordinates..." : "Auto-filling coordinates...");
+
+    const params = new URLSearchParams({
+      address: values.address,
+      city: values.city,
+      postcode: values.postcode,
+      country: values.country,
+    });
+
+    try {
+      const response = await fetch(`/api/admin/geocode?${params.toString()}`);
+      const data = await response.json().catch(() => null) as { latitude?: number; longitude?: number; label?: string; error?: string } | null;
+      if (requestId !== lookupRequestRef.current) return;
+      if (!response.ok || typeof data?.latitude !== "number" || typeof data.longitude !== "number") {
+        setCoordinateStatus("failed");
+        setCoordinateMessage(data?.error ?? "No coordinates found. Enter latitude and longitude manually.");
+        return;
+      }
+
+      setValues((current) => ({
+        ...current,
+        latitude: data.latitude?.toFixed(6) ?? current.latitude,
+        longitude: data.longitude?.toFixed(6) ?? current.longitude,
+      }));
+      setCoordinateSource("auto");
+      setCoordinateStatus("found");
+      setCoordinateMessage(`Coordinates auto-filled${data.label ? ` from ${data.label}` : ""}.`);
+    } catch {
+      if (requestId !== lookupRequestRef.current) return;
+      setCoordinateStatus("failed");
+      setCoordinateMessage("Coordinate lookup failed. Enter latitude and longitude manually.");
+    }
+  }
+
+  function resetCoordinateOverride() {
+    void lookupCoordinates(true);
   }
 
   function autoGenerateSlug() {
@@ -202,10 +278,21 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
         <section className="min-w-0">
           {state.message ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{state.message}</p> : null}
           {currentStep === "basics" ? <BasicsStep autoGenerateSlug={autoGenerateSlug} errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
-          {currentStep === "location" ? <LocationStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
+          {currentStep === "location" ? (
+            <LocationStep
+              coordinateMessage={coordinateMessage}
+              coordinateSource={coordinateSource}
+              coordinateStatus={coordinateStatus}
+              errors={mergeErrors(clientErrors, state.fieldErrors)}
+              lookupCoordinates={() => lookupCoordinates(true)}
+              resetCoordinateOverride={resetCoordinateOverride}
+              updateField={updateField}
+              values={values}
+            />
+          ) : null}
           {currentStep === "media" ? <MediaStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
           {currentStep === "settings" ? <SettingsStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
-          {currentStep === "review" ? <ReviewStep errors={clientErrors} mode={mode} setStepIndex={setStepIndex} values={values} /> : null}
+          {currentStep === "review" ? <ReviewStep coordinateSource={coordinateSource} errors={clientErrors} mode={mode} setStepIndex={setStepIndex} values={values} /> : null}
         </section>
 
         <aside className="grid gap-4 lg:sticky lg:top-4 lg:self-start">
@@ -264,7 +351,25 @@ function BasicsStep({ autoGenerateSlug, errors, updateField, values }: StepProps
   );
 }
 
-function LocationStep({ errors, updateField, values }: StepProps) {
+function LocationStep({
+  coordinateMessage,
+  coordinateSource,
+  coordinateStatus,
+  errors,
+  lookupCoordinates,
+  resetCoordinateOverride,
+  updateField,
+  values,
+}: StepProps & {
+  coordinateMessage: string;
+  coordinateSource: CoordinateSource;
+  coordinateStatus: CoordinateLookupStatus;
+  lookupCoordinates: () => void;
+  resetCoordinateOverride: () => void;
+}) {
+  const sourceLabel = coordinateSource === "auto" ? "Auto-filled" : coordinateSource === "manual" ? "Manual" : coordinateSource === "existing" ? "Existing" : "Default";
+  const messageTone = coordinateStatus === "failed" ? "border-red-100 bg-red-50 text-red-800" : coordinateStatus === "found" ? "border-teal-100 bg-teal-50 text-teal-900" : "border-stone-200 bg-stone-50 text-stone-700";
+
   return (
     <StepSection title="Location" description="Add the address and coordinates used in public listings.">
       <Field name="address" label="Address" required value={values.address} errors={errors.address} onChange={updateField} />
@@ -275,6 +380,24 @@ function LocationStep({ errors, updateField, values }: StepProps) {
         <Field name="country" label="Country" required value={values.country} errors={errors.country} onChange={updateField} />
         <Field name="latitude" label="Latitude" required value={values.latitude} errors={errors.latitude} onChange={updateField} />
         <Field name="longitude" label="Longitude" required value={values.longitude} errors={errors.longitude} onChange={updateField} />
+      </div>
+      <div className={`rounded-md border p-3 text-sm font-semibold ${messageTone}`}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Coordinates: {sourceLabel}
+            {coordinateMessage ? <span className="block font-medium">{coordinateMessage}</span> : null}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={lookupCoordinates} disabled={coordinateStatus === "looking"} className="min-h-10 rounded-md border border-teal-200 bg-white px-3 text-sm font-bold text-teal-800 disabled:cursor-not-allowed disabled:text-stone-400">
+              {coordinateStatus === "looking" ? "Finding..." : "Find coordinates"}
+            </button>
+            {coordinateSource === "manual" ? (
+              <button type="button" onClick={resetCoordinateOverride} className="min-h-10 rounded-md border border-stone-300 bg-white px-3 text-sm font-bold text-stone-800">
+                Use lookup
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
     </StepSection>
   );
@@ -326,7 +449,7 @@ function SettingsStep({ errors, updateField, values }: StepProps) {
   );
 }
 
-function ReviewStep({ errors, mode, setStepIndex, values }: { errors: Record<string, string>; mode: "create" | "edit"; setStepIndex: (index: number) => void; values: AcademyValues }) {
+function ReviewStep({ coordinateSource, errors, mode, setStepIndex, values }: { coordinateSource: CoordinateSource; errors: Record<string, string>; mode: "create" | "edit"; setStepIndex: (index: number) => void; values: AcademyValues }) {
   const errorEntries = Object.entries(errors);
   const actionLabel = mode === "edit" ? "saving" : "creating";
   return (
@@ -347,7 +470,7 @@ function ReviewStep({ errors, mode, setStepIndex, values }: { errors: Record<str
           </div>
           <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
             {fieldsByStep[step.id].map((field) => (
-              <ReviewValue key={field} label={field} value={displayValue(field, values[field])} />
+              <ReviewValue key={field} label={field} value={displayValue(field, values[field], coordinateSource)} />
             ))}
           </div>
         </section>
@@ -497,6 +620,8 @@ function validateValues(values: AcademyValues) {
   if (values.country.trim().length < 2) errors.country = "Country is required.";
   if (!Number.isFinite(Number(values.latitude))) errors.latitude = "Latitude must be a valid number.";
   if (!Number.isFinite(Number(values.longitude))) errors.longitude = "Longitude must be a valid number.";
+  if (Number.isFinite(Number(values.latitude)) && (Number(values.latitude) < -90 || Number(values.latitude) > 90)) errors.latitude = "Latitude must be between -90 and 90.";
+  if (Number.isFinite(Number(values.longitude)) && (Number(values.longitude) < -180 || Number(values.longitude) > 180)) errors.longitude = "Longitude must be between -180 and 180.";
   ["website", "logoUrl", "coverImageUrl", "facebookUrl", "instagramUrl", "xUrl"].forEach((field) => {
     if (values[field] && !isLikelyUrl(values[field])) errors[field] = "Enter a valid URL or leave blank.";
   });
@@ -514,10 +639,22 @@ function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<
   return merged;
 }
 
-function displayValue(field: string, value: string) {
+function displayValue(field: string, value: string, coordinateSource?: CoordinateSource) {
   if (["giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "sendClaimInvitation"].includes(field)) return value === "on" ? "Yes" : "No";
   if (field === "verificationStatus") return value;
+  if ((field === "latitude" || field === "longitude") && value) {
+    const source = coordinateSource === "auto" ? "Auto-filled" : coordinateSource === "manual" ? "Manual" : coordinateSource === "existing" ? "Existing" : "Default";
+    return `${value} (${source})`;
+  }
   return value || "Not provided";
+}
+
+function coordinateLookupKey(values: AcademyValues) {
+  return [values.address, values.city, values.postcode, values.country].map((value) => value.trim().toLowerCase()).join("|");
+}
+
+function canAttemptCoordinateLookup(values: AcademyValues) {
+  return values.postcode.trim().length >= 3 || [values.address, values.city, values.country].filter((value) => value.trim()).join(", ").length >= 8;
 }
 
 function isLikelyUrl(value: string) {
