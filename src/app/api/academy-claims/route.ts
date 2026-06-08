@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { ClaimStatus } from "@prisma/client";
+import { analyticsCountryFromRequest } from "@/lib/analytics/country";
+import { analyticsIdentityFromRequest, hashRequestIp } from "@/lib/analytics/identity";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { isAcademyManaged, isDuplicatePendingClaimError, nullableString, publicClaimResponse, zodFieldErrors } from "@/lib/claim-requests";
 import { prisma } from "@/lib/prisma";
 import { claimRequestSchema } from "@/lib/validators";
@@ -59,6 +62,19 @@ export async function POST(request: Request) {
         status: ClaimStatus.PENDING,
       },
       select: { id: true, academyId: true, status: true, createdAt: true },
+    });
+    const identity = analyticsIdentityFromRequest(request);
+    const country = analyticsCountryFromRequest(request);
+    await recordAnalyticsEventBestEffort({
+      eventName: "claim_profile_submitted",
+      academyId: claim.academyId,
+      source: "public_academy_claim",
+      visitorId: identity.visitorId,
+      sessionId: identity.sessionId,
+      countryCode: country.countryCode,
+      countryName: country.countryName,
+      ipHash: hashRequestIp(request),
+      metadata: { claimId: claim.id },
     });
 
     return NextResponse.json({ claim: publicClaimResponse(claim) }, { status: 201 });

@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
+import { AnalyticsClickTracker, AnalyticsViewTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canDeleteAcademyRecord, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
-import { getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
 import { AcademyForm } from "../AcademyForm";
@@ -16,14 +17,21 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
   const access = await requireAcademyEditor(id);
   const currentUser = await getCurrentUser();
   const academyAdmin = isAcademyAdminRole(currentUser?.role);
-  const academy = await prisma.academy.findUnique({
-    where: { id },
-    include: { events: true, claims: true, members: true },
-  });
+  const showAcademyStats = isPlatformAdminRole(currentUser?.role);
+  const [academy, profileViewCount] = await Promise.all([
+    prisma.academy.findUnique({
+      where: { id },
+      include: { events: true, claims: true, members: true },
+    }),
+    prisma.analyticsEvent.count({
+      where: { academyId: id, eventName: "academy_profile_viewed" },
+    }),
+  ]);
   if (!academy) notFound();
 
   return (
     <PageShell>
+      <AnalyticsViewTracker eventName="academy_profile_viewed" metadata={{ academyId: academy.id, sourcePage: "admin_academy_profile_summary" }} />
       <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
@@ -45,28 +53,42 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
-          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm lg:col-span-2">
+        <div className={`mt-6 grid gap-4 ${showAcademyStats ? "lg:grid-cols-3" : ""}`}>
+          <section className={`rounded-lg border border-stone-200 bg-white p-4 shadow-sm ${showAcademyStats ? "lg:col-span-2" : ""}`}>
             <h2 className="text-lg font-black text-stone-950">Summary</h2>
             <p className="mt-3 leading-7 text-stone-700">{academy.description}</p>
             <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <Info label="Website" value={academy.website ?? "Not listed"} />
-              <Info label="Email" value={academy.email ?? "Not listed"} />
-              <Info label="Phone" value={academy.phone ?? "Not listed"} />
+              <Info label="Website" value={academy.website ? (
+                <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "website", academyId: academy.id, external: true, sourcePage: "admin_academy_profile_summary" }}>
+                  <a className="text-teal-800" href={academy.website}>{academy.website}</a>
+                </AnalyticsClickTracker>
+              ) : "Not listed"} />
+              <Info label="Email" value={academy.email ? (
+                <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "email", academyId: academy.id, external: true, sourcePage: "admin_academy_profile_summary" }}>
+                  <a className="text-teal-800" href={`mailto:${academy.email}`}>{academy.email}</a>
+                </AnalyticsClickTracker>
+              ) : "Not listed"} />
+              <Info label="Phone" value={academy.phone ? (
+                <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "phone", academyId: academy.id, external: true, sourcePage: "admin_academy_profile_summary" }}>
+                  <a className="text-teal-800" href={`tel:${academy.phone}`}>{academy.phone}</a>
+                </AnalyticsClickTracker>
+              ) : "Not listed"} />
               <Info label="Categories" value={academy.categories ?? "Not categorised"} />
             </div>
           </section>
-          <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-            <h2 className="text-lg font-black text-stone-950">Statistics</h2>
-            <div className="mt-3 grid gap-3">
-              <Info label="Profile views" value="0" />
-              <Info label="Enquiries" value={academy.claims.length.toString()} />
-              <Info label="Reviews" value="0" />
-              <Info label="Average rating" value="Not rated" />
-              <Info label="Open mats" value={academy.events.length.toString()} />
-              <Info label="Admins" value={academy.members.length.toString()} />
-            </div>
-          </section>
+          {showAcademyStats ? (
+            <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+              <h2 className="text-lg font-black text-stone-950">Statistics</h2>
+              <div className="mt-3 grid gap-3">
+                <Info label="Profile views" value={profileViewCount.toString()} />
+                <Info label="Enquiries" value={academy.claims.length.toString()} />
+                <Info label="Reviews" value="0" />
+                <Info label="Average rating" value="Not rated" />
+                <Info label="Open mats" value={academy.events.length.toString()} />
+                <Info label="Admins" value={academy.members.length.toString()} />
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <section className="mt-6 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
@@ -93,7 +115,7 @@ function StatusBadge({ children }: { children: React.ReactNode }) {
   return <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold uppercase text-stone-700">{children}</span>;
 }
 
-function Info({ label, value }: { label: string; value: string }) {
+function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs font-bold uppercase text-stone-500">{label}</p>

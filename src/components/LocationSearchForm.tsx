@@ -7,6 +7,7 @@ import { Button } from "./Button";
 
 type LocationSearchFormProps = {
   action: string;
+  analyticsIntent?: string;
   query?: string;
   placeholder: string;
   autoLocate?: boolean;
@@ -19,7 +20,7 @@ function locationValues(searchParams: URLSearchParams) {
   };
 }
 
-export function LocationSearchForm({ action, query = "", placeholder, autoLocate = true }: LocationSearchFormProps) {
+export function LocationSearchForm({ action, analyticsIntent, query = "", placeholder, autoLocate = true }: LocationSearchFormProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -55,6 +56,7 @@ export function LocationSearchForm({ action, query = "", placeholder, autoLocate
 
   return (
     <form action={action} className="rounded-lg border border-stone-200 bg-white p-2 shadow-sm">
+      {analyticsIntent ? <input type="hidden" name="analyticsIntent" value={analyticsIntent} /> : null}
       <input type="hidden" name="lat" value={lat} />
       <input type="hidden" name="lng" value={lng} />
       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">

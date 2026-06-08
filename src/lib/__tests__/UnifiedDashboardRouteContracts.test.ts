@@ -159,6 +159,27 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(source, /return\s+query\s*\?\s*`\/dashboard\?`\s*:\s*"\/dashboard"/);
   });
 
+  it("academy profile analytics summary is reachable for admin roles but not standard users", () => {
+    const adminSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const standardSource = readSource("src/app/dashboard/page.tsx");
+    const academyDetailSource = readSource("src/app/admin/academies/[id]/page.tsx");
+
+    assert.match(adminSource, /title:\s*academyAdmin\s*\?\s*"Academy Profile Summary"\s*:\s*"Manage Academies"/);
+    assert.match(adminSource, /href:\s*academyAdmin\s*&&\s*currentUser\.academyId\s*\?\s*`\/admin\/academies\/\$\{currentUser\.academyId\}`\s*:\s*"\/dashboard\?panel=academies"/);
+    assert.match(adminSource, /Profile Summary/);
+    assert.match(academyDetailSource, /requireAcademyEditor\(id\)/);
+    assert.match(academyDetailSource, /isPlatformAdminRole\(currentUser\?\.role\)/);
+    assert.match(academyDetailSource, /prisma\.analyticsEvent\.count\(\{/);
+    assert.match(academyDetailSource, /eventName:\s*"academy_profile_viewed"/);
+    assert.match(academyDetailSource, /<h2 className="text-lg font-black text-stone-950">Summary<\/h2>/);
+    assert.match(academyDetailSource, /<h2 className="text-lg font-black text-stone-950">Statistics<\/h2>/);
+    assert.match(academyDetailSource, /showAcademyStats\s*\?\s*\(/);
+    assert.match(academyDetailSource, /<Info label="Profile views" value=\{profileViewCount\.toString\(\)\} \/>/);
+    assert.match(academyDetailSource, /<Info label="Open mats" value=\{academy\.events\.length\.toString\(\)\} \/>/);
+    assert.match(academyDetailSource, /<Info label="Admins" value=\{academy\.members\.length\.toString\(\)\} \/>/);
+    assert.doesNotMatch(standardSource, /Academy Profile Summary|Profile Summary|\/admin\/academies\/\$\{currentUser\.academyId\}/);
+  });
+
   it("managed user actions only return to canonical admin or dashboard paths", () => {
     assert.equal(managedUsersReturnPath("/dashboard?panel=users"), "/dashboard?panel=users");
     assert.equal(managedUsersReturnPath("/dashboard/users?panel=users"), "/dashboard/users?panel=users");
@@ -170,6 +191,16 @@ describe("unified dashboard route contracts", () => {
     assert.equal(managedUsersReturnPath("/dashboardevil?panel=users"), "/admin/users");
     assert.equal(managedUsersReturnPath("/administration/users"), "/admin/users");
     assert.equal(managedUsersReturnPath("/admin.evil/users"), "/admin/users");
+  });
+
+  it("admin side panel keeps Settings as the final primary navigation item", () => {
+    const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
+
+    assert.notEqual(navigationSource, "", "Expected admin navigation source to be present");
+    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Claims"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Map"/);
   });
 
   it("admin settings use quick actions to inject one selected settings detail panel", () => {

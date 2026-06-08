@@ -206,6 +206,8 @@ model Academy {
   users              User[]                    @relation("AcademyUsers")
   invitations        AcademyInvitation[]
   claimReminders     AcademyClaimReminder[]
+  analyticsEvents    AnalyticsEvent[]
+  analyticsMetrics   AnalyticsDailyMetric[]
 
   @@index([city])
   @@index([postcode])
@@ -237,6 +239,8 @@ model Event {
   createdAt         DateTime       @default(now()) @map("created_at")
   academy           Academy        @relation(fields: [academyId], references: [id], onDelete: Cascade)
   createdBy         User?          @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  analyticsEvents   AnalyticsEvent[]
+  analyticsMetrics  AnalyticsDailyMetric[]
 
   @@index([eventDate])
   @@index([academyId])
@@ -474,4 +478,69 @@ model InvalidEmailAddress {
 
   @@index([userId])
   @@map("invalid_email_addresses")
+}
+
+model AnalyticsVisitor {
+  id             String           @id @map("visitor_id")
+  lastSessionId  String?          @map("last_session_id")
+  ipHash         String?          @map("ip_hash")
+  userAgentHash  String?          @map("user_agent_hash")
+  firstSeenAt    DateTime         @default(now()) @map("first_seen_at")
+  lastSeenAt     DateTime         @default(now()) @map("last_seen_at")
+  sessionSeenAt  DateTime?        @map("session_seen_at")
+  metadata       Json?
+  events         AnalyticsEvent[]
+
+  @@index([lastSeenAt])
+  @@index([lastSessionId])
+  @@map("analytics_visitors")
+}
+
+model AnalyticsEvent {
+  id        String            @id @default(cuid())
+  eventName String            @map("event_name")
+  visitorId String?           @map("visitor_id")
+  sessionId String?           @map("session_id")
+  ipHash    String?           @map("ip_hash")
+  academyId String?           @map("academy_id")
+  openMatId String?           @map("open_mat_id")
+  countryCode String?          @map("country_code")
+  countryName String?          @map("country_name")
+  source    String
+  metadata  Json?
+  createdAt DateTime          @default(now()) @map("created_at")
+  visitor   AnalyticsVisitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  academy   Academy?          @relation(fields: [academyId], references: [id], onDelete: SetNull)
+  openMat   Event?            @relation(fields: [openMatId], references: [id], onDelete: SetNull)
+
+  @@index([eventName, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([academyId, createdAt])
+  @@index([openMatId, createdAt])
+  @@index([countryCode, createdAt])
+  @@index([createdAt])
+  @@map("analytics_events")
+}
+
+model AnalyticsDailyMetric {
+  id           String    @id @default(cuid())
+  metricDate   DateTime  @map("metric_date") @db.Date
+  metricName   String    @map("metric_name")
+  source       String?
+  academyId    String?   @map("academy_id")
+  openMatId    String?   @map("open_mat_id")
+  dimensionKey String    @default("global") @map("dimension_key")
+  dimensions   Json?
+  value        Int       @default(0)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  academy      Academy?  @relation(fields: [academyId], references: [id], onDelete: SetNull)
+  openMat      Event?    @relation(fields: [openMatId], references: [id], onDelete: SetNull)
+
+  @@unique([metricDate, metricName, dimensionKey])
+  @@index([metricDate])
+  @@index([metricName, metricDate])
+  @@index([academyId, metricDate])
+  @@index([openMatId, metricDate])
+  @@map("analytics_daily_metrics")
 }

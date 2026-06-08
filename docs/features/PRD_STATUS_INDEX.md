@@ -26,7 +26,7 @@ Status meanings:
 | Pending Academies | Partial | Pending counts, status badges, filters, and academy management visibility exist. | Add/verify dashboard metric drilldown for pending academies if still required by the PRD. |
 | User Management | Done | `/admin/users` and APIs support search/filter/pagination, create/edit/disable/enable/delete/password reset email, protected account safeguards, and audit logs. | Keep protected-account safeguards covered by tests. |
 | User Profile / Self Dashboard | Partial | Standard dashboard profile/settings/change-password/edit-profile views exist; admin user detail pages and simple profile-style account views exist. | Proposal docs for the broader profile strategy remain not done unless intentionally descoped. |
-| Analytics | Not done | No analytics provider, event tracking, or reporting pipeline was found in source. | Configure provider, track MVP discovery/claim/direction/search events, and create a lightweight monthly reporting path. |
+| Analytics | Done with follow-ups | First-party analytics storage, event contracts, public ingestion API, best-effort server/client tracking, daily aggregation job, Super Admin reporting API, and founder dashboard panel exist. | Add long-term retention policy, richer drilldowns, and operational scheduling for daily aggregation if required. |
 | Email Delivery | Done | Reliable outbound email queue, job route, password reset, academy claim invitation, claim approval/reset, and rejection emails exist. | User onboarding credential content/delivery PRDs remain under review unless their exact copy/delivery requirements are accepted as covered by password reset flow. |
 | Deployment / AWS | Done with operations follow-ups | Terraform modules, environment configs, bootstrap/deploy/promotion/locking scripts, health route, deployment docs, and resource inventory exist. | Validation, seed/migration, destruction, cost, and state-layer PRDs remain under review where operational acceptance is not fully proven. |
 | Reusable UI Components | Mostly done | Button, Table, StatIndicator, StatsPanel, QuickActionPanel, SidePanelControl, shared dashboard/public components, and tests exist. | Badge, form field system, filter form, page header, panel surface, metric card, list panel, domain cards, and dashboard top header remain docs/reference or reusable-system follow-ups unless adopted as canonical shared primitives. |
@@ -52,6 +52,23 @@ Status meanings:
 * `Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 * `Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
 * `Users/Standard/Products/Completed/UserProfileRedesignPrd.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsDatabaseFoundationTicket.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsDomainModelsTicket.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsEventServiceTicket.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsVisitorTrackingTicket.md`
+* `AnalyticalEventTracking/Tickets/AcademySearchAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/OpenMatSearchAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/AcademyProfileAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/AcademyProfileAnalyticsUiTicket.md`
+* `AnalyticalEventTracking/Tickets/OpenMatViewAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/CommercialIntentAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/ClaimFunnelAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/MarketplaceSupplyAnalyticsTicket.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsDailyAggregationTicket.md`
+* `AnalyticalEventTracking/Tickets/FounderAnalyticsApiTicket.md`
+* `AnalyticalEventTracking/Tickets/FounderAnalyticsDashboardTicket.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsTestingTicket.md`
+* `AnalyticalEventTracking/Tickets/AnalyticsHardeningTicket.md`
 
 ### Implemented PRDs Not Yet Filed Under `Completed`
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { approveAcademyClaim, queueClaimApprovedEmail } from "@/lib/claim-requests";
 import { getCurrentUser, requirePlatformAdminApi } from "@/lib/admin";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requirePlatformAdminApi();
@@ -11,6 +12,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { id } = await params;
   const result = await approveAcademyClaim(id, actor.id);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  await recordAnalyticsEventBestEffort({
+    eventName: "claim_approved",
+    academyId: result.claim.academyId,
+    source: "admin_claims",
+    metadata: {
+      claimId: result.claim.id,
+      actorUserId: actor.id,
+      createdUser: result.createdUser ?? false,
+    },
+  });
 
   let setupEmailQueued = false;
   if (result.user) {

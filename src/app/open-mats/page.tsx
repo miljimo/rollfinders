@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { OpenMatLocationFilterForm } from "@/components/OpenMatLocationFilterForm";
 import { EventCard } from "@/components/EventCard";
+import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { getOpenMatRadar } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +17,7 @@ export const metadata: Metadata = {
 
 const pageSize = 12;
 
-type OpenMatSearchParams = { q?: string; when?: string; gi?: string; lat?: string; lng?: string; page?: string };
+type OpenMatSearchParams = { analyticsIntent?: string; q?: string; when?: string; gi?: string; lat?: string; lng?: string; page?: string };
 
 function pageFromParam(value?: string) {
   const page = Number(value ?? "1");
@@ -56,6 +59,25 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
   const pagedEvents = events.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  if (params.analyticsIntent === "open_mat_search" && (q.trim() || when || gi || lat || lng)) {
+    const country = analyticsCountryFromHeaders(await headers());
+    await recordAnalyticsEventBestEffort({
+      eventName: "open_mat_search_submitted",
+      source: "public_open_mats",
+      countryCode: country.countryCode,
+      countryName: country.countryName,
+      metadata: {
+        query: q.trim().toLowerCase(),
+        when: when || null,
+        gi: gi || null,
+        hasCoordinates: Boolean(lat && lng),
+        resultCount: totalItems,
+        page: currentPage,
+        zeroResults: totalItems === 0,
+      },
+    });
+  }
 
   return (
     <PageShell>

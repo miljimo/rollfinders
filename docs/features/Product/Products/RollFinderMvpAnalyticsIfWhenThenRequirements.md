@@ -1,740 +1,301 @@
-# PRD: MVP Analytics For Success Metrics
+# PRD: MVP Analytics For Success Metrics (Internal Analytics Provider)
 
-Version: 1.0
+Version: 2.0
 
 Priority: Medium
 
-Status: Backlog - not required for immediate MVP launch
+Status: Backlog - Not Required For Immediate MVP Launch
 
-Source Requirement: `docs/features/Product/Products/RollFinderMissingMvpRequirementsPrd.md` MR-003
+Review Date: 2026-06-08
 
-Review date: 2026-06-06
-
-Provider decision: PostHog
-
----
-
-# Schema Impact
-
-No schema changes are required for this PRD.
-
-IF MVP analytics is implemented
-
-WHEN the deployment is prepared
-
-THEN no database migration script SHALL be required for this PRD.
-
-AND analytics SHALL be configured through environment variables.
-
-AND missing analytics configuration SHALL NOT break page rendering, navigation, search, directions clicks, or claim submission.
+Provider Decision: RollFinders Internal Analytics
 
 ---
 
 # Product Decision
 
-PostHog is the selected MVP analytics provider.
+RollFinders SHALL implement and maintain an internal analytics platform for MVP success measurement.
 
-RollFinders' market wedge is live BJJ training discovery, not a generic gym directory. Analytics must prove whether practitioners can find real training opportunities and whether academies receive commercially meaningful attention.
+The objective of MVP analytics is to measure:
+
+* Training discovery demand
+* Academy engagement
+* Open Mat engagement
+* Commercial intent
+* Academy claiming adoption
+
+without reliance on third-party analytics providers.
 
 IF MVP analytics is implemented
 
-WHEN the provider is configured
+WHEN the application is deployed
 
-THEN RollFinders SHALL use PostHog for public discovery and claim funnel analytics.
+THEN RollFinders SHALL store analytics events within its own infrastructure.
 
-AND the implementation SHALL include safe no-op behavior when PostHog configuration is missing or disabled.
+AND analytics SHALL remain fully operational without external analytics vendors.
 
-AND the implementation SHALL NOT add BI dashboards, session replay, heatmaps, A/B testing, revenue analytics, paid-placement analytics, admin rewards analytics, or full admin activity analytics in version 1.
+AND analytics SHALL NOT require PostHog, Google Analytics, Mixpanel, Segment, or any other third-party analytics platform.
 
-IF a proposed analytics event does not help measure training discovery, schedule trust, academy-owner interest, or commercial intent
-
-WHEN the implementation scope is reviewed
-
-THEN the event SHALL be deferred from MVP analytics.
+AND analytics SHALL continue functioning if external services are unavailable.
 
 ---
 
-# Cost Estimate
+# Analytics Architecture
 
-Pricing source: PostHog public pricing, reviewed on 2026-06-06.
+The analytics platform SHALL consist of:
 
-PostHog Product Analytics currently includes:
+* Event Collection API
+* Analytics Event Storage
+* Analytics Reporting Dashboard
+* Analytics Aggregation Services
 
-* 1,000,000 analytics events per month free.
-* Usage-based pricing after the free tier at `$0.00005` per event.
-
-This MVP analytics release SHALL only use Product Analytics events.
-
-IF the implementation does not enable Session Replay, Feature Flags, Surveys, Heatmaps, Experiments, Data Warehouse, or other paid PostHog products
-
-WHEN monthly usage is estimated
-
-THEN the expected analytics cost SHALL be based only on Product Analytics event volume.
-
-Estimated monthly Product Analytics cost:
-
-| Monthly events | Estimated monthly cost |
-| --- | ---: |
-| 100,000 | `$0` |
-| 500,000 | `$0` |
-| 1,000,000 | `$0` |
-| 2,000,000 | `$50` |
-| 5,000,000 | `$200` |
-
-Formula:
+Suggested implementation:
 
 ```text
-max(0, monthly_events - 1,000,000) * 0.00005
+src/lib/analytics
+src/app/api/analytics/events
+src/app/admin/analytics
 ```
 
-Cost control requirements:
+---
 
-IF analytics is implemented for MVP
+# Database Requirements
 
-WHEN events are added
+A new analytics event table SHALL be created.
 
-THEN the implementation SHALL avoid noisy high-frequency events such as scroll depth, mouse movement, session replay, heatmaps, or repeated polling events.
+Suggested schema:
 
-AND the implementation SHALL prefer meaningful product events tied to discovery, directions, and claims.
+analytics_events
 
-IF monthly event volume approaches the free tier limit
+* id
+* event_name
+* academy_id
+* open_mat_id
+* session_id
+* visitor_id
+* source
+* metadata_json
+* created_at
 
-WHEN the founder reviews analytics usage
+Analytics data SHALL be append-only.
 
-THEN RollFinders SHOULD review event volume, remove low-value events, or set PostHog billing limits before accepting paid overage.
-
-# Implementation Branch
-
-Use branch:
-
-`feature/mvp-analytics-success-metrics`
-
-Branch purpose:
-
-* Configure PostHog as the MVP analytics provider.
-* Configure production analytics.
-* Track page views, searches, profile/detail views, directions clicks, map events, and claim funnel events.
-* Make MVP visitor, active user, returning user, and search metrics measurable.
+Analytics events SHALL NOT affect production user flows.
 
 ---
 
-# User Story
+# Visitor Identification
 
-As the founder, I want analytics for discovery behavior so that I can measure whether the MVP is reaching traction.
+IF a visitor accesses RollFinders
 
----
+WHEN a session begins
 
-# Scope
+THEN the system SHALL generate an anonymous visitor identifier.
 
-In scope:
+AND the identifier SHALL be stored using cookies or local storage.
 
-* PostHog provider configuration.
-* Safe analytics no-op behavior when disabled or unconfigured.
-* Page view tracking.
-* Search submission tracking.
-* Open mat and academy profile view tracking.
-* Directions click tracking.
-* Map view and marker click tracking.
-* Claim funnel tracking for the implemented academy claiming flow.
-* Lightweight reporting path for MVP success metrics.
+AND the identifier SHALL NOT contain personal information.
 
-Out of scope:
+Examples:
 
-* Full BI warehouse.
-* A/B testing.
-* Revenue analytics.
-* Paid subscription analytics.
-* Session replay.
-* Heatmaps.
-* Individual user profiling.
-* Advertising attribution beyond provider defaults.
-* Admin activity analytics.
-* Platform Admin activity target or reward analytics.
-* Custom interactive map work.
+* UUID
+* Random generated token
+
+The system SHALL support:
+
+* Monthly Visitors
+* Weekly Active Users
+* Returning Visitors
+
+using anonymous visitor identifiers.
 
 ---
 
-# Implementation Summary
+# Event Collection API
 
-The first analytics release SHALL be limited to public discovery and academy claim funnel learning.
+IF an event is generated
 
-Likely implementation areas:
+WHEN the application submits analytics data
 
-* `src/app/layout.tsx`
-* Public academy pages
-* Public Open Mat pages
-* Public map page
-* Academy claim start and submission flow
-* Shared analytics helper such as `src/lib/analytics.ts` or an equivalent client-safe helper
+THEN the event SHALL be sent to:
 
-IF analytics code runs in a browser context
+```text
+POST /api/analytics/events
+```
 
-WHEN PostHog is configured
+The endpoint SHALL:
 
-THEN the app SHALL load and use PostHog.
+* Validate payloads
+* Ignore malformed requests
+* Store valid events
+* Return success immediately
 
-IF analytics code runs without PostHog configuration
-
-WHEN events are requested
-
-THEN the app SHALL silently no-op.
-
-AND the user flow SHALL continue.
+Analytics processing SHALL NEVER block user actions.
 
 ---
 
-# Future Market And Monetization Guidance
+# Event Tracking Scope
 
-Analytics may support future monetization, but monetization is not required for the immediate MVP launch.
+The system SHALL support:
 
-IF academy claiming is available during MVP
-
-WHEN academy owners are invited to claim listings
-
-THEN claiming SHALL remain free.
-
-AND basic academy listing presence SHALL remain free.
-
-AND practitioner access SHALL remain free.
-
-IF analytics demonstrates meaningful owner-facing demand after MVP launch
-
-WHEN commercial experiments are planned
-
-THEN RollFinders SHOULD test low-friction monetization through featured Open Mats, claimed academy performance reports, and later premium academy visibility.
-
-AND RollFinders SHALL NOT build paid billing flows, owner BI dashboards, or paid placement automation as part of this MVP analytics PRD.
-
-IF owner-facing analytics are packaged after MVP instrumentation
-
-WHEN the founder communicates value to academies
-
-THEN the reporting language SHOULD focus on commercial intent, such as profile views, Open Mat views, direction clicks, website clicks, and contact clicks.
+* academy_search_submitted
+* open_mat_search_submitted
+* academy_profile_viewed
+* open_mat_detail_viewed
+* directions_clicked
+* website_clicked
+* phone_clicked
+* email_clicked
+* social_clicked
+* map_viewed
+* map_marker_clicked
+* claim_profile_started
+* claim_profile_submitted
+* claim_approved
+* claim_rejected
+* recurring_open_mat_created
 
 ---
 
-# Event Names
+# Founder Reporting Dashboard
 
-Use these stable event names:
+A founder-only analytics dashboard SHALL be available.
 
-* `academy_search_submitted`
-* `open_mat_search_submitted`
-* `open_mat_detail_viewed`
-* `academy_profile_viewed`
-* `directions_clicked`
-* `website_clicked`
-* `phone_clicked`
-* `email_clicked`
-* `social_clicked`
-* `map_viewed`
-* `map_marker_clicked`
-* `claim_profile_started`
-* `claim_profile_submitted`
-* `claim_approved`
-* `claim_rejected`
-* `recurring_open_mat_created`
+Route:
 
-Privacy rule:
+```text
+/admin/analytics
+```
 
-* Do not send raw email addresses, phone numbers, exact user latitude/longitude, free-form claim notes, or verification evidence to analytics.
-* Do not send raw free-text search terms when they may expose personal data.
-* Prefer boolean flags, counts, IDs, slugs, filter names, broad location fields, and source page identifiers.
+The dashboard SHALL display:
 
----
+## Visitor Metrics
 
-# Requirement 1: Production Analytics Provider
+* Monthly Visitors
+* Weekly Active Users
+* Returning Visitor Percentage
+* Sessions
 
-IF the RollFinder application is deployed to production
+## Search Metrics
 
-WHEN the application starts or renders public pages
+* Academy Searches
+* Open Mat Searches
+* Search Conversion Rate
 
-THEN the system SHALL load the selected analytics provider using production configuration.
+## Discovery Metrics
 
-Acceptance criteria:
+* Academy Profile Views
+* Open Mat Detail Views
+* Most Viewed Academies
+* Most Viewed Open Mats
 
-* Analytics provider is selected before production launch.
-* Provider configuration is controlled through environment variables.
-* Missing analytics configuration SHALL NOT break public pages.
-* Analytics can be disabled in local development.
+## Commercial Intent Metrics
 
----
+* Directions Clicks
+* Website Clicks
+* Phone Clicks
+* Email Clicks
+* Social Clicks
 
-# Requirement 2: PostHog Provider Decision
+## Claim Funnel Metrics
 
-IF MVP analytics implementation begins
-
-WHEN provider setup is documented
-
-THEN the team SHALL document PostHog as the selected MVP analytics provider.
-
-Acceptance criteria:
-
-* Decision names PostHog.
-* Decision explains which environment variables enable or disable PostHog.
-* Decision explains how PostHog will measure monthly visitors, weekly active users, returning users, and monthly searches.
-* Decision explains whether cookie consent is required before tracking.
-* Decision confirms analytics remains disabled or no-op when configuration is missing.
+* Claim Starts
+* Claim Submissions
+* Claim Approvals
+* Claim Rejections
+* Claim Conversion Rate
 
 ---
 
-# Requirement 3: Page View Tracking
+# Reporting Targets
 
-IF a user visits a public RollFinder page
+The system SHALL support measurement of:
 
-WHEN the page renders successfully
+Monthly Visitors Target
 
-THEN the system SHALL track a page view.
+```text
+3,000 visitors
+```
 
-Acceptance criteria:
+Weekly Active Users Target
 
-* Page views are tracked for public discovery pages.
-* Page views support reporting top public pages.
-* Page views support reporting monthly visitors.
-* Page views support reporting weekly active users.
-* Page views support reporting returning users.
+```text
+500 active users
+```
 
----
+Monthly Searches Target
 
-# Requirement 4: Academy Search Tracking
+```text
+1,000 searches
+```
 
-IF a user submits an academy search
+Returning User Target
 
-WHEN the search request is accepted by the application
-
-THEN the system SHALL track an `academy_search_submitted` event.
-
-Acceptance criteria:
-
-* Event fires once per academy search submission.
-* Event includes `query_present`, `query_length`, `has_location`, and `result_count` when available.
-* Event SHALL NOT include raw exact latitude/longitude.
-* Event SHALL NOT include sensitive personal data.
+```text
+30%
+```
 
 ---
 
-# Requirement 5: Open Mat Search And Filter Tracking
+# Privacy Requirements
 
-IF a user submits an open mat search or filter action
+The analytics system SHALL NOT store:
 
-WHEN the search or filter request is accepted by the application
+* Raw email addresses
+* Phone numbers
+* Claim notes
+* Verification evidence
+* Exact latitude
+* Exact longitude
 
-THEN the system SHALL track an `open_mat_search_submitted` event.
+The analytics system SHALL use:
 
-Acceptance criteria:
+* Academy IDs
+* Open Mat IDs
+* Broad location regions
+* Anonymous visitor identifiers
 
-* Event fires once per open mat search or filter submission.
-* Event includes `query_present`, `query_length`, `when_filter`, `gi_filter`, `has_location`, and `result_count` when available.
-* Event SHALL NOT include sensitive personal data.
-
----
-
-# Requirement 6: Open Mat Detail View Tracking
-
-IF a user opens an open mat detail page
-
-WHEN the open mat detail page renders successfully
-
-THEN the system SHALL track an `open_mat_detail_viewed` event.
-
-Acceptance criteria:
-
-* Event includes `open_mat_id`, `academy_id`, and `gi_type` when available.
-* Event supports reporting open mat detail views and most viewed open mats.
+only.
 
 ---
 
-# Requirement 7: Academy Profile View Tracking
+# Failure Safety
 
-IF a user opens a public academy profile page
+IF analytics storage fails
 
-WHEN the academy profile renders successfully
+WHEN users interact with RollFinders
 
-THEN the system SHALL track an `academy_profile_viewed` event.
+THEN all user actions SHALL continue successfully.
 
-Acceptance criteria:
+Analytics failures SHALL:
 
-* Event includes `academy_id`.
-* Event includes whether the academy has upcoming open mats when available.
-* Event supports reporting academy profile views and most viewed academies.
-* Event SHALL NOT expose private admin data.
+* Never block page rendering
+* Never block searches
+* Never block directions clicks
+* Never block claim submissions
+* Never display errors to public users
 
----
-
-# Requirement 8: Directions Click Tracking
-
-IF a user clicks a directions link or map navigation action
-
-WHEN the application begins navigation to the map provider
-
-THEN the system SHALL track a `directions_clicked` event.
-
-Acceptance criteria:
-
-* Event includes `source`.
-* Event includes `academy_id` when available.
-* Event includes `open_mat_id` when the click comes from an open mat context.
-* Event supports reporting directions clicks and directions click rate from detail pages.
-* Tracking SHALL NOT block external navigation.
+Analytics SHALL operate as a non-critical background service.
 
 ---
 
-# Requirement 9: Website And Contact Click Tracking
+# Future Analytics Provider Integration
 
-IF a user clicks an academy website, phone, email, or social link
+IF future business requirements require advanced analytics
 
-WHEN the application begins the click action or navigation
+WHEN the founder decides to integrate a third-party provider
 
-THEN the system SHALL track the relevant commercial-intent event.
+THEN analytics SHALL use a provider abstraction layer.
 
-Acceptance criteria:
+Example:
 
-* Website clicks use `website_clicked`.
-* Phone clicks use `phone_clicked`.
-* Email clicks use `email_clicked`.
-* Social profile clicks use `social_clicked`.
-* Event includes `source`.
-* Event includes `academy_id` when available.
-* Event includes `open_mat_id` when the click comes from an Open Mat context.
-* Event SHALL NOT include the raw phone number, raw email address, full URL query string, or personal data.
-* Tracking SHALL NOT block external navigation or device actions.
+```typescript
+AnalyticsProvider.track(eventName, payload)
+```
 
----
+Supported providers may include:
 
-# Requirement 10: Map View Tracking
+* Internal Analytics
+* PostHog
+* Google Analytics
 
-IF a user opens the RollFinder map page
-
-WHEN the map page renders successfully
-
-THEN the system SHALL track a `map_viewed` event.
-
-Acceptance criteria:
-
-* Event includes `provider` when known.
-* Event includes `has_provider_key`.
-* Event includes `academy_marker_count` and `open_mat_marker_count` once data-driven markers exist.
-* Event supports reporting map views.
-
----
-
-# Requirement 11: Map Marker Click Tracking
-
-IF the RollFinder map displays data-driven academy or open mat markers
-
-WHEN a user clicks a map marker
-
-THEN the system SHALL track a `map_marker_clicked` event.
-
-Acceptance criteria:
-
-* Event includes `marker_type`.
-* Event includes `academy_id`.
-* Event includes `open_mat_id` when the marker represents an open mat.
-* Event supports reporting marker engagement.
-* Event is required once data-driven map markers are implemented.
-
----
-
-# Requirement 12: Claim Profile Started Tracking
-
-IF a user starts the academy claim flow
-
-WHEN the user clicks "Claim Profile" or opens the claim form
-
-THEN the system SHALL track a `claim_profile_started` event.
-
-Acceptance criteria:
-
-* Event includes `academy_id`.
-* Event supports claim funnel reporting.
-* Event SHALL NOT include requester name.
-* Event SHALL NOT include requester email.
-* Event SHALL NOT include verification notes or evidence.
-
----
-
-# Requirement 13: Claim Profile Submitted Tracking
-
-IF a user submits an academy claim request
-
-WHEN the application successfully stores the claim request
-
-THEN the system SHALL track a `claim_profile_submitted` event.
-
-Acceptance criteria:
-
-* Event fires only after claim submission succeeds.
-* Event includes `academy_id`.
-* Event includes `claim_status`.
-* Event supports claim start-to-submit conversion reporting.
-* Event SHALL NOT include requester name.
-* Event SHALL NOT include requester email.
-* Event SHALL NOT include verification notes or evidence.
-
----
-
-# Requirement 14: Claim Decision Tracking
-
-IF a Platform Admin or Super Admin approves or rejects an academy claim
-
-WHEN the claim decision succeeds
-
-THEN the system SHOULD track the claim outcome for funnel reporting.
-
-Acceptance criteria:
-
-* Approved claims use `claim_approved`.
-* Rejected claims use `claim_rejected`.
-* Event includes `academy_id`.
-* Event includes `claim_status`.
-* Event SHALL NOT include requester name, requester email, phone, verification notes, proof links, or evidence.
-* Claim decision analytics SHALL NOT expose protected admin information.
-
----
-
-# Requirement 15: Recurring Open Mat Creation Tracking
-
-IF an authorized academy owner/admin creates a recurring Open Mat
-
-WHEN the recurring source listing is saved successfully
-
-THEN the system SHOULD track a `recurring_open_mat_created` event.
-
-Acceptance criteria:
-
-* Event fires only after the source listing is saved successfully.
-* Event includes `academy_id`, `open_mat_id`, and `recurrence_type`.
-* Event SHALL NOT fire for derived recurring occurrences.
-* Event supports reporting whether claimed academies are adding repeatable training supply.
-
----
-
-# Requirement 16: Monthly Visitor Reporting
-
-IF the founder reviews MVP traction
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make monthly visitor counts measurable.
-
-Acceptance criteria:
-
-* Monthly visitors can be reviewed without code changes.
-* Monthly visitors can be checked weekly during the first 90 days.
-* Monthly visitors support comparison against the MVP target of 3,000 monthly visitors.
-
----
-
-# Requirement 17: Weekly Active User Reporting
-
-IF the founder reviews MVP traction
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make weekly active users measurable.
-
-Acceptance criteria:
-
-* Weekly active users can be reviewed without code changes.
-* Weekly active users support comparison against the MVP target of 500 weekly active users.
-
----
-
-# Requirement 18: Returning User Reporting
-
-IF the founder reviews retention signals
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make returning user percentage measurable.
-
-Acceptance criteria:
-
-* Returning user percentage can be reviewed without code changes.
-* Returning user percentage supports comparison against the MVP target of 30% returning users.
-
----
-
-# Requirement 19: Monthly Search Reporting
-
-IF the founder reviews discovery demand
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make monthly searches measurable.
-
-Acceptance criteria:
-
-* Monthly searches include academy search submissions.
-* Monthly searches include open mat search/filter submissions.
-* Monthly searches support comparison against the MVP target of 1,000 monthly searches.
-* Search reporting can separate academy searches from open mat searches.
-
----
-
-# Requirement 20: Discovery Behavior Reporting
-
-IF the founder reviews discovery behavior
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make profile views, detail views, directions clicks, map views, and map marker clicks measurable.
-
-Acceptance criteria:
-
-* Academy profile views are measurable.
-* Open mat detail views are measurable.
-* Directions clicks are measurable.
-* Website clicks are measurable.
-* Phone and email clicks are measurable where contact links exist.
-* Social clicks are measurable where social links exist.
-* Map views are measurable.
-* Map marker clicks are measurable once data-driven map markers exist.
-* Reporting helps identify which academies and open mats receive the most user interest.
-
----
-
-# Requirement 21: Claim Funnel Reporting
-
-IF the founder reviews academy owner adoption
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make claim funnel events measurable.
-
-Acceptance criteria:
-
-* Claim profile starts are measurable.
-* Claim profile submissions are measurable.
-* Claim approvals are measurable.
-* Claim rejections are measurable.
-* Claim start-to-submit conversion rate is measurable.
-* Claim submit-to-approval conversion rate is measurable.
-* Claim funnel reporting excludes requester personal data.
-* Claim funnel reporting is required once academy claiming is implemented.
-
----
-
-# Requirement 22: Commercial Intent Reporting
-
-IF the founder reviews academy-owner value
-
-WHEN the founder opens the analytics reporting path
-
-THEN the system SHALL make commercial-intent signals measurable per academy where possible.
-
-Acceptance criteria:
-
-* Academy profile views are measurable per academy.
-* Open Mat views are measurable per academy.
-* Directions clicks are measurable per academy.
-* Website, phone, email, and social clicks are measurable per academy when those links exist.
-* Recurring Open Mat creation is measurable per academy when creator context is available.
-* Reporting can support a future monthly academy performance email without requiring a full owner dashboard in MVP.
-
----
-
-# Requirement 23: Future Monetization Experiment Readiness
-
-IF analytics demonstrates meaningful user demand and academy-owner engagement after MVP launch
-
-WHEN the founder prepares commercial experiments
-
-THEN analytics SHOULD support evaluation of:
-
-* Free claiming plus concierge onboarding.
-* Monthly academy performance emails.
-* Featured Open Mat pilot.
-
-Acceptance criteria:
-
-* Analytics can compare Open Mat views and commercial-intent clicks before and after a featured Open Mat pilot.
-* Analytics can identify claimed academies with meaningful profile or Open Mat engagement.
-* Analytics can support owner outreach with aggregate performance numbers.
-* Analytics SHALL NOT require building billing, paid placement automation, or owner dashboards in MVP.
-
----
-
-# Requirement 24: Privacy-Safe Analytics
-
-IF analytics events are tracked
-
-WHEN event payloads are sent to the analytics provider
-
-THEN the system SHALL avoid sending sensitive personal data.
-
-Acceptance criteria:
-
-* Analytics SHALL NOT send raw email addresses.
-* Analytics SHALL NOT send phone numbers.
-* Analytics SHALL NOT send full website URLs with query strings.
-* Analytics SHALL NOT send exact user latitude or longitude.
-* Analytics SHALL NOT send free-form claim notes or verification evidence.
-* Analytics SHALL use academy IDs and open mat IDs where object-level reporting is needed.
-* Analytics SHALL use broad location fields such as borough or postcode area where useful.
-
----
-
-# Requirement 25: Analytics Failure Safety
-
-IF the analytics provider is unavailable or event tracking fails
-
-WHEN a user searches, views a page, clicks directions, clicks contact/website links, opens the map, or submits a claim
-
-THEN the system SHALL allow the user flow to continue.
-
-Acceptance criteria:
-
-* Analytics failures do not block page rendering.
-* Analytics failures do not block search submissions.
-* Analytics failures do not block external directions navigation.
-* Analytics failures do not block website, phone, email, or social link actions.
-* Analytics failures do not block claim submission.
-* Analytics failures do not expose errors to public users unless required for debugging in non-production environments.
-
----
-
-# Requirement 26: Reporting Path
-
-IF analytics is configured for production
-
-WHEN MVP launch readiness is reviewed
-
-THEN the team SHALL document how the founder can access MVP analytics reports.
-
-Acceptance criteria:
-
-* Reporting path is documented.
-* Reporting path identifies where to find monthly visitors.
-* Reporting path identifies where to find weekly active users.
-* Reporting path identifies where to find returning users.
-* Reporting path identifies where to find monthly searches.
-* Reporting path identifies where to find directions, website, phone, email, and social clicks.
-* Reporting path identifies where to find claim funnel metrics.
-* Reporting path identifies how to build a simple monthly academy performance email from analytics exports or dashboards.
-
----
-
-# Requirement 27: Launch Readiness
-
-IF RollFinder is considered ready for MVP production launch
-
-WHEN launch readiness is reviewed
-
-THEN analytics SHALL be configured and verified for the core MVP metrics.
-
-Acceptance criteria:
-
-* Analytics provider is configured for production.
-* Page views are tracked.
-* Search submissions are tracked.
-* Open mat detail views are tracked.
-* Academy profile views are tracked.
-* Direction clicks are tracked.
-* Website, phone, email, and social clicks are tracked where links exist.
-* Claim funnel events are tracked once academy claiming exists.
-* Commercial-intent reporting is possible for claimed academy outreach.
-* Monthly visitors are measurable.
-* Weekly active users are measurable.
-* Returning users are measurable.
-* Monthly searches are measurable.
+The application SHALL default to Internal Analytics.

@@ -1,7 +1,11 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
+import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { getOpenMatOccurrence } from "@/lib/data";
 import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
 
@@ -20,6 +24,25 @@ export default async function EventPage({
   if (!event) notFound();
 
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
+  const country = analyticsCountryFromHeaders(await headers());
+
+  await recordAnalyticsEventBestEffort({
+    eventName: "open_mat_viewed",
+    academyId: event.academyId,
+    openMatId: event.id,
+    source: "public_open_mat_detail",
+    countryCode: country.countryCode,
+    countryName: country.countryName,
+    metadata: {
+      giType: event.giType,
+      priceBand: Number(event.price) === 0 ? "free" : "paid",
+      city: event.academy.city,
+      borough: event.academy.borough,
+      recurrenceType: event.recurrenceType,
+      active: event.active,
+      occurrenceDate: date ?? null,
+    },
+  });
 
   return (
     <PageShell>
@@ -41,8 +64,12 @@ export default async function EventPage({
         <PublicListingWarning academy={event.academy} className="mt-4" />
         <p className="mt-6 text-lg leading-8 text-stone-700">{event.description}</p>
         <div className="mt-6 flex flex-wrap gap-2">
-          <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
-          <Button href={event.academy.website ?? `/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
+          <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "directions", academyId: event.academyId, external: true, openMatId: event.id, sourcePage: "open_mat_profile" }}>
+            <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
+          </AnalyticsClickTracker>
+          <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: event.academy.website ? "website" : "academy_details", academyId: event.academyId, external: Boolean(event.academy.website), openMatId: event.id, sourcePage: "open_mat_profile" }}>
+            <Button href={event.academy.website ?? `/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
+          </AnalyticsClickTracker>
         </div>
       </section>
     </PageShell>

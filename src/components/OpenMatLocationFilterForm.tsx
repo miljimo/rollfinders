@@ -56,6 +56,7 @@ export function OpenMatLocationFilterForm({
 
   return (
     <form action="/open-mats" className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_180px_180px_auto]">
+      <input type="hidden" name="analyticsIntent" value="open_mat_search" />
       <input type="hidden" name="lat" value={lat} />
       <input type="hidden" name="lng" value={lng} />
       <div className="flex min-h-12 items-center rounded-md border border-stone-200 bg-white focus-within:border-teal-700">

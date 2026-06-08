@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { prisma } from "@/lib/prisma";
 import { AcademyClaimForm } from "./AcademyClaimForm";
 
@@ -25,6 +28,18 @@ export default async function AcademyClaimPage({ params }: { params: Promise<{ s
   if (!academy) notFound();
 
   const academyIsManaged = academy._count.members > 0;
+
+  if (!academyIsManaged) {
+    const country = analyticsCountryFromHeaders(await headers());
+    await recordAnalyticsEventBestEffort({
+      eventName: "claim_profile_started",
+      academyId: academy.id,
+      source: "public_academy_claim",
+      countryCode: country.countryCode,
+      countryName: country.countryName,
+      metadata: { slug: academy.slug },
+    });
+  }
 
   return (
     <PageShell>

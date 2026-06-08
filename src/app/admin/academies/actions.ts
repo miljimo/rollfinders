@@ -6,6 +6,7 @@ import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, InvitationSt
 import { randomBytes } from "crypto";
 import { getCurrentUser, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { renderAcademyClaimInvitationEmail } from "@/lib/email/academy-claim-invitation";
 import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
@@ -136,6 +137,15 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
       });
 
       await recordAcademyCreatedActivity(actor.id, academy.id);
+      await recordAnalyticsEventBestEffort({
+        eventName: "academy_created",
+        academyId: academy.id,
+        source: "admin_academies",
+        metadata: {
+          actorUserId: actor.id,
+          academyName: academy.name,
+        },
+      });
     }
   } catch (error) {
     if (isUniqueConstraintError(error)) {

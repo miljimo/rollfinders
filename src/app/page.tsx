@@ -52,7 +52,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
               </Button>
             </div>
             <div className="mt-8 max-w-3xl">
-              <LocationSearchForm action="/open-mats" placeholder="Search open mats by borough, postcode, gi or no-gi..." />
+              <LocationSearchForm action="/open-mats" analyticsIntent="open_mat_search" placeholder="Search open mats by borough, postcode, gi or no-gi..." />
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-600">
               <span>Popular searches:</span>

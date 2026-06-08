@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Ban, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, KeyRound, Mail, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
+import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
@@ -70,7 +71,7 @@ function platformAdminCreatedAcademyWhere(extra: Prisma.AcademyWhereInput = {}):
 }
 
 function selectedPanel(value: string | undefined) {
-  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "academy-claims" || value === "platform-admin-academies") return value;
+  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics") return value;
   return "academies";
 }
 
@@ -79,7 +80,7 @@ function isPlatformOnlyPanel(panel: string) {
 }
 
 function isSuperOnlyPanel(panel: string) {
-  return panel === "platform-admin-academies";
+  return panel === "platform-admin-academies" || panel === "analytics";
 }
 
 function selectedClaimStatus(value: string | undefined) {
@@ -364,6 +365,7 @@ export default async function AdminDashboardWorkspace({
     totalAcademyCount,
     verifiedAcademyCount,
     pendingAcademyCount,
+    managedAcademyCount,
     totalUserCount,
     activeEventCount,
     userCount,
@@ -377,11 +379,13 @@ export default async function AdminDashboardWorkspace({
     newUserCountThisMonth,
     activeEventCountThisWeek,
     emailOperations,
+    founderAnalyticsReport,
   ] = await Promise.all([
     prisma.academy.count({ where: academyWhere }),
     prisma.academy.count({ where: academyScopeWhere }),
     prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED }] } }),
     prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.PENDING }] } }),
+    prisma.academy.count({ where: { AND: [academyScopeWhere, { members: { some: {} } }] } }),
     prisma.user.count({ where: { AND: [userScopeWhere, visibleUserWhere] } }),
     prisma.event.count({ where: eventWhere }),
     prisma.user.count({ where: scopedUserWhere }),
@@ -395,6 +399,7 @@ export default async function AdminDashboardWorkspace({
     prisma.user.count({ where: { AND: [userScopeWhere, visibleUserWhere, { createdAt: { gte: monthStart } }] } }),
     prisma.event.count({ where: { ...eventWhere, createdAt: { gte: weekStart } } }),
     elevatedAdmin ? getEmailQueueOperationsSummary() : Promise.resolve(emptyEmailOperationsSummary()),
+    superAdmin ? getFounderAnalyticsReport() : Promise.resolve(null),
   ]);
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
@@ -477,11 +482,16 @@ export default async function AdminDashboardWorkspace({
     : [];
   const adminNavigationItems: SidePanelItem[] = [
     { active: panel === "academies" || panel === "open-mats" || panel === "users", href: "/dashboard", icon: "dashboard", label: "Dashboard" },
+    ...(superAdmin
+      ? [
+          { active: panel === "analytics", href: "/dashboard?panel=analytics", icon: "dashboard", label: "Analytics" } satisfies SidePanelItem,
+        ]
+      : []),
     ...(elevatedAdmin
       ? [
-          { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
           { active: panel === "academy-claims", href: "/dashboard?panel=academy-claims", icon: "claims", label: "Academy Claims" } satisfies SidePanelItem,
           { active: panel === "maps", href: "/dashboard?panel=maps", icon: "map", label: "Map" } satisfies SidePanelItem,
+          { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
         ]
       : []),
   ];
@@ -592,15 +602,23 @@ export default async function AdminDashboardWorkspace({
     {
       active: panel === "academies",
       description: academyAdmin ? "View and manage your academy profile" : "Search, verify and manage academies",
-      href: "/dashboard?panel=academies",
+      href: academyAdmin && currentUser.academyId ? `/admin/academies/${currentUser.academyId}` : "/dashboard?panel=academies",
       icon: <Building2 size={24} aria-hidden />,
       id: "academies",
-      title: academyAdmin ? "My Academy" : "Manage Academies",
+      title: academyAdmin ? "Academy Profile Summary" : "Manage Academies",
     },
     ...(elevatedAdmin
       ? [
           ...(superAdmin
             ? [
+                {
+                  active: panel === "analytics",
+                  description: "Review marketplace, visitor, profile, and commercial intent signals",
+                  href: "/dashboard?panel=analytics",
+                  icon: <BarChart3 size={24} aria-hidden />,
+                  id: "founder-analytics",
+                  title: "Founder Analytics",
+                } satisfies QuickActionPanelItem,
                 {
                   active: panel === "platform-admin-academies",
                   description: "Review academies created by Platform Admins",
@@ -702,6 +720,20 @@ export default async function AdminDashboardWorkspace({
 
           <QuickActionPanel className="mt-7" items={quickActionItems} />
 
+          {superAdmin && panel === "analytics" ? (
+            <FounderAnalyticsPanel
+              activeEventCount={activeEventCount}
+              academyCount={totalAcademyCount}
+              analyticsReport={founderAnalyticsReport}
+              claimCount={claimResult?.ok ? claimResult.data.totalItems : pendingAcademyCount}
+              managedAcademyCount={managedAcademyCount}
+              pendingAcademyCount={pendingAcademyCount}
+              platformAdminAcademyCount={platformAdminAcademyCount}
+              userCount={totalUserCount}
+              verifiedAcademyCount={verifiedAcademyCount}
+            />
+          ) : null}
+
           {superAdmin && panel === "platform-admin-academies" ? (
             <SuperAdminPlatformAcademiesPanel
               academies={platformAdminAcademies}
@@ -713,7 +745,7 @@ export default async function AdminDashboardWorkspace({
             />
           ) : null}
 
-          {panel !== "platform-admin-academies" ? (
+          {panel !== "platform-admin-academies" && panel !== "analytics" ? (
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
             <AdminPanel
@@ -1207,6 +1239,110 @@ function ActivityMetric({ label, value }: { label: string; value: number }) {
   );
 }
 
+function FounderAnalyticsPanel({
+  academyCount,
+  activeEventCount,
+  analyticsReport,
+  claimCount,
+  managedAcademyCount,
+  pendingAcademyCount,
+  platformAdminAcademyCount,
+  userCount,
+  verifiedAcademyCount,
+}: {
+  academyCount: number;
+  activeEventCount: number;
+  analyticsReport: Awaited<ReturnType<typeof getFounderAnalyticsReport>> | null;
+  claimCount: number;
+  managedAcademyCount: number;
+  pendingAcademyCount: number;
+  platformAdminAcademyCount: number;
+  userCount: number;
+  verifiedAcademyCount: number;
+}) {
+  const summary = analyticsReport?.summary;
+  const countrySignals = analyticsReport?.countries ?? [];
+  const countrySignalSummary = countrySignals.length
+    ? countrySignals.map((country) => `${country.countryName}: ${country.visitorCount} visitors / ${country.eventCount} events`).join(" · ")
+    : "Unknown";
+  const analyticsStats: StatsPanelItem[] = [
+    {
+      icon: <Globe2 size={34} aria-hidden />,
+      iconTone: "teal",
+      id: "marketplace-supply",
+      indicator: { label: "sessions", value: summary?.marketplace.sessionCount ?? 0 },
+      label: "Visitors",
+      value: summary?.marketplace.visitorCount ?? 0,
+    },
+    {
+      icon: <CalendarDays size={34} aria-hidden />,
+      iconTone: "violet",
+      id: "open-mat-supply",
+      indicator: { label: "open mat searches", value: summary?.search.openMatSearches ?? 0 },
+      label: "Academy Searches",
+      value: summary?.search.academySearches ?? 0,
+    },
+    {
+      icon: <MousePointerClick size={34} aria-hidden />,
+      iconTone: "blue",
+      id: "commercial-intent",
+      indicator: { label: "profile views", value: (summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0) },
+      label: "Commercial Intent",
+      value: summary?.commercial.commercialIntentClicks ?? 0,
+    },
+    {
+      icon: <ClipboardCheck size={34} aria-hidden />,
+      iconTone: "orange",
+      id: "claim-funnel",
+      indicator: { label: "submitted", value: summary?.claim.claimSubmissions ?? 0 },
+      label: "Claim Funnel",
+      value: summary?.claim.claimStarts ?? 0,
+    },
+  ];
+  const rows: FounderAnalyticsRow[] = [
+    { id: "visitors", area: "Visitor analytics", metric: "unique_visitors and unique_sessions", value: `${summary?.visitor.uniqueVisitors ?? 0} visitors` },
+    { id: "search", area: "Search demand", metric: "academy_search_submitted and open_mat_search_submitted", value: `${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0)} searches` },
+    { id: "profiles", area: "Profile engagement", metric: "academy_profile_viewed and open_mat_viewed", value: `${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0)} views` },
+    { id: "commercial", area: "Commercial intent", metric: "commercial_intent_clicked", value: `${summary?.commercial.commercialIntentClicks ?? 0} clicks` },
+    { id: "countries", area: "Country attribution", metric: "country_code and country_name from trusted request headers", value: countrySignalSummary },
+    { id: "claims", area: "Claim funnel", metric: "claim_profile_started and claim_profile_submitted", value: `${summary?.claim.claimStarts ?? 0} starts / ${summary?.claim.claimSubmissions ?? 0} submitted` },
+    { id: "supply", area: "Marketplace supply", metric: "academy_created and open_mat_created", value: `${summary?.supply.academiesCreated ?? 0} academies / ${summary?.supply.openMatsCreated ?? 0} open mats` },
+    { id: "platform", area: "Platform Admin supply", metric: "Academies created by Platform Admins", value: platformAdminAcademyCount.toLocaleString() },
+    { id: "inventory", area: "Current inventory", metric: "Current academies, verified, open mats, users, managed", value: `${academyCount.toLocaleString()} academies / ${verifiedAcademyCount.toLocaleString()} verified / ${activeEventCount.toLocaleString()} open mats / ${userCount.toLocaleString()} users / ${managedAcademyCount.toLocaleString()} managed / ${claimCount.toLocaleString()} claims / ${pendingAcademyCount.toLocaleString()} pending` },
+  ];
+
+  return (
+    <section id="founder-analytics" className="mt-7 rounded-lg border border-teal-100 bg-white p-5 shadow-sm" aria-labelledby="founder-analytics-title">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase text-teal-800">Super Admin analytics</p>
+          <h2 id="founder-analytics-title" className="mt-1 text-2xl font-black text-slate-950">Analytics</h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">Founder-only visibility for marketplace, visitor, search, profile, commercial intent, claim funnel, and supply metrics.</p>
+        </div>
+        <Button href="/dashboard" variant="secondary" className="border-teal-200 text-teal-800">
+          <MapPinned size={16} aria-hidden />
+          Operational Dashboard
+        </Button>
+      </div>
+
+      <StatsPanel className="mt-5" items={analyticsStats} />
+
+      <Table
+        className="mt-5"
+        columns={[
+          { key: "area", title: "Analytics Area", render: (value) => <span className="font-bold text-slate-950">{String(value)}</span> },
+          { key: "metric", title: "Tracked Metrics" },
+          { key: "value", title: "Current Signal", render: (value) => <TableStatusBadge status={String(value)} /> },
+        ]}
+        data={rows}
+        emptyMessage="Analytics metrics will appear here once events are available."
+        getRowId={(row) => String(row.id)}
+        minWidthClassName="min-w-[760px]"
+      />
+    </section>
+  );
+}
+
 type SettingsAuditLog = {
   id: string;
   action: string;
@@ -1434,6 +1570,13 @@ type PlatformAdminAcademyTableRow = Record<string, unknown> & {
   verificationStatus: AcademyVerificationStatus;
   createdAt: Date;
   slug: string;
+};
+
+type FounderAnalyticsRow = Record<string, unknown> & {
+  id: string;
+  area: string;
+  metric: string;
+  value: string;
 };
 
 type OpenMatRow = {
@@ -1680,7 +1823,7 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
                       </Link>
                       <Link href={`/admin/academies/${academy.id}`} className={menuItemClass}>
                         <Edit3 size={18} aria-hidden />
-                        Edit Academy
+                        Profile Summary
                       </Link>
                       {reminder.eligible ? (
                         <Link href={adminAcademiesHref(params, { dialog: "claim-reminder", academyId: academy.id })} className={menuItemClass}>

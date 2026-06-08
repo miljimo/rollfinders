@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { claimRejectionSchema } from "@/lib/validators";
 import { getCurrentUser, requirePlatformAdminApi } from "@/lib/admin";
 import { queueClaimRejectedEmail, rejectAcademyClaim, zodFieldErrors } from "@/lib/claim-requests";
+import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requirePlatformAdminApi();
@@ -21,6 +22,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const result = await rejectAcademyClaim(id, actor.id, parsed.data.rejectionReason ?? null);
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status });
+  await recordAnalyticsEventBestEffort({
+    eventName: "claim_rejected",
+    academyId: result.claim.academyId,
+    source: "admin_claims",
+    metadata: {
+      claimId: result.claim.id,
+      actorUserId: actor.id,
+    },
+  });
 
   let notificationEmailQueued = false;
   if (result.notification) {
