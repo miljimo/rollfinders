@@ -411,6 +411,20 @@ THEN the menu SHALL display Platform Admin permitted areas only.
 
 AND the menu SHALL include academy management, user management, open mat moderation, and permitted platform operations.
 
+AND the menu SHALL include direct side-panel entries for every visible Platform Admin Quick Action.
+
+AND the side panel SHALL include, at minimum, permitted links for:
+
+* Dashboard
+* Manage Academies
+* Manage Open Mats
+* Manage Users
+* Academy Claims, when claim review is permitted
+* Map, when map access is permitted
+* Settings
+
+AND Settings SHALL be the final primary side-panel item before Help & Support and Logout.
+
 AND the menu SHALL NOT include Super Admin-only areas, billing controls, feature flags, protected owner settings, or peer Platform Admin role management.
 
 AND self-delete, self-disable, and self-demotion actions SHALL NOT be displayed.

@@ -203,6 +203,15 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Map"/);
   });
 
+  it("admin quick actions use concise analytics and academy review labels", () => {
+    const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
+    assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
+    assert.doesNotMatch(source, /title:\s*"Founder Analytics"/);
+    assert.doesNotMatch(source, /title:\s*"Platform Admin Academy Review"/);
+  });
+
   it("admin settings use quick actions to inject one selected settings detail panel", () => {
     const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
     const legacySettingsSource = readSource("src/app/admin/settings/page.tsx");

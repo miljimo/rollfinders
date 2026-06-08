@@ -326,7 +326,27 @@ AND Academy Admin users SHALL see only academy-appropriate actions.
 
 AND Platform Admin and Super Admin users SHALL retain their current available actions.
 
-AND the current links SHALL remain unchanged unless another PRD changes them:
+AND every visible Quick Action SHALL have a matching primary Side Panel navigation item for the same role and destination.
+
+AND Quick Actions SHALL NOT be the only way to reach primary dashboard workflows.
+
+AND the Side Panel item SHALL use the same title or a clearly equivalent concise label.
+
+AND the Side Panel item SHALL be omitted whenever the Quick Action is omitted for role policy.
+
+AND the current canonical dashboard links SHALL remain unchanged unless another PRD changes them:
+
+* Manage Academies or My Academy: `/dashboard?panel=academies`
+* Academy Profile Summary: `/admin/academies/{academyId}`
+* Academy Review: `/dashboard?panel=platform-admin-academies`
+* Academy Claims: `/dashboard?panel=academy-claims`
+* Manage Open Mats or Manage Rolls: `/dashboard?panel=open-mats`
+* Manage Users: `/dashboard?panel=users`
+* Analytics: `/dashboard?panel=analytics`
+* Map: `/dashboard?panel=maps`
+* Settings: `/dashboard?panel=settings`
+
+Legacy admin links SHALL only be used when intentionally preserving old-route compatibility:
 
 * Manage Academies or My Academy: `/admin?panel=academies`
 * Academy Claims: `/admin?panel=academy-claims`
@@ -346,7 +366,9 @@ AND the current links SHALL remain unchanged unless another PRD changes them:
 9. Existing admin action titles, descriptions, icons, active states, and routes remain functionally unchanged.
 10. Academy Admins do not see platform-only quick actions.
 11. Platform Admin and Super Admin functionality is not removed or regressed.
-12. TypeScript, unit tests, and production build checks pass.
+12. Every visible Quick Action has a corresponding role-permitted primary Side Panel item.
+13. Settings remains the final primary Side Panel item before Help & Support and Logout.
+14. TypeScript, unit tests, and production build checks pass.
 
 ## Test Requirements
 
@@ -361,6 +383,8 @@ Automated tests SHOULD verify:
 * `QuickActionPanel` renders the expected number of `ActionItem` outputs.
 * `ActionItem` renders title, description, icon, active state, disabled state, and accessible label correctly.
 * Admin dashboard passes role-filtered action items.
+* Admin dashboard side-panel navigation includes corresponding items for every visible primary Quick Action.
+* Settings stays after Manage Academies, Manage Open Mats, Manage Users, Analytics, Academy Review, Academy Claims, and Map in the primary side-panel ordering.
 
 Visual or browser verification SHOULD cover:
 

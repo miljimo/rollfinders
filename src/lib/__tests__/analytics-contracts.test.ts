@@ -121,6 +121,8 @@ describe("analytics feature contracts", () => {
     assert.match(source, /!superAdmin\s*&&\s*isSuperOnlyPanel\(requestedPanel\)/);
     assert.match(source, /href:\s*"\/dashboard\?panel=analytics"/);
     assert.match(source, /label:\s*"Analytics"/);
+    assert.match(source, /title:\s*"Analytics"/);
+    assert.doesNotMatch(source, /title:\s*"Founder Analytics"/);
     assert.notEqual(superAdminOnlySource, "", "Analytics navigation or panel must be gated by the existing Super Admin boundary");
 
     assert.match(source, /FounderAnalyticsPanel/);

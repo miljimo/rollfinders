@@ -410,6 +410,18 @@ AND the menu SHALL display user management for the assigned academy only.
 
 AND the menu SHALL display roll event management for the assigned academy only.
 
+AND the menu SHALL include direct side-panel entries for every visible Academy Admin Quick Action.
+
+AND the side panel SHALL include, at minimum, permitted scoped links for:
+
+* Dashboard
+* Academy Profile Summary or assigned academy management
+* Manage Rolls or Open Mats for the assigned academy
+* Manage Users for the assigned academy
+* Settings, when self-service settings are available
+
+AND Settings SHALL be the final primary side-panel item before Help & Support and Logout.
+
 AND the menu SHALL NOT display platform administration areas, platform settings, academy claim review, email operations, Platform Admin activity surfaces, or Super Admin-only features.
 
 AND the menu SHALL NOT display academy management for other academies.

@@ -420,6 +420,28 @@ Admin Dashboard
 └── Audit Logs
 ```
 
+Side Panel parity:
+
+IF a Super Admin can see a dashboard Quick Action
+
+WHEN the Admin Dashboard side panel renders
+
+THEN the side panel SHALL include a corresponding direct navigation item.
+
+AND the Super Admin side panel SHALL include:
+
+* Dashboard
+* Manage Academies
+* Manage Open Mats
+* Manage Users
+* Analytics
+* Academy Review
+* Academy Claims
+* Map
+* Settings
+
+AND Settings SHALL be the final primary side-panel item before Help & Support and Logout.
+
 ---
 
 # Platform Admin Management Screen

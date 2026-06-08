@@ -234,6 +234,40 @@ AND navigation SHALL preserve expected panel query behavior where the admin boar
 
 AND icon-only buttons SHALL not use ambiguous text-only controls when a recognizable icon exists.
 
+### Quick Action Navigation Parity
+
+IF the dashboard renders a Quick Action card for the authenticated user's role
+
+WHEN the side panel renders primary navigation
+
+THEN the side panel SHALL include a corresponding navigation item for that same destination.
+
+AND the corresponding side panel item SHALL use the same role visibility rule as the Quick Action.
+
+AND unauthorized users SHALL see neither the Quick Action nor the corresponding side panel item.
+
+AND direct workflow destinations SHALL be represented as first-class side panel items rather than hidden only behind the dashboard landing page.
+
+AND Settings SHALL remain the final primary side panel item before secondary Help & Support and Logout actions.
+
+For Super Admin users, the primary side panel SHALL include these permitted dashboard destinations when available:
+
+* Dashboard: `/dashboard`
+* Manage Academies: `/dashboard?panel=academies`
+* Manage Open Mats: `/dashboard?panel=open-mats`
+* Manage Users: `/dashboard?panel=users`
+* Analytics: `/dashboard?panel=analytics`
+* Academy Review: `/dashboard?panel=platform-admin-academies`
+* Academy Claims: `/dashboard?panel=academy-claims`
+* Map: `/dashboard?panel=maps`
+* Settings: `/dashboard?panel=settings`
+
+For Platform Admin users, the primary side panel SHALL include the same operational destinations they are permitted to use, excluding Super Admin-only destinations.
+
+For Academy Admin users, the primary side panel SHALL include corresponding scoped destinations for academy profile/academy management, rolls/open mats, users, and any permitted settings, while excluding platform-wide analytics, Academy Review, platform claim review, and other Super Admin-only or Platform Admin-only destinations.
+
+For Standard Users, this requirement SHALL NOT add admin destinations; Standard User side panel requirements remain controlled by `docs/features/Users/Standard/Products/StandardUserSharedDashboardPrd.md`.
+
 ### Collapsed Tooltip Behavior
 
 IF the side panel is collapsed on desktop
