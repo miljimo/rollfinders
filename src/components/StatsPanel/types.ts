@@ -23,6 +23,10 @@ export type StatsPanelProps = {
   title?: string;
   items: StatsPanelItem[];
   maxItems?: number;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  persistCollapseState?: boolean;
+  collapseStorageKey?: string;
   emptyBehavior?: "hide" | "message";
   emptyMessage?: string;
   className?: string;

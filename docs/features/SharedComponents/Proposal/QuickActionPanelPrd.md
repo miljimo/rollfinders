@@ -39,6 +39,8 @@ Related requirements:
 * Configurable maximum number of visible items.
 * Role-aware item filtering through caller-provided action data.
 * Active action styling.
+* Collapsed-by-default behavior with an accessible expand/collapse control.
+* Optional persisted collapse preference per browser/session.
 * Empty-state handling.
 * Accessibility requirements for action links.
 * Implementation guidance for replacing the existing admin dashboard Quick Actions section.
@@ -63,6 +65,8 @@ THEN the action area can show excessive blank space.
 AND the layout can feel unfinished because visible cards do not fit their content count.
 
 AND the same action-card pattern is not reusable outside the current admin dashboard file.
+
+AND when Quick Actions render expanded by default, the card row can push the main dashboard content down before the user has chosen to use those shortcuts.
 
 ## Product Requirements
 
@@ -215,6 +219,54 @@ THEN it SHALL either render nothing or render a compact empty state based on cal
 
 AND the admin dashboard SHOULD render nothing for empty Quick Actions to avoid dead space.
 
+### Collapsible Default State
+
+IF the `QuickActionPanel` renders on the dashboard
+
+WHEN the user has not previously chosen an expand/collapse preference
+
+THEN the panel SHALL render collapsed by default.
+
+AND the collapsed panel SHALL show only the Quick Actions header row and the expand/collapse control.
+
+AND the collapsed panel SHALL NOT render or reserve vertical space for action cards.
+
+AND the main dashboard content SHALL move up when the panel is collapsed.
+
+AND the Side Panel SHALL remain the always-visible primary navigation path for the same workflows.
+
+IF the user activates the expand control
+
+WHEN the panel expands
+
+THEN the panel SHALL reveal the action card list without navigating away from the current dashboard panel.
+
+AND the control SHALL update its icon and accessible state to communicate the expanded state.
+
+IF the user activates the collapse control
+
+WHEN the panel collapses
+
+THEN the panel SHALL hide the action card list without losing current dashboard context.
+
+AND the control SHALL update its icon and accessible state to communicate the collapsed state.
+
+### Collapse Preference Persistence
+
+IF the user expands or collapses Quick Actions
+
+WHEN the dashboard is revisited in the same browser session
+
+THEN the panel SHOULD restore the user's last chosen expanded/collapsed state.
+
+AND the default collapsed state SHALL apply only when no saved preference exists.
+
+AND persistence SHOULD use session storage or an equivalent browser-local mechanism.
+
+AND persistence SHALL NOT require a database write.
+
+AND persistence SHALL NOT be shared across different users on different browsers.
+
 ### Accessibility
 
 IF an action has icon-only or ambiguous visible text
@@ -231,6 +283,20 @@ AND semantic links SHALL be used for navigation actions.
 
 AND the heading SHALL be configurable so pages can preserve correct heading order.
 
+IF the panel is collapsible
+
+WHEN the header control renders
+
+THEN the control SHALL be a keyboard-operable button.
+
+AND the button SHALL expose `aria-expanded`.
+
+AND the button SHALL expose `aria-controls` for the action card container when the container is rendered.
+
+AND the button SHALL have an accessible name such as `Expand Quick Actions` or `Collapse Quick Actions`.
+
+AND the visual icon SHALL use a chevron or equivalent familiar disclosure indicator.
+
 ## UX Requirements
 
 The panel SHALL preserve the current RollFinders admin visual language:
@@ -245,6 +311,10 @@ The panel SHALL preserve the current RollFinders admin visual language:
 The panel SHALL feel like a compact shortcut group, not a full-width content section.
 
 The panel SHALL avoid creating a large blank row when only one or two actions are visible.
+
+The collapsed state SHALL be visually compact: header text, chevron/disclosure button, border, and no hidden-card whitespace.
+
+The expanded state SHALL preserve the existing action-card visual style.
 
 ## Proposed API
 
@@ -264,6 +334,10 @@ type QuickActionPanelProps = {
   title?: string;
   items: ActionItemData[];
   maxItems?: number;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  persistCollapseState?: boolean;
+  collapseStorageKey?: string;
   emptyBehavior?: "hide" | "message";
   emptyMessage?: string;
   className?: string;
@@ -334,6 +408,12 @@ AND the Side Panel item SHALL use the same title or a clearly equivalent concise
 
 AND the Side Panel item SHALL be omitted whenever the Quick Action is omitted for role policy.
 
+AND the dashboard Quick Actions usage SHALL configure the panel as collapsible.
+
+AND the dashboard Quick Actions usage SHALL default to collapsed when no saved browser preference exists.
+
+AND the dashboard Quick Actions usage SHOULD persist the user's expanded/collapsed preference for the current browser session.
+
 AND the current canonical dashboard links SHALL remain unchanged unless another PRD changes them:
 
 * Manage Academies or My Academy: `/dashboard?panel=academies`
@@ -345,6 +425,17 @@ AND the current canonical dashboard links SHALL remain unchanged unless another 
 * Analytics: `/dashboard?panel=analytics`
 * Map: `/dashboard?panel=maps`
 * Settings: `/dashboard?panel=settings`
+
+Settings-specific Quick Actions SHALL use the same component and detail-panel pattern for:
+
+* Change Password: `/dashboard?panel=settings&settingsAction=change-password`
+* Email Options: `/dashboard?panel=settings&settingsAction=email-options`
+* Recent Audits: `/dashboard?panel=settings&settingsAction=recent-audits`
+* Weekly Activity Summary: `/dashboard?panel=settings&settingsAction=weekly-activity`
+
+Weekly Activity Summary SHALL only be shown to Platform Admin and Super Admin users.
+
+Weekly Activity Summary SHALL be omitted for Academy Admin and Standard User accounts.
 
 Legacy admin links SHALL only be used when intentionally preserving old-route compatibility:
 
@@ -368,7 +459,12 @@ Legacy admin links SHALL only be used when intentionally preserving old-route co
 11. Platform Admin and Super Admin functionality is not removed or regressed.
 12. Every visible Quick Action has a corresponding role-permitted primary Side Panel item.
 13. Settings remains the final primary Side Panel item before Help & Support and Logout.
-14. TypeScript, unit tests, and production build checks pass.
+14. Quick Actions renders collapsed by default when no saved preference exists.
+15. Collapsed Quick Actions does not reserve card-row whitespace.
+16. Expanding Quick Actions reveals the same role-filtered action cards.
+17. The expand/collapse control is keyboard accessible and exposes `aria-expanded`.
+18. The user's expand/collapse preference is restored for the current browser session when persistence is enabled.
+19. TypeScript, unit tests, and production build checks pass.
 
 ## Test Requirements
 
@@ -385,12 +481,21 @@ Automated tests SHOULD verify:
 * Admin dashboard passes role-filtered action items.
 * Admin dashboard side-panel navigation includes corresponding items for every visible primary Quick Action.
 * Settings stays after Manage Academies, Manage Open Mats, Manage Users, Analytics, Academy Review, Academy Claims, and Map in the primary side-panel ordering.
+* `QuickActionPanel` renders collapsed by default when configured with `defaultCollapsed`.
+* Collapsed `QuickActionPanel` renders the heading and disclosure button but not action cards.
+* Expanded `QuickActionPanel` renders the permitted action cards.
+* The disclosure button exposes `aria-expanded` and toggles state.
+* Session persistence restores the user's last expanded/collapsed state when enabled.
 
 Visual or browser verification SHOULD cover:
 
 * Desktop with one visible action.
 * Desktop with two visible actions.
 * Desktop with three or more visible actions.
+* Desktop with Quick Actions collapsed by default.
+* Desktop after expanding Quick Actions.
+* Mobile with Quick Actions collapsed by default.
+* Mobile after expanding Quick Actions.
 * Mobile stacked layout.
 * Academy Admin quick actions.
 * Platform Admin or Super Admin quick actions.

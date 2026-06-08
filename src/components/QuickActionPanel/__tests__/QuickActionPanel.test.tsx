@@ -96,4 +96,22 @@ describe("QuickActionPanel", () => {
     assert.doesNotMatch(markup, /href="\/admin\?panel=academies"/);
     assert.match(markup, /cursor-not-allowed/);
   });
+
+  it("renders collapsible panels collapsed by default without action cards", () => {
+    const markup = renderToStaticMarkup(<QuickActionPanel collapsible defaultCollapsed items={actions} />);
+
+    assert.match(markup, /Quick Actions/);
+    assert.match(markup, /aria-expanded="false"/);
+    assert.match(markup, /aria-label="Expand Quick Actions"/);
+    assert.doesNotMatch(markup, /href="\/admin\?panel=academies"/);
+    assert.doesNotMatch(markup, /mt-4 flex flex-wrap gap-4/);
+  });
+
+  it("renders collapsible panels expanded when defaultCollapsed is false", () => {
+    const markup = renderToStaticMarkup(<QuickActionPanel collapsible items={actions} />);
+
+    assert.match(markup, /aria-expanded="true"/);
+    assert.match(markup, /aria-label="Collapse Quick Actions"/);
+    assert.match(markup, /href="\/admin\?panel=academies"/);
+  });
 });

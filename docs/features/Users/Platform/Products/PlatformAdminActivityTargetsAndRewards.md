@@ -331,15 +331,17 @@ AND the Super Admin review surface SHALL distinguish active target participants,
 
 ---
 
-# Dashboard Requirements
+# Settings Requirements
 
-## Scenario: Show Platform Admin Activity Summary
+## Scenario: Show Platform Admin Activity Summary In Settings
 
-IF a Platform Admin opens the dashboard
+IF a Platform Admin opens Settings
 
 WHEN weekly activity data is available
 
-THEN the dashboard SHALL show:
+AND the Platform Admin selects the Weekly Activity Summary settings action
+
+THEN the settings detail panel SHALL show:
 
 * Weekly Academy contribution goal
 * Academies added this week
@@ -350,9 +352,15 @@ THEN the dashboard SHALL show:
 * Total points where available
 * Suggested next action where available
 
-AND the dashboard SHOULD use contribution, impact, momentum, and operational health language.
+AND the settings detail panel SHOULD use contribution, impact, momentum, and operational health language.
 
-AND the dashboard SHALL NOT use surveillance, punishment, compliance, probation, or automatic-enforcement language.
+AND the settings detail panel SHALL NOT use surveillance, punishment, compliance, probation, or automatic-enforcement language.
+
+AND the Weekly Activity Summary SHALL NOT render as a standalone primary dashboard panel.
+
+AND the Weekly Activity Summary settings action SHALL be visible only to Platform Admin and Super Admin users.
+
+AND the Weekly Activity Summary settings action SHALL NOT be visible to Academy Admin or Standard User accounts.
 
 ---
 
@@ -360,9 +368,9 @@ AND the dashboard SHALL NOT use surveillance, punishment, compliance, probation,
 
 IF quality or rejection data is available
 
-WHEN the dashboard displays Platform Admin contribution progress
+WHEN the settings detail panel displays Platform Admin contribution progress
 
-THEN the dashboard SHOULD show quality signals that discourage low-value volume.
+THEN the settings detail panel SHOULD show quality signals that discourage low-value volume.
 
 AND quality signals MAY include verified listing rate, rejected duplicate rate, corrected stale listing count, priority-region coverage improvements, and claim review timeliness.
 
@@ -370,11 +378,11 @@ AND quality signals MAY include verified listing rate, rejected duplicate rate, 
 
 ## Scenario: Protect Peer Platform Admin Information
 
-IF a Platform Admin views their own activity dashboard
+IF a Platform Admin views their own Weekly Activity Summary in Settings
 
-WHEN the dashboard displays targets, engagement nudges, or points
+WHEN the Settings page displays targets, engagement nudges, or points
 
-THEN the dashboard SHALL NOT expose another Platform Admin's email, role value, last login, academy assignment, permission controls, Super Admin information, or protected elevated-user data.
+THEN the Settings page SHALL NOT expose another Platform Admin's email, role value, last login, academy assignment, permission controls, Super Admin information, or protected elevated-user data.
 
 ---
 

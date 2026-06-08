@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
-import { KeyRound, Mail, RefreshCw, ShieldCheck } from "lucide-react";
+import { BarChart3, KeyRound, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
-import { elevatedAdminPrivacyAuditLogWhere, requireAdminPage } from "@/lib/admin";
+import { elevatedAdminPrivacyAuditLogWhere, isPlatformAdminRole, requireAdminPage } from "@/lib/admin";
+import { getPlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { formatDate } from "@/lib/utils";
 import { processEmailQueue } from "../actions";
 import { EmailOperationsPanel } from "../EmailOperationsPanel";
+import { PlatformAdminActivitySummaryPanel } from "../../dashboard/AdminDashboardWorkspace";
 import { ChangePasswordForm } from "../../dashboard/password/ChangePasswordForm";
 
 export const dynamic = "force-dynamic";
@@ -30,7 +32,7 @@ function selectedEmailOperationsView(value: string | undefined) {
 }
 
 function selectedSettingsAction(value: string | undefined) {
-  if (value === "change-password" || value === "email-options" || value === "recent-audits") return value;
+  if (value === "change-password" || value === "email-options" || value === "recent-audits" || value === "weekly-activity") return value;
   return "change-password";
 }
 
@@ -46,7 +48,9 @@ export default async function SettingsPage({
 }) {
   const currentUser = await requireAdminPage();
   const params = await searchParams;
-  const activeSettingsAction = selectedSettingsAction(firstParam(params.settingsAction) ?? firstParam(params.settingsView));
+  const requestedSettingsAction = selectedSettingsAction(firstParam(params.settingsAction) ?? firstParam(params.settingsView));
+  const elevatedAdmin = isPlatformAdminRole(currentUser.role);
+  const activeSettingsAction = requestedSettingsAction === "weekly-activity" && !elevatedAdmin ? "change-password" : requestedSettingsAction;
   const emailOperationsView = selectedEmailOperationsView(firstParam(params.emailView));
   const emailPage = pageFromParams(params, "emailPage");
   const emailOptionsHref = "/admin/settings?settingsAction=email-options";
@@ -75,8 +79,20 @@ export default async function SettingsPage({
       icon: <ShieldCheck size={24} aria-hidden />,
       id: "recent-audits",
     },
+    ...(elevatedAdmin
+      ? [
+          {
+            active: activeSettingsAction === "weekly-activity",
+            title: "Weekly Activity Summary",
+            description: "Review current-week contribution momentum",
+            href: "/admin/settings?settingsAction=weekly-activity",
+            icon: <BarChart3 size={24} aria-hidden />,
+            id: "weekly-activity",
+          } satisfies QuickActionPanelItem,
+        ]
+      : []),
   ];
-  const [emailOperations, recentAuditLogs] = await Promise.all([
+  const [emailOperations, recentAuditLogs, platformAdminActivitySummary] = await Promise.all([
     getEmailQueueOperationsSummary(),
     prisma.adminAuditLog.findMany({
       where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
@@ -84,6 +100,7 @@ export default async function SettingsPage({
       include: { actor: true, target: true },
       orderBy: { createdAt: "desc" },
     }),
+    elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
   ]);
 
   return (
@@ -129,6 +146,16 @@ export default async function SettingsPage({
 
           {activeSettingsAction === "recent-audits" ? (
             <RecentAuditList logs={recentAuditLogs} />
+          ) : null}
+
+          {activeSettingsAction === "weekly-activity" ? (
+            platformAdminActivitySummary ? (
+              <PlatformAdminActivitySummaryPanel embedded summary={platformAdminActivitySummary} />
+            ) : (
+              <p className="text-sm font-semibold leading-6 text-slate-600">
+                Weekly activity summaries are tracked for Platform Admin contribution accounts. No current weekly activity summary is available for this account.
+              </p>
+            )
           ) : null}
         </SettingsDetailPanel>
       </section>

@@ -104,7 +104,7 @@ function selectedEmailOperationsView(value: string | undefined) {
 }
 
 function selectedSettingsAction(value: string | undefined) {
-  if (value === "change-password" || value === "email-options" || value === "recent-audits") return value;
+  if (value === "change-password" || value === "email-options" || value === "recent-audits" || value === "weekly-activity") return value;
   return "change-password";
 }
 
@@ -704,11 +704,13 @@ export default async function AdminDashboardWorkspace({
 
         {panel === "settings" ? (
           <SettingsDashboardContent
-            emailPage={emailPage}
-            emailOperationsView={emailOperationsView}
-            emailOperations={emailOperations}
-            recentAuditLogs={recentAuditLogs}
             activeSettingsAction={activeSettingsAction}
+            canViewWeeklyActivity={elevatedAdmin}
+            emailPage={emailPage}
+            emailOperations={emailOperations}
+            emailOperationsView={emailOperationsView}
+            platformAdminActivitySummary={platformAdminActivitySummary}
+            recentAuditLogs={recentAuditLogs}
           />
         ) : panel === "maps" ? (
           <MapDashboardContent academies={mapItems} />
@@ -721,13 +723,24 @@ export default async function AdminDashboardWorkspace({
             </div>
           </div>
 
-          <StatsPanel className="mt-6" items={statCards} />
+          <StatsPanel
+            className="mt-6 rounded-lg border border-teal-200 bg-white p-4 shadow-sm"
+            collapseStorageKey="rollfinders.dashboardStatsCollapsed"
+            collapsible
+            defaultCollapsed
+            items={statCards}
+            persistCollapseState
+            title="Stats Board"
+          />
 
-          {platformAdminActivitySummary ? (
-            <PlatformAdminActivitySummaryPanel summary={platformAdminActivitySummary} />
-          ) : null}
-
-          <QuickActionPanel className="mt-7" items={quickActionItems} />
+          <QuickActionPanel
+            className="mt-7 rounded-lg border border-teal-200 bg-white p-4 shadow-sm"
+            collapseStorageKey="rollfinders.dashboardQuickActionsCollapsed"
+            collapsible
+            defaultCollapsed
+            items={quickActionItems}
+            persistCollapseState
+          />
 
           {superAdmin && panel === "analytics" ? (
             <FounderAnalyticsPanel
@@ -1186,13 +1199,13 @@ function startOfWeek(date: Date) {
   return start;
 }
 
-export function PlatformAdminActivitySummaryPanel({ summary }: { summary: PlatformAdminActivitySummary }) {
+export function PlatformAdminActivitySummaryPanel({ embedded = false, summary }: { embedded?: boolean; summary: PlatformAdminActivitySummary }) {
   const goal = Math.max(summary.weeklyAcademyTarget, 0);
   const progress = goal > 0 ? Math.min(100, Math.round((summary.academiesCreated / goal) * 100)) : 100;
   const remainingLabel = summary.remainingAcademiesToTarget === 0 ? "Target reached" : `${summary.remainingAcademiesToTarget.toLocaleString()} remaining`;
 
   return (
-    <section className="mt-7 rounded-lg border border-teal-100 bg-white p-5 shadow-sm" aria-labelledby="platform-admin-activity-title">
+    <section className={embedded ? "" : "mt-7 rounded-lg border border-teal-100 bg-white p-5 shadow-sm"} aria-labelledby="platform-admin-activity-title">
       <div className="grid gap-5 xl:grid-cols-[1fr_320px]">
         <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1362,15 +1375,19 @@ type SettingsAuditLog = {
 
 function SettingsDashboardContent({
   activeSettingsAction,
+  canViewWeeklyActivity,
   emailPage,
   emailOperationsView,
   emailOperations,
+  platformAdminActivitySummary,
   recentAuditLogs,
 }: {
-  activeSettingsAction: "change-password" | "email-options" | "recent-audits";
+  activeSettingsAction: "change-password" | "email-options" | "recent-audits" | "weekly-activity";
+  canViewWeeklyActivity: boolean;
   emailPage: number;
   emailOperationsView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
   emailOperations: Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
+  platformAdminActivitySummary: PlatformAdminActivitySummary | null;
   recentAuditLogs: SettingsAuditLog[];
 }) {
   const emailOptionsHref = "/dashboard?panel=settings&settingsAction=email-options";
@@ -1399,7 +1416,20 @@ function SettingsDashboardContent({
       icon: <ShieldCheck size={24} aria-hidden />,
       id: "recent-audits",
     },
+    ...(canViewWeeklyActivity
+      ? [
+          {
+            active: activeSettingsAction === "weekly-activity",
+            title: "Weekly Activity Summary",
+            description: "Review current-week contribution momentum",
+            href: "/dashboard?panel=settings&settingsAction=weekly-activity",
+            icon: <BarChart3 size={24} aria-hidden />,
+            id: "weekly-activity",
+          } satisfies QuickActionPanelItem,
+        ]
+      : []),
   ];
+  const selectedSettingsItem = settingsActionItems.find((item) => item.active);
 
   return (
     <section className="px-4 py-8 sm:px-8">
@@ -1415,7 +1445,7 @@ function SettingsDashboardContent({
 
       <QuickActionPanel className="mt-7" items={settingsActionItems} />
 
-      <SettingsDetailPanel title={settingsActionItems.find((item) => item.active)?.title ?? "Settings"}>
+      <SettingsDetailPanel title={selectedSettingsItem?.title ?? "Settings"}>
         {activeSettingsAction === "change-password" ? (
           <div className="max-w-xl">
             <p className="text-sm font-semibold leading-6 text-slate-600">Set a new password for your administrator account.</p>
@@ -1443,6 +1473,16 @@ function SettingsDashboardContent({
 
         {activeSettingsAction === "recent-audits" ? (
           <RecentAuditList logs={recentAuditLogs} />
+        ) : null}
+
+        {activeSettingsAction === "weekly-activity" ? (
+          platformAdminActivitySummary ? (
+            <PlatformAdminActivitySummaryPanel embedded summary={platformAdminActivitySummary} />
+          ) : (
+            <p className="text-sm font-semibold leading-6 text-slate-600">
+              Weekly activity summaries are tracked for Platform Admin contribution accounts. No current weekly activity summary is available for this account.
+            </p>
+          )
         ) : null}
       </SettingsDetailPanel>
     </section>

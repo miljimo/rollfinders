@@ -17,6 +17,10 @@ export type QuickActionPanelProps = {
   title?: string;
   headingLevel?: 2 | 3 | 4;
   maxItems?: number;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  persistCollapseState?: boolean;
+  collapseStorageKey?: string;
   emptyBehavior?: "hide" | "message";
   emptyMessage?: string;
   emptyState?: ReactNode;

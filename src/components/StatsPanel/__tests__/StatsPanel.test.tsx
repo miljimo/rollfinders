@@ -64,4 +64,22 @@ describe("StatsPanel", () => {
     assert.match(markup, /aria-disabled="true"/);
     assert.doesNotMatch(markup, /href="\/admin\?panel=users"/);
   });
+
+  it("renders collapsible panels collapsed by default without stat cards", () => {
+    const markup = renderToStaticMarkup(<StatsPanel collapsible defaultCollapsed items={items} title="Stats Board" />);
+
+    assert.match(markup, /Stats Board/);
+    assert.match(markup, /aria-expanded="false"/);
+    assert.match(markup, /aria-label="Expand Stats Board"/);
+    assert.doesNotMatch(markup, /Academy Users/);
+    assert.doesNotMatch(markup, /flex flex-wrap gap-4/);
+  });
+
+  it("renders collapsible panels expanded when defaultCollapsed is false", () => {
+    const markup = renderToStaticMarkup(<StatsPanel collapsible items={items} title="Stats Board" />);
+
+    assert.match(markup, /aria-expanded="true"/);
+    assert.match(markup, /aria-label="Collapse Stats Board"/);
+    assert.match(markup, /Academy Users/);
+  });
 });

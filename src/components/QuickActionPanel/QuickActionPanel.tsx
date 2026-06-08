@@ -1,5 +1,6 @@
 import type { ElementType } from "react";
 import { ActionItem } from "./ActionItem";
+import { QuickActionPanelDisclosure } from "./QuickActionPanelDisclosure";
 import type { QuickActionPanelProps } from "./types";
 
 const headingByLevel: Record<NonNullable<QuickActionPanelProps["headingLevel"]>, ElementType> = {
@@ -13,6 +14,10 @@ export function QuickActionPanel({
   items,
   maxItems,
   headingLevel = 2,
+  collapsible = false,
+  defaultCollapsed = false,
+  persistCollapseState = false,
+  collapseStorageKey,
   emptyBehavior = "hide",
   emptyMessage = "No quick actions available.",
   emptyState = null,
@@ -24,19 +29,36 @@ export function QuickActionPanel({
   if (visibleItems.length === 0 && !resolvedEmptyState) return null;
 
   const Heading = headingByLevel[headingLevel];
+  const content = visibleItems.length > 0 ? (
+    <div className="mt-4 flex flex-wrap gap-4">
+      {visibleItems.map((item) => (
+        <ActionItem key={item.id} item={item} />
+      ))}
+    </div>
+  ) : (
+    <div className="mt-4 max-w-md rounded-lg border border-stone-200 bg-white p-4 text-sm font-semibold text-slate-600 shadow-sm">{resolvedEmptyState}</div>
+  );
+
+  if (collapsible) {
+    return (
+      <QuickActionPanelDisclosure
+        className={className}
+        collapsible
+        collapseStorageKey={collapseStorageKey}
+        defaultCollapsed={defaultCollapsed}
+        headingLevel={headingLevel}
+        persistCollapseState={persistCollapseState}
+        title={title}
+      >
+        {content}
+      </QuickActionPanelDisclosure>
+    );
+  }
 
   return (
     <section className={className} aria-labelledby="quick-action-panel-title">
       {title ? <Heading id="quick-action-panel-title" className="text-xl font-black text-slate-950">{title}</Heading> : null}
-      {visibleItems.length > 0 ? (
-        <div className="mt-4 flex flex-wrap gap-4">
-          {visibleItems.map((item) => (
-            <ActionItem key={item.id} item={item} />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-4 max-w-md rounded-lg border border-stone-200 bg-white p-4 text-sm font-semibold text-slate-600 shadow-sm">{resolvedEmptyState}</div>
-      )}
+      {content}
     </section>
   );
 }

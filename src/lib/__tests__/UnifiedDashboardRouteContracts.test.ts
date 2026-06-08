@@ -223,8 +223,17 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
     assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
+    assert.match(source, /<QuickActionPanel[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
+    assert.match(source, /collapseStorageKey="rollfinders\.dashboardQuickActionsCollapsed"/);
     assert.doesNotMatch(source, /title:\s*"Founder Analytics"/);
     assert.doesNotMatch(source, /title:\s*"Platform Admin Academy Review"/);
+  });
+
+  it("admin dashboard stats board is collapsible and collapsed by default", () => {
+    const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(source, /<StatsPanel[\s\S]*title="Stats Board"[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
+    assert.match(source, /collapseStorageKey="rollfinders\.dashboardStatsCollapsed"/);
   });
 
   it("admin settings use quick actions to inject one selected settings detail panel", () => {
@@ -238,13 +247,17 @@ describe("unified dashboard route contracts", () => {
       assert.match(source, /title:\s*"Change Password"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=change-password"/);
       assert.match(source, /title:\s*"Email Options"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=email-options"/);
       assert.match(source, /title:\s*"Recent Audits"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=recent-audits"/);
+      assert.match(source, /title:\s*"Weekly Activity Summary"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=weekly-activity"/);
       assert.match(source, /<QuickActionPanel[\s\S]*items=\{settingsActionItems\}/);
       assert.match(source, /activeSettingsAction\s*===\s*"change-password"\s*\?\s*\([\s\S]*<ChangePasswordForm[\s\S]*embedded/);
       assert.match(source, /activeSettingsAction\s*===\s*"email-options"\s*\?\s*\([\s\S]*<EmailOperationsPanel[\s\S]*activePage=\{[^}]*emailPage[^}]*\}[\s\S]*activeView=\{[^}]*emailOperationsView[^}]*\}/);
       assert.match(source, /activeSettingsAction\s*===\s*"recent-audits"\s*\?\s*\(/);
+      assert.match(source, /activeSettingsAction\s*===\s*"weekly-activity"[\s\S]*<PlatformAdminActivitySummaryPanel embedded summary=\{platformAdminActivitySummary\}/);
       assert.match(source, /rounded-lg border border-blue-300 bg-blue-50\/20/);
       assert.doesNotMatch(source, /role="dialog"[\s\S]*Change Password/);
     }
+
+    assert.doesNotMatch(dashboardSource, /<PlatformAdminActivitySummaryPanel summary=\{platformAdminActivitySummary\}/);
 
     assert.match(passwordActionSource, /changeDashboardUserPassword/);
     assert.match(passwordActionSource, /where:\s*\{\s*id:\s*user\.id\s*\}/);

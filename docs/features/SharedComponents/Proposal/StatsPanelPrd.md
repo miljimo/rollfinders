@@ -61,6 +61,8 @@ Related requirements:
 * Content-driven item width on tablet and desktop.
 * Role-scoped item data provided by callers.
 * Support for icons, labels, values, and `StatIndicator`.
+* Collapsed-by-default behavior for the dashboard Stats Board.
+* Optional persisted collapse preference per browser/session.
 * Accessibility requirements for metric cards.
 * Implementation guidance for replacing the inline admin dashboard stat card row.
 
@@ -74,6 +76,16 @@ Related requirements:
 * Changing QuickActionPanel routes or action behavior.
 
 ## Product Requirements
+
+### Dashboard Space Management
+
+IF the dashboard renders a Stats Board above primary content
+
+WHEN the stat cards render expanded by default
+
+THEN the metric card group can push the main dashboard content down before the user has chosen to review those metrics.
+
+AND the dashboard SHALL allow the Stats Board to be collapsed so operational content can move up.
 
 ### Reusable Component
 
@@ -202,6 +214,68 @@ THEN each stat item SHALL stack as a full-width row or card.
 
 AND metric text SHALL wrap without overflowing.
 
+### Collapsible Default State
+
+IF the `StatsPanel` renders as the dashboard Stats Board
+
+WHEN the user has not previously chosen an expand/collapse preference
+
+THEN the panel SHALL render collapsed by default.
+
+AND the collapsed panel SHALL show only the `Stats Board` header row and the expand/collapse control.
+
+AND the collapsed panel SHALL NOT render or reserve vertical space for stat cards.
+
+AND the main dashboard content SHALL move up when the panel is collapsed.
+
+IF the user activates the expand control
+
+WHEN the panel expands
+
+THEN the panel SHALL reveal the same role-scoped stat cards without navigating away from the current dashboard panel.
+
+AND the control SHALL update its icon and accessible state to communicate the expanded state.
+
+IF the user activates the collapse control
+
+WHEN the panel collapses
+
+THEN the panel SHALL hide the stat card list without losing current dashboard context.
+
+AND the control SHALL update its icon and accessible state to communicate the collapsed state.
+
+### Collapse Preference Persistence
+
+IF the user expands or collapses the Stats Board
+
+WHEN the dashboard is revisited in the same browser session
+
+THEN the panel SHOULD restore the user's last chosen expanded/collapsed state.
+
+AND the default collapsed state SHALL apply only when no saved preference exists.
+
+AND persistence SHOULD use session storage or an equivalent browser-local mechanism.
+
+AND persistence SHALL NOT require a database write.
+
+AND persistence SHALL NOT be shared across different users on different browsers.
+
+### Accessibility
+
+IF the panel is collapsible
+
+WHEN the header control renders
+
+THEN the control SHALL be a keyboard-operable button.
+
+AND the button SHALL expose `aria-expanded`.
+
+AND the button SHALL expose `aria-controls` for the stat card container when the container is rendered.
+
+AND the button SHALL have an accessible name such as `Expand Stats Board` or `Collapse Stats Board`.
+
+AND the visual icon SHALL use a chevron or equivalent familiar disclosure indicator.
+
 ## Proposed API
 
 ```ts
@@ -227,6 +301,10 @@ type StatsPanelProps = {
   title?: string;
   items: StatsPanelItem[];
   maxItems?: number;
+  collapsible?: boolean;
+  defaultCollapsed?: boolean;
+  persistCollapseState?: boolean;
+  collapseStorageKey?: string;
   emptyBehavior?: "hide" | "message";
   emptyMessage?: string;
   className?: string;
@@ -276,6 +354,14 @@ AND Academy Admin stat rows SHALL NOT include `My Academy`, `Verified`, `Verifie
 
 AND Platform Admin and Super Admin counts SHALL remain scoped according to existing policy.
 
+AND the top dashboard Stats Board usage SHALL configure `StatsPanel` as collapsible.
+
+AND the top dashboard Stats Board usage SHALL default to collapsed when no saved browser preference exists.
+
+AND the top dashboard Stats Board usage SHOULD persist the user's expanded/collapsed preference for the current browser session.
+
+AND secondary stats panels inside detail views MAY remain expanded unless another PRD requires them to collapse.
+
 ## Acceptance Criteria
 
 1. `StatsPanel` is implemented as a reusable component outside `src/app/admin/page.tsx`.
@@ -287,7 +373,12 @@ AND Platform Admin and Super Admin counts SHALL remain scoped according to exist
 7. Mobile layout stacks stat items cleanly.
 8. `StatIndicator` is reused for metric context.
 9. Existing admin dashboard metric labels, values, indicators, and role scoping remain unchanged.
-10. TypeScript, unit tests, and production build checks pass.
+10. Dashboard Stats Board renders collapsed by default when no saved preference exists.
+11. Collapsed Stats Board does not reserve stat-card whitespace.
+12. Expanding Stats Board reveals the same role-scoped stat cards.
+13. The expand/collapse control is keyboard accessible and exposes `aria-expanded`.
+14. The user's expand/collapse preference is restored for the current browser session when persistence is enabled.
+15. TypeScript, unit tests, and production build checks pass.
 
 ## Test Requirements
 
@@ -302,12 +393,22 @@ Automated tests SHOULD verify:
 * Optional linked stat items render as links only when `href` exists and item is not disabled.
 * Stat items expose accessible labels.
 * Shared item primitive behavior does not regress QuickActionPanel tests.
+* `StatsPanel` renders collapsed by default when configured with `defaultCollapsed`.
+* Collapsed `StatsPanel` renders the heading and disclosure button but not stat cards.
+* Expanded `StatsPanel` renders the role-scoped stat cards.
+* The disclosure button exposes `aria-expanded` and toggles state.
+* Session persistence restores the user's last expanded/collapsed state when enabled.
+* Admin dashboard configures the top Stats Board as collapsible and collapsed by default.
 
 Visual or browser verification SHOULD cover:
 
 * Desktop with one stat item.
 * Desktop with two stat items.
 * Desktop with five stat items.
+* Desktop with Stats Board collapsed by default.
+* Desktop after expanding Stats Board.
+* Mobile with Stats Board collapsed by default.
+* Mobile after expanding Stats Board.
 * Mobile stacked layout.
 * Academy Admin stat row.
 * Platform Admin or Super Admin stat row.
