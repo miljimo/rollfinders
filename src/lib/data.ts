@@ -41,10 +41,6 @@ function academyTrustRank(academy: TrustRankAcademy) {
   return 0;
 }
 
-function candidatePriority<T extends TrustRankAcademy>(item: T) {
-  return academyTrustRank(item);
-}
-
 function eventCandidatePriority<T extends { academy: TrustRankAcademy }>(item: T) {
   return academyTrustRank(item.academy);
 }
@@ -105,17 +101,11 @@ function addEventDistances<T extends { eventDate: Date; startTime: string; title
 }
 
 export async function getFeaturedData(location?: LocationInput) {
-  const [academies, events] = await Promise.all([
-    prisma.academy.findMany({ include: academyTrustInclude, orderBy: { name: "asc" } }),
-    getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude }),
-  ]);
-  const academiesWithDistances = addAcademyDistances(academies, location);
-  const featuredAcademies = sortByDistance(selectTopCandidates(academiesWithDistances, 6, candidatePriority));
+  const events = await getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude });
   const featuredEvents = sortByDistance(selectTopCandidates(events, 6, eventCandidatePriority));
   const upcomingNearYou = sortUpcomingNearYou(events).slice(0, 3);
 
   return {
-    academies: featuredAcademies,
     events: featuredEvents,
     upcomingNearYou,
   };

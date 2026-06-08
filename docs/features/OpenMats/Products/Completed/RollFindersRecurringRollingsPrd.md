@@ -323,7 +323,7 @@ THEN the system SHALL stop showing that occurrence as an upcoming/publicly disco
 
 Done when:
 
-* Completed occurrences do not appear in `/open-mats` search results, public academy upcoming open mats, homepage featured open mats, or map upcoming summaries.
+* Completed occurrences do not appear in `/open-mats` search results, public academy upcoming open mats, homepage upcoming open mats, or map upcoming summaries.
 * Completed one-off event records remain in the database for admin/history/audit use.
 * Completed derived recurring occurrences remain derivable as historical occurrences without becoming duplicate editable source records.
 * Admin views can distinguish active/upcoming, in-session, completed, and inactive sessions where relevant.

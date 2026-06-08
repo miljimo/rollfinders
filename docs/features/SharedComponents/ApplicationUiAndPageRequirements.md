@@ -400,7 +400,7 @@ IF the home page renders
 
 WHEN featured academies and events are available
 
-THEN the page SHALL show hero search, differentiators, featured open mats, featured academies, and a final open mat CTA.
+THEN the page SHALL show hero search, differentiators, upcoming open mats, featured academies when approved, and a final open mat CTA.
 
 Done when:
 
@@ -455,6 +455,7 @@ THEN the page SHALL show filter form, today/tomorrow/weekend count links, result
 Done when:
 
 * Count links preserve location params when available.
+* Count links remain inline on mobile without horizontal page overflow.
 * Event cards are chronological according to backend data.
 * Empty state renders only when no events match.
 

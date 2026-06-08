@@ -18,6 +18,10 @@ IF radar counts are available
 WHEN the page renders  
 THEN it SHALL show Today, Tomorrow, and This Weekend count links.
 
+IF the page renders on a mobile viewport
+WHEN radar counts are shown
+THEN the Today, Tomorrow, and This Weekend count links SHALL remain inline on one row with compact labels and values.
+
 IF no events match  
 WHEN results render  
 THEN it SHALL show a clear empty state.
@@ -46,6 +50,7 @@ THEN the page SHALL render derived upcoming occurrences from the recurring sourc
 
 * Filter form preserves selected values.
 * Count links preserve location params.
+* Count links remain inline on mobile without horizontal page overflow.
 * Events render as cards.
 * Pagination shows result range, page links, Previous, and Next without requiring long scrolling.
 * Open mat and rolling candidate selection boosts verified-and-managed, managed, and verified academy sessions over otherwise comparable unclaimed academy sessions.

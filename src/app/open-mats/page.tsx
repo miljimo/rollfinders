@@ -87,7 +87,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
         <div className="mt-5">
           <OpenMatLocationFilterForm q={q} when={when} gi={gi} />
         </div>
-        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+        <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
           <RadarCount label="Today" count={today.length} href={`/open-mats?when=today${locationQuery}`} />
           <RadarCount label="Tomorrow" count={tomorrow.length} href={`/open-mats?when=tomorrow${locationQuery}`} />
           <RadarCount label="This Weekend" count={weekend.length} href={`/open-mats?when=weekend${locationQuery}`} />
@@ -107,9 +107,9 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
 
 function RadarCount({ label, count, href }: { label: string; count: number; href: string }) {
   return (
-    <a href={href} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <p className="text-sm font-semibold text-stone-600">{label}</p>
-      <p className="mt-1 text-2xl font-black text-stone-950">{count}</p>
+    <a href={href} className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm sm:p-4">
+      <p className="text-xs font-semibold leading-tight text-stone-600 sm:text-sm">{label}</p>
+      <p className="mt-1 text-xl font-black leading-none text-stone-950 sm:text-2xl">{count}</p>
     </a>
   );
 }

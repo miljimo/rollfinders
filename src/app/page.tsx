@@ -5,7 +5,6 @@ import { ArrowRight, CalendarDays, MapPin, Navigation, Search, Users } from "luc
 import { Button } from "@/components/Button";
 import { LocationSearchForm } from "@/components/LocationSearchForm";
 import { PageShell } from "@/components/PageShell";
-import { AcademyCard } from "@/components/AcademyCard";
 import { EventCard } from "@/components/EventCard";
 import { getFeaturedData } from "@/lib/data";
 import { dateKey } from "@/lib/open-mat-occurrences";
@@ -21,7 +20,7 @@ export const metadata: Metadata = {
 export default async function Home({ searchParams }: { searchParams: Promise<{ lat?: string; lng?: string }> }) {
   const { lat, lng } = await searchParams;
   const location = lat && lng ? { latitude: Number(lat), longitude: Number(lng) } : undefined;
-  const { academies, events, upcomingNearYou } = await getFeaturedData(location);
+  const { events, upcomingNearYou } = await getFeaturedData(location);
 
   return (
     <PageShell>
@@ -31,13 +30,13 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
         <div className="mx-auto grid max-w-7xl gap-9 px-4 py-10 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-14">
           <div className="flex flex-col justify-center">
             <p className="w-fit rounded-md bg-teal-50 px-3 py-2 text-sm font-black uppercase tracking-wide text-teal-800">BJJ training discovery</p>
-            <h1 className="mt-4 max-w-3xl text-5xl font-black leading-tight text-slate-950 sm:text-6xl">
+            <h1 className="mt-4 max-w-3xl text-4xl font-black leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
               Where can I train today?
             </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
+            <p className="mt-5 hidden max-w-2xl text-lg leading-8 text-slate-600 md:block">
               RollFinders is built for Brazilian Jiu-Jitsu practitioners, not generic gym browsing. Search open mats, nearby academies, gi and no-gi options, drop-in costs, and directions wherever you train.
             </p>
-            <div className="mt-6 flex flex-wrap gap-3 text-sm font-bold text-slate-600">
+            <div className="mt-6 hidden flex-wrap gap-3 text-sm font-bold text-slate-600 md:flex">
               <Button href="/open-mats?when=today" variant="primary" className="shadow-sm">
                 <CalendarDays size={16} aria-hidden /> Today
               </Button>
@@ -102,7 +101,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
         </div>
       </section>
 
-      <section className="border-b border-stone-200 bg-white">
+      <section className="hidden border-b border-stone-200 bg-white md:block">
         <div className="mx-auto grid max-w-7xl gap-4 px-4 py-6 sm:px-6 md:grid-cols-3">
           <Differentiator icon={<CalendarDays size={20} aria-hidden />} title="Open Mat Radar" text="Today, tomorrow, and weekend sessions first." />
           <Differentiator icon={<Navigation size={20} aria-hidden />} title="Nearby Training" text="Location-aware academy and open mat discovery." />
@@ -112,23 +111,11 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
 
       <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="text-2xl font-black text-stone-950">Featured Open Mats</h2>
+          <h2 className="text-2xl font-black text-stone-950">Upcoming Open Mats</h2>
           <Link href="/open-mats" className="inline-flex items-center gap-1 text-sm font-bold text-teal-800">All open mats <ArrowRight size={16} /></Link>
         </div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {events.map((event) => <EventCard key={event.occurrenceId ?? event.id} event={event} />)}
-        </div>
-      </section>
-
-      <section className="border-t border-stone-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-          <div className="mb-5 flex items-center justify-between gap-3">
-            <h2 className="text-2xl font-black text-stone-950">Featured Academies</h2>
-            <Link href="/academies" className="inline-flex items-center gap-1 text-sm font-bold text-teal-800">Browse academies <ArrowRight size={16} /></Link>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {/* {academies.map((academy) => <AcademyCard key={academy.id} academy={{ ...academy, events: [] }} />)} */}
-          </div>
         </div>
       </section>
 
