@@ -467,6 +467,28 @@ AND the system SHALL create an audit log entry for the password change without s
 
 ---
 
+# Edit Profile
+
+## Scenario: Edit Own Profile
+
+IF the authenticated user has the role `PLATFORM_ADMIN`
+
+AND the user opens the admin Settings panel
+
+WHEN the user clicks the Edit Profile card action
+
+THEN the system SHALL render the self-service Edit Profile form in the settings detail panel.
+
+WHEN the user updates a permitted profile field
+
+THEN the system SHALL update only the authenticated Platform Admin's own permitted profile information.
+
+AND permitted profile information SHALL include display name.
+
+AND email, role, status, academy assignment, disabled state, and protected-user state SHALL remain read-only or hidden.
+
+---
+
 # Test Requirements
 
 ## Scenario: Platform Admin Regression Tests

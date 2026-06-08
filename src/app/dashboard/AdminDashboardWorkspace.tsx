@@ -1362,7 +1362,7 @@ function SettingsDashboardContent({
 }) {
   const emailOptionsHref = "/dashboard?panel=settings&settingsAction=email-options";
   const effectiveSettingsAction =
-    elevatedAdmin || activeSettingsAction === "change-password" || (academyAdmin && activeSettingsAction === "edit-profile")
+    activeSettingsAction === "change-password" || activeSettingsAction === "edit-profile" || (elevatedAdmin && (activeSettingsAction === "email-options" || activeSettingsAction === "recent-audits" || activeSettingsAction === "weekly-activity"))
       ? activeSettingsAction
       : "change-password";
   const settingsActionItems: QuickActionPanelItem[] = [
@@ -1374,18 +1374,14 @@ function SettingsDashboardContent({
       icon: <KeyRound size={24} aria-hidden />,
       id: "change-password",
     },
-    ...(academyAdmin
-      ? [
-          {
-            active: effectiveSettingsAction === "edit-profile",
-            title: "Edit Profile",
-            description: "Update your personal display name",
-            href: "/dashboard?panel=settings&settingsAction=edit-profile",
-            icon: <Edit3 size={24} aria-hidden />,
-            id: "edit-profile",
-          } satisfies QuickActionPanelItem,
-        ]
-      : []),
+    {
+      active: effectiveSettingsAction === "edit-profile",
+      title: "Edit Profile",
+      description: "Update your personal display name",
+      href: "/dashboard?panel=settings&settingsAction=edit-profile",
+      icon: <Edit3 size={24} aria-hidden />,
+      id: "edit-profile",
+    },
     ...(elevatedAdmin
       ? [
           {
@@ -1445,7 +1441,7 @@ function SettingsDashboardContent({
           </div>
         ) : null}
 
-        {effectiveSettingsAction === "edit-profile" && academyAdmin && account ? (
+        {effectiveSettingsAction === "edit-profile" && account ? (
           <EditProfileForm
             academyName={account.academy?.name ?? "No academy assigned"}
             cancelHref="/dashboard?panel=settings"

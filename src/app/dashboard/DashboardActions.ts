@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
-import { isAcademyAdminRole, isStandardUserRole } from "@/lib/admin";
+import { isAnyAdminRole, isStandardUserRole } from "@/lib/admin";
 
 export type EditProfileState = {
   message: string;
@@ -14,7 +14,7 @@ export async function updateStandardUserProfile(
   formData: FormData,
 ): Promise<EditProfileState> {
   const { user } = await requireDashboardUser();
-  if (!isStandardUserRole(user.role) && !isAcademyAdminRole(user.role)) {
+  if (!isStandardUserRole(user.role) && !isAnyAdminRole(user.role)) {
     return { success: false, message: "Profile editing is only available for self-service dashboard users here." };
   }
 

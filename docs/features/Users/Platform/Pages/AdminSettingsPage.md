@@ -20,7 +20,7 @@ Provide platform/admin settings, email operations, audit visibility, and passwor
 
 IF permitted Platform Admin or Super Admin opens settings
 WHEN page renders
-THEN the page SHALL show Quick Actions for Change Password, Email Options, and Recent Audits.
+THEN the page SHALL show Quick Actions for Change Password, Edit Profile, Email Options, and Recent Audits.
 
 AND permitted Super Admin and Platform Admin users SHALL also see Weekly Activity Summary.
 
@@ -38,6 +38,13 @@ THEN `settingsAction=change-password` SHALL render the Change Password form in t
 AND the Change Password form SHALL update only the authenticated administrator's own password.
 
 AND the form SHALL NOT expose role, status, academy, or other account-management fields.
+
+WHEN the administrator clicks the Edit Profile action
+THEN `settingsAction=edit-profile` SHALL render the self-service Edit Profile form in the settings detail panel.
+
+AND the Edit Profile form SHALL update only the authenticated administrator's own display name.
+
+AND the Edit Profile form SHALL keep email, role, status, academy assignment, disabled state, and protected-user state read-only or hidden.
 
 WHEN the administrator clicks the Email Options action
 THEN `settingsAction=email-options` SHALL render email operations in the settings detail panel.
@@ -82,9 +89,10 @@ THEN feedback SHALL be visible.
 ## Done When
 
 * Settings route remains protected.
-* QuickActionPanel drives Change Password, Email Options, Recent Audits, and Weekly Activity Summary using `settingsAction`.
+* QuickActionPanel drives Change Password, Edit Profile, Email Options, Recent Audits, and Weekly Activity Summary using `settingsAction`.
 * Only one blue-marked settings detail panel is shown at a time.
 * PasswordForm is usable by permitted Super Admin and Platform Admin users from the settings detail panel.
+* Edit Profile is usable by permitted Super Admin and Platform Admin users from the settings detail panel.
 * Email operations filters and pagination keep working inside the Email Options detail view.
 * Weekly Activity Summary is visible only to Platform Admin and Super Admin users.
 * Weekly Activity Summary is no longer rendered as a standalone primary dashboard panel.

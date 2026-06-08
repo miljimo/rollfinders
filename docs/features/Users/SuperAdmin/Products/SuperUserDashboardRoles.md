@@ -421,6 +421,24 @@ AND the user's password should be changed to the new password successfully.
 AND the password change should apply only to the authenticated Super Admin's own account.
 
 
+## Edit Profile
+IF the authenticated user has the role `SUPER_ADMIN`
+
+AND the user opens the admin Settings panel
+
+WHEN the user clicks the Edit Profile card action
+
+THEN the system should render the self-service Edit Profile form in the settings detail panel.
+
+WHEN the user updates a permitted profile field
+
+THEN the system should update only the authenticated Super Admin's own permitted profile information.
+
+AND permitted profile information should include display name.
+
+AND email, role, status, academy assignment, disabled state, and protected-user state should remain read-only or hidden.
+
+
 Acceptable Criteria
  
  Above functionality is tested and working

@@ -110,7 +110,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(editProfileForm, /<ReadOnlyField label="Status" value=\{statusLabel\} \/>/);
     assert.match(editProfileForm, /<ReadOnlyField label="Academy" value=\{academyName\} \/>/);
     assert.match(dashboardActions, /isStandardUserRole\(user\.role\)/);
-    assert.match(dashboardActions, /isAcademyAdminRole\(user\.role\)/);
+    assert.match(dashboardActions, /isAnyAdminRole\(user\.role\)/);
     assert.match(dashboardActions, /data:\s*\{\s*name:\s*name\s*\|\|\s*null\s*\}/);
     assert.doesNotMatch(dashboardActions, /data:[\s\S]*\b(role|status|academyId|disabled|isProtected)\b/);
   });
@@ -257,10 +257,10 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(dashboardSource, /const\s+effectiveSettingsAction\s*=/);
     assert.match(dashboardSource, /title:\s*"Edit Profile"[\s\S]*href:\s*"\/dashboard\?panel=settings&settingsAction=edit-profile"/);
-    assert.match(dashboardSource, /academyAdmin[\s\S]*id:\s*"edit-profile"/);
+    assert.match(dashboardSource, /id:\s*"edit-profile"/);
     assert.match(dashboardSource, /elevatedAdmin[\s\S]*id:\s*"email-options"[\s\S]*id:\s*"recent-audits"/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"change-password"[\s\S]*<ChangePasswordForm[\s\S]*embedded/);
-    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"edit-profile"[\s\S]*<EditProfileForm/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"edit-profile"\s*&&\s*account[\s\S]*<EditProfileForm/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"email-options"\s*&&\s*elevatedAdmin[\s\S]*<EmailOperationsPanel[\s\S]*activePage=\{[^}]*emailPage[^}]*\}[\s\S]*activeView=\{[^}]*emailOperationsView[^}]*\}/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"recent-audits"\s*&&\s*elevatedAdmin/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"weekly-activity"\s*&&\s*elevatedAdmin[\s\S]*<PlatformAdminActivitySummaryPanel embedded summary=\{platformAdminActivitySummary\}/);
