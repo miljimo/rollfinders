@@ -1,3 +1,5 @@
+import { getEnvVariable } from "./environments";
+
 export type CoordinateLookupInput = {
   address?: string;
   city?: string;
@@ -43,7 +45,8 @@ export async function lookupCoordinates(input: CoordinateLookupInput, fetcher: F
 
 async function lookupPostcodeCoordinates(postcode: string, fetcher: Fetcher): Promise<CoordinateLookupResult | null> {
   try {
-    const response = await fetcher(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeQuery(postcode))}`, { cache: "no-store" });
+    const baseUrl = getEnvVariable("POST_CODE_TO_ADDRESS_URI", "https://api.postcodes.io/postcodes")
+    const response = await fetcher(`${baseUrl}/${encodeURIComponent(postcodeQuery(postcode))}`, { cache: "no-store" });
     if (!response.ok) return null;
     const payload = await response.json() as { result?: { latitude?: unknown; longitude?: unknown; postcode?: unknown } };
     const latitude = Number(payload.result?.latitude);

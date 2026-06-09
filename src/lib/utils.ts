@@ -18,11 +18,18 @@ export function formatMoney(value: unknown) {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(numberValue);
 }
 
-export function directionsUrl(address: string) {
+export function directionsUrl(address: string): string {
   return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
 }
 
-export function distanceMiles(from: { latitude: number; longitude: number }, to: { latitude: number; longitude: number }) {
+
+
+type Coordinate = {
+  latitude : number
+  longitude : number
+}
+
+export function distanceMiles(from : Coordinate, to : Coordinate) {
   const earthRadiusMiles = 3958.8;
   const toRad = (value: number) => (value * Math.PI) / 180;
   const dLat = toRad(to.latitude - from.latitude);

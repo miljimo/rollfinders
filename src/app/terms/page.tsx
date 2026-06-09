@@ -14,8 +14,10 @@ export default function TermsPage() {
         <p className="text-sm font-bold uppercase tracking-wide text-teal-800">RollFinders</p>
         <h1 className="mt-3 text-4xl font-black text-stone-950">Terms of Service</h1>
         <p className="mt-5 text-lg leading-8 text-stone-700">
-          These terms describe the rules for using RollFinders and maintaining accurate academy and open mat information.
+        These Terms describe the rules for using RollFinders and for maintaining accurate academy and Open Mat information.
+         These Terms and Conditions may be updated from time to time based on new features, operational requirements, or legal obligations.
         </p>
+       
         <div className="mt-8 space-y-7 text-stone-700">
           <Section title="Platform Use">
             <p>RollFinders is provided to help users discover Brazilian Jiu-Jitsu academies, open mats, and visitor-friendly training opportunities.</p>

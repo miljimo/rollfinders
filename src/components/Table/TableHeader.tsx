@@ -1,7 +1,13 @@
 import { clsx } from "clsx";
 import type { TableColumn, TableRecord } from "./types";
 
-export function TableHeader<T extends TableRecord>({ columns, hasActions }: { columns: TableColumn<T>[]; hasActions: boolean }) {
+type TableHeaderProps<T extends  TableRecord> =  { 
+  columns: TableColumn<T>[];
+   hasActions: boolean 
+}
+
+export function TableHeader<T extends TableRecord>({ columns, hasActions }: TableHeaderProps<T>
+  ) {
   return (
     <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
       <tr>
@@ -11,7 +17,8 @@ export function TableHeader<T extends TableRecord>({ columns, hasActions }: { co
           </th>
         ))}
         {hasActions ? (
-          <th scope="col" className="px-4 py-3 text-right">
+          <th scope="col" 
+             className="px-4 py-3 text-right">
             Actions
           </th>
         ) : null}

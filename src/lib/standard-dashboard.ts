@@ -45,7 +45,7 @@ export async function requireStandardDashboardUser() {
         orderBy: { createdAt: "asc" },
       });
   const academy = account.academy ?? fallbackMembership?.academy;
-  if (!academy) redirect("/");
+  if (!academy) redirect("/login");
 
   return { user: { ...account, role: account.role as Role }, academy };
 }

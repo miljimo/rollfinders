@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Building2, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, HelpCircle, Home, LogOut, Map, Menu, Settings, Users, X } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
+import {Icon , SidePanelIcon } from "@/components/Icons"
 
-export type SidePanelIcon = "academies" | "claims" | "dashboard" | "events" | "help" | "logout" | "map" | "settings" | "users";
 
 export type SidePanelItem = {
   href: string;
@@ -253,18 +253,4 @@ function SidePanelNavItem({ collapsed, item, onNavigate }: { collapsed: boolean;
   );
 }
 
-function Icon({ name }: { name: SidePanelIcon }) {
-  const iconProps = { size: 20, "aria-hidden": true, className: "shrink-0" } as const;
-  const icons: Record<SidePanelIcon, ReactNode> = {
-    academies: <Building2 {...iconProps} />,
-    claims: <ClipboardCheck {...iconProps} />,
-    dashboard: <Home {...iconProps} />,
-    events: <CalendarDays {...iconProps} />,
-    help: <HelpCircle {...iconProps} />,
-    logout: <LogOut {...iconProps} />,
-    map: <Map {...iconProps} />,
-    settings: <Settings {...iconProps} />,
-    users: <Users {...iconProps} />,
-  };
-  return icons[name];
-}
+
