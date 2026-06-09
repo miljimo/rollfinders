@@ -161,6 +161,14 @@ IF SES rejects a send because the account is in sandbox mode, the recipient iden
 
 IF production email readiness is reviewed, WHEN the application uses `EMAIL_REGION`, THEN SES production access, sending quota, sender identity verification, DKIM, custom MAIL FROM, SPF, and DMARC SHALL be verified in that exact AWS account and region.
 
+#### SES-DOMAIN-031C: Temporary SMTP Fallback
+
+IF SES production access approval is pending, WHEN RollFinders must send transactional emails to unverified recipients, THEN the application MAY temporarily use SMTP fallback by setting `EMAIL_DELIVERY_PROVIDER=smtp` and providing SMTP host, port, and credentials through ECS secrets.
+
+AND SES SHALL remain the default provider unless SMTP fallback is explicitly enabled.
+
+AND SMTP credentials SHALL be treated as secrets and SHALL NOT be committed to source control.
+
 #### SES-DOMAIN-032: Mailbox Receipt Test
 
 IF `support@rollfinders.com` or `business@rollfinders.com` is configured for production, WHEN release readiness is reviewed, THEN both mailboxes SHALL be tested for inbound receipt.
@@ -183,6 +191,7 @@ IF production email sending is enabled, WHEN release readiness is reviewed, THEN
 - Sandbox test sends use a configured non-public verified recipient address.
 - Sandbox test email subjects include `rollfinders.com`.
 - The PRD clearly states that SES production access is required to send to unverified user recipients.
+- SMTP fallback can be enabled through ECS secrets while SES production access approval is pending.
 - After SES production access is approved, password reset and onboarding emails can be sent to normal user email addresses without verifying every recipient.
 - SES sandbox, missing production access, and unverified recipient identity failures are treated as provider readiness failures, not invalid recipient addresses.
 - Production readiness includes domain identity, SES DKIM, PrivateEmail DKIM, SPF, DMARC, custom MAIL FROM when enabled, PrivateEmail MX records, sandbox status, SES production access, and mailbox receipt checks.

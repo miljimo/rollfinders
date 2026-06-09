@@ -102,4 +102,29 @@ describe("email operations contracts", () => {
     assert.match(reliableEmail, /identity\.\*failed\.\*check/);
     assert.match(reliableEmail, /if\s*\(\s*isProviderConfigurationFailure\(error\)\s*\)\s*return\s+false/);
   });
+
+  it("supports SMTP delivery fallback behind environment configuration", () => {
+    const provisioning = readSource("src/lib/email-provisioning.ts");
+    const reliableEmail = readSource("src/lib/reliable-email.ts");
+    const terraform = readSource("terraform/main.tf");
+    const variables = readSource("terraform/variables.tf");
+
+    assert.match(provisioning, /EMAIL_DELIVERY_PROVIDER/);
+    assert.match(provisioning, /smtpUsername:\s*process\.env\.SMTP_USERNAME/);
+    assert.match(provisioning, /smtpPassword:\s*process\.env\.SMTP_PASSWORD/);
+    assert.match(reliableEmail, /import\s+nodemailer\s+from\s+"nodemailer"/);
+    assert.match(reliableEmail, /function\s+smtpTransport/);
+    assert.match(reliableEmail, /config\.provider\s*===\s*"SMTP"/);
+    assert.match(reliableEmail, /sendMail\(/);
+    assert.match(reliableEmail, /SMTP delivery is enabled/);
+    assert.match(variables, /variable\s+"email_delivery_provider"/);
+    assert.match(variables, /variable\s+"smtp_username"/);
+    assert.match(variables, /variable\s+"smtp_password"/);
+    assert.match(variables, /variable\s+"smtp_host"/);
+    assert.match(variables, /variable\s+"smtp_port"/);
+    assert.match(terraform, /EMAIL_DELIVERY_PROVIDER/);
+    assert.match(terraform, /var\.smtp_host\s*!=\s*""\s*\?\s*var\.smtp_host\s*:\s*module\.email\.smtp_host/);
+    assert.match(terraform, /SMTP_USERNAME/);
+    assert.match(terraform, /SMTP_PASSWORD/);
+  });
 });

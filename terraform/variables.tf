@@ -116,3 +116,40 @@ variable "privateemail_dkim_txt_value" {
   description = "Provider-supplied PrivateEmail DKIM public TXT value for privateemail._domainkey.rollfinders.com. This is public DNS data, not a secret."
   default     = ""
 }
+
+variable "email_delivery_provider" {
+  type        = string
+  description = "Outbound email provider. Use ses by default; set to smtp for temporary mailbox SMTP fallback."
+  default     = "ses"
+
+  validation {
+    condition     = contains(["ses", "smtp"], lower(var.email_delivery_provider))
+    error_message = "email_delivery_provider must be ses or smtp."
+  }
+}
+
+variable "smtp_username" {
+  type        = string
+  description = "SMTP username for fallback mailbox delivery."
+  sensitive   = true
+  default     = ""
+}
+
+variable "smtp_password" {
+  type        = string
+  description = "SMTP password for fallback mailbox delivery."
+  sensitive   = true
+  default     = ""
+}
+
+variable "smtp_host" {
+  type        = string
+  description = "SMTP host for fallback mailbox delivery. Leave empty to use the SES SMTP alias."
+  default     = ""
+}
+
+variable "smtp_port" {
+  type        = string
+  description = "SMTP port for fallback mailbox delivery."
+  default     = "587"
+}

@@ -154,21 +154,24 @@ module "app_secrets" {
   tags   = local.common_tags
 
   secret_values = {
-    NEXTAUTH_SECRET = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
-    NEXTAUTH_URL    = var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.alb.dns_name}"
-    DATABASE_URL    = "postgresql://${var.db_username}:${random_password.db.result}@${module.database.address}:5432/${var.db_name}?sslmode=require&uselibpqcompat=true"
-    DB_HOST         = module.database.address
-    DB_PORT         = "5432"
-    DB_USER         = var.db_username
-    DB_PASSWORD     = random_password.db.result
-    DB_NAME         = var.db_name
-    EMAIL_FROM      = "support@${module.email.sending_domain}"
-    EMAIL_REPLY_TO  = "support@${module.email.sending_domain}"
-    EMAIL_REGION    = var.aws_region
-    SMTP_HOST       = module.email.smtp_host
-    SMTP_PORT       = "587"
-    MAILBOX_LINK    = "https://${module.email.mail_from_domain}"
-    CRON_SECRET     = random_password.cron.result
+    NEXTAUTH_SECRET         = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
+    NEXTAUTH_URL            = var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.alb.dns_name}"
+    DATABASE_URL            = "postgresql://${var.db_username}:${random_password.db.result}@${module.database.address}:5432/${var.db_name}?sslmode=require&uselibpqcompat=true"
+    DB_HOST                 = module.database.address
+    DB_PORT                 = "5432"
+    DB_USER                 = var.db_username
+    DB_PASSWORD             = random_password.db.result
+    DB_NAME                 = var.db_name
+    EMAIL_FROM              = "support@${module.email.sending_domain}"
+    EMAIL_REPLY_TO          = "support@${module.email.sending_domain}"
+    EMAIL_REGION            = var.aws_region
+    EMAIL_DELIVERY_PROVIDER = lower(var.email_delivery_provider)
+    SMTP_HOST               = var.smtp_host != "" ? var.smtp_host : module.email.smtp_host
+    SMTP_PORT               = var.smtp_port
+    SMTP_USERNAME           = var.smtp_username
+    SMTP_PASSWORD           = var.smtp_password
+    MAILBOX_LINK            = "https://${module.email.mail_from_domain}"
+    CRON_SECRET             = random_password.cron.result
   }
 }
 
@@ -261,10 +264,13 @@ module "app_service" {
         { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
         { name = "NEXTAUTH_SECRET", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_SECRET::" },
         { name = "NEXTAUTH_URL", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_URL::" },
+        { name = "EMAIL_DELIVERY_PROVIDER", valueFrom = "${module.app_secrets.arn}:EMAIL_DELIVERY_PROVIDER::" },
         { name = "EMAIL_FROM", valueFrom = "${module.app_secrets.arn}:EMAIL_FROM::" },
         { name = "EMAIL_REPLY_TO", valueFrom = "${module.app_secrets.arn}:EMAIL_REPLY_TO::" },
         { name = "SMTP_HOST", valueFrom = "${module.app_secrets.arn}:SMTP_HOST::" },
         { name = "SMTP_PORT", valueFrom = "${module.app_secrets.arn}:SMTP_PORT::" },
+        { name = "SMTP_USERNAME", valueFrom = "${module.app_secrets.arn}:SMTP_USERNAME::" },
+        { name = "SMTP_PASSWORD", valueFrom = "${module.app_secrets.arn}:SMTP_PASSWORD::" },
         { name = "MAILBOX_LINK", valueFrom = "${module.app_secrets.arn}:MAILBOX_LINK::" },
         { name = "CRON_SECRET", valueFrom = "${module.app_secrets.arn}:CRON_SECRET::" },
         { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },

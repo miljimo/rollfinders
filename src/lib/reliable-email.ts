@@ -1,5 +1,6 @@
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { EmailDeliveryJobRunStatus, OutboundEmailStatus, UserEmailStatus, type Prisma } from "@prisma/client";
+import nodemailer from "nodemailer";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +21,23 @@ type DeliveryResult =
 function sesClient() {
   const config = getEmailProvisioningConfig();
   return new SESClient({ region: config.region });
+}
+
+function smtpTransport() {
+  const config = getEmailProvisioningConfig();
+  if (!config.smtpUsername || !config.smtpPassword) {
+    throw new Error("SMTP delivery is enabled but SMTP_USERNAME or SMTP_PASSWORD is missing.");
+  }
+
+  return nodemailer.createTransport({
+    host: config.smtpHost,
+    port: Number(config.smtpPort),
+    secure: config.smtpPort === "465",
+    auth: {
+      user: config.smtpUsername,
+      pass: config.smtpPassword,
+    },
+  });
 }
 
 function normalizeEmail(email: string) {
@@ -52,7 +70,7 @@ function errorText(error: unknown) {
 
 function isProviderConfigurationFailure(error: unknown) {
   const text = errorText(error);
-  return /email address is not verified|identity.*failed.*check|production access|sandbox|configuration set|sending paused/i.test(
+  return /email address is not verified|identity.*failed.*check|production access|sandbox|configuration set|sending paused|SMTP delivery is enabled|SMTP.*auth|authentication failed|invalid login|credentials/i.test(
     text,
   );
 }
@@ -78,6 +96,19 @@ async function deliverEmail(email: {
   const config = getEmailProvisioningConfig();
 
   try {
+    if (config.provider === "SMTP") {
+      const response = await smtpTransport().sendMail({
+        from: config.fromAddress,
+        replyTo: config.replyToAddress,
+        to: email.recipientEmail,
+        subject: email.subject,
+        text: email.textBody,
+        ...(email.htmlBody ? { html: email.htmlBody } : {}),
+      });
+
+      return { ok: true, messageId: response.messageId };
+    }
+
     const response = await sesClient().send(
       new SendEmailCommand({
         Source: config.fromAddress,
