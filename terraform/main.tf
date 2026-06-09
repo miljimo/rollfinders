@@ -162,7 +162,7 @@ module "app_secrets" {
     DB_USER                 = var.db_username
     DB_PASSWORD             = random_password.db.result
     DB_NAME                 = var.db_name
-    EMAIL_FROM              = "support@${module.email.sending_domain}"
+    EMAIL_FROM              = "noreply@${module.email.sending_domain}"
     EMAIL_REPLY_TO          = "support@${module.email.sending_domain}"
     EMAIL_REGION            = var.aws_region
     EMAIL_DELIVERY_PROVIDER = lower(var.email_delivery_provider)
@@ -207,7 +207,7 @@ module "task_role" {
       condition = {
         test     = "StringEquals"
         variable = "ses:FromAddress"
-        values   = ["support@${module.email.sending_domain}"]
+        values   = ["noreply@${module.email.sending_domain}"]
       }
     }
   ]

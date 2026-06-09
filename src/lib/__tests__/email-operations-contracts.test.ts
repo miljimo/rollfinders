@@ -123,6 +123,10 @@ describe("email operations contracts", () => {
     assert.match(variables, /variable\s+"smtp_host"/);
     assert.match(variables, /variable\s+"smtp_port"/);
     assert.match(terraform, /EMAIL_DELIVERY_PROVIDER/);
+    assert.match(terraform, /EMAIL_FROM\s*=\s*"noreply@\$\{module\.email\.sending_domain\}"/);
+    assert.match(terraform, /EMAIL_REPLY_TO\s*=\s*"support@\$\{module\.email\.sending_domain\}"/);
+    assert.match(terraform, /ses:FromAddress/);
+    assert.match(terraform, /values\s*=\s*\["noreply@\$\{module\.email\.sending_domain\}"\]/);
     assert.match(terraform, /var\.smtp_host\s*!=\s*""\s*\?\s*var\.smtp_host\s*:\s*module\.email\.smtp_host/);
     assert.match(terraform, /SMTP_USERNAME/);
     assert.match(terraform, /SMTP_PASSWORD/);

@@ -65,11 +65,11 @@ IF email is sent through SES from `rollfinders.com`, WHEN DMARC is evaluated, TH
 
 #### SES-DOMAIN-011: Sender Addresses
 
-IF the domain identity is verified, WHEN the application sends email, THEN it SHALL be allowed to send from addresses under that domain, including `support@rollfinders.com` and `business@rollfinders.com`, without verifying each mailbox address in SES.
+IF the domain identity is verified, WHEN the application sends email, THEN it SHALL be allowed to send from addresses under that domain, including `noreply@rollfinders.com`, `support@rollfinders.com`, and `business@rollfinders.com`, without verifying each mailbox address in SES.
 
 #### SES-DOMAIN-012: Account Email Sender
 
-IF the application sends password reset, onboarding, account, or operational email, WHEN the email payload is created, THEN the sender SHALL be `support@rollfinders.com`.
+IF the application sends password reset, onboarding, account, claim invitation, claim reminder, or operational email, WHEN the email payload is created, THEN the sender SHALL be `noreply@rollfinders.com`.
 
 #### SES-DOMAIN-013: Account Email Reply-To
 

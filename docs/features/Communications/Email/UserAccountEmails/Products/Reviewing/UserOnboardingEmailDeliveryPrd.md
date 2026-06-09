@@ -117,7 +117,7 @@ IF an onboarding email is sent
 
 WHEN the email payload is built
 
-THEN the email SHALL use `support@rollfinders.com` as the sender and reply-to address unless a specific business workflow requires `business@rollfinders.com`.
+THEN the email SHALL use `noreply@rollfinders.com` as the sender and `support@rollfinders.com` as the reply-to address unless a specific business workflow requires `business@rollfinders.com`.
 
 ---
 

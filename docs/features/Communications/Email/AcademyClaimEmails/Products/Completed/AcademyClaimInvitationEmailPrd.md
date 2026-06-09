@@ -263,7 +263,7 @@ IF an academy claim invitation email is sent
 
 WHEN the email payload is built
 
-THEN the email SHALL use `support@rollfinders.com` as sender and reply-to.
+THEN the email SHALL use `noreply@rollfinders.com` as sender and `support@rollfinders.com` as reply-to.
 
 ## ACADEMY-CLAIM-EMAIL-013: Manual Reminder Eligibility
 
