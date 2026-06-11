@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { RecurrenceType, type Event } from "@prisma/client";
+import { EventAudience, RecurrenceType, type Event } from "@prisma/client";
 import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
@@ -53,6 +53,7 @@ function eventData(data: {
   endTime: string;
   giType: "GI" | "NO_GI" | "BOTH";
   price: number;
+  audience: EventAudience;
   capacity?: number | "";
   active: boolean;
   recurrenceType: RecurrenceType;
@@ -68,6 +69,7 @@ function eventData(data: {
     endTime: data.endTime,
     giType: data.giType,
     price: data.price,
+    audience: data.audience,
     active: data.active,
     capacity: data.capacity === "" || data.capacity === undefined ? null : data.capacity,
     recurrenceType: data.recurrenceType,
@@ -113,6 +115,7 @@ function occurrenceDatesFor(data: ReturnType<typeof eventData>, from = startOfDa
     endTime: data.endTime,
     giType: data.giType,
     price: data.price,
+    audience: data.audience,
     capacity: data.capacity,
     active: data.active,
     recurrenceType: data.recurrenceType,
@@ -170,6 +173,7 @@ async function findDuplicateOpenMat({
       endTime: existing.endTime,
       giType: existing.giType,
       price: Number(existing.price),
+      audience: existing.audience,
       active: existing.active,
       capacity: existing.capacity,
       recurrenceType: existing.recurrenceType,

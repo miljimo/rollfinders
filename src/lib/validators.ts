@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AcademyVerificationStatus, BjjBeltRank, ClaimRequesterRole, GiType, RecurrenceType } from "@prisma/client";
+import { AcademyVerificationStatus, BjjBeltRank, ClaimRequesterRole, EventAudience, GiType, RecurrenceType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
 const stripeEligibleRanks = new Set<BjjBeltRank>([
@@ -113,6 +113,7 @@ export const eventSchema = z.object({
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
   giType: z.enum(GiType),
   price: z.coerce.number().nonnegative(),
+  audience: z.enum(EventAudience).default(EventAudience.EXTERNAL_ONLY),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
   active: checkboxSchema,
   recurrenceType: z.enum(RecurrenceType).default(RecurrenceType.NONE),

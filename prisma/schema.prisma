@@ -55,6 +55,11 @@ enum RecurrenceType {
   YEARLY
 }
 
+enum EventAudience {
+  EXTERNAL_ONLY
+  EXTERNAL_AND_MEMBERS
+}
+
 enum ClaimStatus {
   PENDING
   APPROVED
@@ -231,6 +236,7 @@ model Event {
   endTime           String         @map("end_time")
   giType            GiType         @map("gi_type")
   price             Decimal        @db.Decimal(8, 2)
+  audience          EventAudience  @default(EXTERNAL_ONLY)
   capacity          Int?
   active            Boolean        @default(true)
   recurrenceType    RecurrenceType @default(NONE) @map("recurrence_type")

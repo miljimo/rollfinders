@@ -76,6 +76,7 @@ export async function GET(request: Request) {
       endTime: true,
       giType: true,
       price: true,
+      audience: true,
       createdAt: true,
     },
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }, { title: "asc" }],

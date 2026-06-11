@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ChevronDown, Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
-import { GiType, Role, UserStatus, type Prisma } from "@prisma/client";
+import { EventAudience, GiType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
@@ -137,6 +137,7 @@ export default async function DashboardPage({
           endTime: true,
           giType: true,
           price: true,
+          audience: true,
         },
         orderBy: [{ eventDate: "asc" }, { startTime: "asc" }, { title: "asc" }],
         skip: (rollsPage - 1) * standardRollsPageSize,
@@ -213,6 +214,7 @@ type DashboardRoll = Prisma.EventGetPayload<{
     endTime: true;
     giType: true;
     price: true;
+    audience: true;
   };
 }>;
 
@@ -239,7 +241,7 @@ function DashboardPanel({
     date: formatDate(roll.eventDate),
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
-    price: formatMoney(roll.price),
+    price: roll.audience === EventAudience.EXTERNAL_ONLY ? "Free for academy members" : formatMoney(roll.price),
   }));
   const columns: TableColumn<RollRow>[] = [
     {

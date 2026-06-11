@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Academy, Event } from "@prisma/client";
+import { EventAudience, type Academy, type Event } from "@prisma/client";
 import { CalendarDays } from "lucide-react";
 import { Button } from "./Button";
 import { directionsUrl, formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
@@ -17,6 +17,7 @@ export function EventCard({ event }: { event: EventCardItem }) {
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const detailHref = `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
   const inSession = event.occurrenceStatus === "IN_SESSION";
+  const priceLabel = event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
   return (
     <article className={`rounded-lg border bg-white p-4 shadow-sm ${inSession ? "border-teal-700 ring-2 ring-teal-100" : "border-stone-200"}`}>
       {inSession ? (
@@ -37,7 +38,7 @@ export function EventCard({ event }: { event: EventCardItem }) {
       <dl className="mt-4 grid grid-cols-1 gap-2 text-sm text-stone-700 sm:grid-cols-3">
         <div className="flex items-center gap-2"><CalendarDays size={16} aria-hidden />{formatDate(event.eventDate)}</div>
         <div>{event.startTime}-{event.endTime}</div>
-        <div>{formatMoney(event.price)}</div>
+        <div>{priceLabel}</div>
       </dl>
       <p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-700">{event.description}</p>
       <div className="mt-4 flex gap-2">

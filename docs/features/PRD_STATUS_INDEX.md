@@ -190,6 +190,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 * `Product/Products/RollFinderMvpUiTaskRequirements.md` - most UI tasks are implemented; map marker detail/open-mat map state and direct open mat contact display remain.
 * `SharedComponents/Reviewing/ReusableUiComponentPrd.md` - many reusable components exist; not all proposed primitives are centralized as canonical components.
 * `Users/Academies/Products/MultiAdminAcademyManagement.md` - team management exists; team-action audit logging and owner notifications are still missing.
+* `Users/Academies/Products/Reviewing/AcademyManagementGuidedUpdateAndDropInPricingPrd.md` - guided academy management exists, but pricing audience semantics, free member drop-in behavior, and internal/external roll visibility still need implementation verification.
 * `Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` - verification status exists; dedicated verification audit metadata is missing.
 * `Users/Academies/Products/Reviewing/PendingAcademiesPrd.md` - pending academy visibility exists; dashboard metric drilldown remains to verify or implement.
 * `Users/Profile/Products/Proposal/SelfProfileDashboardPrd.md` - standard dashboard profile/settings are implemented; broader proposal scope is not fully closed.
@@ -208,6 +209,7 @@ These remain proposal/strategy work or have no implementation found.
 * `SharedComponents/MetricCard.md`
 * `SharedComponents/PageHeader.md`
 * `SharedComponents/PanelSurface.md`
+* `Users/Academies/Products/Reviewing/PublicAcademyRegistrationPrd.md`
 * `Users/Profile/Components/Proposal/UserProfile.md`
 * `Users/Profile/Products/Proposal/AdminUserProfileWorkflowPrd.md`
 * `Users/Profile/Products/Proposal/UserProfileExperienceStrategyPrd.md`

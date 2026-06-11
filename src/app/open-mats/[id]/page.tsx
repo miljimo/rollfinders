@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import { EventAudience } from "@prisma/client";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
@@ -25,6 +26,7 @@ export default async function EventPage({
 
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const country = analyticsCountryFromHeaders(await headers());
+  const priceLabel = event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
 
   await recordAnalyticsEventBestEffort({
     eventName: "open_mat_viewed",
@@ -57,7 +59,7 @@ export default async function EventPage({
         <dl className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-700 sm:grid-cols-2">
           <div><dt className="font-bold text-stone-950">Date</dt><dd>{formatDate(event.eventDate)}</dd></div>
           <div><dt className="font-bold text-stone-950">Time</dt><dd>{event.startTime}-{event.endTime}</dd></div>
-          <div><dt className="font-bold text-stone-950">Cost</dt><dd>{formatMoney(event.price)}</dd></div>
+          <div><dt className="font-bold text-stone-950">Cost</dt><dd>{priceLabel}</dd></div>
           <div><dt className="font-bold text-stone-950">Capacity</dt><dd>{event.capacity ?? "Check with academy"}</dd></div>
           <div className="sm:col-span-2"><dt className="font-bold text-stone-950">Location</dt><dd>{address}</dd></div>
         </dl>

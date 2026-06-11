@@ -1,6 +1,6 @@
 "use client";
 
-import { GiType, RecurrenceType, type Academy, type Event } from "@prisma/client";
+import { EventAudience, GiType, RecurrenceType, type Academy, type Event } from "@prisma/client";
 import { useActionState } from "react";
 import { Button } from "@/components/Button";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
@@ -45,6 +45,15 @@ export function OpenMatForm({ action, academies, cancelHref, event, returnTo }: 
           <FieldError errors={state.fieldErrors.giType} />
         </label>
         <Field name="price" label="Drop-in Cost" type="number" value={state.values.price ?? event?.price.toString() ?? "0"} errors={state.fieldErrors.price} />
+        <label className="grid gap-1 text-sm font-semibold text-stone-800">
+          Drop-in Audience
+          <select name="audience" required defaultValue={state.values.audience ?? event?.audience ?? EventAudience.EXTERNAL_ONLY} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+            <option value={EventAudience.EXTERNAL_ONLY}>External visitors only</option>
+            <option value={EventAudience.EXTERNAL_AND_MEMBERS}>External visitors and academy members</option>
+          </select>
+          <span className="text-xs font-medium text-stone-600">External-only pricing is free for academy members in member roll views.</span>
+          <FieldError errors={state.fieldErrors.audience} />
+        </label>
         <Field name="capacity" label="Capacity" type="number" value={state.values.capacity ?? event?.capacity?.toString() ?? ""} required={false} errors={state.fieldErrors.capacity} />
       </div>
       <label className="flex items-center gap-2 text-sm font-semibold text-stone-800">
