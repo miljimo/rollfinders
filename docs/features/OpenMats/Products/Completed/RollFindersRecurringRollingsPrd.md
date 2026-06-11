@@ -1,6 +1,6 @@
 # PRD: Recurring Rollings And Open Mats
 
-Version: 1.0
+Version: 1.1
 
 Priority: High
 
@@ -8,17 +8,19 @@ Release: Next beta feature candidate
 
 Status: Done
 
-Review date: 2026-06-05
+Review date: 2026-06-11
 
 Product: RollFinders
 
 Completed implementation: 2026-06-05 in commit `daabed2 feat: support recurring open mat occurrences`
 
+Custom interval update: 2026-06-11
+
 ---
 
 # Objective
 
-Allow admins to create a rolling/open mat once and define whether it repeats weekly, monthly, or not at all, so recurring training sessions appear on the correct future dates without the admin manually recreating the same session.
+Allow admins to create a rolling/open mat once and define whether it repeats weekly, monthly, or not at all, including custom repeat intervals such as every 2 weeks, every 3 weeks, or every N months, so recurring training sessions appear on the correct future dates without the admin manually recreating the same session.
 
 ---
 
@@ -36,7 +38,7 @@ Recurring rollings must not create duplicate event rows for each future date. Th
 
 # User Stories
 
-As an academy admin, I want to mark a rolling as recurring every week or month so that I do not need to recreate the same session repeatedly.
+As an academy admin, I want to mark a rolling as recurring every week, every fortnight, every 3 weeks, or every N months so that I do not need to recreate the same session repeatedly.
 
 As a platform admin, I want recurring rollings to generate or appear predictably so that public open mat data stays accurate.
 
@@ -65,7 +67,9 @@ In scope:
 * Admin recurrence controls on open mat create/edit forms.
 * Recurrence options: none, weekly, monthly.
 * Weekly recurrence on the same weekday as the selected start date.
+* Custom weekly interval values, including fortnightly/every 2 weeks, every 3 weeks, and every N weeks.
 * Monthly recurrence on the same day of month as the selected start date, with clear end-of-month handling.
+* Custom monthly interval values, including every 2 months, every 3 months, and every N months.
 * Recurrence start date.
 * Optional recurrence end date or occurrence limit.
 * Public display of recurring occurrences on correct future dates.
@@ -78,7 +82,7 @@ In scope:
 Out of scope:
 
 * Payments or paid featured recurring rollings.
-* Complex recurrence rules such as every second Monday, multiple weekdays, custom intervals, exceptions, or holiday skipping.
+* Complex recurrence rules such as every second Monday, multiple weekdays, exceptions, or holiday skipping.
 * Waitlists, bookings, or attendance tracking.
 * Timezone management beyond the existing application date/time behavior.
 * Replacing public Open Mat Radar search and filter behavior.
@@ -110,6 +114,7 @@ The implementation SHOULD add a recurrence-aware structure instead of relying on
 Minimum data needed:
 
 * Recurrence type: `NONE`, `WEEKLY`, `MONTHLY`
+* Recurrence interval as a positive integer; default `1`
 * Recurrence start date
 * Optional recurrence end date
 * Optional occurrence limit
@@ -185,6 +190,30 @@ Done when:
 
 ---
 
+## RR-003A: Custom Weekly Interval
+
+IF an admin selects `Weekly`
+
+WHEN the admin enters a repeat interval greater than `1`
+
+THEN the system SHALL make the rolling appear every N weeks on the same weekday and time.
+
+Examples:
+
+* Start date: Friday 2026-06-12, interval: `2 weeks`
+* Result: Friday 2026-06-12, Friday 2026-06-26, Friday 2026-07-10
+* Start date: Friday 2026-06-12, interval: `3 weeks`
+* Result: Friday 2026-06-12, Friday 2026-07-03, Friday 2026-07-24
+
+Done when:
+
+* `Weekly` with interval `1` preserves existing weekly behavior.
+* `Weekly` with interval `2` supports fortnightly recurrence.
+* `Weekly` with interval `3` and higher values derive only the correct N-week occurrences.
+* The interval is validated as a positive integer within the system maximum.
+
+---
+
 ## RR-004: Monthly Recurrence
 
 IF an admin selects `Monthly`
@@ -198,6 +227,28 @@ Done when:
 * Future monthly occurrences use the selected day of month where possible.
 * If a month does not contain that day, the system SHALL use a documented fallback, recommended: last valid day of that month.
 * Public views show only valid calendar dates.
+
+---
+
+## RR-004A: Custom Monthly Interval
+
+IF an admin selects `Monthly`
+
+WHEN the admin enters a repeat interval greater than `1`
+
+THEN the system SHALL make the rolling appear every N months on the same day of month and time.
+
+Example:
+
+* Start date: Friday 2026-06-12, interval: `2 months`
+* Result: Friday 2026-06-12, Wednesday 2026-08-12, Monday 2026-10-12
+
+Done when:
+
+* `Monthly` with interval `1` preserves existing monthly behavior.
+* `Monthly` with interval `2` and higher values derive only the correct N-month occurrences.
+* End-of-month fallback remains the last valid day of the target month.
+* The interval is validated as a positive integer within the system maximum.
 
 ---
 

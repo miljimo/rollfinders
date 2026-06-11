@@ -1,6 +1,7 @@
 import { AcademyVerificationStatus, ClaimStatus, Prisma, RecurrenceType } from "@prisma/client";
 import {
   addDays,
+  buildOccurrence,
   combineDateAndTime,
   dedupeOccurrences,
   defaultOccurrenceWindowEnd,
@@ -267,7 +268,7 @@ export async function getOpenMatOccurrence(id: string, occurrenceDateParam?: str
     return occurrences.find((occurrence) => occurrence.occurrenceDateParam === occurrenceDateParam) ?? null;
   }
 
-  return occurrences[0] ?? null;
+  return occurrences[0] ?? buildOccurrence(event, event.eventDate, now);
 }
 
 export type AcademyWithEvents = Prisma.PromiseReturnType<typeof searchAcademies>[number];

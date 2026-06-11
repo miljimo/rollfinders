@@ -17,7 +17,7 @@ export function EventCard({ event }: { event: EventCardItem }) {
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const detailHref = `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
   const inSession = event.occurrenceStatus === "IN_SESSION";
-  const priceLabel = event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
+  const priceLabel = Number(event.price) === 0 ? "Free" : event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
   return (
     <article className={`rounded-lg border bg-white p-4 shadow-sm ${inSession ? "border-teal-700 ring-2 ring-teal-100" : "border-stone-200"}`}>
       {inSession ? (

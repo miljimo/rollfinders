@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { EventAudience, RecurrenceType, type Event } from "@prisma/client";
 import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
-import { dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
+import { addDays, dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
 import { recordOpenMatCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { eventSchema } from "@/lib/validators";
@@ -57,6 +57,7 @@ function eventData(data: {
   capacity?: number | "";
   active: boolean;
   recurrenceType: RecurrenceType;
+  recurrenceInterval: number;
   recurrenceEndDate?: Date;
   recurrenceLimit?: number;
 }) {
@@ -69,10 +70,11 @@ function eventData(data: {
     endTime: data.endTime,
     giType: data.giType,
     price: data.price,
-    audience: data.audience,
+    audience: data.price === 0 ? EventAudience.EXTERNAL_ONLY : data.audience,
     active: data.active,
     capacity: data.capacity === "" || data.capacity === undefined ? null : data.capacity,
     recurrenceType: data.recurrenceType,
+    recurrenceInterval: data.recurrenceType === RecurrenceType.NONE ? 1 : data.recurrenceInterval,
     recurrenceEndDate: data.recurrenceType === RecurrenceType.NONE ? null : data.recurrenceEndDate ?? null,
     recurrenceLimit: data.recurrenceType === RecurrenceType.NONE ? null : data.recurrenceLimit ?? null,
   };
@@ -119,6 +121,7 @@ function occurrenceDatesFor(data: ReturnType<typeof eventData>, from = startOfDa
     capacity: data.capacity,
     active: data.active,
     recurrenceType: data.recurrenceType,
+    recurrenceInterval: data.recurrenceInterval,
     recurrenceEndDate: data.recurrenceEndDate,
     recurrenceLimit: data.recurrenceLimit,
     createdAt: new Date(),
@@ -144,7 +147,7 @@ async function findDuplicateOpenMat({
   if (sourceDuplicate) return sourceDuplicate;
 
   const from = startOfDay(data.eventDate);
-  const to = data.recurrenceEndDate ?? defaultOccurrenceWindowEnd(from);
+  const to = data.recurrenceEndDate ? addDays(data.recurrenceEndDate, 1) : defaultOccurrenceWindowEnd(from);
   const candidateDates = occurrenceDatesFor(data, from, to);
   const existingEvents = await prisma.event.findMany({
     where: {
@@ -177,6 +180,7 @@ async function findDuplicateOpenMat({
       active: existing.active,
       capacity: existing.capacity,
       recurrenceType: existing.recurrenceType,
+      recurrenceInterval: existing.recurrenceInterval,
       recurrenceEndDate: existing.recurrenceEndDate,
       recurrenceLimit: existing.recurrenceLimit,
     }, from, to);
@@ -213,6 +217,7 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
     metadata: {
       actorUserId: access.userId,
       recurrenceType: event.recurrenceType,
+      recurrenceInterval: event.recurrenceInterval,
     },
   });
 

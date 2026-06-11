@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { EventAudience } from "@prisma/client";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
+import { LinkedText } from "@/components/LinkedText";
 import { PageShell } from "@/components/PageShell";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
@@ -26,7 +27,7 @@ export default async function EventPage({
 
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const country = analyticsCountryFromHeaders(await headers());
-  const priceLabel = event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
+  const priceLabel = Number(event.price) === 0 ? "Free" : event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
 
   await recordAnalyticsEventBestEffort({
     eventName: "open_mat_viewed",
@@ -64,7 +65,7 @@ export default async function EventPage({
           <div className="sm:col-span-2"><dt className="font-bold text-stone-950">Location</dt><dd>{address}</dd></div>
         </dl>
         <PublicListingWarning academy={event.academy} className="mt-4" />
-        <p className="mt-6 text-lg leading-8 text-stone-700">{event.description}</p>
+        <p className="mt-6 whitespace-pre-wrap text-lg leading-8 text-stone-700"><LinkedText text={event.description} /></p>
         <div className="mt-6 flex flex-wrap gap-2">
           <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "directions", academyId: event.academyId, external: true, openMatId: event.id, sourcePage: "open_mat_profile" }}>
             <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>

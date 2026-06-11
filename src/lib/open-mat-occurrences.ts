@@ -27,22 +27,24 @@ export function addDays(date: Date, days: number) {
 }
 
 export function addMonths(date: Date, months: number) {
-  const year = date.getFullYear();
-  const month = date.getMonth() + months;
-  const day = date.getDate();
-  const lastDay = new Date(year, month + 1, 0).getDate();
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const day = date.getUTCDate();
+  const lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
   const next = new Date(date);
-  next.setFullYear(year, month, Math.min(day, lastDay));
+  next.setUTCDate(1);
+  next.setUTCFullYear(year, month, Math.min(day, lastDay));
   return next;
 }
 
 export function addYears(date: Date, years: number) {
   const next = new Date(date);
-  const targetYear = date.getFullYear() + years;
-  const targetMonth = date.getMonth();
-  const targetDay = date.getDate();
-  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
-  next.setFullYear(targetYear, targetMonth, Math.min(targetDay, lastDay));
+  const targetYear = date.getUTCFullYear() + years;
+  const targetMonth = date.getUTCMonth();
+  const targetDay = date.getUTCDate();
+  const lastDay = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  next.setUTCDate(1);
+  next.setUTCFullYear(targetYear, targetMonth, Math.min(targetDay, lastDay));
   return next;
 }
 
@@ -88,10 +90,22 @@ export function isPublicOccurrenceVisible(eventDate: Date, endTime: string, now 
   return combineDateAndTime(eventDate, endTime) >= now;
 }
 
-export function recurrenceLabel(type: RecurrenceType) {
-  if (type === RecurrenceType.WEEKLY) return "Weekly";
-  if (type === RecurrenceType.MONTHLY) return "Monthly";
-  if (type === RecurrenceType.YEARLY) return "Yearly";
+function recurrenceIntervalValue(event: Pick<Event, "recurrenceInterval">) {
+  return Number.isInteger(event.recurrenceInterval) && event.recurrenceInterval > 0 ? event.recurrenceInterval : 1;
+}
+
+export function recurrenceLabel(type: RecurrenceType, interval = 1) {
+  const normalizedInterval = Number.isInteger(interval) && interval > 0 ? interval : 1;
+  if (type === RecurrenceType.WEEKLY) {
+    if (normalizedInterval === 1) return "Weekly";
+    if (normalizedInterval === 2) return "Fortnightly";
+    return `Every ${normalizedInterval} weeks`;
+  }
+  if (type === RecurrenceType.MONTHLY) {
+    if (normalizedInterval === 1) return "Monthly";
+    return `Every ${normalizedInterval} months`;
+  }
+  if (type === RecurrenceType.YEARLY) return normalizedInterval === 1 ? "Yearly" : `Every ${normalizedInterval} years`;
   return "One-off";
 }
 
@@ -115,15 +129,16 @@ export function buildOccurrence<T extends Event & { academy?: Academy }>(
     occurrenceDateParam: param,
     occurrenceStatus: occurrenceStatus(occurrenceDate, event.startTime, event.endTime, now),
     isRecurringOccurrence: recurring,
-    recurrenceLabel: recurrenceLabel(event.recurrenceType),
+    recurrenceLabel: recurrenceLabel(event.recurrenceType, recurrenceIntervalValue(event)),
   };
 }
 
-function nextOccurrenceDate(sourceDate: Date, type: RecurrenceType, index: number) {
-  if (type === RecurrenceType.WEEKLY) return addDays(sourceDate, index * 7);
-  if (type === RecurrenceType.MONTHLY) return addMonths(sourceDate, index);
-  if (type === RecurrenceType.YEARLY) return addYears(sourceDate, index);
-  return sourceDate;
+function nextOccurrenceDate(event: Pick<Event, "eventDate" | "recurrenceInterval">, type: RecurrenceType, index: number) {
+  const interval = recurrenceIntervalValue(event);
+  if (type === RecurrenceType.WEEKLY) return addDays(event.eventDate, index * 7 * interval);
+  if (type === RecurrenceType.MONTHLY) return addMonths(event.eventDate, index * interval);
+  if (type === RecurrenceType.YEARLY) return addYears(event.eventDate, index * interval);
+  return event.eventDate;
 }
 
 export function expandEventOccurrences<T extends Event & { academy?: Academy }>(
@@ -153,7 +168,7 @@ export function expandEventOccurrences<T extends Event & { academy?: Academy }>(
   const recurrenceEnd = event.recurrenceEndDate ? startOfDay(event.recurrenceEndDate) : to;
 
   for (let index = 0; index < limit; index += 1) {
-    const occurrenceDate = nextOccurrenceDate(event.eventDate, recurrenceType, index);
+    const occurrenceDate = nextOccurrenceDate(event, recurrenceType, index);
     if (occurrenceDate > recurrenceEnd || occurrenceDate >= to) break;
     if (occurrenceDate < from && !isSameDay(occurrenceDate, from)) continue;
     if (publicOnly && !isPublicOccurrenceVisible(occurrenceDate, event.endTime, now)) continue;

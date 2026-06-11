@@ -274,7 +274,7 @@ export default async function OpenMatManagementPage({
                     <td className="px-4 py-3"><Badge>{event.giType.replace("_", "-")}</Badge></td>
                     <td className="px-4 py-3 text-stone-600">£{event.price.toString()}</td>
                     <td className="px-4 py-3 text-stone-600">{event.capacity ?? "Unlimited"}</td>
-                    <td className="px-4 py-3"><Badge>{recurrenceLabel(event.recurrenceType)}</Badge></td>
+                    <td className="px-4 py-3"><Badge>{recurrenceLabel(event.recurrenceType, event.recurrenceInterval)}</Badge></td>
                     <td className="px-4 py-3"><Badge>{sourceStatus(event, now)}</Badge></td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">

@@ -241,7 +241,7 @@ function DashboardPanel({
     date: formatDate(roll.eventDate),
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
-    price: roll.audience === EventAudience.EXTERNAL_ONLY ? "Free for academy members" : formatMoney(roll.price),
+    price: Number(roll.price) === 0 ? "Free" : roll.audience === EventAudience.EXTERNAL_ONLY ? "Free for academy members" : formatMoney(roll.price),
   }));
   const columns: TableColumn<RollRow>[] = [
     {

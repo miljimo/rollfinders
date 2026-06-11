@@ -240,6 +240,7 @@ model Event {
   capacity          Int?
   active            Boolean        @default(true)
   recurrenceType    RecurrenceType @default(NONE) @map("recurrence_type")
+  recurrenceInterval Int            @default(1) @map("recurrence_interval")
   recurrenceEndDate DateTime?      @map("recurrence_end_date")
   recurrenceLimit   Int?           @map("recurrence_limit")
   createdAt         DateTime       @default(now()) @map("created_at")

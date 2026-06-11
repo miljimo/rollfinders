@@ -18,6 +18,15 @@ const optionalTrimmedString = z.preprocess(
   z.string().trim().optional(),
 );
 
+const allowedDescriptionUriSchemes = new Set(["http", "https", "mailto", "tel"]);
+
+function hasUnsafeUriScheme(value: string) {
+  for (const match of value.matchAll(/\b([a-z][a-z0-9+.-]*):/gi)) {
+    if (!allowedDescriptionUriSchemes.has(match[1].toLowerCase())) return true;
+  }
+  return false;
+}
+
 const optionalHttpUrl = optionalTrimmedString.refine(
   (value) => !value || value.startsWith("http://") || value.startsWith("https://"),
   "Proof link must start with http:// or https://",
@@ -76,7 +85,7 @@ export const claimRejectionSchema = z.object({
 export const academySchema = z.object({
   name: z.string().min(2),
   slug: z.string().min(2).regex(/^[a-z0-9-]+$/),
-  description: z.string().min(10),
+  description: z.string().min(10).refine((value) => !hasUnsafeUriScheme(value), "Description links may only use http, https, mailto, or tel."),
   affiliation: z.string().optional().nullable(),
   website: z.string().url().optional().or(z.literal("")),
   email: z.string().email().optional().or(z.literal("")),
@@ -107,7 +116,7 @@ export const academySchema = z.object({
 export const eventSchema = z.object({
   academyId: z.string().min(1),
   title: z.string().min(2).max(160),
-  description: z.string().min(10),
+  description: z.string().min(10).refine((value) => !hasUnsafeUriScheme(value), "Description links may only use http, https, mailto, or tel."),
   eventDate: z.coerce.date(),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -117,6 +126,7 @@ export const eventSchema = z.object({
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
   active: checkboxSchema,
   recurrenceType: z.enum(RecurrenceType).default(RecurrenceType.NONE),
+  recurrenceInterval: z.preprocess((value) => value === "" ? undefined : value, z.coerce.number().int().positive().max(52).default(1)),
   recurrenceEndDate: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
   recurrenceLimit: z.preprocess((value) => value === "" ? undefined : value, z.coerce.number().int().positive().max(520).optional()),
 }).superRefine((data, ctx) => {
@@ -127,7 +137,24 @@ export const eventSchema = z.object({
       message: "End time must be after start time.",
     });
   }
+  if (data.price === 0) {
+    data.audience = EventAudience.EXTERNAL_ONLY;
+  }
   if (data.recurrenceType === RecurrenceType.NONE) return;
+  if (data.recurrenceType === RecurrenceType.MONTHLY && data.recurrenceInterval > 24) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["recurrenceInterval"],
+      message: "Monthly recurrence interval must be 24 months or fewer.",
+    });
+  }
+  if (data.recurrenceType === RecurrenceType.YEARLY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["recurrenceType"],
+      message: "Yearly recurrence is not supported yet.",
+    });
+  }
   if (data.recurrenceEndDate && data.recurrenceEndDate < data.eventDate) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
