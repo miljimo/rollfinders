@@ -21,7 +21,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
   const [academy, profileViewCount] = await Promise.all([
     prisma.academy.findUnique({
       where: { id },
-      include: { events: true, claims: true, members: true },
+      include: { events: true, claims: true, members: true, socialLinks: { orderBy: { platform: "asc" } } },
     }),
     prisma.analyticsEvent.count({
       where: { academyId: id, eventName: "academy_profile_viewed" },
@@ -105,7 +105,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
           </div>
         </section>
 
-        {!academyAdmin ? <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" /> : null}
+        <AcademyForm action={updateAcademy.bind(null, academy.id)} academy={academy} canManagePlatformFields={!academyAdmin} cancelHref="/admin?panel=academies" returnTo="/admin?panel=academies" />
       </section>
     </PageShell>
   );

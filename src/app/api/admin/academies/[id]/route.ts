@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
@@ -24,18 +25,47 @@ function toNullableNumber(value: number | "" | undefined) {
   return value === "" || value === undefined ? null : value;
 }
 
-function academyData(data: ReturnType<typeof academySchema.parse>) {
+function socialLinksFromBody(data: ReturnType<typeof academySchema.parse>, body: unknown) {
+  const hasSubmittedSocialLinks = typeof body === "object" && body !== null && "socialLinksJson" in body;
+  const submitted = hasSubmittedSocialLinks
+    ? (body as { socialLinksJson?: unknown }).socialLinksJson
+    : data.socialLinksJson;
+  const parsed = parseAcademySocialLinksJson(submitted);
+  if (parsed.error) return parsed;
+  if (parsed.links.length > 0) return parsed;
+  if (hasSubmittedSocialLinks || data.socialLinksJson !== undefined) return { links: [] };
+  return { links: socialLinksFromLegacy(data) };
+}
+
+function academyData(data: ReturnType<typeof academySchema.parse>, socialLinks: AcademySocialLinkInput[]) {
+  const legacySocialUrls = legacySocialUrlsFromLinks(socialLinks);
   return {
-    ...data,
+    name: data.name,
+    slug: data.slug,
+    description: data.description,
+    affiliation: data.affiliation,
+    address: data.address,
+    city: data.city,
+    postcode: data.postcode,
+    country: data.country,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    phone: data.phone,
+    giAvailable: data.giAvailable,
+    nogiAvailable: data.nogiAvailable,
+    beginnerFriendly: data.beginnerFriendly,
+    competitionFocused: data.competitionFocused,
+    verificationStatus: data.verificationStatus,
+    featured: data.featured,
     borough: toNullable(data.borough),
     website: toNullable(data.website),
     email: toNullable(data.email),
     logoUrl: toNullable(data.logoUrl),
     coverImageUrl: toNullable(data.coverImageUrl),
     categories: toNullable(data.categories),
-    facebookUrl: toNullable(data.facebookUrl),
-    instagramUrl: toNullable(data.instagramUrl),
-    xUrl: toNullable(data.xUrl),
+    facebookUrl: toNullable(legacySocialUrls.facebookUrl || data.facebookUrl),
+    instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
+    xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
     dropInPrice: toNullableNumber(data.dropInPrice),
     verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
   };
@@ -62,7 +92,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
-  const academy = await prisma.academy.findUnique({ where: { id } });
+  const academy = await prisma.academy.findUnique({ where: { id }, include: { socialLinks: { orderBy: { platform: "asc" } } } });
   if (!academy) return NextResponse.json({ error: "Academy not found" }, { status: 404 });
 
   return NextResponse.json(academy);
@@ -74,20 +104,43 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const actor = await getCurrentUser();
 
   const { id } = await params;
-  if (!canAccessAcademy(actor, id) || isAcademyAdminRole(actor?.role)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
+  if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
   const body = await request.json().catch(() => null);
   const parsed = academySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
 
   const data = parsed.data;
+  const socialLinksResult = socialLinksFromBody(data, body);
+  if (socialLinksResult.error) return NextResponse.json({ error: socialLinksResult.error }, { status: 400 });
+  const socialLinks = socialLinksResult.links;
   const duplicate = await academyExists(id, data.name, data.address, data.postcode);
   if (duplicate) {
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const academy = await prisma.academy.update({
-    where: { id },
-    data: academyData(data),
+  const existingAcademy = isAcademyAdminRole(actor?.role)
+    ? await prisma.academy.findUnique({
+        where: { id },
+        select: { verificationStatus: true, featured: true },
+      })
+    : null;
+  const academy = await prisma.$transaction(async (tx) => {
+    const updated = await tx.academy.update({
+      where: { id },
+      data: {
+        ...academyData(data, socialLinks),
+        verificationStatus: existingAcademy?.verificationStatus ?? data.verificationStatus,
+        featured: existingAcademy?.featured ?? data.featured,
+        verified: (existingAcademy?.verificationStatus ?? data.verificationStatus) === AcademyVerificationStatus.VERIFIED,
+      },
+    });
+    await tx.academySocialLink.deleteMany({ where: { academyId: id } });
+    if (socialLinks.length) {
+      await tx.academySocialLink.createMany({
+        data: socialLinks.map((link) => ({ ...link, academyId: id })),
+      });
+    }
+    return updated;
   });
   if (actor) {
     await writeAdminAuditLog({
@@ -138,19 +191,40 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     return NextResponse.redirect(new URL("/admin?panel=academies", request.url), { status: 303 });
   }
-  if (isAcademyAdminRole(actor?.role)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
-
   const parsed = academySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
   const data = parsed.data;
+  const socialLinksResult = socialLinksFromBody(data, { socialLinksJson: formData.get("socialLinksJson") });
+  if (socialLinksResult.error) return NextResponse.json({ error: socialLinksResult.error }, { status: 400 });
+  const socialLinks = socialLinksResult.links;
   const duplicate = await academyExists(id, data.name, data.address, data.postcode);
   if (duplicate) {
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const academy = await prisma.academy.update({
-    where: { id },
-    data: academyData(data),
+  const existingAcademy = isAcademyAdminRole(actor?.role)
+    ? await prisma.academy.findUnique({
+        where: { id },
+        select: { verificationStatus: true, featured: true },
+      })
+    : null;
+  const academy = await prisma.$transaction(async (tx) => {
+    const updated = await tx.academy.update({
+      where: { id },
+      data: {
+        ...academyData(data, socialLinks),
+        verificationStatus: existingAcademy?.verificationStatus ?? data.verificationStatus,
+        featured: existingAcademy?.featured ?? data.featured,
+        verified: (existingAcademy?.verificationStatus ?? data.verificationStatus) === AcademyVerificationStatus.VERIFIED,
+      },
+    });
+    await tx.academySocialLink.deleteMany({ where: { academyId: id } });
+    if (socialLinks.length) {
+      await tx.academySocialLink.createMany({
+        data: socialLinks.map((link) => ({ ...link, academyId: id })),
+      });
+    }
+    return updated;
   });
   if (actor) {
     await writeAdminAuditLog({

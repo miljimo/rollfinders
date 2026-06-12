@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import type { Academy } from "@prisma/client";
+import type { Academy, AcademySocialLink, AcademySocialPlatform } from "@prisma/client";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { type FormEvent, useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { academySocialPlatformLabels, academySocialPlatformOptions, isAcademySocialPlatform, isSafeSocialUrl, legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy } from "@/lib/academy-social-links";
 import type { AcademyFormState } from "./actions";
 
 type AcademyAction = (state: AcademyFormState, formData: FormData) => Promise<AcademyFormState>;
+type AcademyWithSocialLinks = Academy & { socialLinks?: Pick<AcademySocialLink, "platform" | "url">[] };
+type SocialLinkDraft = { platform: AcademySocialPlatform; url: string };
 
 const initialAcademyFormState: AcademyFormState = {
   message: "",
@@ -50,6 +53,7 @@ const defaultValues: AcademyValues = {
   facebookUrl: "",
   instagramUrl: "",
   xUrl: "",
+  socialLinksJson: "[]",
   dropInPrice: "",
   giAvailable: "on",
   nogiAvailable: "on",
@@ -63,7 +67,7 @@ const defaultValues: AcademyValues = {
 const fieldsByStep: Record<StepId, string[]> = {
   basics: ["name", "slug", "description", "affiliation", "website", "email", "phone"],
   location: ["address", "city", "postcode", "borough", "country", "latitude", "longitude"],
-  media: ["logoUrl", "coverImageUrl", "categories", "facebookUrl", "instagramUrl", "xUrl"],
+  media: ["logoUrl", "coverImageUrl", "categories", "socialLinksJson"],
   settings: ["dropInPrice", "giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "verificationStatus", "sendClaimInvitation"],
   review: [],
 };
@@ -80,8 +84,20 @@ function nullableValue(value?: string | null) {
   return value ?? "";
 }
 
-function academyValues(academy?: Academy): AcademyValues {
+function initialSocialLinks(academy?: AcademyWithSocialLinks, values?: Record<string, string>) {
+  const parsed = parseAcademySocialLinksJson(values?.socialLinksJson);
+  if (!parsed.error && values && Object.prototype.hasOwnProperty.call(values, "socialLinksJson")) return parsed.links;
+  if (academy?.socialLinks?.length) return academy.socialLinks.map((link) => ({ platform: link.platform, url: link.url }));
+  return socialLinksFromLegacy({
+    facebookUrl: values?.facebookUrl ?? academy?.facebookUrl,
+    instagramUrl: values?.instagramUrl ?? academy?.instagramUrl,
+    xUrl: values?.xUrl ?? academy?.xUrl,
+  });
+}
+
+function academyValues(academy?: AcademyWithSocialLinks): AcademyValues {
   if (!academy) return {};
+  const socialLinks = initialSocialLinks(academy);
   return {
     name: academy.name,
     slug: academy.slug,
@@ -103,6 +119,7 @@ function academyValues(academy?: Academy): AcademyValues {
     facebookUrl: nullableValue(academy.facebookUrl),
     instagramUrl: nullableValue(academy.instagramUrl),
     xUrl: nullableValue(academy.xUrl),
+    socialLinksJson: JSON.stringify(socialLinks),
     dropInPrice: academy.dropInPrice?.toString() ?? "",
     giAvailable: checkboxValue(academy.giAvailable),
     nogiAvailable: checkboxValue(academy.nogiAvailable),
@@ -114,14 +131,15 @@ function academyValues(academy?: Academy): AcademyValues {
   };
 }
 
-export function AcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
-  return <MultiStepAcademyForm academy={academy} action={action} cancelHref={cancelHref} returnTo={returnTo} />;
+export function AcademyForm({ action, academy, canManagePlatformFields = true, cancelHref, returnTo }: { action: AcademyAction; academy?: AcademyWithSocialLinks; canManagePlatformFields?: boolean; cancelHref?: string; returnTo?: string }) {
+  return <MultiStepAcademyForm academy={academy} action={action} canManagePlatformFields={canManagePlatformFields} cancelHref={cancelHref} returnTo={returnTo} />;
 }
 
-function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=academies", returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
+function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancelHref = "/admin?panel=academies", returnTo }: { action: AcademyAction; academy?: AcademyWithSocialLinks; canManagePlatformFields: boolean; cancelHref?: string; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
   const mode = academy ? "edit" : "create";
   const [values, setValues] = useState<AcademyValues>(() => ({ ...defaultValues, ...academyValues(academy), ...state.values }));
+  const [socialLinks, setSocialLinks] = useState<SocialLinkDraft[]>(() => initialSocialLinks(academy, state.values));
   const [coordinateSource, setCoordinateSource] = useState<CoordinateSource>(academy ? "existing" : "default");
   const [coordinateStatus, setCoordinateStatus] = useState<CoordinateLookupStatus>("idle");
   const [coordinateMessage, setCoordinateMessage] = useState("");
@@ -135,6 +153,8 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
     const firstErrorField = Object.keys(state.fieldErrors).find((field) => state.fieldErrors[field]?.length);
     const timeout = window.setTimeout(() => {
       setValues((current) => ({ ...current, ...state.values }));
+      const nextSocialLinks = initialSocialLinks(academy, state.values);
+      setSocialLinks(nextSocialLinks);
       if (firstErrorField && fieldStep[firstErrorField]) {
         setStepIndex(steps.findIndex((step) => step.id === fieldStep[firstErrorField]));
       }
@@ -153,6 +173,16 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
       setCoordinateMessage("Manual coordinates will be used.");
     }
     setValues((current) => ({ ...current, [name]: value }));
+  }
+
+  function updateSocialLinks(nextLinks: SocialLinkDraft[]) {
+    const legacy = legacySocialUrlsFromLinks(nextLinks);
+    setSocialLinks(nextLinks);
+    setValues((current) => ({
+      ...current,
+      ...legacy,
+      socialLinksJson: JSON.stringify(nextLinks),
+    }));
   }
 
   useEffect(() => {
@@ -228,7 +258,7 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
   }
 
   function stepHasErrors(step: StepId) {
-    return fieldsByStep[step].some((field) => clientErrors[field] || state.fieldErrors[field]?.length);
+    return visibleFieldsByStep(step, canManagePlatformFields).some((field) => clientErrors[field] || state.fieldErrors[field]?.length);
   }
 
   function goToStep(nextIndex: number) {
@@ -290,9 +320,9 @@ function MultiStepAcademyForm({ action, academy, cancelHref = "/admin?panel=acad
               values={values}
             />
           ) : null}
-          {currentStep === "media" ? <MediaStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
-          {currentStep === "settings" ? <SettingsStep errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
-          {currentStep === "review" ? <ReviewStep coordinateSource={coordinateSource} errors={clientErrors} mode={mode} setStepIndex={setStepIndex} values={values} /> : null}
+          {currentStep === "media" ? <MediaStep errors={mergeErrors(clientErrors, state.fieldErrors)} socialLinks={socialLinks} updateField={updateField} updateSocialLinks={updateSocialLinks} values={values} /> : null}
+          {currentStep === "settings" ? <SettingsStep canManagePlatformFields={canManagePlatformFields} errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
+          {currentStep === "review" ? <ReviewStep canManagePlatformFields={canManagePlatformFields} coordinateSource={coordinateSource} errors={clientErrors} mode={mode} setStepIndex={setStepIndex} socialLinks={socialLinks} values={values} /> : null}
         </section>
 
         <aside className="grid gap-4 lg:sticky lg:top-4 lg:self-start">
@@ -403,13 +433,116 @@ function LocationStep({
   );
 }
 
-function MediaStep({ errors, updateField, values }: StepProps) {
+function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values }: StepProps & { socialLinks: SocialLinkDraft[]; updateSocialLinks: (links: SocialLinkDraft[]) => void }) {
+  const [platform, setPlatform] = useState("");
+  const [url, setUrl] = useState("");
+  const [localError, setLocalError] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 3;
+  const totalPages = Math.max(1, Math.ceil(socialLinks.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const visibleLinks = socialLinks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  function resetDraft() {
+    setPlatform("");
+    setUrl("");
+    setLocalError("");
+  }
+
+  function addLink() {
+    const trimmedUrl = url.trim();
+    if (!isAcademySocialPlatform(platform)) {
+      setLocalError("Choose a social media platform.");
+      return;
+    }
+    if (!isSafeSocialUrl(trimmedUrl)) {
+      setLocalError("Enter a valid http or https URL.");
+      return;
+    }
+
+    const nextLinks = [
+      ...socialLinks.filter((link) => link.platform !== platform),
+      { platform, url: trimmedUrl },
+    ].sort((first, second) => academySocialPlatformLabels[first.platform].localeCompare(academySocialPlatformLabels[second.platform]));
+    updateSocialLinks(nextLinks);
+    setPage(Math.max(1, Math.ceil(nextLinks.length / pageSize)));
+    resetDraft();
+  }
+
+  function editLink(link: SocialLinkDraft) {
+    setPlatform(link.platform);
+    setUrl(link.url);
+    setLocalError("");
+  }
+
+  function removeLink(link: SocialLinkDraft) {
+    const nextLinks = socialLinks.filter((item) => item.platform !== link.platform);
+    updateSocialLinks(nextLinks);
+    setPage(Math.min(currentPage, Math.max(1, Math.ceil(nextLinks.length / pageSize))));
+  }
+
   return (
     <StepSection title="Media And Social" description="Optional images, category text, and social links.">
       <Field name="logoUrl" label="Logo URL" value={values.logoUrl} errors={errors.logoUrl} onChange={updateField} />
       <Field name="coverImageUrl" label="Cover Image URL" value={values.coverImageUrl} errors={errors.coverImageUrl} onChange={updateField} />
       <Field name="categories" label="Categories" value={values.categories} errors={errors.categories} onChange={updateField} />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <section className="grid gap-3 rounded-md border border-stone-200 p-3">
+        <div className="grid gap-4 lg:grid-cols-[220px_1fr_auto] lg:items-end">
+          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+            Social Media
+            <select value={platform} onChange={(event) => setPlatform(event.target.value)} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+              <option value="">Select platform</option>
+              {academySocialPlatformOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+            URI
+            <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal" />
+          </label>
+          <button type="button" onClick={addLink} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
+            {socialLinks.some((link) => link.platform === platform) ? "Update" : "Add"}
+          </button>
+        </div>
+        <FieldError errors={localError ? [localError] : errors.socialLinksJson ? [errors.socialLinksJson] : undefined} />
+        <div className="overflow-x-auto rounded-md border border-stone-200">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead className="bg-stone-50 text-xs uppercase text-stone-500">
+              <tr>
+                <th className="px-3 py-2">Platform</th>
+                <th className="px-3 py-2">URI</th>
+                <th className="px-3 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {visibleLinks.map((link) => (
+                <tr key={link.platform}>
+                  <td className="px-3 py-3 font-semibold text-stone-950">{academySocialPlatformLabels[link.platform]}</td>
+                  <td className="max-w-[280px] break-all px-3 py-3 text-stone-700">{link.url}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex justify-end gap-2">
+                      <button type="button" onClick={() => editLink(link)} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800">Edit</button>
+                      <button type="button" onClick={() => removeLink(link)} className="rounded-md border border-red-200 px-3 py-2 text-xs font-bold text-red-700">Remove</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!visibleLinks.length ? (
+                <tr>
+                  <td colSpan={3} className="px-3 py-6 text-center font-semibold text-stone-500">No social links added.</td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-semibold text-stone-600">
+          <span>Page {currentPage} of {totalPages} · 3 items per page</span>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800 disabled:text-stone-400">Previous</button>
+            <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800 disabled:text-stone-400">Next</button>
+          </div>
+        </div>
+      </section>
+      <div className="hidden">
         <Field name="facebookUrl" label="Facebook URL" value={values.facebookUrl} errors={errors.facebookUrl} onChange={updateField} />
         <Field name="instagramUrl" label="Instagram URL" value={values.instagramUrl} errors={errors.instagramUrl} onChange={updateField} />
         <Field name="xUrl" label="X URL" value={values.xUrl} errors={errors.xUrl} onChange={updateField} />
@@ -418,38 +551,44 @@ function MediaStep({ errors, updateField, values }: StepProps) {
   );
 }
 
-function SettingsStep({ errors, updateField, values }: StepProps) {
+function SettingsStep({ canManagePlatformFields, errors, updateField, values }: StepProps & { canManagePlatformFields: boolean }) {
   return (
-    <StepSection title="Settings" description="Training availability, commercial information, and verification state.">
+    <StepSection title="Settings" description={canManagePlatformFields ? "Training availability, commercial information, and verification state." : "Training availability and commercial information."}>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field name="dropInPrice" label="Drop-in Price" value={values.dropInPrice} errors={errors.dropInPrice} onChange={updateField} />
-        <label className="grid gap-1 text-sm font-semibold text-stone-800">
-          Verification Status
-          <select value={values.verificationStatus} onChange={(event) => updateField("verificationStatus", event.target.value)} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
-            <option value={AcademyVerificationStatus.PENDING}>Pending</option>
-            <option value={AcademyVerificationStatus.VERIFIED}>Verified</option>
-            <option value={AcademyVerificationStatus.REJECTED}>Rejected</option>
-          </select>
-          <FieldError errors={errors.verificationStatus ? [errors.verificationStatus] : undefined} />
-        </label>
+        {canManagePlatformFields ? (
+          <label className="grid gap-1 text-sm font-semibold text-stone-800">
+            Verification Status
+            <select value={values.verificationStatus} onChange={(event) => updateField("verificationStatus", event.target.value)} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+              <option value={AcademyVerificationStatus.PENDING}>Pending</option>
+              <option value={AcademyVerificationStatus.VERIFIED}>Verified</option>
+              <option value={AcademyVerificationStatus.REJECTED}>Rejected</option>
+            </select>
+            <FieldError errors={errors.verificationStatus ? [errors.verificationStatus] : undefined} />
+          </label>
+        ) : null}
       </div>
       <div className="grid gap-3 rounded-md border border-stone-200 p-3 sm:grid-cols-2">
         <Toggle name="giAvailable" label="Gi available" updateField={updateField} values={values} />
         <Toggle name="nogiAvailable" label="No-Gi available" updateField={updateField} values={values} />
         <Toggle name="beginnerFriendly" label="Beginner friendly" updateField={updateField} values={values} />
         <Toggle name="competitionFocused" label="Competition focused" updateField={updateField} values={values} />
-        <Toggle name="featured" label="Featured academy" updateField={updateField} values={values} />
+        {canManagePlatformFields ? <Toggle name="featured" label="Featured academy" updateField={updateField} values={values} /> : null}
       </div>
-      <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
-        <Toggle name="sendClaimInvitation" label="Send claim invitation" updateField={updateField} values={values} />
-        <p className="mt-2 text-sm font-semibold text-teal-900">Queues an email to the academy contact when the saved email is valid, usable, unclaimed, and outside reminder cooldown.</p>
-      </div>
-      <p className="text-sm font-semibold text-stone-600">Public verified status is derived from the selected verification status.</p>
+      {canManagePlatformFields ? (
+        <>
+          <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
+            <Toggle name="sendClaimInvitation" label="Send claim invitation" updateField={updateField} values={values} />
+            <p className="mt-2 text-sm font-semibold text-teal-900">Queues an email to the academy contact when the saved email is valid, usable, unclaimed, and outside reminder cooldown.</p>
+          </div>
+          <p className="text-sm font-semibold text-stone-600">Public verified status is derived from the selected verification status.</p>
+        </>
+      ) : null}
     </StepSection>
   );
 }
 
-function ReviewStep({ coordinateSource, errors, mode, setStepIndex, values }: { coordinateSource: CoordinateSource; errors: Record<string, string>; mode: "create" | "edit"; setStepIndex: (index: number) => void; values: AcademyValues }) {
+function ReviewStep({ canManagePlatformFields, coordinateSource, errors, mode, setStepIndex, socialLinks, values }: { canManagePlatformFields: boolean; coordinateSource: CoordinateSource; errors: Record<string, string>; mode: "create" | "edit"; setStepIndex: (index: number) => void; socialLinks: SocialLinkDraft[]; values: AcademyValues }) {
   const errorEntries = Object.entries(errors);
   const actionLabel = mode === "edit" ? "saving" : "creating";
   return (
@@ -469,9 +608,10 @@ function ReviewStep({ coordinateSource, errors, mode, setStepIndex, values }: { 
             <button type="button" onClick={() => setStepIndex(steps.findIndex((item) => item.id === step.id))} className="text-sm font-bold text-teal-800">Edit</button>
           </div>
           <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-            {fieldsByStep[step.id].map((field) => (
+            {visibleFieldsByStep(step.id, canManagePlatformFields).filter((field) => field !== "socialLinksJson").map((field) => (
               <ReviewValue key={field} label={field} value={displayValue(field, values[field], coordinateSource)} />
             ))}
+            {step.id === "media" ? <ReviewValue label="social links" value={socialLinks.map((link) => `${academySocialPlatformLabels[link.platform]}: ${link.url}`).join("; ")} /> : null}
           </div>
         </section>
       ))}
@@ -625,10 +765,17 @@ function validateValues(values: AcademyValues) {
   ["website", "logoUrl", "coverImageUrl", "facebookUrl", "instagramUrl", "xUrl"].forEach((field) => {
     if (values[field] && !isLikelyUrl(values[field])) errors[field] = "Enter a valid URL or leave blank.";
   });
+  const socialLinks = parseAcademySocialLinksJson(values.socialLinksJson);
+  if (socialLinks.error) errors.socialLinksJson = socialLinks.error;
   if (values.email && !values.email.includes("@")) errors.email = "Enter a valid email or leave blank.";
   if (values.dropInPrice && !Number.isFinite(Number(values.dropInPrice))) errors.dropInPrice = "Drop-in price must be a valid number.";
   if (values.dropInPrice && Number(values.dropInPrice) < 0) errors.dropInPrice = "Drop-in price cannot be negative.";
   return errors;
+}
+
+function visibleFieldsByStep(step: StepId, canManagePlatformFields: boolean) {
+  if (canManagePlatformFields) return fieldsByStep[step];
+  return fieldsByStep[step].filter((field) => field !== "verificationStatus" && field !== "featured" && field !== "sendClaimInvitation");
 }
 
 function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<string, string[] | undefined>) {

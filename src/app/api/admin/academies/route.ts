@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
 import { academyScopedAcademyWhere, getCurrentUser, isPlatformAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy } from "@/lib/academy-social-links";
 import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
@@ -101,6 +102,11 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
 
   const data = parsed.data;
+  const submittedSocialLinks = formData.get("socialLinksJson");
+  const socialLinksResult = parseAcademySocialLinksJson(submittedSocialLinks);
+  if (socialLinksResult.error) return NextResponse.json({ error: socialLinksResult.error }, { status: 400 });
+  const socialLinks = socialLinksResult.links.length || submittedSocialLinks !== null ? socialLinksResult.links : socialLinksFromLegacy(data);
+  const legacySocialUrls = legacySocialUrlsFromLinks(socialLinks);
   const duplicate = await academyExists(data.name, data.address, data.postcode);
   if (duplicate) {
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
@@ -108,19 +114,36 @@ export async function POST(request: Request) {
 
   const academy = await prisma.academy.create({
     data: {
-      ...data,
+      name: data.name,
+      slug: data.slug,
+      description: data.description,
+      affiliation: data.affiliation,
+      address: data.address,
+      city: data.city,
+      postcode: data.postcode,
+      country: data.country,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      phone: data.phone,
+      giAvailable: data.giAvailable,
+      nogiAvailable: data.nogiAvailable,
+      beginnerFriendly: data.beginnerFriendly,
+      competitionFocused: data.competitionFocused,
+      verificationStatus: data.verificationStatus,
+      featured: data.featured,
       borough: toNullable(data.borough),
       website: toNullable(data.website),
       email: toNullable(data.email),
       logoUrl: toNullable(data.logoUrl),
       coverImageUrl: toNullable(data.coverImageUrl),
       categories: toNullable(data.categories),
-      facebookUrl: toNullable(data.facebookUrl),
-      instagramUrl: toNullable(data.instagramUrl),
-      xUrl: toNullable(data.xUrl),
+      facebookUrl: toNullable(legacySocialUrls.facebookUrl || data.facebookUrl),
+      instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
+      xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
       dropInPrice: toNullableNumber(data.dropInPrice),
       verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
       createdById: actor.id,
+      socialLinks: socialLinks.length ? { create: socialLinks } : undefined,
     },
   });
   await writeAdminAuditLog({

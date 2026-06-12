@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
-import { getCurrentUser, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
+import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { renderAcademyClaimInvitationEmail } from "@/lib/email/academy-claim-invitation";
 import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
@@ -38,6 +39,48 @@ function toNullable(value: string | null | undefined) {
 
 function toNullableNumber(value: number | "" | undefined) {
   return value === "" || value === undefined ? null : value;
+}
+
+function baseAcademyData(data: ReturnType<typeof academySchema.parse>, socialLinks: AcademySocialLinkInput[]) {
+  const legacySocialUrls = legacySocialUrlsFromLinks(socialLinks);
+  return {
+    name: data.name,
+    slug: data.slug,
+    description: data.description,
+    affiliation: data.affiliation,
+    address: data.address,
+    city: data.city,
+    postcode: data.postcode,
+    country: data.country,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    phone: data.phone,
+    giAvailable: data.giAvailable,
+    nogiAvailable: data.nogiAvailable,
+    beginnerFriendly: data.beginnerFriendly,
+    competitionFocused: data.competitionFocused,
+    verificationStatus: data.verificationStatus,
+    featured: data.featured,
+    borough: toNullable(data.borough),
+    website: toNullable(data.website),
+    email: toNullable(data.email),
+    logoUrl: toNullable(data.logoUrl),
+    coverImageUrl: toNullable(data.coverImageUrl),
+    categories: toNullable(data.categories),
+    facebookUrl: toNullable(legacySocialUrls.facebookUrl || data.facebookUrl),
+    instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
+    xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
+    dropInPrice: toNullableNumber(data.dropInPrice),
+  };
+}
+
+function socialLinksForSubmission(data: ReturnType<typeof academySchema.parse>, formData: FormData) {
+  const submitted = formData.get("socialLinksJson");
+  const parsed = parseAcademySocialLinksJson(submitted);
+  if (parsed.error) return parsed;
+  if (parsed.links.length > 0) return parsed;
+  if (submitted !== null) return { links: [] };
+  return { links: socialLinksFromLegacy(data) };
 }
 
 function validationError(formData: FormData, fieldErrors: Record<string, string[] | undefined>): AcademyFormState {
@@ -104,6 +147,11 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   }
 
   const data = parsed.data;
+  const socialLinksResult = socialLinksForSubmission(data, formData);
+  if (socialLinksResult.error) {
+    return validationError(formData, { socialLinksJson: [socialLinksResult.error] });
+  }
+  const socialLinks = socialLinksResult.links;
   const duplicateAcademy = await findDuplicateAcademy(data);
   if (duplicateAcademy) {
     return duplicateAcademyError(formData);
@@ -113,19 +161,10 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   try {
     academy = await prisma.academy.create({
       data: {
-        ...data,
-        borough: toNullable(data.borough),
-        website: toNullable(data.website),
-        email: toNullable(data.email),
-        logoUrl: toNullable(data.logoUrl),
-        coverImageUrl: toNullable(data.coverImageUrl),
-        categories: toNullable(data.categories),
-        facebookUrl: toNullable(data.facebookUrl),
-        instagramUrl: toNullable(data.instagramUrl),
-        xUrl: toNullable(data.xUrl),
-        dropInPrice: toNullableNumber(data.dropInPrice),
+        ...baseAcademyData(data, socialLinks),
         verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
         createdById: actor.id,
+        socialLinks: socialLinks.length ? { create: socialLinks } : undefined,
       },
       select: { id: true, name: true },
     });
@@ -181,30 +220,42 @@ export async function updateAcademy(
   }
 
   const data = parsed.data;
+  const socialLinksResult = socialLinksForSubmission(data, formData);
+  if (socialLinksResult.error) {
+    return validationError(formData, { socialLinksJson: [socialLinksResult.error] });
+  }
+  const socialLinks = socialLinksResult.links;
   const duplicateAcademy = await findDuplicateAcademy({ id, ...data });
   if (duplicateAcademy) {
     return duplicateAcademyError(formData);
   }
 
+  const existingAcademy = isAcademyAdminRole(actor?.role)
+    ? await prisma.academy.findUnique({
+        where: { id },
+        select: { verificationStatus: true, featured: true },
+      })
+    : null;
   let academy: { id: string; name: string };
   try {
-    academy = await prisma.academy.update({
-      where: { id },
-      data: {
-        ...data,
-        borough: toNullable(data.borough),
-        website: toNullable(data.website),
-        email: toNullable(data.email),
-        logoUrl: toNullable(data.logoUrl),
-        coverImageUrl: toNullable(data.coverImageUrl),
-        categories: toNullable(data.categories),
-        facebookUrl: toNullable(data.facebookUrl),
-        instagramUrl: toNullable(data.instagramUrl),
-        xUrl: toNullable(data.xUrl),
-        dropInPrice: toNullableNumber(data.dropInPrice),
-        verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
-      },
-      select: { id: true, name: true },
+    academy = await prisma.$transaction(async (tx) => {
+      const updated = await tx.academy.update({
+        where: { id },
+        data: {
+          ...baseAcademyData(data, socialLinks),
+          verificationStatus: existingAcademy?.verificationStatus ?? data.verificationStatus,
+          featured: existingAcademy?.featured ?? data.featured,
+          verified: (existingAcademy?.verificationStatus ?? data.verificationStatus) === AcademyVerificationStatus.VERIFIED,
+        },
+        select: { id: true, name: true },
+      });
+      await tx.academySocialLink.deleteMany({ where: { academyId: id } });
+      if (socialLinks.length) {
+        await tx.academySocialLink.createMany({
+          data: socialLinks.map((link) => ({ ...link, academyId: id })),
+        });
+      }
+      return updated;
     });
     if (actor) {
       await writeAdminAuditLog({

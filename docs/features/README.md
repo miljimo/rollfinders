@@ -8,6 +8,7 @@ Use these folders as the canonical locations:
 | --- | --- | --- | --- | --- |
 | User Academies | `Users/Academies/APIs` | `Users/Academies/Components` | `Users/Academies/Pages` | `Users/Academies/Products` |
 | Open Mats | `OpenMats/APIs` | `OpenMats/Components` | `OpenMats/Pages` | `OpenMats/Products` |
+| Courses | - | - | - | `Courses/Products`, `Courses/Tickets` |
 | Standard Users | `Users/Standard/APIs` | `Users/Standard/Components` | `Users/Standard/Pages` | `Users/Standard/Products` |
 | Super Admin Users | `Users/SuperAdmin/APIs` | - | `Users/SuperAdmin/Pages` | `Users/SuperAdmin/Products` |
 | Platform Users | `Users/Platform/APIs` | - | `Users/Platform/Pages` | `Users/Platform/Products` |

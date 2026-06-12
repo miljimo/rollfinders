@@ -8,6 +8,7 @@ import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { getOpenMatRadar } from "@/lib/data";
+import { academySocialPlatformLabels } from "@/lib/academy-social-links";
 import { prisma } from "@/lib/prisma";
 import { formatMoney } from "@/lib/utils";
 import { ClaimStatus } from "@prisma/client";
@@ -21,6 +22,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
     include: {
       claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
       members: { select: { id: true } },
+      socialLinks: { orderBy: { platform: "asc" } },
     },
   });
 
@@ -74,6 +76,17 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
             ) : "Not listed"}</p>
             <p><strong>Drop-in:</strong> {academy.dropInPrice !== null ? formatMoney(academy.dropInPrice) : "Check with academy"}</p>
           </div>
+          {academy.socialLinks.length ? (
+            <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold">
+              {academy.socialLinks.map((link) => (
+                <AnalyticsClickTracker key={link.id} eventName="commercial_intent_clicked" metadata={{ actionType: "social_link", academyId: academy.id, external: true, sourcePage: "academy_profile", platform: link.platform }}>
+                  <a className="rounded-md border border-stone-200 bg-white px-3 py-2 text-teal-800" href={link.url} target="_blank" rel="noreferrer">
+                    {academySocialPlatformLabels[link.platform]}
+                  </a>
+                </AnalyticsClickTracker>
+              ))}
+            </div>
+          ) : null}
           <PublicListingWarning academy={academy} className="mt-4 max-w-3xl" />
           <div className="mt-4 flex flex-wrap gap-2 text-sm font-semibold text-stone-700">
             {academy.giAvailable ? <span className="rounded-md bg-stone-100 px-3 py-2">Gi available</span> : null}

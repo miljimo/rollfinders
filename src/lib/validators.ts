@@ -43,6 +43,22 @@ const optionalHttpUrl = optionalTrimmedString.refine(
   "Proof link must be a valid URL",
 );
 
+const optionalPublicHttpUrl = z.string().optional().or(z.literal("")).refine(
+  (value) => !value || value.startsWith("http://") || value.startsWith("https://"),
+  "URL must start with http:// or https://",
+).refine(
+  (value) => {
+    if (!value) return true;
+    try {
+      new URL(value);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  "URL must be valid",
+);
+
 export const claimRequestSchema = z.object({
   academyId: z.string().trim().min(1, "Academy is required"),
   requesterName: z.string().trim().min(2, "Requester name must be at least 2 characters").max(120, "Requester name must be 120 characters or fewer"),
@@ -100,9 +116,10 @@ export const academySchema = z.object({
   logoUrl: z.string().url().optional().or(z.literal("")),
   coverImageUrl: z.string().url().optional().or(z.literal("")),
   categories: z.string().optional().or(z.literal("")),
-  facebookUrl: z.string().url().optional().or(z.literal("")),
-  instagramUrl: z.string().url().optional().or(z.literal("")),
-  xUrl: z.string().url().optional().or(z.literal("")),
+  facebookUrl: optionalPublicHttpUrl,
+  instagramUrl: optionalPublicHttpUrl,
+  xUrl: optionalPublicHttpUrl,
+  socialLinksJson: z.string().optional().or(z.literal("")),
   dropInPrice: z.coerce.number().nonnegative().optional().or(z.literal("")),
   giAvailable: checkboxSchema,
   nogiAvailable: checkboxSchema,

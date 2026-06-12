@@ -91,6 +91,17 @@ enum AcademyVerificationStatus {
   REJECTED
 }
 
+enum AcademySocialPlatform {
+  FACEBOOK
+  INSTAGRAM
+  X
+  YOUTUBE
+  TIKTOK
+  LINKEDIN
+  WEBSITE
+  OTHER
+}
+
 enum AcademyMemberRole {
   OWNER
   ADMIN
@@ -211,6 +222,7 @@ model Academy {
   users              User[]                    @relation("AcademyUsers")
   invitations        AcademyInvitation[]
   claimReminders     AcademyClaimReminder[]
+  socialLinks        AcademySocialLink[]
   analyticsEvents    AnalyticsEvent[]
   analyticsMetrics   AnalyticsDailyMetric[]
 
@@ -223,6 +235,20 @@ model Academy {
   @@index([updatedAt])
   @@index([createdById])
   @@map("academies")
+}
+
+model AcademySocialLink {
+  id        String                @id @default(cuid())
+  academyId String                @map("academy_id")
+  platform  AcademySocialPlatform
+  url       String
+  createdAt DateTime              @default(now()) @map("created_at")
+  updatedAt DateTime              @updatedAt @map("updated_at")
+  academy   Academy               @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  @@unique([academyId, platform])
+  @@index([academyId])
+  @@map("academy_social_links")
 }
 
 model Event {
