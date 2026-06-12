@@ -4,11 +4,11 @@ import type { AnalyticsCountrySignal, AnalyticsDailyMetric } from "./types";
 const emptySummary = {
   marketplace: { visitorCount: 0, sessionCount: 0 },
   visitor: { uniqueVisitors: 0, uniqueSessions: 0 },
-  search: { academySearches: 0, openMatSearches: 0 },
-  profile: { academyProfileViews: 0, openMatViews: 0 },
+  search: { academySearches: 0, openMatSearches: 0, courseSearches: 0 },
+  profile: { academyProfileViews: 0, openMatViews: 0, courseViews: 0 },
   commercial: { commercialIntentClicks: 0 },
   claim: { claimStarts: 0, claimSubmissions: 0, claimsApproved: 0, claimsRejected: 0 },
-  supply: { academiesCreated: 0, openMatsCreated: 0 },
+  supply: { academiesCreated: 0, openMatsCreated: 0, coursesCreated: 0, recurringCoursesCreated: 0 },
 };
 
 function cloneEmptySummary() {
@@ -20,8 +20,10 @@ function addMetric(summary: ReturnType<typeof cloneEmptySummary>, metricName: st
   if (metricName === "unique_sessions") summary.visitor.uniqueSessions += value;
   if (metricName === "academy_searches") summary.search.academySearches += value;
   if (metricName === "open_mat_searches") summary.search.openMatSearches += value;
+  if (metricName === "course_searches") summary.search.courseSearches += value;
   if (metricName === "academy_profile_views") summary.profile.academyProfileViews += value;
   if (metricName === "open_mat_views") summary.profile.openMatViews += value;
+  if (metricName === "course_views") summary.profile.courseViews += value;
   if (metricName === "commercial_intent_clicks") summary.commercial.commercialIntentClicks += value;
   if (metricName === "claim_starts") summary.claim.claimStarts += value;
   if (metricName === "claim_submissions") summary.claim.claimSubmissions += value;
@@ -29,6 +31,8 @@ function addMetric(summary: ReturnType<typeof cloneEmptySummary>, metricName: st
   if (metricName === "claims_rejected") summary.claim.claimsRejected += value;
   if (metricName === "academies_created") summary.supply.academiesCreated += value;
   if (metricName === "open_mats_created") summary.supply.openMatsCreated += value;
+  if (metricName === "courses_created") summary.supply.coursesCreated += value;
+  if (metricName === "recurring_courses_created") summary.supply.recurringCoursesCreated += value;
 }
 
 export async function getFounderAnalyticsReport(days = 30) {
@@ -85,8 +89,10 @@ export async function getFounderAnalyticsReport(days = 30) {
     const rawMetricMap: Record<string, keyof typeof summary.search | keyof typeof summary.profile | keyof typeof summary.commercial | keyof typeof summary.claim | keyof typeof summary.supply> = {
       academy_search_submitted: "academySearches",
       open_mat_search_submitted: "openMatSearches",
+      course_search_submitted: "courseSearches",
       academy_profile_viewed: "academyProfileViews",
       open_mat_viewed: "openMatViews",
+      course_viewed: "courseViews",
       commercial_intent_clicked: "commercialIntentClicks",
       claim_profile_started: "claimStarts",
       claim_profile_submitted: "claimSubmissions",
@@ -94,6 +100,8 @@ export async function getFounderAnalyticsReport(days = 30) {
       claim_rejected: "claimsRejected",
       academy_created: "academiesCreated",
       open_mat_created: "openMatsCreated",
+      course_created: "coursesCreated",
+      recurring_course_created: "recurringCoursesCreated",
     };
 
     for (const row of rawRows) {
@@ -102,8 +110,10 @@ export async function getFounderAnalyticsReport(days = 30) {
       if (!key) continue;
       if (key === "academySearches") summary.search.academySearches = Math.max(summary.search.academySearches, value);
       if (key === "openMatSearches") summary.search.openMatSearches = Math.max(summary.search.openMatSearches, value);
+      if (key === "courseSearches") summary.search.courseSearches = Math.max(summary.search.courseSearches, value);
       if (key === "academyProfileViews") summary.profile.academyProfileViews = Math.max(summary.profile.academyProfileViews, value);
       if (key === "openMatViews") summary.profile.openMatViews = Math.max(summary.profile.openMatViews, value);
+      if (key === "courseViews") summary.profile.courseViews = Math.max(summary.profile.courseViews, value);
       if (key === "commercialIntentClicks") summary.commercial.commercialIntentClicks = Math.max(summary.commercial.commercialIntentClicks, value);
       if (key === "claimStarts") summary.claim.claimStarts = Math.max(summary.claim.claimStarts, value);
       if (key === "claimSubmissions") summary.claim.claimSubmissions = Math.max(summary.claim.claimSubmissions, value);
@@ -111,11 +121,13 @@ export async function getFounderAnalyticsReport(days = 30) {
       if (key === "claimsRejected") summary.claim.claimsRejected = Math.max(summary.claim.claimsRejected, value);
       if (key === "academiesCreated") summary.supply.academiesCreated = Math.max(summary.supply.academiesCreated, value);
       if (key === "openMatsCreated") summary.supply.openMatsCreated = Math.max(summary.supply.openMatsCreated, value);
+      if (key === "coursesCreated") summary.supply.coursesCreated = Math.max(summary.supply.coursesCreated, value);
+      if (key === "recurringCoursesCreated") summary.supply.recurringCoursesCreated = Math.max(summary.supply.recurringCoursesCreated, value);
     }
 
     summary.visitor.uniqueVisitors = Math.max(summary.visitor.uniqueVisitors, Number(uniqueRows[0]?.unique_visitors ?? 0));
     summary.visitor.uniqueSessions = Math.max(summary.visitor.uniqueSessions, Number(uniqueRows[0]?.unique_sessions ?? 0));
-    const anonymousActivity = summary.search.academySearches + summary.search.openMatSearches + summary.profile.academyProfileViews + summary.profile.openMatViews;
+    const anonymousActivity = summary.search.academySearches + summary.search.openMatSearches + summary.search.courseSearches + summary.profile.academyProfileViews + summary.profile.openMatViews + summary.profile.courseViews;
     summary.marketplace.visitorCount = Math.max(summary.visitor.uniqueVisitors, anonymousActivity);
     summary.marketplace.sessionCount = Math.max(summary.visitor.uniqueSessions, summary.marketplace.visitorCount);
     countries = countryRows.map((row) => ({

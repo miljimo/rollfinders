@@ -2,6 +2,7 @@ import Link from "next/link";
 import { EventAudience, type Academy, type Event } from "@prisma/client";
 import { CalendarDays } from "lucide-react";
 import { Button } from "./Button";
+import { courseHref, courseTypeLabel } from "@/lib/courses";
 import { directionsUrl, formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
 
 type EventCardItem = Event & {
@@ -15,7 +16,7 @@ type EventCardItem = Event & {
 
 export function EventCard({ event }: { event: EventCardItem }) {
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
-  const detailHref = `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;
+  const detailHref = courseHref(event);
   const inSession = event.occurrenceStatus === "IN_SESSION";
   const priceLabel = Number(event.price) === 0 ? "Free" : event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
   return (
@@ -26,7 +27,8 @@ export function EventCard({ event }: { event: EventCardItem }) {
         </div>
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-xs font-bold uppercase tracking-wide text-teal-700">{event.giType.replace("_", "-")}</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-teal-700">{courseTypeLabel(event.courseType)}</p>
+        <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{event.giType.replace("_", "-")}</span>
         {inSession ? <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">Live now</span> : null}
         {event.isRecurringOccurrence ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{event.recurrenceLabel}</span> : null}
       </div>

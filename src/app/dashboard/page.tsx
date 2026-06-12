@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "RollFinders | Dashboard",
-  description: "View your profile, settings, academy, and academy rolls.",
+  description: "View your profile, settings, academy, and Open Mats/Sessions.",
 };
 
 const standardRollsPageSize = 8;
@@ -266,7 +266,7 @@ function DashboardPanel({
           <p className="text-sm font-bold uppercase text-teal-800">Dashboard</p>
           <h1 className="mt-1 text-3xl font-black text-slate-950">{academy?.name ?? "No Academy Assigned"}</h1>
           <p className="mt-2 max-w-2xl text-slate-600">
-            {academy ? "Search and view upcoming rolls for your assigned academy in read-only mode." : "No academy is assigned to your account yet."}
+            {academy ? "Search and view upcoming Open Mats/Sessions for your assigned academy in read-only mode." : "No academy is assigned to your account yet."}
           </p>
         </div>
       </div>
@@ -275,7 +275,7 @@ function DashboardPanel({
         <form action="/dashboard" className="mb-4 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
           <input type="hidden" name="panel" value="dashboard" />
           <label className="grid flex-1 gap-1 text-sm font-semibold text-stone-800">
-            Search rolls
+            Search Open Mats/Sessions
             <span className="relative">
               <Search size={18} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input name="search" defaultValue={search} placeholder={academy ? "Search by title, description, or format" : "No academy assigned"} disabled={!academy} className="min-h-11 w-full rounded-md border border-stone-300 px-10 text-base font-normal disabled:bg-stone-50" />
@@ -292,10 +292,10 @@ function DashboardPanel({
         </form>
 
         <Table
-          title="Academy Rolls"
+          title="Open Mats/Sessions"
           columns={columns}
           data={rows}
-          emptyMessage={academy ? "No upcoming rolls match this academy search." : "No academy is assigned, so no roll data can be shown."}
+          emptyMessage={academy ? "No upcoming Open Mats/Sessions match this academy search." : "No academy is assigned, so no Open Mats/Sessions data can be shown."}
           getRowId={(row) => row.id}
           pagination={{
             page: rollsPage,

@@ -166,7 +166,10 @@ describe("unified dashboard route contracts", () => {
     const academyDetailSource = readSource("src/app/admin/academies/[id]/page.tsx");
 
     assert.match(adminSource, /title:\s*academyAdmin\s*\?\s*"Academy Profile Summary"\s*:\s*"Manage Academies"/);
-    assert.match(adminSource, /href:\s*academyAdmin\s*&&\s*currentUser\.academyId\s*\?\s*`\/admin\/academies\/\$\{currentUser\.academyId\}`\s*:\s*"\/dashboard\?panel=academies"/);
+    assert.match(adminSource, /href:\s*"\/dashboard\?panel=academies"/);
+    assert.match(adminSource, /function AcademyProfilePanel/);
+    assert.match(adminSource, /returnTo="\/dashboard\?panel=academies"/);
+    assert.match(adminSource, /updateAcademy\.bind\(null,\s*academy\.id\)/);
     assert.match(adminSource, /Profile Summary/);
     assert.match(academyDetailSource, /requireAcademyEditor\(id\)/);
     assert.match(academyDetailSource, /isPlatformAdminRole\(currentUser\?\.role\)/);
@@ -203,16 +206,16 @@ describe("unified dashboard route contracts", () => {
       assert.match(navigationSource, new RegExp(`label:\\s*"${label}"`));
     }
     assert.match(navigationSource, /label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"/);
-    assert.match(navigationSource, /label:\s*academyAdmin\s*\?\s*"Manage Rolls"\s*:\s*"Manage Open Mats"/);
-    assert.match(navigationSource, /href:\s*academyAdmin\s*&&\s*currentUser\.academyId\s*\?\s*`\/admin\/academies\/\$\{currentUser\.academyId\}`\s*:\s*"\/dashboard\?panel=academies"/);
+    assert.match(navigationSource, /label:\s*openMatSessionsLabel/);
+    assert.match(navigationSource, /href:\s*"\/dashboard\?panel=academies"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=open-mats"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=users"/);
     assert.match(navigationSource, /academyAdmin[\s\S]*href:\s*"\/dashboard\?panel=settings"[\s\S]*label:\s*"Settings"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=platform-admin-academies"/);
     assert.match(navigationSource, /active:\s*!firstParam\(params\.panel\)/);
-    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*academyAdmin\s*\?\s*"Manage Rolls"\s*:\s*"Manage Open Mats"[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Academies"/);
-    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Open Mats"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Courses\/Sessions"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Users"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Analytics"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Review"/);
@@ -225,6 +228,7 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
     assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
+    assert.match(source, /publicHref\s*=\s*`\$\{publicPath\}\?returnTo=\$\{encodeURIComponent\("\/dashboard\?panel=open-mats"\)\}`/);
     assert.match(source, /<QuickActionPanel[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
     assert.match(source, /collapseStorageKey="rollfinders\.dashboardQuickActionsCollapsed"/);
     assert.doesNotMatch(source, /title:\s*"Founder Analytics"/);

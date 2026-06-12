@@ -60,6 +60,31 @@ enum EventAudience {
   EXTERNAL_AND_MEMBERS
 }
 
+enum CourseType {
+  OPEN_MAT
+  TRAINING
+  SPARRING
+  SEMINAR
+  WORKSHOP
+  COMPETITION
+  PRIVATE_LESSON
+}
+
+enum CourseActivityType {
+  WARM_UP
+  DRILLING
+  TECHNICAL
+  ROLLING
+  SPARRING
+  COMPETITION
+  Q_AND_A
+  BREAK
+  LUNCH
+  DINNER
+  SOCIAL
+  CUSTOM
+}
+
 enum ClaimStatus {
   PENDING
   APPROVED
@@ -252,35 +277,61 @@ model AcademySocialLink {
 }
 
 model Event {
-  id                String         @id @default(cuid())
-  academyId         String         @map("academy_id")
-  createdById       String?        @map("created_by_id")
-  title             String
-  description       String
-  eventDate         DateTime       @map("event_date")
-  startTime         String         @map("start_time")
-  endTime           String         @map("end_time")
-  giType            GiType         @map("gi_type")
-  price             Decimal        @db.Decimal(8, 2)
-  audience          EventAudience  @default(EXTERNAL_ONLY)
-  capacity          Int?
-  active            Boolean        @default(true)
-  recurrenceType    RecurrenceType @default(NONE) @map("recurrence_type")
-  recurrenceInterval Int            @default(1) @map("recurrence_interval")
-  recurrenceEndDate DateTime?      @map("recurrence_end_date")
-  recurrenceLimit   Int?           @map("recurrence_limit")
-  createdAt         DateTime       @default(now()) @map("created_at")
-  academy           Academy        @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  createdBy         User?          @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  analyticsEvents   AnalyticsEvent[]
-  analyticsMetrics  AnalyticsDailyMetric[]
+  id                 String                 @id @default(cuid())
+  academyId          String                 @map("academy_id")
+  createdById        String?                @map("created_by_id")
+  title              String
+  description        String
+  eventDate          DateTime               @map("event_date")
+  startTime          String                 @map("start_time")
+  endTime            String                 @map("end_time")
+  giType             GiType                 @map("gi_type")
+  price              Decimal                @db.Decimal(8, 2)
+  audience           EventAudience          @default(EXTERNAL_ONLY)
+  courseType         CourseType             @default(OPEN_MAT) @map("course_type")
+  instructor         String?
+  contactEmail       String?                @map("contact_email")
+  contactPhone       String?                @map("contact_phone")
+  locationName       String?                @map("location_name")
+  addressOverride    String?                @map("address_override")
+  capacity           Int?
+  active             Boolean                @default(true)
+  recurrenceType     RecurrenceType         @default(NONE) @map("recurrence_type")
+  recurrenceInterval Int                    @default(1) @map("recurrence_interval")
+  recurrenceEndDate  DateTime?              @map("recurrence_end_date")
+  recurrenceLimit    Int?                   @map("recurrence_limit")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  academy            Academy                @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  createdBy          User?                  @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  activities         CourseActivity[]
+  analyticsEvents    AnalyticsEvent[]
+  analyticsMetrics   AnalyticsDailyMetric[]
 
   @@index([eventDate])
   @@index([academyId])
   @@index([createdById])
+  @@index([courseType])
   @@index([recurrenceType])
   @@index([recurrenceEndDate])
   @@map("events")
+}
+
+model CourseActivity {
+  id           String             @id @default(cuid())
+  courseId     String             @map("course_id")
+  name         String
+  activityType CourseActivityType @map("activity_type")
+  startTime    String             @map("start_time")
+  endTime      String             @map("end_time")
+  description  String?
+  sortOrder    Int                @default(0) @map("sort_order")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  course       Event              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId, startTime])
+  @@index([activityType])
+  @@map("course_activities")
 }
 
 model ClaimRequest {

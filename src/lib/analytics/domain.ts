@@ -29,6 +29,8 @@ export function parseAnalyticsPayload(payload: unknown): AnalyticsPayload | null
     sessionId: typeof input.sessionId === "string" ? input.sessionId.slice(0, 100) : null,
     academyId: typeof input.academyId === "string" ? input.academyId : null,
     openMatId: typeof input.openMatId === "string" ? input.openMatId : null,
+    courseId: typeof input.courseId === "string" ? input.courseId : null,
+    courseType: typeof input.courseType === "string" ? input.courseType : null,
     countryCode: countryCode && /^[A-Z]{2}$/.test(countryCode) ? countryCode : null,
     countryName: countryCode && /^[A-Z]{2}$/.test(countryCode) ? countryName || countryNameFromCode(countryCode) : null,
     source: input.source ?? null,

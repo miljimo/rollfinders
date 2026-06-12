@@ -36,6 +36,26 @@ WHEN existing Open Mat public, admin, recurrence, permission, search, or analyti
 
 THEN behavior SHALL remain equivalent to the current Open Mat behavior.
 
+Product direction:
+
+IF an admin creates a new training opportunity from the dashboard
+
+WHEN the Open Mats/Sessions management panel is shown
+
+THEN the create action SHALL be labelled `New Course` and SHALL open one shared New Course Form.
+
+IF the New Course Form opens
+
+THEN `OPEN_MAT` SHALL be selected by default.
+
+IF the admin changes Course Type
+
+THEN the same form SHALL create the selected supported Course Type, such as Open Mat, Class, Course, Seminar, Workshop, or Private Lesson.
+
+IF the admin wants to describe Sparring
+
+THEN Sparring SHALL be selected as an Activity Type in the Course activity plan, not as a Course Type.
+
 ---
 
 # Recommended Order
@@ -48,12 +68,13 @@ THEN behavior SHALL remain equivalent to the current Open Mat behavior.
 | 4 | [RF-COURSE-004 Open Mat Radar Compatibility](RF-COURSE-004-OpenMatRadarCompatibility.md) | AI backend/testing agent | RF-COURSE-001, RF-COURSE-002 |
 | 5 | [RF-COURSE-005 Admin Open Mat Compatibility](RF-COURSE-005-AdminOpenMatCompatibility.md) | AI full-stack agent | RF-COURSE-003, RF-COURSE-004 |
 | 6 | [RF-COURSE-006 Admin Course Management](RF-COURSE-006-AdminCourseManagement.md) | Human or AI full-stack agent | RF-COURSE-003, RF-COURSE-005 |
-| 7 | [RF-COURSE-007 Public Course Discovery](RF-COURSE-007-PublicCourseDiscovery.md) | AI full-stack agent | RF-COURSE-004, RF-COURSE-006 |
-| 8 | [RF-COURSE-008 Course Detail Routes](RF-COURSE-008-CourseDetailRoutes.md) | AI full-stack agent | RF-COURSE-007 |
-| 9 | [RF-COURSE-009 Academy Upcoming Courses](RF-COURSE-009-AcademyUpcomingCourses.md) | AI frontend/data agent | RF-COURSE-007, RF-COURSE-008 |
-| 10 | [RF-COURSE-010 Analytics Compatibility](RF-COURSE-010-AnalyticsCompatibility.md) | AI backend/analytics agent | RF-COURSE-002, RF-COURSE-006, RF-COURSE-008 |
-| 11 | [RF-COURSE-011 Recurrence Scope Decision](RF-COURSE-011-RecurrenceScopeDecision.md) | Human tech lead plus AI backend agent | RF-COURSE-002 |
-| 12 | [RF-COURSE-012 Rollout Verification](RF-COURSE-012-RolloutVerification.md) | Human release owner plus AI verification agent | RF-COURSE-001 through RF-COURSE-011 |
+| 7 | [RF-COURSE-006A Course Activity Blocks](RF-COURSE-006A-CourseActivityBlocks.md) | UX engineer plus AI full-stack agent | RF-COURSE-001, RF-COURSE-003, RF-COURSE-006 |
+| 8 | [RF-COURSE-007 Public Course Discovery](RF-COURSE-007-PublicCourseDiscovery.md) | AI full-stack agent | RF-COURSE-004, RF-COURSE-006, RF-COURSE-006A |
+| 9 | [RF-COURSE-008 Course Detail Routes](RF-COURSE-008-CourseDetailRoutes.md) | AI full-stack agent | RF-COURSE-006A, RF-COURSE-007 |
+| 10 | [RF-COURSE-009 Academy Upcoming Courses](RF-COURSE-009-AcademyUpcomingCourses.md) | AI frontend/data agent | RF-COURSE-007, RF-COURSE-008 |
+| 11 | [RF-COURSE-010 Analytics Compatibility](RF-COURSE-010-AnalyticsCompatibility.md) | AI backend/analytics agent | RF-COURSE-002, RF-COURSE-006, RF-COURSE-006A, RF-COURSE-008 |
+| 12 | [RF-COURSE-011 Recurrence Scope Decision](RF-COURSE-011-RecurrenceScopeDecision.md) | Human tech lead plus AI backend agent | RF-COURSE-002, RF-COURSE-006A |
+| 13 | [RF-COURSE-012 Rollout Verification](RF-COURSE-012-RolloutVerification.md) | Human release owner plus AI verification agent | RF-COURSE-001 through RF-COURSE-011 |
 
 ---
 
@@ -62,6 +83,7 @@ THEN behavior SHALL remain equivalent to the current Open Mat behavior.
 * Do not rename `events` or change existing IDs in the first pass.
 * Do not remove `open_mat_*` analytics in the first pass.
 * Add `courseType` filters before exposing non-Open-Mat Courses, especially in dashboard and admin queries.
+* Do not create a second competing admin create form for non-Open-Mat Courses; reuse the existing Open Mat form as the New Course Form with Course Type selection.
 * `/open-mats/[id]` must not render non-`OPEN_MAT` Courses after Course Types exist.
 * Decide whether Daily recurrence is truly required before implementation; the current recurrence engine supports weekly/monthly custom intervals but not daily.
 * Decide whether v1 requires per-course location override or academy location fallback is enough.

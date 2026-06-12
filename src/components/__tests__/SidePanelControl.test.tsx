@@ -45,7 +45,7 @@ describe("SidePanelControl", () => {
       <SidePanelControl
         navigationItems={[
           { href: "/dashboard", icon: "dashboard", label: "Dashboard" },
-          { href: "/dashboard?panel=rolls", icon: "events", label: "My Academy Rolls" },
+          { href: "/dashboard?panel=rolls", icon: "events", label: "Open Mats/Sessions" },
           { href: "/dashboard/members", icon: "users", label: "Members" },
           { href: "/dashboard/password", icon: "settings", label: "Password / Account Settings" },
         ]}
@@ -54,7 +54,7 @@ describe("SidePanelControl", () => {
     );
 
     assert.match(markup, /Standard User/);
-    assert.match(markup, /My Academy Rolls/);
+    assert.match(markup, /Open Mats\/Sessions/);
     assert.match(markup, /Members/);
     assert.match(markup, /Password \/ Account Settings/);
     assert.doesNotMatch(markup, /Academy Claims/);

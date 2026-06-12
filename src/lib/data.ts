@@ -1,4 +1,5 @@
-import { AcademyVerificationStatus, ClaimStatus, Prisma, RecurrenceType } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, CourseActivityType, CourseType, Prisma, RecurrenceType } from "@prisma/client";
+import { courseActivityTypeLabels } from "./course-activities";
 import {
   addDays,
   buildOccurrence,
@@ -10,6 +11,21 @@ import {
 } from "./open-mat-occurrences";
 import { prisma } from "./prisma";
 import { distanceMiles } from "./utils";
+export { getCourseDiscovery, getCourseOccurrence, getCourses, searchCourses } from "./courses";
+
+// Compatibility marker for Course discovery contracts. Implementation lives in `src/lib/courses.ts`.
+export const publicCourseDiscoveryWhere: Prisma.EventWhereInput = {
+  courseType: {
+    in: [
+      CourseType.TRAINING,
+      CourseType.SEMINAR,
+      CourseType.WORKSHOP,
+      CourseType.SPARRING,
+      CourseType.COMPETITION,
+      CourseType.PRIVATE_LESSON,
+    ],
+  },
+};
 
 export type LocationInput = { latitude?: number; longitude?: number };
 
@@ -160,6 +176,7 @@ export type OpenMatFilters = {
   q?: string;
   when?: string;
   gi?: string;
+  courseType?: string;
   latitude?: number;
   longitude?: number;
 };
@@ -175,6 +192,11 @@ function getWeekendRange(now = new Date()) {
 export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
   const q = filters.q?.trim() ?? "";
   const lower = q.toLowerCase();
+  const matchingActivityTypes = Object.entries(courseActivityTypeLabels)
+    .filter(([type, label]) => type.toLowerCase().includes(lower) || label.toLowerCase().includes(lower))
+    .map(([type]) => type as CourseActivityType);
+  const selectedCourseType = Object.values(CourseType).includes(filters.courseType as CourseType) ? filters.courseType as CourseType : CourseType.OPEN_MAT;
+  const courseTypeWhere: Prisma.EventWhereInput = filters.courseType === "ANY" ? {} : { courseType: selectedCourseType };
   const now = new Date();
   const today = startOfDay(now);
   const tomorrow = addDays(today, 1);
@@ -210,6 +232,9 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
           { academy: { borough: { contains: q, mode: "insensitive" } } },
           { academy: { postcode: { contains: q, mode: "insensitive" } } },
           { academy: { affiliation: { contains: q, mode: "insensitive" } } },
+          { activities: { some: { name: { contains: q, mode: "insensitive" } } } },
+          { activities: { some: { description: { contains: q, mode: "insensitive" } } } },
+          ...(matchingActivityTypes.length ? [{ activities: { some: { activityType: { in: matchingActivityTypes } } } }] : []),
           ...(lower.includes("competition") ? [{ academy: { competitionFocused: true } }] : []),
         ],
       }
@@ -218,11 +243,12 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
   const events = await prisma.event.findMany({
     where: {
       active: true,
+      ...courseTypeWhere,
       AND: [recurrenceWhere, searchWhere],
       ...(explicitGi === "GI" ? { giType: { in: ["GI", "BOTH"] } } : {}),
       ...(explicitGi === "NO_GI" ? { giType: { in: ["NO_GI", "BOTH"] } } : {}),
     },
-    include: { academy: { include: academyTrustInclude } },
+    include: { academy: { include: academyTrustInclude }, activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } },
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
   const location = { latitude: filters.latitude, longitude: filters.longitude };
@@ -256,8 +282,15 @@ export async function getMapItems() {
 }
 
 export async function getOpenMatOccurrence(id: string, occurrenceDateParam?: string) {
-  const event = await prisma.event.findUnique({ where: { id }, include: { academy: { include: academyTrustInclude } } });
-  if (!event || !event.active) return null;
+  const event = await prisma.event.findUnique({
+    where: { id },
+    include: {
+      academy: { include: academyTrustInclude },
+      createdBy: { select: { role: true, academyId: true, academyMemberships: { select: { academyId: true, role: true } } } },
+      activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
+    },
+  });
+  if (!event || !event.active || event.courseType !== CourseType.OPEN_MAT) return null;
 
   const now = new Date();
   const from = occurrenceDateParam ? startOfDay(new Date(`${occurrenceDateParam}T00:00:00.000Z`)) : startOfDay(now);

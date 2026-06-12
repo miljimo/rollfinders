@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { GiType, RecurrenceType, type Event } from "@prisma/client";
+import { CourseType, GiType, RecurrenceType, type Event } from "@prisma/client";
 import { dateKey, expandEventOccurrences, recurrenceLabel } from "../open-mat-occurrences";
 
 function eventFixture(overrides: Partial<Event> = {}): Event {
@@ -16,6 +16,12 @@ function eventFixture(overrides: Partial<Event> = {}): Event {
     giType: GiType.BOTH,
     price: 0 as unknown as Event["price"],
     audience: "EXTERNAL_ONLY" as Event["audience"],
+    courseType: CourseType.OPEN_MAT,
+    instructor: null,
+    contactEmail: null,
+    contactPhone: null,
+    locationName: null,
+    addressOverride: null,
     capacity: null,
     active: true,
     recurrenceType: RecurrenceType.WEEKLY,

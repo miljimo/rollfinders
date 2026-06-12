@@ -1,0 +1,48 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { renderToStaticMarkup } from "react-dom/server";
+import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
+import { PublicListingWarning } from "../PublicListingWarning";
+
+describe("PublicListingWarning", () => {
+  it("renders the strong warning for unclaimed or unverified academies", () => {
+    const markup = renderToStaticMarkup(
+      <PublicListingWarning
+        academy={{ id: "academy-1", verificationStatus: AcademyVerificationStatus.PENDING, members: [], claims: [] }}
+      />,
+    );
+
+    assert.match(markup, /Check before you go/);
+    assert.match(markup, /not yet claimed and verified/);
+  });
+
+  it("renders a soft warning for trusted academies when the course was not created by an academy admin", () => {
+    const markup = renderToStaticMarkup(
+      <PublicListingWarning
+        academy={{ id: "academy-1", verificationStatus: AcademyVerificationStatus.VERIFIED, members: [{ id: "member-1" }], claims: [{ status: ClaimStatus.APPROVED }] }}
+        course={{ createdBy: { role: Role.PLATFORM_ADMIN, academyId: null, academyMemberships: [] } }}
+      />,
+    );
+
+    assert.match(markup, /Confirm before visiting/);
+    assert.match(markup, /Session details can change/);
+    assert.doesNotMatch(markup, /not yet claimed and verified/);
+  });
+
+  it("hides warnings when a trusted academy course was created by an academy admin", () => {
+    const markup = renderToStaticMarkup(
+      <PublicListingWarning
+        academy={{ id: "academy-1", verificationStatus: AcademyVerificationStatus.VERIFIED, members: [{ id: "member-1" }], claims: [{ status: ClaimStatus.APPROVED }] }}
+        course={{
+          createdBy: {
+            role: Role.ACADEMY_ADMIN,
+            academyId: "academy-1",
+            academyMemberships: [{ academyId: "academy-1", role: AcademyMemberRole.ADMIN }],
+          },
+        }}
+      />,
+    );
+
+    assert.equal(markup, "");
+  });
+});

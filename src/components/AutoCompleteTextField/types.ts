@@ -14,5 +14,6 @@ export type AutoCompleteTextFieldProps = {
   emptyMessage?: string;
   errors?: string[];
   maxResults?: number;
+  onSelectedIdChange?: (selectedId: string) => void;
   size?: "md" | "lg";
 };

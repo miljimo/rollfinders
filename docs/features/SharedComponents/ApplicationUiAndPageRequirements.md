@@ -678,18 +678,53 @@ Done when:
 
 ---
 
-## UI-FORM-005: Open Mat Form
+## UI-FORM-005: New Course / Open Mat Form
 
-IF open mat create/edit form renders
+IF the dashboard `New Course` dialog renders
 
 WHEN academy/event fields are available
 
-THEN the form SHALL support academy, title, description, date, start time, end time, gi type, price, capacity, and active state.
+THEN the form SHALL reuse the Open Mat form structure to support academy, course name/title, course type, activity plan, discipline, description, date, start time, end time, gi type, price, capacity, active state, and recurrence.
+
+IF the New Course form opens from the Open Mats/Sessions dashboard panel
+
+WHEN no Course Type has been changed by the admin
+
+THEN the Course Type SHALL default to `OPEN_MAT`.
+
+IF the admin changes Course Type
+
+WHEN a supported Course Type is selected
+
+THEN the same form SHALL create that selected Course Type, including Open Mat, Class, Course, Seminar, Workshop, or Private Lesson.
+
+IF the admin sets Activity Blocks and Discipline
+
+WHEN the form is submitted
+
+THEN those values SHALL be saved with the Course once the persistence model supports them.
+
+IF the admin wants to describe Sparring
+
+WHEN the activity plan is available
+
+THEN Sparring SHALL be selected as Activity Type `SPARRING`, not as a Course Type.
+
+IF the selected Course Type shows course/session details
+
+WHEN the admin adds instructors
+
+THEN the form SHALL support repeatable instructor rows so more than one system user can be selected without duplicating the whole form.
 
 Done when:
 
 * Academy selection follows role scope.
 * Academy selection is searchable by academy name, city, or postcode and submits the selected `academyId`.
+* Course Type is visible in New Course mode and defaults to Open Mat.
+* Activity Blocks and Discipline are visible in New Course mode once supported by persistence.
+* Course Type can control which optional fields are shown.
+* Instructor rows can be added and removed.
+* Instructor rows select existing system users and filter by selected academy where possible.
 * Time/date fields are usable on mobile.
 * Active checkbox state is visible.
 

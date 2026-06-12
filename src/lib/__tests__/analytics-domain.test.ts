@@ -42,6 +42,21 @@ describe("analytics domain", () => {
     })?.metadata?.claimId, "claim-1");
   });
 
+  it("accepts course analytics identifiers and type metadata", () => {
+    const payload = parseAnalyticsPayload({
+      eventName: "course_viewed",
+      academyId: "academy-1",
+      courseId: "event-2",
+      courseType: "SEMINAR",
+      source: "public_course_detail",
+      metadata: { recurrenceState: "one_off" },
+    });
+
+    assert.equal(payload?.courseId, "event-2");
+    assert.equal(payload?.courseType, "SEMINAR");
+    assert.equal(payload?.metadata?.recurrenceState, "one_off");
+  });
+
   it("rejects unknown event names before persistence", () => {
     assert.equal(parseAnalyticsPayload({ eventName: "unknown_event" }), null);
   });

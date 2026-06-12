@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { RecurrenceType } from "@prisma/client";
-import { eventSchema } from "../validators";
+import { CourseType, RecurrenceType } from "@prisma/client";
+import { courseSchema, eventSchema } from "../validators";
 
 const validEvent = {
   academyId: "academy-1",
@@ -86,4 +86,57 @@ test("event description rejects unsafe URI schemes", () => {
   assert.deepEqual(parsed.error.flatten().fieldErrors.description, [
     "Description links may only use http, https, mailto, or tel.",
   ]);
+});
+
+test("open mat event validation defaults course type to OPEN_MAT", () => {
+  const parsed = eventSchema.parse({
+    ...validEvent,
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.courseType, CourseType.OPEN_MAT);
+});
+
+test("course validation requires course type", () => {
+  const parsed = courseSchema.safeParse({
+    ...validEvent,
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.success, false);
+  assert.deepEqual(parsed.error.flatten().fieldErrors.courseType, ["Course type is required"]);
+});
+
+test("course validation accepts supported non-open-mat course types", () => {
+  const parsed = courseSchema.parse({
+    ...validEvent,
+    title: "Leg Lock Seminar",
+    courseType: CourseType.SEMINAR,
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.courseType, CourseType.SEMINAR);
+});
+
+test("course validation accepts multiple serialized instructors", () => {
+  const parsed = courseSchema.parse({
+    ...validEvent,
+    title: "Competition Class",
+    courseType: CourseType.COMPETITION,
+    recurrenceType: RecurrenceType.NONE,
+    instructor: "Coach One, Coach Two, Coach Three",
+  });
+
+  assert.equal(parsed.instructor, "Coach One, Coach Two, Coach Three");
+});
+
+test("course validation rejects unsupported course type values", () => {
+  const parsed = courseSchema.safeParse({
+    ...validEvent,
+    courseType: "DROP_IN_CLASS",
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.success, false);
+  assert.ok(parsed.error.flatten().fieldErrors.courseType?.length);
 });

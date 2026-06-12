@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { EventAudience, RecurrenceType, type Event } from "@prisma/client";
+import { CourseType, EventAudience, RecurrenceType, type Event } from "@prisma/client";
 import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { addDays, dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
@@ -54,6 +54,12 @@ function eventData(data: {
   giType: "GI" | "NO_GI" | "BOTH";
   price: number;
   audience: EventAudience;
+  courseType?: CourseType;
+  instructor?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  locationName?: string;
+  addressOverride?: string;
   capacity?: number | "";
   active: boolean;
   recurrenceType: RecurrenceType;
@@ -71,6 +77,12 @@ function eventData(data: {
     giType: data.giType,
     price: data.price,
     audience: data.price === 0 ? EventAudience.EXTERNAL_ONLY : data.audience,
+    courseType: data.courseType ?? CourseType.OPEN_MAT,
+    instructor: data.instructor ?? null,
+    contactEmail: data.contactEmail ?? null,
+    contactPhone: data.contactPhone ?? null,
+    locationName: data.locationName ?? null,
+    addressOverride: data.addressOverride ?? null,
     active: data.active,
     capacity: data.capacity === "" || data.capacity === undefined ? null : data.capacity,
     recurrenceType: data.recurrenceType,
@@ -100,6 +112,7 @@ async function findDuplicateSourceOpenMat({
       title: { equals: title.trim(), mode: "insensitive" },
       eventDate,
       startTime,
+      courseType: CourseType.OPEN_MAT,
     },
     select: { id: true },
   });
@@ -118,6 +131,12 @@ function occurrenceDatesFor(data: ReturnType<typeof eventData>, from = startOfDa
     giType: data.giType,
     price: data.price,
     audience: data.audience,
+    courseType: data.courseType,
+    instructor: data.instructor,
+    contactEmail: data.contactEmail,
+    contactPhone: data.contactPhone,
+    locationName: data.locationName,
+    addressOverride: data.addressOverride,
     capacity: data.capacity,
     active: data.active,
     recurrenceType: data.recurrenceType,
@@ -153,6 +172,7 @@ async function findDuplicateOpenMat({
     where: {
       ...(id ? { id: { not: id } } : {}),
       academyId: data.academyId,
+      courseType: data.courseType,
       title: { equals: data.title.trim(), mode: "insensitive" },
       startTime: data.startTime,
       OR: [
@@ -169,6 +189,7 @@ async function findDuplicateOpenMat({
   for (const existing of existingEvents) {
     const existingDates = occurrenceDatesFor({
       academyId: existing.academyId,
+      courseType: existing.courseType,
       title: existing.title,
       description: existing.description,
       eventDate: existing.eventDate,
@@ -177,6 +198,11 @@ async function findDuplicateOpenMat({
       giType: existing.giType,
       price: Number(existing.price),
       audience: existing.audience,
+      instructor: existing.instructor,
+      contactEmail: existing.contactEmail,
+      contactPhone: existing.contactPhone,
+      locationName: existing.locationName,
+      addressOverride: existing.addressOverride,
       active: existing.active,
       capacity: existing.capacity,
       recurrenceType: existing.recurrenceType,
@@ -201,7 +227,7 @@ export async function createOpenMat(_state: EventFormState, formData: FormData):
   }
 
   const access = await requireAcademyOpenMatCreator(parsed.data.academyId);
-  const data = eventData(parsed.data);
+  const data = { ...eventData(parsed.data), courseType: CourseType.OPEN_MAT };
   const duplicate = await findDuplicateOpenMat({ data });
   if (duplicate) {
     return duplicateOpenMatError(formData);
@@ -236,13 +262,14 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
     return validationError(formData, parsed.error.flatten().fieldErrors);
   }
 
-  const existing = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true } });
+  const existing = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true, courseType: true } });
   if (!existing) redirect("/admin/open-mats");
+  if (existing.courseType !== CourseType.OPEN_MAT) redirect("/admin/open-mats");
   await requireOpenMatAccess(existing, "edit");
   if (parsed.data.academyId !== existing.academyId) {
     await requireAcademyOpenMatCreator(parsed.data.academyId);
   }
-  const data = eventData(parsed.data);
+  const data = { ...eventData(parsed.data), courseType: CourseType.OPEN_MAT };
   const duplicate = await findDuplicateOpenMat({ id, data });
   if (duplicate) {
     return duplicateOpenMatError(formData);
@@ -259,8 +286,9 @@ export async function updateOpenMat(id: string, _state: EventFormState, formData
 }
 
 export async function deleteOpenMat(id: string) {
-  const event = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true } });
+  const event = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true, courseType: true } });
   if (!event) return;
+  if (event.courseType !== CourseType.OPEN_MAT) return;
   await requireOpenMatAccess(event, "delete");
   await prisma.event.delete({ where: { id } });
   revalidatePath("/admin");

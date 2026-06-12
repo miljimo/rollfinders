@@ -11,6 +11,13 @@ export const analyticsEventNames = [
   "claim_rejected",
   "academy_created",
   "open_mat_created",
+  "course_created",
+  "course_viewed",
+  "course_search_submitted",
+  "recurring_course_created",
+  "course_activity_created",
+  "course_activity_updated",
+  "course_activity_deleted",
 ] as const;
 
 export const analyticsSources = [
@@ -19,8 +26,11 @@ export const analyticsSources = [
   "public_academy_claim",
   "public_open_mats",
   "public_open_mat_detail",
+  "public_courses",
+  "public_course_detail",
   "admin_academies",
   "admin_open_mats",
+  "admin_courses",
   "admin_claims",
   "analytics_api",
   "analytics_job",

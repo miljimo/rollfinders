@@ -23,8 +23,10 @@ const aggregateMetrics = [
   ["unique_sessions", "COUNT(DISTINCT session_id)", "session_id IS NOT NULL"],
   ["academy_searches", "COUNT(*)", "event_name = 'academy_search_submitted'"],
   ["open_mat_searches", "COUNT(*)", "event_name = 'open_mat_search_submitted'"],
+  ["course_searches", "COUNT(*)", "event_name = 'course_search_submitted'"],
   ["academy_profile_views", "COUNT(*)", "event_name = 'academy_profile_viewed'"],
   ["open_mat_views", "COUNT(*)", "event_name = 'open_mat_viewed'"],
+  ["course_views", "COUNT(*)", "event_name = 'course_viewed'"],
   ["commercial_intent_clicks", "COUNT(*)", "event_name = 'commercial_intent_clicked'"],
   ["claim_starts", "COUNT(*)", "event_name = 'claim_profile_started'"],
   ["claim_submissions", "COUNT(*)", "event_name = 'claim_profile_submitted'"],
@@ -32,6 +34,8 @@ const aggregateMetrics = [
   ["claims_rejected", "COUNT(*)", "event_name = 'claim_rejected'"],
   ["academies_created", "COUNT(*)", "event_name = 'academy_created'"],
   ["open_mats_created", "COUNT(*)", "event_name = 'open_mat_created'"],
+  ["courses_created", "COUNT(*)", "event_name = 'course_created'"],
+  ["recurring_courses_created", "COUNT(*)", "event_name = 'recurring_course_created'"],
 ] as const;
 
 export async function aggregateAnalyticsForDate(metricDate: string) {

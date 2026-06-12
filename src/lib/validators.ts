@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { AcademyVerificationStatus, BjjBeltRank, ClaimRequesterRole, EventAudience, GiType, RecurrenceType } from "@prisma/client";
+import type { CourseType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
 const stripeEligibleRanks = new Set<BjjBeltRank>([
@@ -19,6 +20,14 @@ const optionalTrimmedString = z.preprocess(
 );
 
 const allowedDescriptionUriSchemes = new Set(["http", "https", "mailto", "tel"]);
+const courseTypeValues = [
+  "OPEN_MAT",
+  "TRAINING",
+  "SEMINAR",
+  "WORKSHOP",
+  "COMPETITION",
+  "PRIVATE_LESSON",
+] as const;
 
 function hasUnsafeUriScheme(value: string) {
   for (const match of value.matchAll(/\b([a-z][a-z0-9+.-]*):/gi)) {
@@ -130,7 +139,7 @@ export const academySchema = z.object({
   verified: checkboxSchema.optional().default(false),
 });
 
-export const eventSchema = z.object({
+const eventShape = {
   academyId: z.string().min(1),
   title: z.string().min(2).max(160),
   description: z.string().min(10).refine((value) => !hasUnsafeUriScheme(value), "Description links may only use http, https, mailto, or tel."),
@@ -146,7 +155,14 @@ export const eventSchema = z.object({
   recurrenceInterval: z.preprocess((value) => value === "" ? undefined : value, z.coerce.number().int().positive().max(52).default(1)),
   recurrenceEndDate: z.preprocess((value) => value === "" ? undefined : value, z.coerce.date().optional()),
   recurrenceLimit: z.preprocess((value) => value === "" ? undefined : value, z.coerce.number().int().positive().max(520).optional()),
-}).superRefine((data, ctx) => {
+  instructor: optionalTrimmedString.refine((value) => !value || value.length <= 400, "Instructors must be 400 characters or fewer"),
+  contactEmail: optionalTrimmedString.refine((value) => !value || z.email().safeParse(value).success, "Contact email must be valid"),
+  contactPhone: optionalTrimmedString.refine((value) => !value || value.length <= 40, "Contact phone must be 40 characters or fewer"),
+  locationName: optionalTrimmedString.refine((value) => !value || value.length <= 160, "Location name must be 160 characters or fewer"),
+  addressOverride: optionalTrimmedString.refine((value) => !value || value.length <= 240, "Location address must be 240 characters or fewer"),
+};
+
+function refineEventTimingAndRecurrence(data: z.infer<z.ZodObject<typeof eventShape>> & { courseType: CourseType }, ctx: z.RefinementCtx) {
   if (data.endTime <= data.startTime) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -179,4 +195,14 @@ export const eventSchema = z.object({
       message: "Recurrence end date must be on or after the start date.",
     });
   }
-});
+}
+
+export const eventSchema = z.object({
+  ...eventShape,
+  courseType: z.enum(courseTypeValues).default("OPEN_MAT"),
+}).superRefine(refineEventTimingAndRecurrence);
+
+export const courseSchema = z.object({
+  ...eventShape,
+  courseType: z.enum(courseTypeValues, "Course type is required"),
+}).superRefine(refineEventTimingAndRecurrence);

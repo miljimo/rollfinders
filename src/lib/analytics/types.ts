@@ -9,6 +9,8 @@ export type AnalyticsPayload = {
   sessionId?: string | null;
   academyId?: string | null;
   openMatId?: string | null;
+  courseId?: string | null;
+  courseType?: string | null;
   countryCode?: string | null;
   countryName?: string | null;
   source?: AnalyticsSource | null;

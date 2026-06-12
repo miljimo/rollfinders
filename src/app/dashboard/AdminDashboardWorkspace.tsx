@@ -1,27 +1,29 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, X } from "lucide-react";
+import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { getMapItems } from "@/lib/data";
+import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
-import { AcademyVerificationStatus, ClaimStatus, Role, UserStatus, type Prisma } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, CourseType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
+import { DialogShell } from "@/components/DialogShell";
 import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
 import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
-import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders } from "../admin/academies/actions";
+import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders, updateAcademy } from "../admin/academies/actions";
 import { AcademyForm } from "../admin/academies/AcademyForm";
-import { createOpenMat } from "../admin/open-mats/actions";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
+import { createCourse } from "../admin/courses/actions";
 import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
@@ -43,6 +45,7 @@ export const metadata: Metadata = {
 const pageSize = 8;
 const platformAdminAcademyPageSize = 5;
 const claimPageSizes = [20, 50, 100];
+const openMatSessionsLabel = "Open Mats/Sessions";
 
 type AdminSearchParams = Record<string, string | string[] | undefined>;
 
@@ -429,7 +432,9 @@ export default async function AdminDashboardWorkspace({
     recentAuditLogs,
     mapItems,
     academyOptions,
+    instructorUsers,
     platformAdminActivitySummary,
+    assignedAcademyProfile,
   ] = await Promise.all([
     prisma.academy.findMany({
       where: academyWhere,
@@ -475,7 +480,14 @@ export default async function AdminDashboardWorkspace({
     }),
     panel === "maps" ? getMapItems() : Promise.resolve([]),
     prisma.academy.findMany({ where: academyScopeWhere, orderBy: { name: "asc" } }),
+    getInstructorUserOptions({ AND: [userScopeWhere, visibleUserWhere, { OR: [{ academyId: { not: null } }, { academyMemberships: { some: {} } }] }] }),
     elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
+    academyAdmin && currentUser.academyId
+      ? prisma.academy.findUnique({
+          where: { id: currentUser.academyId },
+          include: { events: true, claims: true, members: true, socialLinks: { orderBy: { platform: "asc" } } },
+        })
+      : Promise.resolve(null),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
   const selectedReminderAcademy = academyDialogId
@@ -495,11 +507,11 @@ export default async function AdminDashboardWorkspace({
     { active: !firstParam(params.panel), href: "/dashboard", icon: "dashboard", label: "Dashboard" },
     {
       active: panel === "academies",
-      href: academyAdmin && currentUser.academyId ? `/admin/academies/${currentUser.academyId}` : "/dashboard?panel=academies",
+      href: "/dashboard?panel=academies",
       icon: "academies",
       label: academyAdmin ? "Academy Profile" : "Manage Academies",
     },
-    { active: panel === "open-mats", href: "/dashboard?panel=open-mats", icon: "events", label: academyAdmin ? "Manage Rolls" : "Manage Open Mats" },
+    { active: panel === "open-mats", href: "/dashboard?panel=open-mats", icon: "events", label: openMatSessionsLabel },
     { active: panel === "users", href: "/dashboard?panel=users", icon: "users", label: "Manage Users" },
     ...(superAdmin
       ? [
@@ -534,8 +546,8 @@ export default async function AdminDashboardWorkspace({
           iconTone: "violet",
           icon: <CalendarDays size={34} aria-hidden />,
           indicator: { label: "created this week", value: activeEventCountThisWeek },
-          id: "academy-rolls",
-          label: "Academy Rolls",
+          id: "academy-open-mats-sessions",
+          label: openMatSessionsLabel,
           value: activeEventCount,
         },
       ]
@@ -627,7 +639,7 @@ export default async function AdminDashboardWorkspace({
     {
       active: panel === "academies",
       description: academyAdmin ? "View and manage your academy profile" : "Search, verify and manage academies",
-      href: academyAdmin && currentUser.academyId ? `/admin/academies/${currentUser.academyId}` : "/dashboard?panel=academies",
+      href: "/dashboard?panel=academies",
       icon: <Building2 size={24} aria-hidden />,
       id: "academies",
       title: academyAdmin ? "Academy Profile Summary" : "Manage Academies",
@@ -666,11 +678,11 @@ export default async function AdminDashboardWorkspace({
       : []),
     {
       active: panel === "open-mats",
-      description: academyAdmin ? "Create and manage academy rolls" : "Create, edit and manage events",
+      description: academyAdmin ? "Create and manage academy Open Mats/Sessions" : "Create, edit and manage Open Mats/Sessions",
       href: "/dashboard?panel=open-mats",
       icon: <CalendarDays size={24} aria-hidden />,
       id: "open-mats",
-      title: academyAdmin ? "Manage Rolls" : "Manage Open Mats",
+      title: openMatSessionsLabel,
     },
     {
       active: panel === "users",
@@ -738,7 +750,7 @@ export default async function AdminDashboardWorkspace({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-3xl font-black text-slate-950">{academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
-              <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and rolls." : "Review platform health and manage operational records."}</p>
+              <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and Open Mats/Sessions." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
@@ -796,18 +808,24 @@ export default async function AdminDashboardWorkspace({
               search={academyAdmin ? null : <AcademiesPanelSearch reminderFilter={academyReminderFilter} search={search} />}
               title={academyAdmin ? "My Academy" : "Academies"}
             >
-              <ClaimInvitationResult params={params} />
-              <ClaimReminderResult params={params} />
-              <AcademiesTable academies={academies} params={params} />
-              <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
+              {academyAdmin ? (
+                <AcademyProfilePanel academy={assignedAcademyProfile} />
+              ) : (
+                <>
+                  <ClaimInvitationResult params={params} />
+                  <ClaimReminderResult params={params} />
+                  <AcademiesTable academies={academies} params={params} />
+                  <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
+                </>
+              )}
             </AdminPanel>
           ) : null}
           {panel === "open-mats" ? (
             <AdminPanel
               action={(
-                <Button href="/dashboard?panel=open-mats&dialog=new-open-mat" variant="primary" className="min-h-12 shadow-sm">
+                <Button href="/dashboard?panel=open-mats&dialog=create-course" variant="primary" className="min-h-12 shadow-sm">
                   <Plus size={18} aria-hidden />
-                  New Open Mat
+                  New Course
                 </Button>
               )}
               description="Active open mat events ordered by event date."
@@ -876,8 +894,8 @@ export default async function AdminDashboardWorkspace({
       {panel === "academies" && dialog === "bulk-claim-reminders" ? (
         <BulkClaimReminderDialog academies={selectedBulkReminderAcademies} closeHref={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} />
       ) : null}
-      {panel === "open-mats" && dialog === "new-open-mat" ? (
-        <NewOpenMatDialog academies={academyOptions} />
+      {panel === "open-mats" && dialog === "create-course" ? (
+        <CreateCourseDialog academies={academyOptions} instructorUsers={instructorUsers} />
       ) : null}
     </div>
   );
@@ -935,38 +953,6 @@ function ProfileInfo({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
       <p className="mt-1 break-words font-semibold text-slate-950">{value}</p>
-    </div>
-  );
-}
-
-function DialogShell({
-  children,
-  closeHref,
-  description,
-  maxWidthClass = "max-w-4xl",
-  title,
-}: {
-  children: React.ReactNode;
-  closeHref: string;
-  description: string;
-  maxWidthClass?: string;
-  title: string;
-}) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-slate-950/50 px-4 py-8 sm:py-12" role={"dialog"} aria-modal="true" aria-labelledby="admin-dialog-title">
-      <Link href={closeHref} className="fixed inset-0" aria-label={`Close ${title} dialog`} />
-      <section className={`relative z-[71] w-full rounded-lg bg-white p-5 shadow-2xl sm:p-6 ${maxWidthClass}`}>
-        <div className="flex items-start justify-between gap-4 border-b border-stone-100 pb-4">
-          <div>
-            <h2 id="admin-dialog-title" className="text-3xl font-black text-slate-950">{title}</h2>
-            <p className="mt-2 text-sm text-slate-600">{description}</p>
-          </div>
-          <Button href={closeHref} size="icon" variant="secondary" className="shrink-0 border-stone-200 text-slate-600" aria-label={`Close ${title} dialog`}>
-            <X size={20} aria-hidden />
-          </Button>
-        </div>
-        {children}
-      </section>
     </div>
   );
 }
@@ -1146,10 +1132,10 @@ function BulkClaimReminderDialog({ academies, closeHref, returnTo }: { academies
   );
 }
 
-function NewOpenMatDialog({ academies }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>> }) {
+function CreateCourseDialog({ academies, instructorUsers }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>>; instructorUsers: Awaited<ReturnType<typeof getInstructorUserOptions>> }) {
   return (
-    <DialogShell closeHref="/dashboard?panel=open-mats" description="Create an open mat event without leaving the dashboard." title="New Open Mat">
-      <OpenMatForm academies={academies} action={createOpenMat} cancelHref="/dashboard?panel=open-mats" returnTo="/dashboard?panel=open-mats" />
+    <DialogShell closeHref="/dashboard?panel=open-mats" description="Create an Open Mat by default, or choose another course type." title="New Course">
+      <OpenMatForm academies={academies} action={createCourse} cancelHref="/dashboard?panel=open-mats" courseTypeMode="select" instructorUsers={instructorUsers} returnTo="/dashboard?panel=open-mats" submitLabel="New Course" />
     </DialogShell>
   );
 }
@@ -1594,6 +1580,10 @@ type AcademyRow = {
   claimReminders: { status: string; skipReason: string | null; createdAt: Date; recipientEmail: string | null }[];
 };
 
+type AcademyProfilePanelAcademy = Prisma.AcademyGetPayload<{
+  include: { events: true; claims: true; members: true; socialLinks: true };
+}>;
+
 type PlatformAdminAcademyRow = {
   id: string;
   name: string;
@@ -1628,6 +1618,7 @@ type FounderAnalyticsRow = Record<string, unknown> & {
 type OpenMatRow = {
   id: string;
   title: string;
+  courseType: CourseType;
   eventDate: Date;
   startTime: string;
   endTime: string;
@@ -1725,6 +1716,53 @@ const platformAdminAcademyColumns: TableColumn<PlatformAdminAcademyTableRow>[] =
     ),
   },
 ];
+
+function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy | null }) {
+  if (!academy) {
+    return (
+      <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+        No academy is assigned to this account yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5">
+      <section className="rounded-lg border border-stone-200 bg-stone-50 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h3 className="text-2xl font-black text-slate-950">{academy.name}</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-600">{academy.city}, {academy.postcode}</p>
+            <p className="mt-3 max-w-4xl leading-7 text-slate-700">{academy.description}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge>{academy.verificationStatus}</Badge>
+            <Badge>{academy.featured ? "Featured" : "Not Featured"}</Badge>
+            <Button href={`/academies/${academy.slug}`} size="sm" variant="secondary" className="px-3 py-2 text-sm">View Public Profile</Button>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <ProfileInfo label="Email" value={academy.email ?? "Not listed"} />
+          <ProfileInfo label="Phone" value={academy.phone ?? "Not listed"} />
+          <ProfileInfo label="Website" value={academy.website ?? "Not listed"} />
+          <ProfileInfo label="Open Mats/Sessions" value={academy.events.length.toString()} />
+          <ProfileInfo label="Academy Users" value={academy.members.length.toString()} />
+          <ProfileInfo label="Claims" value={academy.claims.length.toString()} />
+          <ProfileInfo label="Categories" value={academy.categories ?? "Not categorised"} />
+          <ProfileInfo label="Borough" value={academy.borough ?? "Not listed"} />
+        </div>
+      </section>
+
+      <AcademyForm
+        academy={academy}
+        action={updateAcademy.bind(null, academy.id)}
+        canManagePlatformFields={false}
+        cancelHref="/dashboard?panel=academies"
+        returnTo="/dashboard?panel=academies"
+      />
+    </div>
+  );
+}
 
 export function SuperAdminPlatformAcademiesPanel({
   academies,
@@ -2035,30 +2073,38 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {events.map((event) => (
-            <tr key={event.id} className="border-t border-stone-100">
-              <td className="px-5 py-4 font-bold text-slate-950">{event.title}</td>
-              <td className="px-5 py-4 text-slate-700">{event.academy.name}</td>
-              <td className="px-5 py-4 text-slate-700">{formatDate(event.eventDate)}</td>
-              <td className="px-5 py-4 text-slate-700">{event.startTime}-{event.endTime}</td>
-              <td className="px-5 py-4"><Badge>{event.giType.replace("_", "-")}</Badge></td>
-              <td className="px-5 py-4 text-slate-700">£{Number(event.price.toString()).toFixed(2)}</td>
-              <td className="px-5 py-4 text-slate-700">{event.capacity ?? "None"}</td>
-              <td className="px-5 py-4"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
-              <td className="px-5 py-4 text-center">
-                <ActionMenu label={`Open actions for ${event.title}`}>
-                  <Link href={`/open-mats/${event.id}`} className={menuItemClass}>
-                    <Eye size={18} aria-hidden />
-                    View Open Mat
-                  </Link>
-                  <Link href={`/admin/open-mats/${event.id}`} className={menuItemClass}>
-                    <Edit3 size={18} aria-hidden />
-                    Edit Open Mat
-                  </Link>
-                </ActionMenu>
-              </td>
-            </tr>
-          ))}
+          {events.map((event) => {
+            const openMat = event.courseType === CourseType.OPEN_MAT;
+            const publicPath = openMat ? `/open-mats/${event.id}` : `/courses/${event.id}`;
+            const publicHref = `${publicPath}?returnTo=${encodeURIComponent("/dashboard?panel=open-mats")}`;
+            const adminHref = openMat ? `/admin/open-mats/${event.id}` : `/admin/courses/${event.id}`;
+            const itemLabel = openMat ? "Open Mat" : "Course";
+
+            return (
+              <tr key={event.id} className="border-t border-stone-100">
+                <td className="px-5 py-4 font-bold text-slate-950">{event.title}</td>
+                <td className="px-5 py-4 text-slate-700">{event.academy.name}</td>
+                <td className="px-5 py-4 text-slate-700">{formatDate(event.eventDate)}</td>
+                <td className="px-5 py-4 text-slate-700">{event.startTime}-{event.endTime}</td>
+                <td className="px-5 py-4"><Badge>{event.giType.replace("_", "-")}</Badge></td>
+                <td className="px-5 py-4 text-slate-700">£{Number(event.price.toString()).toFixed(2)}</td>
+                <td className="px-5 py-4 text-slate-700">{event.capacity ?? "None"}</td>
+                <td className="px-5 py-4"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
+                <td className="px-5 py-4 text-center">
+                  <ActionMenu label={`Open actions for ${event.title}`}>
+                    <Link href={publicHref} className={menuItemClass}>
+                      <Eye size={18} aria-hidden />
+                      View {itemLabel}
+                    </Link>
+                    <Link href={adminHref} className={menuItemClass}>
+                      <Edit3 size={18} aria-hidden />
+                      Edit {itemLabel}
+                    </Link>
+                  </ActionMenu>
+                </td>
+              </tr>
+            );
+          })}
           {!events.length ? (
             <tr>
               <td colSpan={9} className="px-4 py-8 text-center text-stone-600">No open mats to show.</td>

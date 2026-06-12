@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { GiType, RecurrenceType, type Event, type Prisma } from "@prisma/client";
+import { CourseType, GiType, RecurrenceType, type Event, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { StatIndicator } from "@/components/StatIndicator";
@@ -132,6 +132,7 @@ export default async function OpenMatManagementPage({
 
   const where: Prisma.EventWhereInput = {
     ...accessWhere,
+    courseType: CourseType.OPEN_MAT,
     ...(search ? { title: { contains: search, mode: "insensitive" } } : {}),
     ...(academy ? { academy: { name: { contains: academy, mode: "insensitive" } } } : {}),
     ...(giType !== "all" ? { giType: giType as GiType } : {}),
@@ -151,11 +152,12 @@ export default async function OpenMatManagementPage({
   const weekStart = startOfWeek(now);
   const [totalItems, totalOpenMats, activeOpenMats, upcomingOpenMats, inactiveOpenMats, openMatsCreatedThisWeek] = await Promise.all([
     prisma.event.count({ where }),
-    prisma.event.count({ where: accessWhere }),
-    prisma.event.count({ where: { ...accessWhere, active: true } }),
+    prisma.event.count({ where: { ...accessWhere, courseType: CourseType.OPEN_MAT } }),
+    prisma.event.count({ where: { ...accessWhere, courseType: CourseType.OPEN_MAT, active: true } }),
     prisma.event.count({
       where: {
         ...accessWhere,
+        courseType: CourseType.OPEN_MAT,
         active: true,
         OR: [
           { eventDate: { gte: now } },
@@ -163,8 +165,8 @@ export default async function OpenMatManagementPage({
         ],
       },
     }),
-    prisma.event.count({ where: { ...accessWhere, active: false } }),
-    prisma.event.count({ where: { ...accessWhere, createdAt: { gte: weekStart } } }),
+    prisma.event.count({ where: { ...accessWhere, courseType: CourseType.OPEN_MAT, active: false } }),
+    prisma.event.count({ where: { ...accessWhere, courseType: CourseType.OPEN_MAT, createdAt: { gte: weekStart } } }),
   ]);
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = Math.min(page, totalPages);

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { LocateFixed, Search } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "./Button";
+import { selectableCourseTypeOptions } from "@/lib/course-types";
 
 function locationValues(searchParams: URLSearchParams) {
   return {
@@ -16,10 +17,12 @@ export function OpenMatLocationFilterForm({
   q,
   when,
   gi,
+  courseType,
 }: {
   q: string;
   when: string;
   gi: string;
+  courseType: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -55,7 +58,7 @@ export function OpenMatLocationFilterForm({
   }
 
   return (
-    <form action="/open-mats" className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_180px_180px_auto]">
+    <form action="/open-mats" className="grid gap-3 rounded-lg border border-stone-200 bg-white p-3 shadow-sm lg:grid-cols-[1fr_180px_180px_210px_auto]">
       <input type="hidden" name="analyticsIntent" value="open_mat_search" />
       <input type="hidden" name="lat" value={lat} />
       <input type="hidden" name="lng" value={lng} />
@@ -89,6 +92,13 @@ export function OpenMatLocationFilterForm({
         <option value="">Any style</option>
         <option value="GI">Gi</option>
         <option value="NO_GI">No-Gi</option>
+      </select>
+      <select name="courseType" defaultValue={courseType} className="min-h-12 rounded-md border border-stone-200 px-3 text-base text-stone-950">
+        <option value="OPEN_MAT">Open Mat</option>
+        <option value="ANY">Any type</option>
+        {selectableCourseTypeOptions.filter((option) => option.value !== "OPEN_MAT").map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
       </select>
       <Button type="submit" variant="primary" className="min-h-12 px-5 font-semibold">
         <Search size={16} aria-hidden />

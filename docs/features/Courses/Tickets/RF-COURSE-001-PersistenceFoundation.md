@@ -54,13 +54,18 @@ Course Type enum:
 
 ```text
 OPEN_MAT
-TRAINING
-SPARRING
+CLASS
+COURSE
 SEMINAR
 WORKSHOP
-COMPETITION
 PRIVATE_LESSON
 ```
+
+Sparring SHALL NOT be a Course Type.
+
+Sparring SHALL be represented as Activity Type `SPARRING` inside one or more Course Activity Blocks.
+
+If legacy rows exist with Course Type `SPARRING`, the migration SHALL map them to the closest supported Course Type, such as `CLASS`, and create an Activity Block with Activity Type `SPARRING`.
 
 ---
 

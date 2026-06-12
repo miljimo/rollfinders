@@ -3,15 +3,14 @@ import { headers } from "next/headers";
 import { Button } from "@/components/Button";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { PageShell } from "@/components/PageShell";
-import { EventCard } from "@/components/EventCard";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
-import { getOpenMatRadar } from "@/lib/data";
+import { coursePriceLabel, courseTypeLabel, getCourseDiscovery, recurrenceLabel } from "@/lib/courses";
 import { academySocialPlatformLabels } from "@/lib/academy-social-links";
 import { prisma } from "@/lib/prisma";
-import { formatMoney } from "@/lib/utils";
-import { ClaimStatus } from "@prisma/client";
+import { formatDate, formatMoney } from "@/lib/utils";
+import { ClaimStatus, CourseType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +26,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
   });
 
   if (!academy) notFound();
-  const events = (await getOpenMatRadar()).filter((event) => event.academyId === academy.id);
+  const courses = await getCourseDiscovery({ academyId: academy.id });
   const academyIsManaged = academy.members.length > 0;
   const country = analyticsCountryFromHeaders(await headers());
 
@@ -43,7 +42,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
       borough: academy.borough,
       verificationStatus: academy.verificationStatus,
       featured: academy.featured,
-      hasUpcomingOpenMats: events.length > 0,
+      hasUpcomingCourses: courses.length > 0,
     },
   });
 
@@ -95,10 +94,25 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
             {academy.competitionFocused ? <span className="rounded-md bg-stone-100 px-3 py-2">Competition focused</span> : null}
           </div>
           <div className="mt-8">
-            <h2 className="text-2xl font-black text-stone-950">Upcoming Open Mats</h2>
+            <h2 className="text-2xl font-black text-stone-950">Upcoming Courses</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {events.map((event) => <EventCard key={event.occurrenceId ?? event.id} event={event} />)}
-              {events.length === 0 ? <p className="text-stone-600">No upcoming open mats listed yet.</p> : null}
+              {courses.map((course) => (
+                <article key={course.occurrenceId ?? course.id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(course.courseType)}</span>
+                    {course.isRecurringOccurrence ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{recurrenceLabel(course)}</span> : null}
+                  </div>
+                  <h3 className="mt-2 text-lg font-bold text-stone-950">
+                    <a href={course.courseType === CourseType.OPEN_MAT ? `/open-mats/${course.id}` : `/courses/${course.id}`}>{course.title}</a>
+                  </h3>
+                  <dl className="mt-3 grid gap-2 text-sm text-stone-700 sm:grid-cols-3">
+                    <div><dt className="font-bold text-stone-950">Date</dt><dd>{formatDate(course.eventDate)}</dd></div>
+                    <div><dt className="font-bold text-stone-950">Time</dt><dd>{course.startTime}-{course.endTime}</dd></div>
+                    <div><dt className="font-bold text-stone-950">Price</dt><dd>{coursePriceLabel(course)}</dd></div>
+                  </dl>
+                </article>
+              ))}
+              {courses.length === 0 ? <p className="text-stone-600">No upcoming courses listed yet.</p> : null}
             </div>
           </div>
         </div>

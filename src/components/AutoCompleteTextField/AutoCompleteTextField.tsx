@@ -15,6 +15,7 @@ export function AutoCompleteTextField({
   maxResults = 25,
   name,
   options,
+  onSelectedIdChange,
   placeholder = "Search",
   selectedId = "",
   size = "md",
@@ -39,6 +40,7 @@ export function AutoCompleteTextField({
 
   function selectOption(option: AutoCompleteTextFieldOption) {
     setSelectedOptionId(option.id);
+    onSelectedIdChange?.(option.id);
     setQuery(option.label);
     setOpen(false);
     setActiveIndex(0);
@@ -55,6 +57,7 @@ export function AutoCompleteTextField({
         onChange={(event) => {
           setQuery(event.target.value);
           setSelectedOptionId("");
+          onSelectedIdChange?.("");
           setActiveIndex(0);
           setOpen(true);
         }}

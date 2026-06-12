@@ -21,6 +21,12 @@ export async function recordAnalyticsEvent(payload: AnalyticsPayload & { ipHash?
       `;
     }
 
+    const metadata = {
+      ...(parsed.metadata ?? {}),
+      ...(parsed.courseId ? { courseId: parsed.courseId } : {}),
+      ...(parsed.courseType ? { courseType: parsed.courseType } : {}),
+    };
+
     await prisma.$executeRaw`
       INSERT INTO analytics_events (
         id,
@@ -46,7 +52,7 @@ export async function recordAnalyticsEvent(payload: AnalyticsPayload & { ipHash?
         ${parsed.countryCode},
         ${parsed.countryName},
         ${parsed.source ?? "analytics_api"},
-        ${JSON.stringify(parsed.metadata ?? {})}::jsonb
+        ${JSON.stringify(metadata)}::jsonb
       )
     `;
 
