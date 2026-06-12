@@ -43,6 +43,14 @@ fatal: Could not read from remote repository.
 
 Production deployment SHALL NOT start until `master` is pushed to the remote repository and the deployed artifact is traceable to the approved remote commit.
 
+The local production deployment attempt is also blocked because AWS credentials are unavailable in this environment:
+
+```text
+aws: [ERROR]: An error occurred (NoCredentials): Unable to locate credentials.
+```
+
+The existing local `image.env` is stale for this release. It points to `production/app:004a1d1`, while the current local `HEAD` is `3ab16fc`; it SHALL NOT be used for this release.
+
 ## Risk Classification
 
 * Database migrations: high risk because this release adds course and activity persistence.
@@ -179,7 +187,10 @@ Record promotion evidence here:
 ## Pre-Deployment Evidence
 
 * Local `master` commit prepared: `1a7fdaf`.
+* Release ticket committed locally as `3ab16fc`.
 * Push attempt failed because Bitbucket SSH authentication is unavailable in the current environment.
+* AWS access check failed because no AWS credentials are available in the current environment.
+* Existing `image.env` points to stale image `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:004a1d1`; current local `HEAD` is `3ab16fc`.
 * Production deployment has not been started from this environment.
 * `npm run typecheck` passed on 2026-06-12.
 * `npm run build` passed on 2026-06-12 with Next.js 16.2.7 and generated `/courses`, `/courses/[id]`, `/admin/courses`, `/admin/courses/new`, and `/admin/courses/[id]` routes.
