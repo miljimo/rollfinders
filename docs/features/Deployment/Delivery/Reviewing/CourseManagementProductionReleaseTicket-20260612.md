@@ -189,6 +189,7 @@ Record promotion evidence here:
 * Admin smoke result: ECS service stable on task definition revision `31`; manual authenticated admin UI smoke not performed in this session.
 * Analytics smoke result: not manually authenticated in this session; health and build validation passed.
 * Rollback decision: rollback not required.
+* Transient incident: after the ECS service updated and before migrations ran, some production requests failed with Prisma `P2022` because `events.audience` did not yet exist. Running the approved production migration task applied the missing migrations, including `20260611120000_open_mat_audience`, and resolved the error.
 
 ## Pre-Deployment Evidence
 
@@ -198,6 +199,8 @@ Record promotion evidence here:
 * AWS access check initially failed because credentials were not exported. After sourcing `.env`, AWS account `533235209034` was available.
 * Existing `image.env` initially pointed to stale image `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:004a1d1`; it was replaced by `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:e87ef6d`.
 * Production deployment completed from this environment using `ALLOW_DIRECT_ENV_DEPLOY=true`.
+* During the deploy, the environment script stopped after ECS update because `PRODUCTION_MIGRATION_APPROVED=true` was not set for the migration phase. The migration task was then run explicitly with `PRODUCTION_MIGRATION_APPROVED=true` and completed successfully.
+* Follow-up verification after the transient error: `/`, `/open-mats`, `/academies`, `/courses`, and `/login` returned `200`; production logs for the following five minutes showed no further Prisma `P2022` missing-column errors.
 * `npm run typecheck` passed on 2026-06-12.
 * `npm run build` passed on 2026-06-12 with Next.js 16.2.7 and generated `/courses`, `/courses/[id]`, `/admin/courses`, `/admin/courses/new`, and `/admin/courses/[id]` routes.
 * Current production health passed before deployment on 2026-06-12:
