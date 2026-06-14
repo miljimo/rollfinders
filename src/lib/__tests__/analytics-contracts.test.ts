@@ -133,6 +133,43 @@ describe("analytics feature contracts", () => {
     matchAny(source, [/academyCreated|academy_created/, /openMatsCreated|open_mat_created/], "analytics dashboard should include supply metrics");
   });
 
+  it("reports daily visitor trends by date for unique visitors and sessions", () => {
+    const reportingSource = readSource("src/lib/analytics/reporting.ts");
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(reportingSource, /trends:\s*AnalyticsDailyMetric\[\]/);
+    assert.match(reportingSource, /metric_date/);
+    assert.match(reportingSource, /ORDER BY metric_date ASC, metric_name ASC/);
+    assert.match(reportingSource, /metricDate:\s*row\.metric_date\.toISOString\(\)\.slice\(0,\s*10\)/);
+    assert.match(reportingSource, /metricName:\s*row\.metric_name/);
+    assert.match(reportingSource, /metricValue:\s*Number\(row\.value\)/);
+
+    for (const metric of ["unique_visitors", "unique_sessions"]) {
+      assert.match(reportingSource, new RegExp(`metricName\\s*===\\s*["']${metric}["']|["']${metric}["']`));
+      assert.match(dashboardSource, new RegExp(metric));
+    }
+
+    matchAny(dashboardSource, [/analyticsReport\?\.dailyVisits/, /analyticsReport\.dailyVisits/, /const\s+\w+\s*=\s*analyticsReport\?\.dailyVisits/], "dashboard must consume daily visit rows");
+    matchAny(dashboardSource, [/Daily visits/i, /Visitor trends/i, /Daily visitor/i], "dashboard must label the daily visits trend section");
+    matchAny(dashboardSource, [/metricDate/, /date/i], "daily visit rows must expose the metric date");
+    matchAny(dashboardSource, [/uniqueVisitors[\s\S]*uniqueSessions|uniqueSessions[\s\S]*uniqueVisitors/], "daily visit rows must expose both visitor and session counts");
+  });
+
+  it("reports currently logged-in user stats from recent lastLoginAt values", () => {
+    const reportingSource = readSource("src/lib/analytics/reporting.ts");
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    matchAny(reportingSource, [/lastLoginAt/, /last_login_at/], "analytics reporting must query recent user login timestamps");
+    matchAny(reportingSource, [/prisma\.user\.(?:count|groupBy|findMany)/, /FROM\s+users?\b/i], "currently logged-in stats must be derived from users");
+    matchAny(reportingSource, [/lastLoginAt[\s\S]*(?:gte|>=)/, /last_login_at\s*>=/i], "currently logged-in stats must use a recent lastLoginAt lower bound");
+    matchAny(reportingSource, [/disabled\s*=\s*false/, /status\s*=\s*['"]ACTIVE['"]/], "currently logged-in stats must exclude disabled or inactive users");
+    matchAny(reportingSource, [/CURRENT_TIMESTAMP|CURRENT_DATE|NOW\(\)|new Date\(/], "recent login stats must be time-window based");
+    matchAny(reportingSource, [/currentlyLoggedIn|loggedInUsers|activeUsers|recentLogins/i], "reporting must expose a named currently logged-in user stat");
+
+    matchAny(dashboardSource, [/currently logged-in/i, /logged-in users/i, /active users/i, /recent logins/i], "dashboard must surface currently logged-in user stats");
+    assert.match(dashboardSource, /lastLoginAt|currentlyLoggedIn|loggedInUsers|activeUsers|recentLogins/i);
+  });
+
   it("records search demand only from explicit search form submissions", () => {
     const academyPageSource = readSource("src/app/academies/page.tsx");
     const openMatsPageSource = readSource("src/app/open-mats/page.tsx");

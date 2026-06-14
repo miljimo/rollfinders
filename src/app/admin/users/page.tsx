@@ -4,6 +4,7 @@ import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
 import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { TableRow } from "@/components/Table";
 import { elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
@@ -259,8 +260,9 @@ export default async function UserManagementPage({
                   const superUserTarget = isSuperUserRole(user.role);
                   const canDelete = canManage && currentUser?.id !== user.id && !superUserTarget;
                   const disabled = user.status === UserStatus.DISABLED || user.disabled;
+                  const userHref = `/admin/users/${user.id}`;
                   return (
-                    <tr key={user.id} className="border-t border-stone-100">
+                    <TableRow key={user.id} href={userHref}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-4">
                           <div className="grid size-12 shrink-0 place-items-center rounded-full bg-teal-50 text-base font-black text-teal-800 ring-1 ring-teal-100">
@@ -320,7 +322,7 @@ export default async function UserManagementPage({
                           <span className="text-xs font-semibold text-stone-500">Read only</span>
                         )}
                       </td>
-                    </tr>
+                    </TableRow>
                   );
                 })}
                 {!users.length ? (
@@ -400,7 +402,7 @@ function PageLink({ href, disabled, active, iconOnly, children }: { href: string
     return <span className={`inline-flex min-h-11 items-center justify-center rounded-md border border-stone-200 text-sm font-bold text-stone-400 ${iconOnly ? "w-11 px-0" : "px-4"}`}>{children}</span>;
   }
   return (
-    <Button href={href} size={iconOnly ? "icon" : "md"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "w-11 px-0" : "px-4"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`}>
+    <Button href={href} size={iconOnly ? "icon" : "md"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "w-11 px-0" : "px-4"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`} aria-label={iconOnly ? "Go to page" : undefined}>
       {children}
     </Button>
   );

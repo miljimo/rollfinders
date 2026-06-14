@@ -1,25 +1,30 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
+import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { courseActivityTypeLabels } from "@/lib/course-activities";
+import { cloneEventForCourseForm } from "@/lib/course-cloning";
+import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, recurrenceLabel as courseRecurrenceLabel } from "@/lib/courses";
 import { getMapItems } from "@/lib/data";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
-import { AcademyVerificationStatus, ClaimStatus, CourseType, Role, UserStatus, type Prisma } from "@prisma/client";
-import { formatDate } from "@/lib/utils";
+import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
+import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
+import { LinkedText } from "@/components/LinkedText";
 import { LogoutButton } from "@/components/LogoutButton";
+import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
-import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
+import { Table, TableRow, TableStatusBadge, type TableColumn } from "@/components/Table";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders, updateAcademy } from "../admin/academies/actions";
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
@@ -45,7 +50,7 @@ export const metadata: Metadata = {
 const pageSize = 8;
 const platformAdminAcademyPageSize = 5;
 const claimPageSizes = [20, 50, 100];
-const openMatSessionsLabel = "Open Mats/Sessions";
+const openMatSessionsLabel = "Courses/Events";
 
 type AdminSearchParams = Record<string, string | string[] | undefined>;
 
@@ -275,6 +280,8 @@ export default async function AdminDashboardWorkspace({
   const dialog = firstParam(params.dialog);
   const activeSettingsAction = selectedSettingsAction(firstParam(params.settingsAction) ?? firstParam(params.settingsView));
   const userDialogId = firstParam(params.userId);
+  const eventDialogId = firstParam(params.eventId);
+  const cloneFromEventId = firstParam(params.cloneFrom);
   const academyDialogId = firstParam(params.academyId);
   const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
   const search = (firstParam(params.search) ?? "").trim();
@@ -490,6 +497,27 @@ export default async function AdminDashboardWorkspace({
       : Promise.resolve(null),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
+  const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
+    ? await prisma.event.findFirst({
+        where: { AND: [eventScopeWhere, { id: eventDialogId, active: true }] },
+        include: {
+          academy: {
+            include: {
+              claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
+              members: { select: { id: true }, take: 1 },
+            },
+          },
+          activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
+          createdBy: { select: { role: true, academyId: true, academyMemberships: { select: { academyId: true, role: true } } } },
+        },
+      })
+    : null;
+  const cloneSourceEvent = panel === "open-mats" && dialog === "create-course" && cloneFromEventId
+    ? await prisma.event.findFirst({
+        where: { AND: [eventScopeWhere, { id: cloneFromEventId }] },
+        include: { activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } },
+      })
+    : null;
   const selectedReminderAcademy = academyDialogId
     ? await prisma.academy.findUnique({
         where: { id: academyDialogId },
@@ -589,7 +617,7 @@ export default async function AdminDashboardWorkspace({
           icon: <CalendarDays size={34} aria-hidden />,
           indicator: { label: "created this week", value: activeEventCountThisWeek },
           id: "open-mats",
-          label: "Open Mats",
+          label: "Courses/Events",
           value: activeEventCount,
         },
       ];
@@ -678,7 +706,7 @@ export default async function AdminDashboardWorkspace({
       : []),
     {
       active: panel === "open-mats",
-      description: academyAdmin ? "Create and manage academy Open Mats/Sessions" : "Create, edit and manage Open Mats/Sessions",
+      description: academyAdmin ? "Create and manage academy courses/events" : "Create, edit and manage courses/events",
       href: "/dashboard?panel=open-mats",
       icon: <CalendarDays size={24} aria-hidden />,
       id: "open-mats",
@@ -750,12 +778,12 @@ export default async function AdminDashboardWorkspace({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-3xl font-black text-slate-950">{academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
-              <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and Open Mats/Sessions." : "Review platform health and manage operational records."}</p>
+              <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
           <StatsPanel
-            className="mt-6 rounded-lg border border-teal-200 bg-white p-4 shadow-sm"
+            className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
             collapseStorageKey="rollfinders.dashboardStatsCollapsed"
             collapsible
             defaultCollapsed
@@ -765,7 +793,7 @@ export default async function AdminDashboardWorkspace({
           />
 
           <QuickActionPanel
-            className="mt-7 rounded-lg border border-teal-200 bg-white p-4 shadow-sm"
+            className="mt-7 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
             collapseStorageKey="rollfinders.dashboardQuickActionsCollapsed"
             collapsible
             defaultCollapsed
@@ -828,10 +856,10 @@ export default async function AdminDashboardWorkspace({
                   New Course
                 </Button>
               )}
-              description="Active open mat events ordered by event date."
+              description="Active courses/events ordered by event date."
               id="open-mats"
               search={<PanelSearch panel={panel} search={search} />}
-              title="Open Mats"
+              title="Courses/Events"
             >
               <OpenMatsTable events={events} />
               <Pagination currentPage={currentEventPage} totalItems={activeEventCount} pageKey="eventsPage" searchParams={params} />
@@ -895,9 +923,79 @@ export default async function AdminDashboardWorkspace({
         <BulkClaimReminderDialog academies={selectedBulkReminderAcademies} closeHref={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} />
       ) : null}
       {panel === "open-mats" && dialog === "create-course" ? (
-        <CreateCourseDialog academies={academyOptions} instructorUsers={instructorUsers} />
+        <CreateCourseDialog academies={academyOptions} cloneSource={cloneSourceEvent} instructorUsers={instructorUsers} />
+      ) : null}
+      {panel === "open-mats" && dialog === "view-event" && selectedDialogEvent ? (
+        <ViewEventDialog event={selectedDialogEvent} />
       ) : null}
     </div>
+  );
+}
+
+type DashboardEventDetail = Prisma.EventGetPayload<{
+  include: {
+    academy: {
+      include: {
+        claims: { select: { status: true } };
+        members: { select: { id: true } };
+      };
+    };
+    activities: true;
+    createdBy: { select: { role: true; academyId: true; academyMemberships: { select: { academyId: true; role: true } } } };
+  };
+}>;
+
+function ViewEventDialog({ event }: { event: DashboardEventDetail }) {
+  const openMat = event.courseType === CourseType.OPEN_MAT;
+  const address = openMat ? `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}` : courseAddress(event);
+  const capacity = event.capacity ?? "Check with academy";
+  const price = coursePriceLabel(event);
+
+  return (
+    <DialogShell closeHref="/dashboard?panel=open-mats" description={event.academy.name} title={event.title}>
+      <section className="pt-5">
+        <div className="flex flex-wrap gap-2">
+          <p className="text-sm font-bold uppercase tracking-wide text-teal-800">{openMat ? event.giType.replace("_", "-") : courseTypeLabel(event.courseType)}</p>
+          {!openMat ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{event.giType.replace("_", "-")}</span> : null}
+          {event.recurrenceType !== "NONE" ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{courseRecurrenceLabel(event)}</span> : null}
+        </div>
+        <dl className="mt-6 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-700 sm:grid-cols-2">
+          <div><dt className="font-bold text-stone-950">Date</dt><dd>{formatDate(event.eventDate)}</dd></div>
+          <div><dt className="font-bold text-stone-950">Time</dt><dd>{event.startTime}-{event.endTime}</dd></div>
+          <div><dt className="font-bold text-stone-950">{openMat ? "Cost" : "Price"}</dt><dd>{price}</dd></div>
+          <div><dt className="font-bold text-stone-950">Capacity</dt><dd>{capacity}</dd></div>
+          {!openMat ? <div><dt className="font-bold text-stone-950">Recurrence</dt><dd>{courseRecurrenceLabel(event)}</dd></div> : null}
+          {!openMat ? <div><dt className="font-bold text-stone-950">Location</dt><dd>{courseLocationLabel(event)}</dd></div> : null}
+          {event.instructor ? <div><dt className="font-bold text-stone-950">Instructor</dt><dd>{event.instructor}</dd></div> : null}
+          {event.contactEmail ? <div><dt className="font-bold text-stone-950">Contact Email</dt><dd><a className="text-teal-800" href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd></div> : null}
+          {event.contactPhone ? <div><dt className="font-bold text-stone-950">Contact Phone</dt><dd><a className="text-teal-800" href={`tel:${event.contactPhone}`}>{event.contactPhone}</a></dd></div> : null}
+          <div className="sm:col-span-2"><dt className="font-bold text-stone-950">{openMat ? "Location" : "Address"}</dt><dd>{address}</dd></div>
+        </dl>
+        {event.activities.length ? (
+          <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
+            <h3 className="text-lg font-black text-stone-950">Course Schedule</h3>
+            <ol className="mt-3 grid gap-3">
+              {event.activities.map((activity) => (
+                <li key={activity.id} className="grid gap-1 rounded-md bg-stone-50 p-3 text-sm text-stone-700 sm:grid-cols-[9rem_1fr]">
+                  <p className="font-bold text-stone-950">{activity.startTime}-{activity.endTime}</p>
+                  <div>
+                    <p className="font-bold text-stone-950">{activity.name}</p>
+                    <p className="text-xs font-semibold uppercase text-teal-800">{courseActivityTypeLabels[activity.activityType]}</p>
+                    {activity.description ? <p className="mt-1 whitespace-pre-wrap">{activity.description}</p> : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        ) : null}
+        <PublicListingWarning academy={event.academy} course={event} className="mt-4" />
+        <p className="mt-6 whitespace-pre-wrap text-lg leading-8 text-stone-700"><LinkedText text={event.description} /></p>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
+          <Button href={event.academy.website ?? `/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
+        </div>
+      </section>
+    </DialogShell>
   );
 }
 
@@ -1132,10 +1230,16 @@ function BulkClaimReminderDialog({ academies, closeHref, returnTo }: { academies
   );
 }
 
-function CreateCourseDialog({ academies, instructorUsers }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>>; instructorUsers: Awaited<ReturnType<typeof getInstructorUserOptions>> }) {
+type DashboardCloneSourceEvent = Prisma.EventGetPayload<{
+  include: { activities: true };
+}>;
+
+function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>>; cloneSource?: DashboardCloneSourceEvent | null; instructorUsers: Awaited<ReturnType<typeof getInstructorUserOptions>> }) {
+  const clonedEvent = cloneSource && academies.some((academy) => academy.id === cloneSource.academyId) ? cloneEventForCourseForm(cloneSource) : undefined;
+  const cloning = Boolean(clonedEvent);
   return (
-    <DialogShell closeHref="/dashboard?panel=open-mats" description="Create an Open Mat by default, or choose another course type." title="New Course">
-      <OpenMatForm academies={academies} action={createCourse} cancelHref="/dashboard?panel=open-mats" courseTypeMode="select" instructorUsers={instructorUsers} returnTo="/dashboard?panel=open-mats" submitLabel="New Course" />
+    <DialogShell closeHref="/dashboard?panel=open-mats" description={cloning ? "Create a new course from the selected course details." : "Create an Open Mat by default, or choose another course type."} title={cloning ? "Clone Course" : "New Course"}>
+      <OpenMatForm academies={academies} action={createCourse} cancelHref="/dashboard?panel=open-mats" courseTypeMode="select" event={clonedEvent} instructorUsers={instructorUsers} returnTo="/dashboard?panel=open-mats" submitLabel={cloning ? "Create Clone" : "New Course"} />
     </DialogShell>
   );
 }
@@ -1227,6 +1331,11 @@ function FounderAnalyticsPanel({
 }) {
   const summary = analyticsReport?.summary;
   const countrySignals = analyticsReport?.countries ?? [];
+  const dailyVisits = analyticsReport?.dailyVisits ?? [];
+  const loggedInUsers = analyticsReport?.loggedInUsers;
+  const loggedInByRole = loggedInUsers?.byRole.length
+    ? loggedInUsers.byRole.map((item) => `${roleLabel(item.role)}: ${item.currentCount.toLocaleString()}`).join(" / ")
+    : "No recent logins";
   const countrySignalSummary = countrySignals.length
     ? countrySignals.map((country) => `${country.countryName}: ${country.visitorCount} visitors / ${country.eventCount} events`).join(" · ")
     : "Unknown";
@@ -1256,8 +1365,16 @@ function FounderAnalyticsPanel({
       value: summary?.commercial.commercialIntentClicks ?? 0,
     },
     {
-      icon: <ClipboardCheck size={34} aria-hidden />,
+      icon: <Users size={34} aria-hidden />,
       iconTone: "orange",
+      id: "logged-in-users",
+      indicator: { label: "today", value: loggedInUsers?.loggedInTodayCount ?? 0 },
+      label: "Logged In Now",
+      value: loggedInUsers?.currentCount ?? 0,
+    },
+    {
+      icon: <ClipboardCheck size={34} aria-hidden />,
+      iconTone: "neutral",
       id: "claim-funnel",
       indicator: { label: "submitted", value: summary?.claim.claimSubmissions ?? 0 },
       label: "Claim Funnel",
@@ -1266,6 +1383,8 @@ function FounderAnalyticsPanel({
   ];
   const rows: FounderAnalyticsRow[] = [
     { id: "visitors", area: "Visitor analytics", metric: "unique_visitors and unique_sessions", value: `${summary?.visitor.uniqueVisitors ?? 0} visitors` },
+    { id: "logged-in-now", area: "Logged-in users", metric: `users.last_login_at within ${loggedInUsers?.activeWindowMinutes ?? 30} minutes`, value: `${loggedInUsers?.currentCount ?? 0} users` },
+    { id: "logged-in-role", area: "Logged-in users by role", metric: "Recent users grouped by role", value: loggedInByRole },
     { id: "search", area: "Search demand", metric: "academy_search_submitted and open_mat_search_submitted", value: `${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0)} searches` },
     { id: "profiles", area: "Profile engagement", metric: "academy_profile_viewed and open_mat_viewed", value: `${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0)} views` },
     { id: "commercial", area: "Commercial intent", metric: "commercial_intent_clicked", value: `${summary?.commercial.commercialIntentClicks ?? 0} clicks` },
@@ -1290,7 +1409,7 @@ function FounderAnalyticsPanel({
         </Button>
       </div>
 
-      <StatsPanel className="mt-5" items={analyticsStats} />
+      <StatsPanel className="mt-5 hidden md:block" items={analyticsStats} />
 
       <Table
         className="mt-5"
@@ -1304,6 +1423,23 @@ function FounderAnalyticsPanel({
         getRowId={(row) => String(row.id)}
         minWidthClassName="min-w-[760px]"
       />
+
+      <div className="mt-5">
+        <h3 className="text-base font-black text-slate-950">Daily Visits</h3>
+        <Table
+          className="mt-3"
+          columns={[
+            { key: "date", title: "Date", render: (value) => <span className="font-bold text-slate-950">{String(value)}</span> },
+            { key: "uniqueVisitors", title: "Unique Visitors", render: (value) => Number(value).toLocaleString() },
+            { key: "uniqueSessions", title: "Unique Sessions", render: (value) => Number(value).toLocaleString() },
+            { key: "eventCount", title: "Event Count", render: (value) => Number(value).toLocaleString() },
+          ]}
+          data={dailyVisits}
+          emptyMessage="Daily visits will appear here once analytics events are available."
+          getRowId={(row) => String(row.date)}
+          minWidthClassName="min-w-[760px]"
+        />
+      </div>
     </section>
   );
 }
@@ -1415,7 +1551,7 @@ function SettingsDashboardContent({
         </Button>
       </div>
 
-      <QuickActionPanel className="mt-7" items={settingsActionItems} />
+      <QuickActionPanel className="mt-7 hidden md:block" items={settingsActionItems} />
 
       <SettingsDetailPanel title={selectedSettingsItem?.title ?? "Settings"}>
         {effectiveSettingsAction === "change-password" ? (
@@ -1564,6 +1700,14 @@ function AdminPanel({ title, description, action, children, id, search }: { titl
   );
 }
 
+function LinkedTableCell({ children, className }: { children: React.ReactNode; className?: string; href?: string }) {
+  return (
+    <td className={className}>
+      <div className="px-5 py-4">{children}</div>
+    </td>
+  );
+}
+
 type AcademyRow = {
   id: string;
   name: string;
@@ -1623,7 +1767,9 @@ type OpenMatRow = {
   startTime: string;
   endTime: string;
   giType: string;
+  pricingType: EventPricingType;
   price: { toString(): string };
+  audience: EventAudience;
   capacity: number | null;
   active: boolean;
   academy: { name: string };
@@ -1745,7 +1891,7 @@ function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy 
           <ProfileInfo label="Email" value={academy.email ?? "Not listed"} />
           <ProfileInfo label="Phone" value={academy.phone ?? "Not listed"} />
           <ProfileInfo label="Website" value={academy.website ?? "Not listed"} />
-          <ProfileInfo label="Open Mats/Sessions" value={academy.events.length.toString()} />
+          <ProfileInfo label="Courses/Events" value={academy.events.length.toString()} />
           <ProfileInfo label="Academy Users" value={academy.members.length.toString()} />
           <ProfileInfo label="Claims" value={academy.claims.length.toString()} />
           <ProfileInfo label="Categories" value={academy.categories ?? "Not categorised"} />
@@ -1806,7 +1952,7 @@ export function SuperAdminPlatformAcademiesPanel({
         </Button>
       </div>
 
-      <StatsPanel className="mt-5" items={stats} />
+      <StatsPanel className="mt-5 hidden md:block" items={stats} />
 
       <form action="/dashboard" className="mt-5 flex flex-col gap-2 sm:max-w-xl sm:flex-row">
         <input type="hidden" name="panel" value="platform-admin-academies" />
@@ -1832,6 +1978,7 @@ export function SuperAdminPlatformAcademiesPanel({
         columns={platformAdminAcademyColumns}
         data={rows}
         emptyMessage="No academies have been created by Platform Admins yet."
+        getRowHref={(row) => String(row.reviewHref)}
         getRowId={(row) => row.id}
         minWidthClassName="min-w-[920px]"
         pagination={totalItems > 0
@@ -1880,25 +2027,26 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
           <tbody>
             {academies.map((academy) => {
               const reminder = academyReminderState(academy);
+              const academyHref = `/admin/academies/${academy.id}`;
               return (
-                <tr key={academy.id} className="border-t border-stone-100">
+                <TableRow key={academy.id} href={academyHref}>
                   <td className="px-4 py-4">
                     <input className="size-4 accent-teal-700" type="checkbox" name="academyIds" value={academy.id} aria-label={`Select ${academy.name} for claim reminder`} />
                   </td>
-                  <td className="px-5 py-4 font-bold text-slate-950">{academy.name}</td>
-                  <td className="px-5 py-4 text-slate-700">{academy.borough ?? academy.city}</td>
-                  <td className="px-5 py-4 text-slate-700">{academy.postcode}</td>
-                  <td className="px-5 py-4"><Badge>{academyClaimState(academy)}</Badge></td>
-                  <td className="px-5 py-4 text-slate-700">{academy.email ? <span className="break-all">{academy.email}</span> : <Badge>No email</Badge>}</td>
-                  <td className="w-40 whitespace-nowrap px-3 py-4">
+                  <LinkedTableCell href={academyHref} className="font-bold text-slate-950">{academy.name}</LinkedTableCell>
+                  <LinkedTableCell href={academyHref} className="text-slate-700">{academy.borough ?? academy.city}</LinkedTableCell>
+                  <LinkedTableCell href={academyHref} className="text-slate-700">{academy.postcode}</LinkedTableCell>
+                  <LinkedTableCell href={academyHref}><Badge>{academyClaimState(academy)}</Badge></LinkedTableCell>
+                  <LinkedTableCell href={academyHref} className="text-slate-700">{academy.email ? <span className="break-all">{academy.email}</span> : <Badge>No email</Badge>}</LinkedTableCell>
+                  <LinkedTableCell href={academyHref} className="w-40 whitespace-nowrap">
                     <div className="grid gap-2">
                       <Badge>{reminder.label}</Badge>
                       {!reminder.eligible ? (
                         <p className="text-xs font-semibold text-slate-500">{claimReminderReasonLabel(reminder.reason ?? "unavailable")}</p>
                       ) : null}
                     </div>
-                  </td>
-                  <td className="px-5 py-4"><Badge>{academy.featured ? "Featured" : "No"}</Badge></td>
+                  </LinkedTableCell>
+                  <LinkedTableCell href={academyHref}><Badge>{academy.featured ? "Featured" : "No"}</Badge></LinkedTableCell>
                   <td className="px-5 py-4 text-center">
                     <ActionMenu label={`Open actions for ${academy.name}`}>
                       <Link href={`/academies/${academy.slug}`} className={menuItemClass}>
@@ -1917,7 +2065,7 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
                       ) : null}
                     </ActionMenu>
                   </td>
-                </tr>
+                </TableRow>
               );
             })}
             {!academies.length ? (
@@ -1959,9 +2107,10 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
             const superUserTarget = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
             const canDelete = canManage && actorId !== user.id && !superUserTarget;
             const disabled = user.status === UserStatus.DISABLED || user.disabled;
+            const userHref = `/dashboard?panel=users&dialog=view-user&userId=${user.id}`;
             return (
-              <tr key={user.id} className="border-t border-stone-100">
-                <td className="px-5 py-4">
+              <TableRow key={user.id} href={userHref}>
+                <LinkedTableCell href={userHref}>
                   <div className="flex items-center gap-4">
                     <div className={`grid size-12 shrink-0 place-items-center rounded-full text-base font-black ring-1 ${avatarTone(user.email)}`}>
                       {initials(user.name ?? user.email)}
@@ -1972,12 +2121,12 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
                     </div>
                   </div>
                   {protectedUser ? <p className="mt-2 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
-                </td>
-                {canViewRoleColumn ? <td className="px-5 py-4"><RolePill role={user.role} /></td> : null}
-                <td className="px-5 py-4 text-slate-700">{user.academy?.name ?? "None"}</td>
-                <td className="px-5 py-4"><StatusPill disabled={disabled} /></td>
-                <td className="px-5 py-4 text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
-                <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
+                </LinkedTableCell>
+                {canViewRoleColumn ? <LinkedTableCell href={userHref}><RolePill role={user.role} /></LinkedTableCell> : null}
+                <LinkedTableCell href={userHref} className="text-slate-700">{user.academy?.name ?? "None"}</LinkedTableCell>
+                <LinkedTableCell href={userHref}><StatusPill disabled={disabled} /></LinkedTableCell>
+                <LinkedTableCell href={userHref} className="text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</LinkedTableCell>
+                <LinkedTableCell href={userHref} className="text-slate-600">{formatDate(user.createdAt)}</LinkedTableCell>
                 <td className="px-5 py-4 text-center">
                   {canManage ? (
                     <ActionMenu label={`Open actions for ${user.name ?? user.email}`}>
@@ -2008,7 +2157,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
                     <span className="text-xs font-semibold text-stone-500">Read only</span>
                   )}
                 </td>
-              </tr>
+              </TableRow>
             );
           })}
           {!users.length ? (
@@ -2077,32 +2226,37 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
             const openMat = event.courseType === CourseType.OPEN_MAT;
             const publicPath = openMat ? `/open-mats/${event.id}` : `/courses/${event.id}`;
             const publicHref = `${publicPath}?returnTo=${encodeURIComponent("/dashboard?panel=open-mats")}`;
+            const detailHref = `/dashboard?panel=open-mats&dialog=view-event&eventId=${event.id}`;
             const adminHref = openMat ? `/admin/open-mats/${event.id}` : `/admin/courses/${event.id}`;
-            const itemLabel = openMat ? "Open Mat" : "Course";
+            const cloneHref = `/dashboard?panel=open-mats&dialog=create-course&cloneFrom=${event.id}`;
 
             return (
-              <tr key={event.id} className="border-t border-stone-100">
-                <td className="px-5 py-4 font-bold text-slate-950">{event.title}</td>
-                <td className="px-5 py-4 text-slate-700">{event.academy.name}</td>
-                <td className="px-5 py-4 text-slate-700">{formatDate(event.eventDate)}</td>
-                <td className="px-5 py-4 text-slate-700">{event.startTime}-{event.endTime}</td>
-                <td className="px-5 py-4"><Badge>{event.giType.replace("_", "-")}</Badge></td>
-                <td className="px-5 py-4 text-slate-700">£{Number(event.price.toString()).toFixed(2)}</td>
-                <td className="px-5 py-4 text-slate-700">{event.capacity ?? "None"}</td>
-                <td className="px-5 py-4"><Badge>{event.active ? "Active" : "Inactive"}</Badge></td>
+              <TableRow key={event.id} href={detailHref}>
+                <LinkedTableCell href={detailHref} className="font-bold text-slate-950">{event.title}</LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">{event.academy.name}</LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">{formatDate(event.eventDate)}</LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">{event.startTime}-{event.endTime}</LinkedTableCell>
+                <LinkedTableCell href={detailHref}><Badge>{event.giType.replace("_", "-")}</Badge></LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">{coursePriceLabel(event)}</LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">{event.capacity ?? "None"}</LinkedTableCell>
+                <LinkedTableCell href={detailHref}><Badge>{event.active ? "Active" : "Inactive"}</Badge></LinkedTableCell>
                 <td className="px-5 py-4 text-center">
                   <ActionMenu label={`Open actions for ${event.title}`}>
                     <Link href={publicHref} className={menuItemClass}>
                       <Eye size={18} aria-hidden />
-                      View {itemLabel}
+                      View Course
                     </Link>
                     <Link href={adminHref} className={menuItemClass}>
                       <Edit3 size={18} aria-hidden />
-                      Edit {itemLabel}
+                      Edit Course
+                    </Link>
+                    <Link href={cloneHref} className={menuItemClass}>
+                      <Copy size={18} aria-hidden />
+                      Clone Course
                     </Link>
                   </ActionMenu>
                 </td>
-              </tr>
+              </TableRow>
             );
           })}
           {!events.length ? (
@@ -2203,24 +2357,28 @@ function ClaimsTable({ claims, page, pageSize, params, totalItems, totalPages }:
             </tr>
           </thead>
           <tbody>
-            {claims.map((claim) => (
-              <tr key={claim.id} className="border-t border-stone-100">
-                <td className="px-5 py-4">
+            {claims.map((claim) => {
+              const claimHref = `/admin/academy-claims/${claim.id}?returnTo=${encodeURIComponent(adminClaimsHref(params, {}))}`;
+
+              return (
+              <TableRow key={claim.id} href={claimHref}>
+                <LinkedTableCell href={claimHref}>
                   <p className="font-bold text-slate-950">{claim.academy.name}</p>
                   {claim.academy.city || claim.academy.postcode ? <p className="mt-1 text-slate-500">{[claim.academy.city, claim.academy.postcode].filter(Boolean).join(", ")}</p> : null}
-                </td>
-                <td className="px-5 py-4">
+                </LinkedTableCell>
+                <LinkedTableCell href={claimHref}>
                   <p className="font-bold text-slate-950">{claim.requester.name}</p>
                   <p className="break-all text-slate-500">{claim.requester.email}</p>
-                </td>
-                <td className="px-5 py-4 text-slate-700">{claimRoleLabel(claim.requester.role)}</td>
-                <td className="px-5 py-4"><ClaimStatusBadge status={claim.status} /></td>
-                <td className="px-5 py-4 text-slate-600">{formatDate(new Date(claim.createdAt))}</td>
+                </LinkedTableCell>
+                <LinkedTableCell href={claimHref} className="text-slate-700">{claimRoleLabel(claim.requester.role)}</LinkedTableCell>
+                <LinkedTableCell href={claimHref}><ClaimStatusBadge status={claim.status} /></LinkedTableCell>
+                <LinkedTableCell href={claimHref} className="text-slate-600">{formatDate(new Date(claim.createdAt))}</LinkedTableCell>
                 <td className="px-5 py-4 text-right">
-                  <Button href={`/admin/academy-claims/${claim.id}?returnTo=${encodeURIComponent(adminClaimsHref(params, {}))}`} size="sm" variant={claim.status === ClaimStatus.PENDING ? "primary" : "secondary"}>Review</Button>
+                  <Button href={claimHref} size="sm" variant={claim.status === ClaimStatus.PENDING ? "primary" : "secondary"}>Review</Button>
                 </td>
-              </tr>
-            ))}
+              </TableRow>
+              );
+            })}
             {!claims.length ? (
               <tr>
                 <td colSpan={6} className="px-5 py-12 text-center text-stone-600">No academy claims match these filters.</td>
@@ -2255,7 +2413,7 @@ function ClaimPageLink({ active, children, disabled, href, iconOnly }: { active?
     return <span className={`inline-flex min-h-9 items-center justify-center rounded-md border border-stone-200 text-xs font-bold text-stone-400 ${iconOnly ? "w-9 px-0" : "px-3"}`}>{children}</span>;
   }
   return (
-    <Button href={href} size={iconOnly ? "icon" : "sm"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "h-9 min-h-9 w-9 px-0" : "min-h-9 px-3"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`}>
+    <Button href={href} size={iconOnly ? "icon" : "sm"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "h-9 min-h-9 w-9 px-0" : "min-h-9 px-3"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`} aria-label={iconOnly ? "Go to claims page" : undefined}>
       {children}
     </Button>
   );

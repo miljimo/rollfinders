@@ -17,6 +17,7 @@ export function Table<T extends TableRecord>({
   emptyMessage,
   loadingMessage,
   getRowId,
+  getRowHref,
   minWidthClassName = "min-w-[680px]",
   className,
 }: TableProps<T>) {
@@ -46,11 +47,11 @@ export function Table<T extends TableRecord>({
     <section className={className}>
       {title ? <h2 className="text-2xl font-black text-stone-950">{title}</h2> : null}
       <div className={clsx("overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm", title && "mt-4")}>
-        <TableMobileCards columns={columns} data={data} actions={actions} getRowId={getRowId} />
+        <TableMobileCards columns={columns} data={data} actions={actions} getRowHref={getRowHref} getRowId={getRowId} />
         <div className="hidden overflow-x-auto md:block">
           <table className={clsx("w-full border-collapse text-left text-sm", minWidthClassName)}>
             <TableHeader columns={columns} hasActions={actions.length > 0} />
-            <TableBody columns={columns} data={data} actions={actions} getRowId={getRowId} />
+            <TableBody columns={columns} data={data} actions={actions} getRowHref={getRowHref} getRowId={getRowId} />
           </table>
         </div>
         {pagination ? <TablePagination {...pagination} /> : null}

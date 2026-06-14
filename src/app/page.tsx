@@ -6,9 +6,10 @@ import { Button } from "@/components/Button";
 import { LocationSearchForm } from "@/components/LocationSearchForm";
 import { PageShell } from "@/components/PageShell";
 import { EventCard } from "@/components/EventCard";
+import { coursePriceLabel } from "@/lib/courses";
 import { getFeaturedData } from "@/lib/data";
 import { dateKey } from "@/lib/open-mat-occurrences";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ l
                     <span className="mt-1 block truncate text-sm font-semibold text-slate-600">{event.academy.name} · {event.giType.replace("_", "-")}</span>
                     <span className="mt-2 flex flex-wrap gap-2 text-xs font-bold text-teal-800">
                       <span className="rounded-full bg-teal-50 px-3 py-1">{event.startTime}</span>
-                      <span className="rounded-full bg-teal-50 px-3 py-1">{formatMoney(event.price)}</span>
+                      <span className="rounded-full bg-teal-50 px-3 py-1">{coursePriceLabel(event)}</span>
                       {event.occurrenceStatus === "IN_SESSION" ? <span className="rounded-full bg-teal-700 px-3 py-1 text-white">Live</span> : null}
                       {event.isRecurringOccurrence ? <span className="rounded-full bg-stone-100 px-3 py-1 text-stone-700">{event.recurrenceLabel}</span> : null}
                     </span>

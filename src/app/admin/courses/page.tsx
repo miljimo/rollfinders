@@ -1,13 +1,14 @@
-import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { CourseType, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { TableRow } from "@/components/Table";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { selectableCourseTypeOptions } from "@/lib/course-types";
-import { courseTypeLabel, recurrenceLabel } from "@/lib/courses";
+import { coursePriceLabel, courseTypeLabel, recurrenceLabel } from "@/lib/courses";
 import { prisma } from "@/lib/prisma";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -84,23 +85,40 @@ export default async function AdminCoursesPage({ searchParams }: { searchParams:
         </form>
         <div className="mt-6 overflow-x-auto rounded-lg border border-stone-200 bg-white shadow-sm">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-stone-50 text-xs font-bold uppercase tracking-wide text-stone-600"><tr><th className="px-4 py-3">Course</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Academy</th><th className="px-4 py-3">Schedule</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Price</th></tr></thead>
+            <thead className="bg-stone-50 text-xs font-bold uppercase tracking-wide text-stone-600"><tr><th className="px-4 py-3">Course</th><th className="px-4 py-3">Type</th><th className="px-4 py-3">Academy</th><th className="px-4 py-3">Schedule</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Price</th><th className="px-4 py-3">Actions</th></tr></thead>
             <tbody className="divide-y divide-stone-200">
-              {courses.map((course) => (
-                <tr key={course.id}>
-                  <td className="px-4 py-3 font-bold text-stone-950"><Link href={`/admin/courses/${course.id}`}>{course.title}</Link></td>
-                  <td className="px-4 py-3">{courseTypeLabel(course.courseType)}</td>
-                  <td className="px-4 py-3">{course.academy.name}</td>
-                  <td className="px-4 py-3">{formatDate(course.eventDate)} · {course.startTime}-{course.endTime}<br /><span className="text-xs text-stone-500">{recurrenceLabel(course)}</span></td>
-                  <td className="px-4 py-3">{course.active ? "Active" : "Inactive"}</td>
-                  <td className="px-4 py-3">{Number(course.price) === 0 ? "Free" : formatMoney(course.price)}</td>
-                </tr>
-              ))}
-              {courses.length === 0 ? <tr><td className="px-4 py-6 text-stone-600" colSpan={6}>No courses match those filters.</td></tr> : null}
+              {courses.map((course) => {
+                const courseHref = `/admin/courses/${course.id}`;
+
+                return (
+                <TableRow key={course.id} href={courseHref}>
+                  <LinkedTableCell href={courseHref} className="font-bold text-stone-950">{course.title}</LinkedTableCell>
+                  <LinkedTableCell href={courseHref}>{courseTypeLabel(course.courseType)}</LinkedTableCell>
+                  <LinkedTableCell href={courseHref}>{course.academy.name}</LinkedTableCell>
+                  <LinkedTableCell href={courseHref}>{formatDate(course.eventDate)} · {course.startTime}-{course.endTime}<br /><span className="text-xs text-stone-500">{recurrenceLabel(course)}</span></LinkedTableCell>
+                  <LinkedTableCell href={courseHref}>{course.active ? "Active" : "Inactive"}</LinkedTableCell>
+                  <LinkedTableCell href={courseHref}>{coursePriceLabel(course)}</LinkedTableCell>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Button href={`/admin/courses/new?cloneFrom=${course.id}`} size="sm" variant="secondary">Clone</Button>
+                    </div>
+                  </td>
+                </TableRow>
+                );
+              })}
+              {courses.length === 0 ? <tr><td className="px-4 py-6 text-stone-600" colSpan={7}>No courses match those filters.</td></tr> : null}
             </tbody>
           </table>
         </div>
       </section>
     </PageShell>
+  );
+}
+
+function LinkedTableCell({ children, className }: { children: ReactNode; className?: string; href?: string }) {
+  return (
+    <td className={className}>
+      <div className="px-4 py-3">{children}</div>
+    </td>
   );
 }

@@ -3,7 +3,6 @@ import { redirect, notFound } from "next/navigation";
 import { CourseType } from "@prisma/client";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
 import { LinkedText } from "@/components/LinkedText";
 import { PageShell } from "@/components/PageShell";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
@@ -58,8 +57,12 @@ export default async function CoursePage({
 
   return (
     <PageShell>
-      <DialogShell closeHref={closeHref} description={event.academy.name} title={event.title}>
-      <section className="pt-5">
+      <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <Button href={closeHref} variant="secondary" className="mb-5 border-stone-200 text-stone-700">Back to courses</Button>
+        <div className="border-b border-stone-100 pb-5">
+          <h1 className="text-4xl font-black text-slate-950">{event.title}</h1>
+          <p className="mt-2 text-sm text-slate-600">{event.academy.name}</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <p className="text-sm font-bold uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
           <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{event.giType.replace("_", "-")}</span>
@@ -106,7 +109,6 @@ export default async function CoursePage({
           </AnalyticsClickTracker>
         </div>
       </section>
-      </DialogShell>
     </PageShell>
   );
 }

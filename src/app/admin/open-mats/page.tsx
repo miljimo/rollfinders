@@ -4,7 +4,9 @@ import { CourseType, GiType, RecurrenceType, type Event, type Prisma } from "@pr
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { StatIndicator } from "@/components/StatIndicator";
+import { TableRow } from "@/components/Table";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import { coursePriceLabel } from "@/lib/courses";
 import { occurrenceStatus, recurrenceLabel } from "@/lib/open-mat-occurrences";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
@@ -12,8 +14,8 @@ import { formatDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinders | Open Mat Management",
-  description: "Search, filter, paginate, and manage RollFinders open mat events.",
+  title: "RollFinders | Courses/Events Management",
+  description: "Search, filter, paginate, and manage RollFinders courses/events.",
 };
 
 const supportedPageSizes = [20, 50, 100];
@@ -96,8 +98,8 @@ export default async function OpenMatManagementPage({
     return (
       <PageShell>
         <section className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-          <h1 className="text-3xl font-black text-stone-950">Open Mats</h1>
-          <p className="mt-2 text-stone-700">Please log in to manage open mats.</p>
+          <h1 className="text-3xl font-black text-stone-950">Courses/Events</h1>
+          <p className="mt-2 text-stone-700">Please log in to manage courses/events.</p>
           <Button href="/login" variant="neutral" className="mt-4">Log in</Button>
         </section>
       </PageShell>
@@ -186,21 +188,21 @@ export default async function OpenMatManagementPage({
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Open Mat Management</p>
-            <h1 className="mt-2 text-3xl font-black text-stone-950">Open Mats</h1>
-            <p className="mt-2 text-stone-700">Search, filter, and manage open mat events from one operational view.</p>
+            <p className="text-sm font-bold uppercase tracking-wide text-teal-800">Courses/Events Management</p>
+            <h1 className="mt-2 text-3xl font-black text-stone-950">Courses/Events</h1>
+            <p className="mt-2 text-stone-700">Search, filter, and manage courses/events from one operational view.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button href="/dashboard" variant="secondary">Dashboard</Button>
-            <Button href="/admin/open-mats/new" variant="primary">New Open Mat</Button>
+            <Button href="/admin/open-mats/new" variant="primary">New Course</Button>
           </div>
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric indicator={{ label: "created this week", value: openMatsCreatedThisWeek }} label="Total Open Mats" value={totalOpenMats} />
-          <Metric indicator={{ label: "currently active", value: activeOpenMats }} label="Active Open Mats" value={activeOpenMats} />
+          <Metric indicator={{ label: "created this week", value: openMatsCreatedThisWeek }} label="Total Courses/Events" value={totalOpenMats} />
+          <Metric indicator={{ label: "currently active", value: activeOpenMats }} label="Active Courses/Events" value={activeOpenMats} />
           <Metric indicator={{ label: "scheduled ahead", value: upcomingOpenMats }} label="Upcoming Active" value={upcomingOpenMats} />
-          <Metric indicator={{ label: "inactive records", value: inactiveOpenMats }} label="Inactive Open Mats" value={inactiveOpenMats} />
+          <Metric indicator={{ label: "inactive records", value: inactiveOpenMats }} label="Inactive Courses/Events" value={inactiveOpenMats} />
         </div>
 
         <form action="/admin/open-mats" className="mt-6 grid min-w-0 gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-12">
@@ -267,25 +269,30 @@ export default async function OpenMatManagementPage({
                 </tr>
               </thead>
               <tbody>
-                {events.map((event) => (
-                  <tr key={event.id} className="border-t border-stone-100">
-                    <td className="px-4 py-3 font-semibold text-stone-950">{event.title}</td>
-                    <td className="px-4 py-3 text-stone-700">{event.academy.name}</td>
-                    <td className="px-4 py-3 text-stone-600">{formatDate(event.eventDate)}</td>
-                    <td className="px-4 py-3 text-stone-600">{event.startTime}-{event.endTime}</td>
-                    <td className="px-4 py-3"><Badge>{event.giType.replace("_", "-")}</Badge></td>
-                    <td className="px-4 py-3 text-stone-600">£{event.price.toString()}</td>
-                    <td className="px-4 py-3 text-stone-600">{event.capacity ?? "Unlimited"}</td>
-                    <td className="px-4 py-3"><Badge>{recurrenceLabel(event.recurrenceType, event.recurrenceInterval)}</Badge></td>
-                    <td className="px-4 py-3"><Badge>{sourceStatus(event, now)}</Badge></td>
+                {events.map((event) => {
+                  const eventHref = `/admin/open-mats/${event.id}`;
+
+                  return (
+                  <TableRow key={event.id} href={eventHref}>
+                    <LinkedTableCell href={eventHref} className="font-semibold text-stone-950">{event.title}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref} className="text-stone-700">{event.academy.name}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref} className="text-stone-600">{formatDate(event.eventDate)}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref} className="text-stone-600">{event.startTime}-{event.endTime}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref}><Badge>{event.giType.replace("_", "-")}</Badge></LinkedTableCell>
+                    <LinkedTableCell href={eventHref} className="text-stone-600">{coursePriceLabel(event)}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref} className="text-stone-600">{event.capacity ?? "Unlimited"}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref}><Badge>{recurrenceLabel(event.recurrenceType, event.recurrenceInterval)}</Badge></LinkedTableCell>
+                    <LinkedTableCell href={eventHref}><Badge>{sourceStatus(event, now)}</Badge></LinkedTableCell>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-2">
                         <Button href={`/open-mats/${event.id}`} size="sm" variant="secondary">View</Button>
                         <Button href={`/admin/open-mats/${event.id}`} size="sm" variant="secondary">Edit</Button>
+                        <Button href={`/admin/open-mats/new?cloneFrom=${event.id}`} size="sm" variant="secondary">Clone</Button>
                       </div>
                     </td>
-                  </tr>
-                ))}
+                  </TableRow>
+                  );
+                })}
                 {!events.length ? (
                   <tr>
                     <td colSpan={10} className="px-4 py-8 text-center text-stone-600">No open mats match these filters.</td>
@@ -330,6 +337,14 @@ function Metric({ indicator, label, value }: { indicator?: { label: string; valu
 
 function Badge({ children }: { children: React.ReactNode }) {
   return <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{children}</span>;
+}
+
+function LinkedTableCell({ children, className }: { children: React.ReactNode; className?: string; href?: string }) {
+  return (
+    <td className={className}>
+      <div className="px-4 py-3">{children}</div>
+    </td>
+  );
 }
 
 function PageLink({ href, disabled, active, children }: { href: string; disabled?: boolean; active?: boolean; children: React.ReactNode }) {

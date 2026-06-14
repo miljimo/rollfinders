@@ -30,3 +30,21 @@ export type AnalyticsCountrySignal = {
   eventCount: number;
   visitorCount: number;
 };
+
+export type AnalyticsDailyVisit = {
+  date: string;
+  uniqueVisitors: number;
+  uniqueSessions: number;
+  eventCount: number;
+};
+
+export type AnalyticsLoggedInUsers = {
+  activeWindowMinutes: number;
+  currentCount: number;
+  loggedInTodayCount: number;
+  loggedInSevenDayCount: number;
+  byRole: Array<{
+    role: string;
+    currentCount: number;
+  }>;
+};

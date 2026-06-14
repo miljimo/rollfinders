@@ -2,14 +2,15 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ChevronDown, Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
-import { EventAudience, GiType, Role, UserStatus, type Prisma } from "@prisma/client";
+import { GiType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { Table, type TableColumn, type TableRecord } from "@/components/Table";
+import { coursePriceLabel } from "@/lib/courses";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
-import { formatDate, formatMoney } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
 import { EditProfileForm } from "./EditProfileForm";
 import AdminDashboardWorkspace from "./AdminDashboardWorkspace";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "RollFinders | Dashboard",
-  description: "View your profile, settings, academy, and Open Mats/Sessions.",
+  description: "View your profile, settings, academy, and courses/events.",
 };
 
 const standardRollsPageSize = 8;
@@ -136,6 +137,7 @@ export default async function DashboardPage({
           startTime: true,
           endTime: true,
           giType: true,
+          pricingType: true,
           price: true,
           audience: true,
         },
@@ -213,6 +215,7 @@ type DashboardRoll = Prisma.EventGetPayload<{
     startTime: true;
     endTime: true;
     giType: true;
+    pricingType: true;
     price: true;
     audience: true;
   };
@@ -241,17 +244,13 @@ function DashboardPanel({
     date: formatDate(roll.eventDate),
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
-    price: Number(roll.price) === 0 ? "Free" : roll.audience === EventAudience.EXTERNAL_ONLY ? "Free for academy members" : formatMoney(roll.price),
+    price: coursePriceLabel(roll),
   }));
   const columns: TableColumn<RollRow>[] = [
     {
       key: "title",
       title: "Roll",
-      render: (_value, row) => (
-        <Link href={`/open-mats/${row.id}`} className="font-black text-slate-950 underline-offset-4 hover:text-teal-800 hover:underline">
-          {row.title}
-        </Link>
-      ),
+      render: (value) => <span className="font-black text-slate-950">{String(value)}</span>,
     },
     { key: "date", title: "Date" },
     { key: "time", title: "Time" },
@@ -266,7 +265,7 @@ function DashboardPanel({
           <p className="text-sm font-bold uppercase text-teal-800">Dashboard</p>
           <h1 className="mt-1 text-3xl font-black text-slate-950">{academy?.name ?? "No Academy Assigned"}</h1>
           <p className="mt-2 max-w-2xl text-slate-600">
-            {academy ? "Search and view upcoming Open Mats/Sessions for your assigned academy in read-only mode." : "No academy is assigned to your account yet."}
+            {academy ? "Search and view upcoming courses/events for your assigned academy in read-only mode." : "No academy is assigned to your account yet."}
           </p>
         </div>
       </div>
@@ -275,7 +274,7 @@ function DashboardPanel({
         <form action="/dashboard" className="mb-4 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
           <input type="hidden" name="panel" value="dashboard" />
           <label className="grid flex-1 gap-1 text-sm font-semibold text-stone-800">
-            Search Open Mats/Sessions
+            Search Courses/Events
             <span className="relative">
               <Search size={18} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
               <input name="search" defaultValue={search} placeholder={academy ? "Search by title, description, or format" : "No academy assigned"} disabled={!academy} className="min-h-11 w-full rounded-md border border-stone-300 px-10 text-base font-normal disabled:bg-stone-50" />
@@ -292,10 +291,11 @@ function DashboardPanel({
         </form>
 
         <Table
-          title="Open Mats/Sessions"
+          title="Courses/Events"
           columns={columns}
           data={rows}
-          emptyMessage={academy ? "No upcoming Open Mats/Sessions match this academy search." : "No academy is assigned, so no Open Mats/Sessions data can be shown."}
+          emptyMessage={academy ? "No upcoming courses/events match this academy search." : "No academy is assigned, so no courses/events data can be shown."}
+          getRowHref={(row) => `/open-mats/${row.id}`}
           getRowId={(row) => row.id}
           pagination={{
             page: rollsPage,

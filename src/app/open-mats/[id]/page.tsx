@@ -1,18 +1,17 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { EventAudience } from "@prisma/client";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
 import { LinkedText } from "@/components/LinkedText";
 import { PageShell } from "@/components/PageShell";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
+import { coursePriceLabel } from "@/lib/courses";
 import { getOpenMatOccurrence } from "@/lib/data";
 import { publicDetailReturnPath } from "@/lib/public-detail-return-path";
-import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
+import { directionsUrl, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +30,7 @@ export default async function EventPage({
 
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const country = analyticsCountryFromHeaders(await headers());
-  const priceLabel = Number(event.price) === 0 ? "Free" : event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
+  const priceLabel = coursePriceLabel(event);
 
   await recordAnalyticsEventBestEffort({
     eventName: "open_mat_viewed",
@@ -53,8 +52,12 @@ export default async function EventPage({
 
   return (
     <PageShell>
-      <DialogShell closeHref={closeHref} description={event.academy.name} title={event.title}>
-      <section className="pt-5">
+      <section className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <Button href={closeHref} variant="secondary" className="mb-5 border-stone-200 text-stone-700">Back to sessions</Button>
+        <div className="border-b border-stone-100 pb-5">
+          <h1 className="text-4xl font-black text-slate-950">{event.title}</h1>
+          <p className="mt-2 text-sm text-slate-600">{event.academy.name}</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           <p className="text-sm font-bold uppercase tracking-wide text-teal-800">{event.giType.replace("_", "-")}</p>
           {event.occurrenceStatus === "IN_SESSION" ? <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">In session</span> : null}
@@ -95,7 +98,6 @@ export default async function EventPage({
           </AnalyticsClickTracker>
         </div>
       </section>
-      </DialogShell>
     </PageShell>
   );
 }

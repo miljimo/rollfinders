@@ -1,6 +1,6 @@
 # PRD Status Index
 
-Last reviewed: 2026-06-07
+Last reviewed: 2026-06-14
 
 This index tracks PRD implementation state after comparing the current source code, tests, Prisma schema, and feature docs against the MVP PRD.
 
@@ -199,6 +199,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 
 These remain proposal/strategy work or have no implementation found.
 
+* `Courses/Products/Reviewing/CourseOccurrencePaymentsPrd.md`
 * `Product/Products/RollFinderMvpAnalyticsIfWhenThenRequirements.md`
 * `SharedComponents/Badge.md`
 * `SharedComponents/DashboardTopHeaderPanel.md`

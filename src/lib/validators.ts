@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AcademyVerificationStatus, BjjBeltRank, ClaimRequesterRole, EventAudience, GiType, RecurrenceType } from "@prisma/client";
+import { AcademyVerificationStatus, BjjBeltRank, ClaimRequesterRole, EventAudience, EventPricingType, GiType, RecurrenceType } from "@prisma/client";
 import type { CourseType } from "@prisma/client";
 
 const checkboxSchema = z.preprocess((value) => value === "on" || value === true, z.boolean());
@@ -147,6 +147,7 @@ const eventShape = {
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
   endTime: z.string().regex(/^\d{2}:\d{2}$/),
   giType: z.enum(GiType),
+  pricingType: z.enum(EventPricingType).default(EventPricingType.FIXED),
   price: z.coerce.number().nonnegative(),
   audience: z.enum(EventAudience).default(EventAudience.EXTERNAL_ONLY),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
@@ -170,9 +171,10 @@ function refineEventTimingAndRecurrence(data: z.infer<z.ZodObject<typeof eventSh
       message: "End time must be after start time.",
     });
   }
-  if (data.price === 0) {
+  if (data.pricingType === EventPricingType.FREE || data.pricingType === EventPricingType.DONATION || data.price === 0) {
     data.audience = EventAudience.EXTERNAL_ONLY;
   }
+  if (data.pricingType === EventPricingType.FREE) data.price = 0;
   if (data.recurrenceType === RecurrenceType.NONE) return;
   if (data.recurrenceType === RecurrenceType.MONTHLY && data.recurrenceInterval > 24) {
     ctx.addIssue({

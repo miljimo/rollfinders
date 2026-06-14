@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { EventAudience, type Academy, type Event } from "@prisma/client";
+import { type Academy, type Event } from "@prisma/client";
 import { CalendarDays } from "lucide-react";
 import { Button } from "./Button";
-import { courseHref, courseTypeLabel } from "@/lib/courses";
-import { directionsUrl, formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
+import { courseHref, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
+import { directionsUrl, formatDate, formatDistanceMiles } from "@/lib/utils";
 
 type EventCardItem = Event & {
   academy: Academy;
@@ -18,7 +18,7 @@ export function EventCard({ event }: { event: EventCardItem }) {
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const detailHref = courseHref(event);
   const inSession = event.occurrenceStatus === "IN_SESSION";
-  const priceLabel = Number(event.price) === 0 ? "Free" : event.audience === EventAudience.EXTERNAL_AND_MEMBERS ? `${formatMoney(event.price)} for visitors and members` : `${formatMoney(event.price)} for visitors`;
+  const priceLabel = coursePriceLabel(event);
   return (
     <article className={`rounded-lg border bg-white p-4 shadow-sm ${inSession ? "border-teal-700 ring-2 ring-teal-100" : "border-stone-200"}`}>
       {inSession ? (

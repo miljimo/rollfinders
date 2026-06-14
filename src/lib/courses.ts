@@ -1,4 +1,4 @@
-import { ClaimStatus, CourseActivityType, CourseType, EventAudience, RecurrenceType, type Academy, type Event, type Prisma } from "@prisma/client";
+import { ClaimStatus, CourseActivityType, CourseType, EventAudience, EventPricingType, RecurrenceType, type Academy, type Event, type Prisma } from "@prisma/client";
 import { courseActivityTypeLabels } from "./course-activities";
 import { addDays, defaultOccurrenceWindowEnd, dedupeOccurrences, expandEventOccurrences, recurrenceLabel as occurrenceRecurrenceLabel, startOfDay } from "./open-mat-occurrences";
 import { courseTypeLabels } from "./course-types";
@@ -34,7 +34,12 @@ export function courseLocationLabel(course: Pick<Event, "locationName" | "addres
   return course.locationName?.trim() || course.addressOverride?.trim() || `${course.academy.name}, ${course.academy.city}`;
 }
 
-export function coursePriceLabel(course: Pick<Event, "price" | "audience">) {
+export function coursePriceLabel(course: { price: unknown; audience: EventAudience; pricingType?: EventPricingType }) {
+  if (course.pricingType === EventPricingType.FREE) return "Free";
+  if (course.pricingType === EventPricingType.DONATION) {
+    const value = Number(course.price);
+    return value > 0 ? `Optional donation - suggested from ${new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value)}` : "Optional donation";
+  }
   const value = Number(course.price);
   if (value === 0) return "Free";
   const price = new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value);

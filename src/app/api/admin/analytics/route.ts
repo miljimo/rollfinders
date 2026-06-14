@@ -19,6 +19,9 @@ export async function GET(request: Request) {
     claim: report.summary.claim,
     supply: report.summary.supply,
     trends: report.trends,
+    countries: report.countries,
+    dailyVisits: report.dailyVisits,
+    loggedInUsers: report.loggedInUsers,
     days: report.days,
   });
 }

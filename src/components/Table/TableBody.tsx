@@ -7,33 +7,40 @@ export function TableBody<T extends TableRecord>({
   actions = [],
   columns,
   data,
+  getRowHref,
   getRowId,
 }: {
   actions?: TableAction<T>[];
   columns: TableColumn<T>[];
   data: T[];
+  getRowHref?: (row: T, rowIndex: number) => string | undefined;
   getRowId?: (row: T, rowIndex: number) => string | number;
 }) {
   return (
     <tbody>
-      {data.map((row, rowIndex) => (
-        <TableRow key={getRowId ? getRowId(row, rowIndex) : rowIndex}>
-          {columns.map((column) => {
-            const value = row[column.key];
+      {data.map((row, rowIndex) => {
+        const rowHref = getRowHref?.(row, rowIndex);
 
-            return (
-              <TableCell key={String(column.key)} className={column.className}>
-                {column.render ? column.render(value, row, rowIndex) : value == null ? null : String(value)}
+        return (
+          <TableRow key={getRowId ? getRowId(row, rowIndex) : rowIndex} href={rowHref}>
+            {columns.map((column) => {
+              const value = row[column.key];
+              const content = column.render ? column.render(value, row, rowIndex) : value == null ? null : String(value);
+
+              return (
+                <TableCell key={String(column.key)} className={column.className}>
+                  {content}
+                </TableCell>
+              );
+            })}
+            {actions.length > 0 ? (
+              <TableCell className="text-right">
+                <TableActions actions={actions} row={row} />
               </TableCell>
-            );
-          })}
-          {actions.length > 0 ? (
-            <TableCell className="text-right">
-              <TableActions actions={actions} row={row} />
-            </TableCell>
-          ) : null}
-        </TableRow>
-      ))}
+            ) : null}
+          </TableRow>
+        );
+      })}
     </tbody>
   );
 }

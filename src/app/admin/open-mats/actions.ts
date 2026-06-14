@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { CourseType, EventAudience, RecurrenceType, type Event } from "@prisma/client";
+import { CourseType, EventAudience, EventPricingType, RecurrenceType, type Event } from "@prisma/client";
 import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { addDays, dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
@@ -52,6 +52,7 @@ function eventData(data: {
   startTime: string;
   endTime: string;
   giType: "GI" | "NO_GI" | "BOTH";
+  pricingType: EventPricingType;
   price: number;
   audience: EventAudience;
   courseType?: CourseType;
@@ -75,8 +76,9 @@ function eventData(data: {
     startTime: data.startTime,
     endTime: data.endTime,
     giType: data.giType,
-    price: data.price,
-    audience: data.price === 0 ? EventAudience.EXTERNAL_ONLY : data.audience,
+    pricingType: data.pricingType,
+    price: data.pricingType === EventPricingType.FREE ? 0 : data.price,
+    audience: data.pricingType === EventPricingType.FIXED && data.price > 0 ? data.audience : EventAudience.EXTERNAL_ONLY,
     courseType: data.courseType ?? CourseType.OPEN_MAT,
     instructor: data.instructor ?? null,
     contactEmail: data.contactEmail ?? null,
@@ -129,6 +131,7 @@ function occurrenceDatesFor(data: ReturnType<typeof eventData>, from = startOfDa
     startTime: data.startTime,
     endTime: data.endTime,
     giType: data.giType,
+    pricingType: data.pricingType,
     price: data.price,
     audience: data.audience,
     courseType: data.courseType,
@@ -196,6 +199,7 @@ async function findDuplicateOpenMat({
       startTime: existing.startTime,
       endTime: existing.endTime,
       giType: existing.giType,
+      pricingType: existing.pricingType,
       price: Number(existing.price),
       audience: existing.audience,
       instructor: existing.instructor,

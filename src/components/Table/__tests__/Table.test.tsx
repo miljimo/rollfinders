@@ -63,6 +63,26 @@ describe("Table", () => {
     assert.match(markup, /Archive/);
   });
 
+  it("renders clickable rows from a row href without merging row navigation into actions", () => {
+    const markup = renderToStaticMarkup(
+      <Table
+        columns={columns}
+        data={rows}
+        getRowId={(row) => row.id}
+        getRowHref={(row) => `/open-mats/${row.id}`}
+        actions={[
+          { label: "Edit", href: (row) => `/admin/open-mats/${row.id}`, ariaLabel: (row) => `Edit ${row.title}` },
+        ]}
+      />,
+    );
+
+    assert.match(markup, /tabindex="0"/);
+    assert.match(markup, /cursor-pointer/);
+    assert.match(markup, /hover:bg-stone-50/);
+    assert.match(markup, /href="\/admin\/open-mats\/open-mat-1"/);
+    assert.match(markup, /Edit Friday Rounds/);
+  });
+
   it("renders a mobile card list using the same columns and actions", () => {
     const markup = renderToStaticMarkup(
       <Table

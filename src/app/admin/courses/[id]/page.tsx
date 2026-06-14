@@ -32,6 +32,9 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
   return (
     <PageShell>
       <DialogShell closeHref="/admin/courses" description="Update the course details without leaving course management." title="Edit Course">
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button href={`/admin/courses/new?cloneFrom=${course.id}`} variant="secondary">Clone Course</Button>
+        </div>
         <CourseForm action={updateCourse.bind(null, course.id)} academies={academies} cancelHref="/admin/courses" course={formCourse} instructorUsers={instructorUsers} />
         <form action={deleteCourse.bind(null, course.id)} className="mt-4">
           <Button type="submit" variant="danger">Delete Course</Button>

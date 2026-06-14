@@ -60,6 +60,12 @@ enum EventAudience {
   EXTERNAL_AND_MEMBERS
 }
 
+enum EventPricingType {
+  FIXED
+  FREE
+  DONATION
+}
+
 enum CourseType {
   OPEN_MAT
   TRAINING
@@ -287,6 +293,7 @@ model Event {
   endTime            String                 @map("end_time")
   giType             GiType                 @map("gi_type")
   price              Decimal                @db.Decimal(8, 2)
+  pricingType        EventPricingType       @default(FIXED) @map("pricing_type")
   audience           EventAudience          @default(EXTERNAL_ONLY)
   courseType         CourseType             @default(OPEN_MAT) @map("course_type")
   instructor         String?

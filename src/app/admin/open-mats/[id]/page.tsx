@@ -36,7 +36,10 @@ export default async function EditOpenMatPage({ params }: { params: Promise<{ id
 
   return (
     <PageShell>
-      <DialogShell closeHref="/admin?panel=open-mats" description="Update this course without leaving Open Mats/Sessions management." title="Edit Course">
+      <DialogShell closeHref="/admin?panel=open-mats" description="Update this course without leaving courses/events management." title="Edit Course">
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button href={`/admin/open-mats/new?cloneFrom=${event.id}`} variant="secondary">Clone Course</Button>
+        </div>
         <OpenMatForm action={updateCourse.bind(null, event.id)} academies={academies} cancelHref="/admin?panel=open-mats" courseTypeMode="select" event={formEvent} instructorUsers={instructorUsers} returnTo="/admin?panel=open-mats" submitLabel="Save Course" />
         <form action={deleteCourse.bind(null, event.id)} className="mt-4">
           <Button type="submit" variant="danger">Delete Course</Button>

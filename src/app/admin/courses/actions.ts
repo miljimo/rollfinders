@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { CourseType, RecurrenceType, type Event } from "@prisma/client";
+import { CourseType, EventPricingType, RecurrenceType, type Event } from "@prisma/client";
 import type { z } from "zod";
 import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academy-access";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
@@ -46,8 +46,9 @@ function courseData(data: CourseInput) {
     startTime: data.startTime,
     endTime: data.endTime,
     giType: data.giType,
-    price: data.price,
-    audience: data.price === 0 ? "EXTERNAL_ONLY" as const : data.audience,
+    pricingType: data.pricingType,
+    price: data.pricingType === EventPricingType.FREE ? 0 : data.price,
+    audience: data.pricingType === EventPricingType.FIXED && data.price > 0 ? data.audience : "EXTERNAL_ONLY" as const,
     capacity: data.capacity === "" || data.capacity === undefined ? null : data.capacity,
     active: data.active,
     recurrenceType: data.recurrenceType,
@@ -83,6 +84,7 @@ function occurrenceDatesFor(data: ReturnType<typeof courseData>, from = startOfD
     startTime: data.startTime,
     endTime: data.endTime,
     giType: data.giType,
+    pricingType: data.pricingType,
     price: data.price,
     audience: data.audience,
     courseType: data.courseType,
@@ -135,6 +137,7 @@ async function findDuplicateCourse(id: string | undefined, data: ReturnType<type
       startTime: existing.startTime,
       endTime: existing.endTime,
       giType: existing.giType,
+      pricingType: existing.pricingType,
       price: Number(existing.price),
       audience: existing.audience,
       capacity: existing.capacity ?? undefined,

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import type { AnalyticsCountrySignal, AnalyticsDailyMetric } from "./types";
+import type { AnalyticsCountrySignal, AnalyticsDailyMetric, AnalyticsDailyVisit, AnalyticsLoggedInUsers } from "./types";
+
+const activeLoginWindowMinutes = 30;
 
 const emptySummary = {
   marketplace: { visitorCount: 0, sessionCount: 0 },
@@ -39,10 +41,18 @@ export async function getFounderAnalyticsReport(days = 30) {
   const summary = cloneEmptySummary();
   const boundedDays = Math.min(Math.max(Math.floor(days), 1), 365);
   const trends: AnalyticsDailyMetric[] = [];
+  let dailyVisits: AnalyticsDailyVisit[] = [];
   let countries: AnalyticsCountrySignal[] = [];
+  let loggedInUsers: AnalyticsLoggedInUsers = {
+    activeWindowMinutes: activeLoginWindowMinutes,
+    currentCount: 0,
+    loggedInTodayCount: 0,
+    loggedInSevenDayCount: 0,
+    byRole: [],
+  };
 
   try {
-    const [dailyRows, rawRows, uniqueRows, countryRows] = await Promise.all([
+    const [dailyRows, rawRows, uniqueRows, countryRows, dailyVisitRows, loggedInRows, loggedInRoleRows] = await Promise.all([
       prisma.$queryRaw<Array<{ metric_name: string; value: number; metric_date: Date; dimensions: unknown }>>`
       SELECT metric_name, value, metric_date, dimensions
       FROM analytics_daily_metrics
@@ -73,6 +83,36 @@ export async function getFounderAnalyticsReport(days = 30) {
         GROUP BY country_code, country_name
         ORDER BY COUNT(*) DESC, COALESCE(country_name, 'Unknown') ASC
         LIMIT 8
+      `,
+      prisma.$queryRaw<Array<{ visit_date: Date; unique_visitors: number; unique_sessions: number; event_count: number }>>`
+        SELECT
+          created_at::date AS visit_date,
+          COUNT(DISTINCT visitor_id)::int AS unique_visitors,
+          COUNT(DISTINCT session_id)::int AS unique_sessions,
+          COUNT(*)::int AS event_count
+        FROM analytics_events
+        WHERE created_at >= (CURRENT_DATE - (${boundedDays}::int - 1))
+        GROUP BY created_at::date
+        ORDER BY created_at::date DESC
+      `,
+      prisma.$queryRaw<Array<{ current_count: number; logged_in_today_count: number; logged_in_seven_day_count: number }>>`
+        SELECT
+          COUNT(*) FILTER (WHERE last_login_at >= NOW() - (${activeLoginWindowMinutes}::int * INTERVAL '1 minute'))::int AS current_count,
+          COUNT(*) FILTER (WHERE last_login_at >= CURRENT_DATE)::int AS logged_in_today_count,
+          COUNT(*) FILTER (WHERE last_login_at >= NOW() - INTERVAL '7 days')::int AS logged_in_seven_day_count
+        FROM users
+        WHERE last_login_at IS NOT NULL
+          AND disabled = false
+          AND status = 'ACTIVE'
+      `,
+      prisma.$queryRaw<Array<{ role: string; current_count: number }>>`
+        SELECT role::text AS role, COUNT(*)::int AS current_count
+        FROM users
+        WHERE last_login_at >= NOW() - (${activeLoginWindowMinutes}::int * INTERVAL '1 minute')
+          AND disabled = false
+          AND status = 'ACTIVE'
+        GROUP BY role
+        ORDER BY COUNT(*) DESC, role ASC
       `,
     ]);
 
@@ -136,9 +176,25 @@ export async function getFounderAnalyticsReport(days = 30) {
       eventCount: Number(row.event_count),
       visitorCount: Number(row.visitor_count),
     }));
+    dailyVisits = dailyVisitRows.map((row) => ({
+      date: row.visit_date.toISOString().slice(0, 10),
+      uniqueVisitors: Number(row.unique_visitors),
+      uniqueSessions: Number(row.unique_sessions),
+      eventCount: Number(row.event_count),
+    }));
+    loggedInUsers = {
+      activeWindowMinutes: activeLoginWindowMinutes,
+      currentCount: Number(loggedInRows[0]?.current_count ?? 0),
+      loggedInTodayCount: Number(loggedInRows[0]?.logged_in_today_count ?? 0),
+      loggedInSevenDayCount: Number(loggedInRows[0]?.logged_in_seven_day_count ?? 0),
+      byRole: loggedInRoleRows.map((row) => ({
+        role: row.role,
+        currentCount: Number(row.current_count),
+      })),
+    };
   } catch (error) {
     console.error("[analytics] founder report failed", error);
   }
 
-  return { summary, trends, countries, days: boundedDays };
+  return { summary, trends, countries, dailyVisits, loggedInUsers, days: boundedDays };
 }

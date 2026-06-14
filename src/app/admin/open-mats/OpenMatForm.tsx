@@ -1,6 +1,6 @@
 "use client";
 
-import { CourseActivityType, EventAudience, GiType, RecurrenceType, type Academy, type CourseActivity, type Event } from "@prisma/client";
+import { CourseActivityType, EventAudience, EventPricingType, GiType, RecurrenceType, type Academy, type CourseActivity, type Event } from "@prisma/client";
 import { type ClipboardEvent, type ReactNode, useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -12,7 +12,7 @@ import type { EventFormState } from "./actions";
 
 type EventAction = (state: EventFormState, formData: FormData) => Promise<EventFormState>;
 export type OpenMatFormEvent = Omit<Event, "price"> & { price: string };
-type FormCourseActivity = Pick<CourseActivity, "id" | "name" | "activityType" | "startTime" | "endTime" | "description">;
+type FormCourseActivity = Pick<CourseActivity, "name" | "activityType" | "startTime" | "endTime" | "description"> & { id?: string };
 
 const initialState: EventFormState = {
   message: "",
@@ -57,6 +57,8 @@ export function OpenMatForm({
   const [selectedAcademyId, setSelectedAcademyId] = useState(initialAcademyId);
   const initialPrice = state.values.price ?? event?.price ?? "0";
   const [price, setPrice] = useState(initialPrice);
+  const initialPricingType = state.values.pricingType ?? event?.pricingType ?? (Number(initialPrice) === 0 ? EventPricingType.FREE : EventPricingType.FIXED);
+  const [pricingType, setPricingType] = useState(String(initialPricingType));
   const initialCourseType = state.values.courseType ?? event?.courseType ?? "OPEN_MAT";
   const [selectedCourseType, setSelectedCourseType] = useState(String(initialCourseType));
   const initialInstructorIds = instructorIdsFromValue(state.values.instructor ?? event?.instructor ?? "", instructorUsers);
@@ -64,7 +66,9 @@ export function OpenMatForm({
   const [activities, setActivities] = useState(() => initialActivities(event?.activities, event?.startTime ?? "18:30", event?.endTime ?? "20:00"));
   const isOpenMat = selectedCourseType === "OPEN_MAT";
   const showCourseSpecificFields = !isOpenMat;
-  const showAudience = Number(price) > 0;
+  const fixedPrice = pricingType === EventPricingType.FIXED;
+  const donationPrice = pricingType === EventPricingType.DONATION;
+  const showAudience = fixedPrice && Number(price) > 0;
   const listingName = isOpenMat ? "Open Mat" : "Course";
   const currentStep = formSteps[stepIndex].id;
   const completedSteps = new Set(formSteps.slice(0, stepIndex).map((step) => step.id));
@@ -143,7 +147,23 @@ export function OpenMatForm({
               </label>
               <Field name="startTime" label="Start Time" type="time" value={state.values.startTime ?? event?.startTime ?? "18:30"} errors={state.fieldErrors.startTime} />
               <Field name="endTime" label="End Time" type="time" value={state.values.endTime ?? event?.endTime ?? "20:00"} errors={state.fieldErrors.endTime} />
-              <Field name="price" label={isOpenMat ? "Drop-in Cost" : "Price"} type="number" value={initialPrice} onChange={(value) => setPrice(value)} errors={state.fieldErrors.price} />
+              <label className="grid gap-1 text-sm font-semibold text-stone-800">
+                Pricing
+                <select name="pricingType" required value={pricingType} onChange={(event) => setPricingType(event.currentTarget.value)} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+                  <option value={EventPricingType.FIXED}>{isOpenMat ? "Drop-in cost" : "Fixed price"}</option>
+                  <option value={EventPricingType.FREE}>Free</option>
+                  <option value={EventPricingType.DONATION}>Optional donation</option>
+                </select>
+                <span className="text-xs font-medium text-stone-600">Use optional donation when visitors can contribute but payment is not required.</span>
+                <FieldError errors={state.fieldErrors.pricingType} />
+              </label>
+              {fixedPrice ? (
+                <Field name="price" label={isOpenMat ? "Drop-in Cost" : "Price"} type="number" value={initialPrice} onChange={(value) => setPrice(value)} errors={state.fieldErrors.price} />
+              ) : donationPrice ? (
+                <Field name="price" label="Suggested Donation" type="number" value={initialPrice} required={false} onChange={(value) => setPrice(value)} errors={state.fieldErrors.price} />
+              ) : (
+                <input type="hidden" name="price" value="0" />
+              )}
               <Field name="capacity" label="Capacity" type="number" value={state.values.capacity ?? event?.capacity?.toString() ?? ""} required={false} errors={state.fieldErrors.capacity} />
             </div>
             {showAudience ? (
@@ -502,7 +522,7 @@ function initialActivities(activities: FormCourseActivity[] | undefined, startTi
     return [...activities]
       .sort((a, b) => a.startTime.localeCompare(b.startTime) || a.endTime.localeCompare(b.endTime))
       .map((activity) => ({
-        key: activity.id,
+        key: activity.id ?? `cloned-activity-${activity.startTime}-${activity.endTime}-${activity.name}`,
         id: activity.id,
         name: activity.name,
         activityType: activity.activityType,

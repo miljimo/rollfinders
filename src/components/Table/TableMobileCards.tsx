@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { TableActions } from "./TableActions";
 import type { TableAction, TableColumn, TableRecord } from "./types";
 
@@ -10,22 +11,24 @@ export function TableMobileCards<T extends TableRecord>({
   actions = [],
   columns,
   data,
+  getRowHref,
   getRowId,
 }: {
   actions?: TableAction<T>[];
   columns: TableColumn<T>[];
   data: T[];
+  getRowHref?: (row: T, rowIndex: number) => string | undefined;
   getRowId?: (row: T, rowIndex: number) => string | number;
 }) {
   return (
     <div className="divide-y divide-stone-100 md:hidden">
       {data.map((row, rowIndex) => {
         const rowKey = getRowId ? getRowId(row, rowIndex) : rowIndex;
+        const rowHref = getRowHref?.(row, rowIndex);
         const primaryColumn = columns[0];
         const detailColumns = columns.slice(1);
-
-        return (
-          <article key={rowKey} className="p-4">
+        const content = (
+          <>
             {primaryColumn ? (
               <div>
                 <p className="text-xs font-black uppercase text-stone-500">{primaryColumn.title}</p>
@@ -47,6 +50,16 @@ export function TableMobileCards<T extends TableRecord>({
                 ))}
               </dl>
             ) : null}
+          </>
+        );
+
+        return (
+          <article key={rowKey} className="p-4">
+            {rowHref ? (
+              <Link href={rowHref} className="-m-2 block rounded-md p-2 outline-none transition hover:bg-stone-50 focus-visible:ring-2 focus-visible:ring-teal-700">
+                {content}
+              </Link>
+            ) : content}
 
             {actions.length > 0 ? (
               <div className="mt-4 border-t border-stone-100 pt-4">

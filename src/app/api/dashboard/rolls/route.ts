@@ -75,6 +75,7 @@ export async function GET(request: Request) {
       startTime: true,
       endTime: true,
       giType: true,
+      pricingType: true,
       price: true,
       audience: true,
       createdAt: true,
