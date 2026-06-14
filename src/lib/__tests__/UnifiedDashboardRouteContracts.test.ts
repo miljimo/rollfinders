@@ -76,7 +76,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardPage, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
     assert.match(dashboardPage, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
     assert.match(dashboardPage, /take:\s*standardRollsPageSize/);
-    assert.match(dashboardPage, /<Link href=\{`\/open-mats\/\$\{row\.id\}`\}/);
+    assert.match(dashboardPage, /getRowHref=\{\(row\) => `\/open-mats\/\$\{row\.id\}`\}/);
     assert.doesNotMatch(dashboardPage, /dialog=new-open-mat|dialog=edit-user|deleteManagedUser|createOpenMat|updateOpenMat/);
 
     assert.match(rollsRoute, /isStandardUserRole\(user\.role\)/);
@@ -283,7 +283,7 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(source, /const\s+canViewRoleColumn\s*=\s*isPlatformAdminRole\(actorRole\)/);
     assert.match(source, /canViewRoleColumn\s*\?\s*<th className="px-5 py-4">Role<\/th>\s*:\s*null/);
-    assert.match(source, /canViewRoleColumn\s*\?\s*<td className="px-5 py-4"><RolePill role=\{user\.role\} \/><\/td>\s*:\s*null/);
+    assert.match(source, /canViewRoleColumn\s*\?\s*<LinkedTableCell href=\{userHref\}><RolePill role=\{user\.role\} \/><\/LinkedTableCell>\s*:\s*null/);
     assert.match(source, /const\s+emptyColSpan\s*=\s*canViewRoleColumn\s*\?\s*7\s*:\s*6/);
   });
 });
