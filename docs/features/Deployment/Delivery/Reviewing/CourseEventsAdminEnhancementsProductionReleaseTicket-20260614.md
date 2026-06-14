@@ -59,6 +59,17 @@ Completed locally on 2026-06-14:
 * `npm run build` passed with Next.js 16.2.7.
 * Local Docker app is healthy at `http://localhost:3000/api/health`.
 
+### Remote Push Status
+
+`git push origin master` was attempted on 2026-06-14 after release ticket creation and failed because local Bitbucket SSH authentication is not available:
+
+```text
+git@bitbucket.org: Permission denied (publickey).
+fatal: Could not read from remote repository.
+```
+
+Production deployment SHALL either wait for Bitbucket SSH access to be restored or record an approved direct local deployment override with the deployed commit SHA.
+
 ### Local Docker State
 
 * `rollfinder-app-1` is up and healthy on port `3000`.
