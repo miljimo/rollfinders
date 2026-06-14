@@ -1,0 +1,26 @@
+@startuml PaymentSystemContext
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title Payment System MVP - C4 Context
+
+Person(customer, "Customer", "End user initiating a payment")
+Person(merchantOps, "Merchant/Ops User", "Reviews payment status and support cases")
+
+System(apiConsumer, "API Consumer", "Checkout, order, billing, or merchant platform calling payment APIs")
+System(paymentSystem, "Payment System MVP", "Self-hosted stateless Go JSON API for one-time payments, refunds, webhooks, and payment events")
+System_Ext(stripe, "Stripe", "PaymentIntents API and webhook delivery")
+System_Ext(paypal, "PayPal", "Orders API and webhook delivery")
+System_Ext(eventConsumers, "Internal Event Consumers", "Order, fulfillment, notification, analytics, or ledger services")
+System_Ext(observability, "Observability Platform", "Logs, metrics, traces, dashboards, and alerts")
+
+Rel(customer, apiConsumer, "Initiates checkout/payment")
+Rel(merchantOps, apiConsumer, "Views payment/order status")
+Rel(apiConsumer, paymentSystem, "Creates, retrieves, captures, cancels, and refunds payments", "HTTPS/JSON")
+Rel(paymentSystem, stripe, "Creates and reconciles Stripe PaymentIntents", "HTTPS")
+Rel(stripe, paymentSystem, "Sends signed webhooks", "HTTPS")
+Rel(paymentSystem, paypal, "Creates and captures PayPal Orders", "HTTPS")
+Rel(paypal, paymentSystem, "Sends signed webhooks", "HTTPS")
+Rel(paymentSystem, eventConsumers, "Publishes payment domain events", "Outbox/Event Bus")
+Rel(paymentSystem, observability, "Emits logs, metrics, traces", "OTel/structured logs")
+
+@enduml

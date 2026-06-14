@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: Payment System MVP API
+  version: 0.2.0
+  description: Self-hosted Go JSON API for one-time Stripe card and PayPal wallet payments. Raw PAN and CVV fields are not accepted.
+servers:
+  - url: http://localhost:8080
+security:
+  - bearerApiKey: []
+paths:
+  /healthz:
+    get:
+      security: []
+      responses:
+        '200': { description: Service process is alive. }
+  /readyz:
+    get:
+      security: []
+      responses:
+        '200': { description: Service is ready. }
+        '503': { description: Service is not ready. }
+  /metrics:
+    get:
+      security: []
+      responses:
+        '200': { description: Prometheus-compatible metrics. }
+        '404': { description: Metrics disabled. }
+  /v1/payments:
+    post:
+      summary: Create a payment
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentRequest' }
+            examples:
+              stripe:
+                value: { amount: 1299, currency: GBP, provider: stripe, payment_method_type: card, capture_method: automatic, metadata: { order_id: ord_123 } }
+              paypal:
+                value: { amount: 1299, currency: GBP, provider: paypal, payment_method_type: paypal }
+      responses:
+        '201':
+          description: Payment created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+              examples:
+                action_required:
+                  value: { id: pay_000001, amount: 1299, currency: GBP, provider: paypal, payment_method_type: paypal, capture_method: automatic, status: requires_action, provider_payment_id: ORDER-demo, next_action: { type: paypal_approve, url: https://www.paypal.com/checkoutnow?token=ORDER-demo }, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-09T12:00:00Z' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payments/{id}:
+    get:
+      summary: Get payment
+      parameters:
+        - $ref: '#/components/parameters/PaymentID'
+      responses:
+        '200':
+          description: Payment state.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Payment' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/payments/{id}/capture:
+    post:
+      summary: Capture an authorized payment
+      parameters:
+        - $ref: '#/components/parameters/PaymentID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200': { description: Captured payment., content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payments/{id}/cancel:
+    post:
+      summary: Cancel an eligible payment
+      parameters:
+        - $ref: '#/components/parameters/PaymentID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200': { description: Cancelled payment., content: { application/json: { schema: { $ref: '#/components/schemas/Payment' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payments/{id}/refunds:
+    post:
+      summary: Create a refund
+      parameters:
+        - $ref: '#/components/parameters/PaymentID'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateRefundRequest' }
+            examples:
+              partial: { value: { amount: 500, reason: requested_by_customer } }
+      responses:
+        '201': { description: Refund created., content: { application/json: { schema: { $ref: '#/components/schemas/Refund' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    get:
+      summary: List refunds for a payment
+      parameters:
+        - $ref: '#/components/parameters/PaymentID'
+      responses:
+        '200':
+          description: Refunds in creation order.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [refunds]
+                properties:
+                  refunds:
+                    type: array
+                    items: { $ref: '#/components/schemas/Refund' }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/webhooks/{provider}:
+    post:
+      security: []
+      summary: Ingest provider webhook
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [stripe, paypal] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WebhookEvent' }
+      responses:
+        '200': { description: Accepted or duplicate. }
+        '401': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerApiKey:
+      type: http
+      scheme: bearer
+  parameters:
+    PaymentID:
+      in: path
+      name: id
+      required: true
+      schema: { type: string }
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      schema: { type: string, minLength: 1 }
+  responses:
+    Error:
+      description: Canonical error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            validation:
+              value: { error: { code: validation_error, message: Payment request validation failed., request_id: req_example, details: { amount: must be a positive integer in minor currency units } } }
+  schemas:
+    CreatePaymentRequest:
+      type: object
+      required: [amount, currency, provider, payment_method_type]
+      additionalProperties: false
+      properties:
+        amount: { type: integer, format: int64, minimum: 1 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        provider: { type: string, enum: [stripe, paypal] }
+        payment_method_type: { type: string, enum: [card, paypal] }
+        capture_method: { type: string, enum: [automatic, manual] }
+        external_reference: { type: string }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+    CreateRefundRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        amount: { type: integer, format: int64, minimum: 1, description: Omit or use zero for full remaining refund. }
+        reason: { type: string }
+    Payment:
+      type: object
+      required: [id, amount, currency, provider, payment_method_type, capture_method, status, created_at, updated_at]
+      properties:
+        id: { type: string }
+        amount: { type: integer, format: int64 }
+        currency: { type: string }
+        provider: { type: string }
+        payment_method_type: { type: string }
+        capture_method: { type: string }
+        status: { type: string, enum: [requires_action, authorized, processing, succeeded, failed, cancelled, partially_refunded, refunded] }
+        refunded_amount: { type: integer, format: int64 }
+        external_reference: { type: string }
+        metadata: { type: object, additionalProperties: { type: string } }
+        provider_payment_id: { type: string }
+        provider_status: { type: string }
+        next_action: { type: object, additionalProperties: { type: string } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Refund:
+      type: object
+      required: [id, payment_id, amount, currency, status, created_at, updated_at]
+      properties:
+        id: { type: string }
+        payment_id: { type: string }
+        amount: { type: integer, format: int64 }
+        currency: { type: string }
+        status: { type: string, enum: [pending, succeeded, failed, cancelled] }
+        reason: { type: string }
+        provider_refund_id: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    WebhookEvent:
+      type: object
+      required: [id]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        payment_id: { type: string }
+        status: { type: string }
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            request_id: { type: string }
+            details:
+              type: object
+              additionalProperties: { type: string }

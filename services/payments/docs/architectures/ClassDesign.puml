@@ -1,0 +1,189 @@
+@startuml PaymentDomainClassDesign
+title Payment System MVP - Core Domain and Provider Design
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentStatus {
+  CREATED
+  REQUIRES_ACTION
+  PROCESSING
+  AUTHORIZED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+class Money {
+  +currency: String
+  +amountMinor: int64
+}
+
+class Payment {
+  +id: UUID
+  +externalReference: String
+  +provider: PaymentProvider
+  +paymentMethodType: String
+  +status: PaymentStatus
+  +amount: Money
+  +refundedAmount: Money
+  +createdAt: Instant
+  +updatedAt: Instant
+  +apply(update: ProviderPaymentUpdate)
+}
+
+class Refund {
+  +id: UUID
+  +paymentId: UUID
+  +status: RefundStatus
+  +amount: Money
+  +reason: String
+  +providerRefundId: String
+  +createdAt: Instant
+  +updatedAt: Instant
+}
+
+class ProviderPaymentReference {
+  +paymentId: UUID
+  +provider: PaymentProvider
+  +externalPaymentId: String
+  +externalCaptureId: String
+  +providerStatus: String
+  +metadata: Map
+}
+
+class IdempotencyRecord {
+  +key: String
+  +scope: String
+  +requestHash: String
+  +responseSnapshot: String
+  +httpStatus: int
+  +resourceId: UUID
+  +expiresAt: Instant
+}
+
+class WebhookEvent {
+  +id: UUID
+  +provider: PaymentProvider
+  +externalEventId: String
+  +eventType: String
+  +payloadHash: String
+  +status: String
+  +receivedAt: Instant
+  +processedAt: Instant
+}
+
+class OutboxEvent {
+  +id: UUID
+  +aggregateId: UUID
+  +eventType: String
+  +payload: String
+  +status: String
+  +retryCount: int
+  +nextAttemptAt: Instant
+}
+
+interface PaymentProviderAdapter {
+  +createPayment(command: CreatePaymentCommand): ProviderPaymentResult
+  +capturePayment(command: CapturePaymentCommand): ProviderPaymentResult
+  +cancelPayment(command: CancelPaymentCommand): ProviderPaymentResult
+  +refundPayment(command: RefundPaymentCommand): ProviderRefundResult
+  +verifyWebhook(headers: Map, body: bytes): VerifiedWebhookEvent
+  +mapWebhook(event: VerifiedWebhookEvent): ProviderPaymentUpdate
+}
+
+class StripePaymentIntentAdapter
+class PayPalOrdersAdapter
+
+class PaymentStateMachine {
+  +canTransition(from: PaymentStatus, to: PaymentStatus): bool
+  +transition(payment: Payment, update: ProviderPaymentUpdate): Payment
+}
+
+class RefundStateMachine {
+  +canTransition(from: RefundStatus, to: RefundStatus): bool
+  +transition(refund: Refund, update: ProviderRefundUpdate): Refund
+}
+
+interface PaymentRepository {
+  +findById(id: UUID): Payment
+  +findByProviderReference(provider: PaymentProvider, externalId: String): Payment
+  +save(payment: Payment): void
+  +lockForUpdate(id: UUID): Payment
+}
+
+interface RefundRepository {
+  +findByPaymentId(paymentId: UUID): List<Refund>
+  +save(refund: Refund): void
+  +lockForUpdate(id: UUID): Refund
+}
+
+interface IdempotencyRepository {
+  +find(key: String, scope: String): IdempotencyRecord
+  +save(record: IdempotencyRecord): void
+}
+
+interface WebhookEventRepository {
+  +exists(provider: PaymentProvider, externalEventId: String): bool
+  +save(event: WebhookEvent): void
+  +markProcessed(id: UUID): void
+}
+
+interface OutboxRepository {
+  +append(event: OutboxEvent): void
+  +claimBatch(limit: int): List<OutboxEvent>
+  +markPublished(id: UUID): void
+  +markFailed(id: UUID, reason: String): void
+}
+
+class PaymentApplicationService {
+  +createPayment(command: CreatePaymentCommand): PaymentResponse
+  +capturePayment(command: CapturePaymentCommand): PaymentResponse
+  +cancelPayment(command: CancelPaymentCommand): PaymentResponse
+  +refundPayment(command: RefundPaymentCommand): RefundResponse
+}
+
+class WebhookApplicationService {
+  +handleWebhook(provider: PaymentProvider, headers: Map, body: bytes): void
+}
+
+class OutboxPublisher {
+  +publishPending(): void
+}
+
+Payment "1" *-- "1" Money
+Payment "1" o-- "0..*" Refund
+Payment "1" o-- "0..1" ProviderPaymentReference
+PaymentProviderAdapter <|.. StripePaymentIntentAdapter
+PaymentProviderAdapter <|.. PayPalOrdersAdapter
+
+PaymentApplicationService --> PaymentRepository
+PaymentApplicationService --> RefundRepository
+PaymentApplicationService --> IdempotencyRepository
+PaymentApplicationService --> OutboxRepository
+PaymentApplicationService --> PaymentStateMachine
+PaymentApplicationService --> RefundStateMachine
+PaymentApplicationService --> PaymentProviderAdapter
+
+WebhookApplicationService --> PaymentProviderAdapter
+WebhookApplicationService --> WebhookEventRepository
+WebhookApplicationService --> PaymentRepository
+WebhookApplicationService --> RefundRepository
+WebhookApplicationService --> OutboxRepository
+WebhookApplicationService --> PaymentStateMachine
+WebhookApplicationService --> RefundStateMachine
+
+OutboxPublisher --> OutboxRepository
+
+@enduml

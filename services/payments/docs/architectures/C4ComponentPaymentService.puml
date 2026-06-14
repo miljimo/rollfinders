@@ -1,0 +1,58 @@
+@startuml PaymentServiceComponents
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Payment Service - C4 Component Diagram
+
+ContainerDb(db, "PostgreSQL", "Stores payments, refunds, provider refs, idempotency, webhooks, outbox")
+System_Ext(stripe, "Stripe")
+System_Ext(paypal, "PayPal")
+System_Ext(observability, "Observability Platform")
+System(apiConsumer, "API Consumer")
+
+Container_Boundary(api, "Payment Service API") {
+  Component(paymentController, "Payment API Controller", "HTTP adapter", "Create, retrieve, capture, cancel, and refund APIs")
+  Component(webhookController, "Webhook Controller", "HTTP adapter", "Receives Stripe and PayPal webhooks")
+  Component(authMiddleware, "Authentication Middleware", "HTTP middleware", "Protects payment/refund/status APIs")
+  Component(idempotencyMiddleware, "Idempotency Middleware", "HTTP middleware", "Deduplicates money-moving commands using keys and request hashes")
+  Component(paymentAppService, "Payment Application Service", "Application service", "Coordinates payment/refund use cases and DB transactions")
+  Component(webhookAppService, "Webhook Application Service", "Application service", "Verifies and applies provider events")
+  Component(stateMachine, "Payment and Refund State Machines", "Domain component", "Guards lifecycle transitions")
+  Component(providerRouter, "Provider Router", "Application component", "Selects Stripe or PayPal adapter")
+  Component(stripeAdapter, "Stripe Adapter", "Provider adapter", "Maps internal commands to Stripe PaymentIntents")
+  Component(paypalAdapter, "PayPal Adapter", "Provider adapter", "Maps internal commands to PayPal Orders")
+  Component(paymentRepo, "Payment Repository", "Repository", "Persists payment aggregate, refunds, status history, and provider references")
+  Component(idempotencyRepo, "Idempotency Repository", "Repository", "Stores request fingerprints and response snapshots")
+  Component(webhookRepo, "Webhook Event Repository", "Repository", "Stores event IDs, payload hashes, and processing status")
+  Component(outboxRepo, "Outbox Repository", "Repository", "Stores domain events in same DB transaction")
+  Component(observabilityComponent, "Observability", "Cross-cutting", "Structured logs, metrics, traces, correlation IDs, redaction")
+}
+
+Rel(apiConsumer, paymentController, "Calls payment APIs", "HTTPS/JSON")
+Rel(paymentController, authMiddleware, "Authenticates caller")
+Rel(authMiddleware, idempotencyMiddleware, "Passes mutating commands")
+Rel(idempotencyMiddleware, idempotencyRepo, "Checks/stores idempotency records")
+Rel(idempotencyMiddleware, paymentAppService, "Executes new command")
+Rel(paymentAppService, providerRouter, "Selects provider")
+Rel(providerRouter, stripeAdapter, "Delegates Stripe payments")
+Rel(providerRouter, paypalAdapter, "Delegates PayPal payments")
+Rel(stripeAdapter, stripe, "PaymentIntents API", "HTTPS")
+Rel(paypalAdapter, paypal, "Orders API", "HTTPS")
+Rel(paymentAppService, stateMachine, "Applies guarded transitions")
+Rel(paymentAppService, paymentRepo, "Loads/saves aggregate")
+Rel(paymentAppService, outboxRepo, "Appends domain events")
+
+Rel(stripe, webhookController, "Sends signed events")
+Rel(paypal, webhookController, "Sends signed events")
+Rel(webhookController, webhookAppService, "Passes provider event")
+Rel(webhookAppService, webhookRepo, "Deduplicates/stores event")
+Rel(webhookAppService, paymentRepo, "Loads affected payment")
+Rel(webhookAppService, stateMachine, "Applies transition")
+Rel(webhookAppService, outboxRepo, "Appends resulting events")
+
+Rel(paymentRepo, db, "SQL")
+Rel(idempotencyRepo, db, "SQL")
+Rel(webhookRepo, db, "SQL")
+Rel(outboxRepo, db, "SQL")
+Rel(observabilityComponent, observability, "Logs/metrics/traces")
+
+@enduml

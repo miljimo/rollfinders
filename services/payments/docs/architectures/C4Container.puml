@@ -1,0 +1,37 @@
+@startuml PaymentSystemContainers
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Payment System MVP - C4 Container
+
+Person(customer, "Customer")
+System(apiConsumer, "API Consumer")
+System_Ext(stripe, "Stripe")
+System_Ext(paypal, "PayPal")
+System_Ext(eventConsumers, "Internal Event Consumers")
+System_Ext(observability, "Observability Platform")
+
+System_Boundary(paymentSystem, "Payment System MVP") {
+  Container(api, "Payment Service API", "Go stateless container", "Exposes JSON payment APIs and provider webhook endpoints")
+  ContainerDb(db, "PostgreSQL", "Relational database", "Payments, refunds, provider refs, idempotency records, webhook events, status history, outbox")
+  Container(outboxWorker, "Outbox Publisher", "Go stateless worker container", "Publishes committed domain events and retries failures")
+  Container(reconcileWorker, "Reconciliation Worker", "Go scheduled stateless worker", "Checks provider state for stuck or missed payments")
+}
+
+Rel(apiConsumer, api, "Payment commands and queries", "HTTPS/JSON")
+Rel(api, db, "Reads/writes payments, refunds, idempotency, webhook events, outbox", "SQL")
+Rel(api, stripe, "PaymentIntents API", "HTTPS")
+Rel(stripe, api, "Signed webhooks", "HTTPS")
+Rel(api, paypal, "Orders API", "HTTPS")
+Rel(paypal, api, "Signed webhooks", "HTTPS")
+
+Rel(outboxWorker, db, "Claims pending outbox events", "SQL SKIP LOCKED / transactional polling")
+Rel(outboxWorker, eventConsumers, "Publishes payment events", "Event sink")
+Rel(reconcileWorker, db, "Finds stale or incomplete payments", "SQL")
+Rel(reconcileWorker, stripe, "Fetches PaymentIntent status", "HTTPS")
+Rel(reconcileWorker, paypal, "Fetches Order/Capture status", "HTTPS")
+
+Rel(api, observability, "Logs, metrics, traces")
+Rel(outboxWorker, observability, "Logs, metrics, traces")
+Rel(reconcileWorker, observability, "Logs, metrics, traces")
+
+@enduml
