@@ -8,9 +8,10 @@ Ready for production approval. Not deployed by this ticket yet.
 
 * Source branch: `master`
 * Target environment: `production`
-* Current local master commit at ticket creation: `e486f81 Update release verification contracts`
+* Current local master commit at ticket creation: `7c2e3c9 Clean up dashboard panel state handling`
 * Feature commit: `351069a Add course event admin enhancements`
 * Verification commit: `e486f81 Update release verification contracts`
+* Source cleanup commit included in verified tree: `7c2e3c9 Clean up dashboard panel state handling`
 * Production URL: `https://rollfinders.com`
 * Requested date: 2026-06-14
 * Release owner request: Product owner request in Codex session
@@ -220,6 +221,7 @@ Actions:
 
 * Confirmed latest feature implementation is committed on `master` as `351069a`.
 * Updated stale verification contracts only, committed as `e486f81`.
+* Committed the small dashboard cleanup/hydration source changes that were present in the verified working tree as `7c2e3c9`.
 * Confirmed local Docker service and health endpoint are healthy.
 * Created this production release ticket with deployment, smoke, rollback, and evidence requirements.
 
@@ -241,4 +243,3 @@ Record promotion evidence here:
 * Admin smoke result:
 * Analytics smoke result:
 * Rollback decision:
-
