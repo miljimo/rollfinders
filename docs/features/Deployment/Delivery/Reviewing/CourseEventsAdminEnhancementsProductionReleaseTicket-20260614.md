@@ -8,10 +8,11 @@ Ready for production approval. Not deployed by this ticket yet.
 
 * Source branch: `master`
 * Target environment: `production`
-* Current local master commit at ticket creation: `7c2e3c9 Clean up dashboard panel state handling`
+* Current local master commit at latest validation: `0fe7bd0 Record release push blocker`
 * Feature commit: `351069a Add course event admin enhancements`
 * Verification commit: `e486f81 Update release verification contracts`
 * Source cleanup commit included in verified tree: `7c2e3c9 Clean up dashboard panel state handling`
+* Release evidence commit included in verified tree: `0fe7bd0 Record release push blocker`
 * Production URL: `https://rollfinders.com`
 * Requested date: 2026-06-14
 * Release owner request: Product owner request in Codex session
@@ -56,8 +57,11 @@ Completed locally on 2026-06-14:
 * `npm run typecheck` passed.
 * `node --import tsx --test src/lib/__tests__/course-cloning.test.ts src/app/admin/__tests__/DashboardClickableRowsContract.test.ts src/lib/__tests__/analytics-contracts.test.ts src/components/__tests__/SidePanelControl.test.tsx src/app/admin/__tests__/SuperAdminPlatformAcademiesPanel.test.tsx src/lib/__tests__/courses.test.ts` passed: 26/26 tests.
 * `npm run test` passed: 149/149 tests.
+* `npm run lint` passed with warnings only.
 * `npm run build` passed with Next.js 16.2.7.
+* `docker compose --profile app up -d --build` completed successfully, including Next.js production build and Prisma migration deploy.
 * Local Docker app is healthy at `http://localhost:3000/api/health`.
+* Local migration logs report no pending migrations after applying `20260614100000_event_pricing_type`.
 
 ### Remote Push Status
 
@@ -210,8 +214,10 @@ Pass/fail summary:
 * Targeted feature tests: pass, 26/26.
 * Full unit suite: pass, 149/149.
 * Typecheck: pass.
+* Lint: pass with warnings only.
 * Production build: pass.
 * Local Docker health: pass.
+* Local migration deploy: pass.
 
 Findings:
 
@@ -233,7 +239,8 @@ Actions:
 * Confirmed latest feature implementation is committed on `master` as `351069a`.
 * Updated stale verification contracts only, committed as `e486f81`.
 * Committed the small dashboard cleanup/hydration source changes that were present in the verified working tree as `7c2e3c9`.
-* Confirmed local Docker service and health endpoint are healthy.
+* Confirmed current release candidate is `0fe7bd0`.
+* Confirmed local Docker service, migration task, production build, lint, unit tests, and health endpoint are healthy.
 * Created this production release ticket with deployment, smoke, rollback, and evidence requirements.
 
 ## Deployment Notes
