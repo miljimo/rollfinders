@@ -14,7 +14,7 @@ import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } fr
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
-import { directionsUrl, formatDate, formatMoney } from "@/lib/utils";
+import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
 import { LinkedText } from "@/components/LinkedText";

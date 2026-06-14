@@ -195,7 +195,7 @@ export default async function DashboardPage({
 
         <section className="px-4 py-8 sm:px-8">
           {panel === "dashboard" ? (
-            <DashboardPanel academy={academy} rollCount={rollCount} rolls={rolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
+            <DashboardPanel academy={academy} rolls={rolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
           ) : null}
           {panel === "profile" ? <ProfilePanel academy={academy} active={active} user={user} /> : null}
           {panel === "settings" ? <SettingsPanel academy={academy} searchParams={params} user={user} /> : null}
@@ -223,7 +223,6 @@ type DashboardRoll = Prisma.EventGetPayload<{
 
 function DashboardPanel({
   academy,
-  rollCount,
   rolls,
   rollsPage,
   search,
@@ -231,7 +230,6 @@ function DashboardPanel({
   totalRollPages,
 }: {
   academy: DashboardAcademy;
-  rollCount: number;
   rolls: DashboardRoll[];
   rollsPage: number;
   search: string;

@@ -27,8 +27,8 @@ export function StatsPanelDisclosure({
   useEffect(() => {
     if (!persistCollapseState) return;
     const stored = window.sessionStorage.getItem(collapseStorageKey);
-    if (stored === "collapsed") setCollapsed(true);
-    if (stored === "expanded") setCollapsed(false);
+    if (stored !== "collapsed" && stored !== "expanded") return;
+    queueMicrotask(() => setCollapsed(stored === "collapsed"));
   }, [collapseStorageKey, persistCollapseState]);
 
   function toggleCollapsed() {

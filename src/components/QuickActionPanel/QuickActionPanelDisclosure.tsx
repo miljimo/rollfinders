@@ -39,8 +39,8 @@ export function QuickActionPanelDisclosure({
   useEffect(() => {
     if (!collapsible || !persistCollapseState) return;
     const stored = window.sessionStorage.getItem(collapseStorageKey);
-    if (stored === "collapsed") setCollapsed(true);
-    if (stored === "expanded") setCollapsed(false);
+    if (stored !== "collapsed" && stored !== "expanded") return;
+    queueMicrotask(() => setCollapsed(stored === "collapsed"));
   }, [collapsible, collapseStorageKey, persistCollapseState]);
 
   function toggleCollapsed() {
