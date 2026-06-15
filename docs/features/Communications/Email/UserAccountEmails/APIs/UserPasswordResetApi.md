@@ -18,7 +18,7 @@ Sources:
 
 # Objective
 
-Allow any user to request and complete password reset securely, and allow authorized admins to queue password reset emails for permitted user accounts.
+Allow any user to request and complete password reset securely, and allow platform admins and super admins to queue password reset emails for permitted lower user accounts when those users have lost their password.
 
 ---
 
@@ -80,6 +80,26 @@ WHEN the API checks permissions
 
 THEN the API SHALL return HTTP 403.
 
+## USER-PWRESET-007A: Super Admin Lower-User Reset Scope
+
+IF a `SUPER_ADMIN` requests password reset for another user
+
+WHEN the target is a lower role such as `PLATFORM_ADMIN`, `ACADEMY_ADMIN`, or `STANDARD_USER`
+
+THEN the API SHALL allow the request when the target account exists and is eligible for password reset.
+
+AND the API SHALL NOT allow the request for the protected Super Admin account.
+
+## USER-PWRESET-007B: Platform Admin Lower-User Reset Scope
+
+IF a `PLATFORM_ADMIN` requests password reset for another user
+
+WHEN the target is a lower user they are allowed to manage, such as `ACADEMY_ADMIN` or `STANDARD_USER`
+
+THEN the API SHALL allow the request when the target account exists and is eligible for password reset.
+
+AND the API SHALL reject requests for `PLATFORM_ADMIN`, `SUPER_ADMIN`, legacy `ADMIN`, protected Super Admin, or otherwise hidden elevated accounts.
+
 ## USER-PWRESET-008: Protected Super Admin Safeguard
 
 IF the target is a protected super admin account
@@ -112,6 +132,9 @@ THEN the API SHALL write an admin audit log entry with the target user and expir
 * Valid reset tokens allow one successful password change.
 * Invalid, expired, or used tokens are rejected.
 * Unauthorized admins cannot queue password reset emails for other users.
+* Super admins can queue password reset emails for lower user roles, excluding protected Super Admin.
+* Platform admins can queue password reset emails only for lower manageable users.
+* Platform admins cannot queue password reset emails for peer Platform Admins, Super Admins, legacy Admins, or protected Super Admin.
 * Admin role and academy scope are enforced.
 * Successful admin queue returns `ok` and `expiresAt`.
 * Plaintext credentials are not returned.

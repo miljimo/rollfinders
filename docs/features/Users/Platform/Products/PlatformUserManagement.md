@@ -22,6 +22,7 @@ Provide a platform-wide user management system that allows the protected Super A
 * Promote users
 * Disable users
 * Enable users
+* Send password reset links to permitted lower users
 * Manage platform access
 
 The system must guarantee that the primary platform owner account can never be disabled, removed, locked, or downgraded.
@@ -40,6 +41,7 @@ The platform owner must be able to create trusted users that help:
 * Manage open mats
 * Moderate content
 * Support users
+* Help users regain account access when they lose their password
 
 However, the primary Super Admin account must remain permanently protected.
 
@@ -91,12 +93,14 @@ Capabilities:
 * Manage open mats
 * Manage claims
 * Manage platform settings
+* Send password reset links to lower users, including Platform Admins, Academy Admins, and Standard Users
 
 Restrictions:
 
 * Cannot disable protected Super Admin
 * Cannot delete protected Super Admin
 * Cannot change protected Super Admin role
+* Cannot send password reset links for the protected Super Admin account
 
 ---
 
@@ -109,11 +113,13 @@ Capabilities:
 * Moderate content
 * Manage claims
 * View users
+* Send password reset links to lower users they are allowed to manage
 
 Restrictions:
 
 * Cannot create Platform Admins
 * Cannot manage Super Admins
+* Cannot send password reset links for Super Admin, protected Super Admin, legacy Admin, or peer Platform Admin accounts
 * Cannot access platform settings
 
 ---
@@ -362,6 +368,43 @@ PLATFORM_ADMIN
 
 ---
 
+## Send Password Reset
+
+Button:
+
+```text
+Send Password Reset
+```
+
+Purpose:
+
+Allow support staff to help users regain access when they have lost their password without exposing, generating, or emailing a plaintext password.
+
+Allowed for:
+
+```text
+SUPER_ADMIN
+PLATFORM_ADMIN
+```
+
+Target rules:
+
+* `SUPER_ADMIN` users can send reset links to any lower user role, including `PLATFORM_ADMIN`, `ACADEMY_ADMIN`, and `STANDARD_USER`.
+* `PLATFORM_ADMIN` users can send reset links only to lower users they are permitted to manage, including `ACADEMY_ADMIN` and `STANDARD_USER`.
+* `PLATFORM_ADMIN` users cannot send reset links to peer `PLATFORM_ADMIN`, `SUPER_ADMIN`, legacy `ADMIN`, or protected Super Admin accounts.
+* No admin can send a reset link for the protected Super Admin account.
+* The action must be hidden for targets the current admin cannot reset.
+
+Behavior:
+
+* The system SHALL create a single-use password reset token using the existing password reset flow.
+* The system SHALL queue a password reset email to the target user's registered email address.
+* The system SHALL NOT return the reset token, temporary password, password hash, or any plaintext credential to the admin.
+* The UI SHALL show success only after the reset email is queued.
+* The UI SHALL show a clear error when the target is not eligible or email delivery cannot be queued.
+
+---
+
 # Protected Account Rules
 
 The following operations must fail:
@@ -394,6 +437,17 @@ The following operations must fail:
 {
   "success": false,
   "message": "Protected Super Admin role cannot be changed."
+}
+```
+
+---
+
+## Password Reset
+
+```json
+{
+  "success": false,
+  "message": "Password reset is not allowed for this account."
 }
 ```
 
@@ -490,6 +544,39 @@ SUPER_ADMIN
 
 ---
 
+## Send Password Reset
+
+```http
+POST /api/admin/users/{id}/password/reset
+```
+
+Authorization:
+
+```text
+SUPER_ADMIN
+PLATFORM_ADMIN
+```
+
+Response:
+
+```json
+{
+  "ok": true,
+  "expiresAt": "2026-06-15T12:00:00.000Z"
+}
+```
+
+Requirements:
+
+* The endpoint SHALL reuse the existing password reset token and email queue implementation.
+* The endpoint SHALL enforce the same target-role restrictions as the User Actions section.
+* The endpoint SHALL return HTTP 403 when the admin is not allowed to reset the target account.
+* The endpoint SHALL return HTTP 404 when the target user does not exist or must not be discoverable to the requester.
+* The endpoint SHALL rate-limit repeated reset sends to the same target where platform rate-limiting is available.
+* The endpoint SHALL write an audit log for successful admin-triggered reset emails.
+
+---
+
 # Audit Logging
 
 Every action must be logged.
@@ -506,6 +593,7 @@ USER_ENABLED
 USER_PROMOTED
 
 USER_DEMOTED
+USER_PASSWORD_RESET_EMAIL_SENT
 ```
 
 ---
@@ -517,6 +605,7 @@ Must prevent:
 * Disabling protected Super Admin
 * Deleting protected Super Admin
 * Changing protected Super Admin role
+* Sending password reset links for protected or peer elevated accounts
 * Privilege escalation
 * Self-promotion by Platform Admins
 
@@ -531,9 +620,13 @@ Feature is complete when:
 * Super Admin can enable users
 * Super Admin can promote users
 * Super Admin can demote users
+* Super Admin can send password reset links to any lower user role
+* Platform Admin can send password reset links to permitted Academy Admin and Standard User accounts
+* Platform Admin cannot send password reset links to peer Platform Admin, Super Admin, legacy Admin, or protected Super Admin accounts
 * Protected Super Admin cannot be disabled
 * Protected Super Admin cannot be deleted
 * Protected Super Admin role cannot be changed
+* Protected Super Admin cannot receive an admin-triggered password reset link
 * Audit logs are generated
 * Existing functionality remains unchanged
 
