@@ -67,7 +67,7 @@ Completed locally on 2026-06-14:
 
 ### Remote Push Status
 
-`git push origin master` was attempted on 2026-06-14 after release ticket creation and failed because local Bitbucket SSH authentication is not available:
+`git push origin master` was attempted on 2026-06-14 after release ticket creation and initially failed because local Bitbucket SSH authentication was not available:
 
 ```text
 git@bitbucket.org: Permission denied (publickey).
@@ -77,6 +77,8 @@ fatal: Could not read from remote repository.
 Production deployment SHALL either wait for Bitbucket SSH access to be restored or record an approved direct local deployment override with the deployed commit SHA.
 
 Production deployment used an approved direct local deployment override on 2026-06-14 because Bitbucket SSH remained unavailable locally. Deployed commit: `9a6e5ce Import payment service into monorepo`.
+
+Remote traceability was completed on 2026-06-15 after loading the Bitbucket SSH key with `ssh-agent` and `ssh-add ~/.ssh/bitbucket_private`. `master` and tag `production-2026-06-14-01` were pushed to Bitbucket successfully.
 
 ### Local Docker State
 
@@ -168,8 +170,8 @@ AND this ticket SHALL be updated with rollback reason, user impact, and follow-u
 
 ## Validation Checklist
 
-* [ ] `master` pushed to `origin/master`.
-* [ ] `master` and `origin/master` alignment confirmed.
+* [x] `master` pushed to `origin/master`.
+* [x] `master` and `origin/master` alignment confirmed.
 * [x] Release owner request recorded.
 * [x] `npm run typecheck` passed.
 * [x] Focused feature tests passed.
@@ -253,8 +255,9 @@ Record promotion evidence here:
 
 * Approved by: Product owner request in Codex session.
 * Approval time: 2026-06-14.
-* Pushed remote commit: Not pushed. `git push origin master` failed with Bitbucket SSH `Permission denied (publickey)`.
-* Direct deployment override: Approved in-session because AWS credentials were available in `.env` and Bitbucket SSH remained unavailable.
+* Pushed remote commit: `3472fc0 Record course events production deployment` pushed to `origin/master` on 2026-06-15.
+* Pushed release tag: `production-2026-06-14-01` pushed to Bitbucket on 2026-06-15.
+* Direct deployment override: Approved in-session on 2026-06-14 because AWS credentials were available in `.env` and Bitbucket SSH was unavailable at deploy time.
 * Deployed commit: `9a6e5ce Import payment service into monorepo`.
 * Production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:9a6e5ce`.
 * Production image digest: `sha256:76b6ef71b57119ed5365d802a9c836789f1fa8d9f89947238b9b4b8c36d62f95`.
