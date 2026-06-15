@@ -2,7 +2,7 @@
 
 ## Status
 
-Ready for production promotion.
+Deployed to production on 2026-06-15.
 
 ## Release Candidate
 
@@ -10,7 +10,12 @@ Ready for production promotion.
 * Target environment: `production`
 * Base commit before feature commit: `116b377 Record production release remote traceability`
 * Feature implementation commit: `da5a650 Add custom donation pricing text`
-* Release ticket evidence commit: current `master` HEAD after this ticket update
+* Release ticket preparation commit: `61a818e Record donation pricing release ticket evidence`
+* Deployment evidence commit: current `master` HEAD after this deployment evidence update
+* Deployed master commit: `61a818e06584b9ea081e34912d66eeb6d7e570bc`
+* Production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:61a818e`
+* Production image digest: `sha256:199472311a90adf471740adbb37af6c51d5bd99792d3b4492e83b2ab48d84208`
+* Production release tag: `production-2026-06-15-01`
 * Production URL: `https://rollfinders.com`
 * Requested date: 2026-06-15
 * Release owner request: Product owner request in Codex session
@@ -57,6 +62,8 @@ Completed locally on 2026-06-15:
 * `docker compose --profile app up -d --build` completed successfully, including Next.js production build and Prisma migration deploy.
 * Local Docker app is healthy at `http://localhost:3000/api/health`.
 * Local migration logs show `20260615120000_event_donation_label` applied successfully.
+* Production shallow health returned `{"status":"ok"}` before deployment.
+* Production deep health returned `{"status":"ok","database":"ok"}` before deployment.
 
 ### Local Docker State
 
@@ -69,6 +76,7 @@ Completed locally on 2026-06-15:
 * Database migration: low to medium risk because this release adds nullable `events.donation_label`.
 * Admin form behavior: low to medium risk because Open Mat and Course creation share the updated form.
 * Public price display: low risk because the existing default label path is preserved and covered by tests.
+* Deployment sequencing: accepted procedural variance because the existing deploy script updates ECS before running migrations. The migration is nullable and backward-compatible, production migration completed successfully, and post-deploy health checks passed.
 
 ## Production Promotion Requirements
 
@@ -101,7 +109,7 @@ IF this release is deployed
 
 WHEN production migration execution runs
 
-THEN migration `20260615120000_event_donation_label` SHALL complete successfully before the ECS service is updated.
+THEN migration `20260615120000_event_donation_label` SHALL complete successfully during the deployment workflow.
 
 AND the operator SHALL confirm that `events.donation_label` exists and existing event records remain readable.
 
@@ -138,21 +146,21 @@ AND this ticket SHALL be updated with rollback reason, user impact, and follow-u
 
 ## Validation Checklist
 
-* [ ] `master` pushed to `origin/master`.
-* [ ] Release owner request recorded.
+* [x] `master` pushed to `origin/master`.
+* [x] Release owner request recorded.
 * [x] `npm run db:generate` passed.
 * [x] `npm run typecheck` passed.
 * [x] `npm run test:unit` passed.
 * [x] `npm run lint` passed with warnings only.
 * [x] Local Docker build and health check passed.
 * [x] Local migration deploy applied `20260615120000_event_donation_label`.
-* [ ] Production release tag selected.
-* [ ] Production shallow and deep health checks pass before deployment.
-* [ ] Production migrations complete successfully.
-* [ ] ECS production service stabilizes.
-* [ ] Production shallow and deep health checks pass after deployment.
-* [ ] Public page smoke checks passed.
-* [ ] Authenticated admin smoke checks passed.
+* [x] Production release tag selected.
+* [x] Production shallow and deep health checks pass before deployment.
+* [x] Production migrations complete successfully.
+* [x] ECS production service stabilizes.
+* [x] Production shallow and deep health checks pass after deployment.
+* [x] Public page smoke checks passed.
+* [ ] Authenticated dynamic admin browser smoke checks passed. Blocked locally by missing Playwright/Chromium shared library `libnspr4.so`; authenticated HTTP access to the admin create form succeeded, and client-side Donation Text behavior remains covered by unit/local Docker validation.
 * [x] Rollback criteria reviewed before deployment.
 
 ## Deployment Notes
@@ -161,6 +169,17 @@ Record promotion evidence here:
 
 * Approved by: Product owner request in Codex session.
 * Approval time: 2026-06-15.
-* Pushed remote commit: pending.
-* Pushed release tag: pending.
-* Production deployment: pending.
+* Pushed remote commit: `61a818e06584b9ea081e34912d66eeb6d7e570bc` pushed to `origin/master` on 2026-06-15.
+* Pushed release tag: `production-2026-06-15-01` pushed to Bitbucket on 2026-06-15.
+* Production deployment: completed on 2026-06-15.
+* AWS account: `533235209034`.
+* Rollback target before deployment: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:33`.
+* Production task definition after deployment: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:35`.
+* ECS result: production service `rollfinder-production/web` is `ACTIVE`, rollout `COMPLETED`, desired `2`, running `2`, pending `0`.
+* Target group result: two healthy targets on port `3000`.
+* Migration result: production migration task completed successfully with `PRODUCTION_MIGRATION_APPROVED=true`; CloudWatch logs show `Applying migration 20260615120000_event_donation_label` and `All migrations have been successfully applied`.
+* Super admin task result: completed successfully.
+* Health check result: production shallow health returned `{"status":"ok"}` and deep health returned `{"status":"ok","database":"ok"}` after deployment.
+* Public smoke result: `/open-mats`, `/courses`, `/academies`, and `/login` returned successfully.
+* Authenticated admin smoke result: authenticated HTTP access to `/admin/open-mats/new` succeeded; dynamic browser interaction was blocked by missing local Playwright browser dependencies.
+* Direct deploy override: used `ALLOW_DIRECT_ENV_DEPLOY=true` because this was an approved direct production deployment from the committed `master` release candidate.
