@@ -57,9 +57,9 @@ IF authentication succeeds
 WHEN the current auth flow resolves the user session  
 THEN the form SHALL redirect according to the existing role-based login behavior.
 
-IF a forgot-password action is considered  
-WHEN no public request-reset route exists  
-THEN the form SHALL NOT show a `Forgot password?` link in this iteration.
+IF forgot-password reset is enabled  
+WHEN the login form renders  
+THEN the form SHALL show a `Forgot password?` link below the password field that navigates to `/forgot-password`.
 
 ## Done When
 
@@ -69,4 +69,5 @@ THEN the form SHALL NOT show a `Forgot password?` link in this iteration.
 * Inputs and submit action show visible focus states.
 * Pending submission disables repeated sign-in attempts.
 * Error feedback is visible and readable on mobile.
+* Forgot-password reset is reachable from the login form when the route is available.
 * Successful login keeps the current role-based redirects.
