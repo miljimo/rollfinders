@@ -3,7 +3,7 @@ import { getEnvVariable } from "./environments";
 
 
 const emailDomain = getEnvVariable("EMAIL_DOMAIN", "rollfinders.com");
-const emailDeliveryProvider = getEnvVariable("EMAIL_DELIVERY_PROVIDER", "smtp");
+const emailDeliveryProvider = getEnvVariable("EMAIL_DELIVERY_PROVIDER", "smtp").toUpperCase();
 
 
 export type SMTPConfiguration = {

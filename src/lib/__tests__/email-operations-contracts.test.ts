@@ -110,6 +110,7 @@ describe("email operations contracts", () => {
     const variables = readSource("terraform/variables.tf");
 
     assert.match(provisioning, /EMAIL_DELIVERY_PROVIDER/);
+    assert.match(provisioning, /getEnvVariable\("EMAIL_DELIVERY_PROVIDER",\s*"smtp"\)\.toUpperCase\(\)/);
     assert.match(provisioning, /smtpUsername:\s*getEnvVariable\("SMTP_USERNAME"/);
     assert.match(provisioning, /smtpPassword:\s*getEnvVariable\("SMTP_PASSWORD"/);
     assert.match(reliableEmail, /import\s+nodemailer\s+from\s+"nodemailer"/);
