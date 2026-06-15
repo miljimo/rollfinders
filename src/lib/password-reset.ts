@@ -12,7 +12,7 @@ function hashToken(token: string) {
 
 function resetUrl(token: string) {
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
-  return `${baseUrl}/reset-password/${token}`;
+  return `${baseUrl}/reset-password?token=${token}`;
 }
 
 function expiryDate() {
@@ -38,13 +38,27 @@ export async function queuePasswordResetEmail(user: { id: string; email: string;
   const outboundEmail = await queueEmail({
     userId: user.id,
     to: user.email,
-    subject: "Change your RollFinders password",
-    text: `Use this link to change your RollFinders password. The link expires in ${resetExpiryHours} hours.\n\n${url}`,
-    html: `<p>Use this link to change your RollFinders password. The link expires in ${resetExpiryHours} hours.</p><p><a href="${url}">Change password</a></p>`,
+    subject: "Reset your RollFinders password",
+    text: `Hi${user.name ? ` ${user.name}` : ""},\n\nUse this link to reset your RollFinders password. The link expires in ${resetExpiryHours} hours.\n\n${url}\n\nIf you did not request this password reset, you can safely ignore this email.`,
+    html: `<p>Hi${user.name ? ` ${user.name}` : ""},</p><p>Use this link to reset your RollFinders password. The link expires in ${resetExpiryHours} hours.</p><p><a href="${url}">Reset password</a></p><p>If you did not request this password reset, you can safely ignore this email.</p>`,
   });
   await sendQueuedEmail(outboundEmail.id);
 
   return { expiresAt };
+}
+
+export async function requestPasswordResetForEmail(email: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail || !normalizedEmail.includes("@")) return { success: true };
+
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+    select: { id: true, email: true, name: true, status: true, disabled: true },
+  });
+  if (!user || user.status === "DISABLED" || user.disabled) return { success: true };
+
+  await queuePasswordResetEmail(user);
+  return { success: true };
 }
 
 export async function getValidPasswordResetToken(token: string) {

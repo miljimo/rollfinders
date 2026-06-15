@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/Button";
 import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { getSession, signIn } from "next-auth/react";
 import { useState } from "react";
 
@@ -82,6 +83,9 @@ export function LoginForm() {
           </button>
         </span>
       </label>
+      <Link href="/forgot-password" className="justify-self-start text-sm font-semibold text-teal-800 underline-offset-4 hover:underline">
+        Forgot password?
+      </Link>
       <Button type="submit" variant="primary" className="min-h-12 w-full" disabled={isSubmitting}>
         {isSubmitting ? "Signing in..." : "Sign In"}
       </Button>

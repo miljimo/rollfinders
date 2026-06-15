@@ -35,7 +35,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <input name="confirmPassword" type="password" required minLength={8} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal" />
       </label>
       <Button type="submit" disabled={isPending} variant="neutral">
-        {isPending ? "Changing..." : "Change Password"}
+        {isPending ? "Resetting..." : "Reset Password"}
       </Button>
     </form>
   );

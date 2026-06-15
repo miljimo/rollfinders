@@ -24,5 +24,5 @@ export async function resetPassword(token: string, _state: ResetPasswordState, f
     return { success: false, message: result.message ?? "This password reset link is invalid or expired." };
   }
 
-  return { success: true, message: "Password changed. You can now log in with your new password." };
+  return { success: true, message: "Your password has been reset successfully. You can now sign in." };
 }
