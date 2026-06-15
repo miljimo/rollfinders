@@ -9,7 +9,8 @@ Ready for production promotion.
 * Source branch: `master`
 * Target environment: `production`
 * Base commit before feature commit: `116b377 Record production release remote traceability`
-* Feature commit: pending local commit
+* Feature implementation commit: `da5a650 Add custom donation pricing text`
+* Release ticket evidence commit: current `master` HEAD after this ticket update
 * Production URL: `https://rollfinders.com`
 * Requested date: 2026-06-15
 * Release owner request: Product owner request in Codex session
