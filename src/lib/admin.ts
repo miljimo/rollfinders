@@ -129,6 +129,19 @@ export function canViewManagedUser(
   return false;
 }
 
+export function canSendManagedUserPasswordReset(
+  actor: { id: string; role?: string; academyId?: string | null },
+  target: { id: string; role: Role; email: string; academyId?: string | null; isProtected?: boolean | null },
+) {
+  if (actor.id === target.id || isProtectedSuperAdmin(target)) return false;
+  if (isSuperAdminRole(actor.role)) return !isSuperAdminRole(target.role);
+  if (actor.role === Role.PLATFORM_ADMIN) return !isElevatedAdminRole(target.role);
+  if (isAcademyAdminRole(actor.role)) {
+    return actor.academyId === target.academyId && (target.role === Role.STANDARD_USER || target.role === Role.USER);
+  }
+  return false;
+}
+
 export function academyScopedAcademyWhere(actor: { role?: string; academyId?: string | null }): Prisma.AcademyWhereInput {
   if (!isAcademyAdminRole(actor.role)) return {};
   return { id: actor.academyId ?? "__missing_academy__" };

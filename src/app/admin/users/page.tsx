@@ -1,15 +1,16 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
-import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
+import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, KeyRound, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { TableRow } from "@/components/Table";
-import { elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { canSendManagedUserPasswordReset, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
   deleteManagedUser,
+  sendPasswordChangeEmail,
   toggleManagedUserDisabled,
 } from "./actions";
 
@@ -257,6 +258,7 @@ export default async function UserManagementPage({
                 {users.map((user) => {
                   const protectedUser = isProtectedSuperAdmin(user);
                   const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
+                  const canSendPasswordReset = currentUser ? canSendManagedUserPasswordReset(currentUser, user) : false;
                   const superUserTarget = isSuperUserRole(user.role);
                   const canDelete = canManage && currentUser?.id !== user.id && !superUserTarget;
                   const disabled = user.status === UserStatus.DISABLED || user.disabled;
@@ -302,6 +304,14 @@ export default async function UserManagementPage({
                                 <Edit3 size={18} aria-hidden="true" />
                                 Edit User
                               </Link>
+                              {canSendPasswordReset ? (
+                                <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                                  <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                    <KeyRound size={18} aria-hidden="true" />
+                                    Send Password Reset
+                                  </button>
+                                </form>
+                              ) : null}
                               <form action={toggleManagedUserDisabled.bind(null, user.id)}>
                                 <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-red-600 hover:bg-red-50">
                                   <Ban size={18} aria-hidden="true" />

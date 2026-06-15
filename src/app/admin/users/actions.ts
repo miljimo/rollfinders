@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { canSendManagedUserPasswordReset, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { ensurePlatformAdminProfile } from "@/lib/platform-admin-activity";
@@ -260,13 +260,13 @@ export async function deleteManagedUser(userId: string) {
 export async function sendPasswordChangeEmail(userId: string) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canManageUser(actor, user)) return;
+  if (!user || !canSendManagedUserPasswordReset(actor, user)) return;
 
   const { expiresAt } = await queuePasswordResetEmail(user);
   await writeAdminAuditLog({
     actorUserId: actor.id,
     targetUserId: user.id,
-    action: "PASSWORD_CHANGE_EMAIL_SENT",
+    action: "USER_PASSWORD_RESET_EMAIL_SENT",
     metadata: { email: user.email, expiresAt: expiresAt.toISOString() },
   });
 

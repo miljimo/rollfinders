@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
-import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
 import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, recurrenceLabel as courseRecurrenceLabel } from "@/lib/courses";
@@ -29,7 +29,7 @@ import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders,
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
 import { createCourse } from "../admin/courses/actions";
-import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
+import { createManagedUser, deleteManagedUser, sendPasswordChangeEmail, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
@@ -2105,6 +2105,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
             const protectedUser = isProtectedSuperAdmin(user);
             const academyCanManage = isAcademyAdminRole(actorRole) && actorId !== user.id && actorAcademyId === user.academyId && (user.role === Role.STANDARD_USER || user.role === Role.USER || user.role === Role.ACADEMY_ADMIN || user.role === Role.ACADEMY_OWNER);
             const canManage = academyCanManage || isSuperAdminRole(actorRole) || (isPlatformAdminRole(actorRole) && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
+            const canSendPasswordReset = canSendManagedUserPasswordReset({ id: actorId, role: actorRole, academyId: actorAcademyId }, user);
             const superUserTarget = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
             const canDelete = canManage && actorId !== user.id && !superUserTarget;
             const disabled = user.status === UserStatus.DISABLED || user.disabled;
@@ -2139,6 +2140,14 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
                           <Edit3 size={18} aria-hidden />
                           Edit User
                         </Link>
+                        {canSendPasswordReset ? (
+                          <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                            <button className={menuItemClass}>
+                              <KeyRound size={18} aria-hidden />
+                              Send Password Reset
+                            </button>
+                          </form>
+                        ) : null}
                         <form action={toggleManagedUserDisabled.bind(null, user.id)}>
                           <button className={dangerMenuItemClass}>
                             <Ban size={18} aria-hidden />
