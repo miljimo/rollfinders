@@ -148,18 +148,29 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   if (!email || !email.includes("@")) return;
   const academyId = await validManagedAcademyId(actor, role, String(formData.get("academyId") ?? user.academyId ?? "").trim() || null);
   if (academyId === undefined) return;
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  const redirectTo = managedUsersReturnPath(returnTo);
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data: {
-      name: name || null,
-      email,
-      role,
-      academyId,
-      status,
-      disabled: status === UserStatus.DISABLED,
-    },
-  });
+  let updated: Awaited<ReturnType<typeof prisma.user.update>>;
+  try {
+    updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: name || null,
+        email,
+        role,
+        academyId,
+        status,
+        disabled: status === UserStatus.DISABLED,
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+    const url = new URL(redirectTo, "http://localhost");
+    url.searchParams.set("userResult", "duplicate_email");
+    url.searchParams.set("email", email);
+    redirect(`${url.pathname}${url.search}`);
+  }
 
   await writeAdminAuditLog({
     actorUserId: actor.id,
@@ -171,8 +182,6 @@ export async function updateManagedUser(userId: string, formData: FormData) {
     },
   });
 
-  const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const redirectTo = managedUsersReturnPath(returnTo);
   revalidatePath("/admin/users");
   revalidatePath("/admin");
   revalidatePath("/dashboard");
