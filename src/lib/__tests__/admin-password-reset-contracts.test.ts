@@ -3,6 +3,9 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 const routeSource = readFileSync("src/app/api/admin/users/[id]/password-reset/route.ts", "utf8");
+const actionSource = readFileSync("src/app/admin/users/actions.ts", "utf8");
+const dashboardSource = readFileSync("src/app/dashboard/AdminDashboardWorkspace.tsx", "utf8");
+const adminUsersPageSource = readFileSync("src/app/admin/users/page.tsx", "utf8");
 
 describe("admin-triggered password reset contracts", () => {
   it("routes admin reset requests through the shared permission contract before queueing email", () => {
@@ -23,5 +26,22 @@ describe("admin-triggered password reset contracts", () => {
       routeSource.indexOf('action: "USER_PASSWORD_RESET_EMAIL_SENT"') > routeSource.indexOf("await queuePasswordResetEmail(user)"),
       "audit log must be written after the reset email is queued",
     );
+  });
+
+  it("returns visible feedback after admin password reset form submissions", () => {
+    assert.match(actionSource, /export\s+async\s+function\s+sendPasswordChangeEmail\(userId:\s*string,\s*formData\?:\s*FormData\)/);
+    assert.match(actionSource, /managedUsersReturnPath\(String\(formData\?\.get\("returnTo"\)\s*\?\?\s*"\/dashboard\?panel=users"\)\)/);
+    assert.match(actionSource, /userResult",\s*"password_reset_sent"/);
+    assert.match(actionSource, /userResult",\s*"password_reset_failed"/);
+    assert.match(actionSource, /email",\s*user\.email/);
+    assert.match(actionSource, /redirect\(`\$\{url\.pathname\}\$\{url\.search\}`\)/);
+
+    for (const source of [dashboardSource, adminUsersPageSource]) {
+      assert.match(source, /password_reset_sent/);
+      assert.match(source, /Password reset email sent/);
+      assert.match(source, /password_reset_failed/);
+      assert.match(source, /Password reset email could not be sent/);
+      assert.match(source, /<input\s+type="hidden"\s+name="returnTo"/);
+    }
   });
 });

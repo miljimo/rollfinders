@@ -56,4 +56,13 @@ describe("forgot password and password reset contracts", () => {
     assert.match(actionSource, /resetPasswordWithToken\(token,\s*password\)/);
     assert.match(formSource, /href=["']\/login["']/);
   });
+
+  it("announces forgot-password and reset-password feedback to assistive technology", () => {
+    const forgotFormSource = readSource("src/app/forgot-password/ForgotPasswordForm.tsx");
+    const resetFormSource = readSource("src/app/reset-password/[token]/ResetPasswordForm.tsx");
+
+    assert.match(forgotFormSource, /role=["']status["']/);
+    assert.match(resetFormSource, /role=["']status["']/);
+    assert.match(resetFormSource, /role=["']alert["']/);
+  });
 });
