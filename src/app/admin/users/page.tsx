@@ -100,6 +100,26 @@ function paginationPages(currentPage: number, totalPages: number) {
   return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
 }
 
+function UserResult({ params }: { params: UserSearchParams }) {
+  const result = firstParam(params.userResult);
+  if (!result) return null;
+  const email = firstParam(params.email);
+  const success = result === "password_reset_sent";
+  const message = result === "duplicate_email"
+    ? `A user with ${email ?? "that email address"} already exists.`
+    : result === "password_reset_sent"
+      ? `Password reset email sent${email ? ` to ${email}` : ""}.`
+      : result === "password_reset_failed"
+        ? `Password reset email could not be sent${email ? ` to ${email}` : ""}.`
+        : null;
+  if (!message) return null;
+  return (
+    <div className={`mt-4 rounded-md border px-4 py-3 text-sm font-semibold ${success ? "border-teal-100 bg-teal-50 text-teal-900" : "border-red-100 bg-red-50 text-red-800"}`}>
+      {message}
+    </div>
+  );
+}
+
 export default async function UserManagementPage({
   searchParams,
 }: {
@@ -239,6 +259,7 @@ export default async function UserManagementPage({
               <FilterPill href={academyAdminHref} active={role === Role.ACADEMY_ADMIN} icon={<Shield size={20} aria-hidden="true" />}>Academy Admin</FilterPill>
               <FilterPill href={standardHref} active={role === Role.STANDARD_USER} icon={<User size={20} aria-hidden="true" />}>Standard User</FilterPill>
             </div>
+            <UserResult params={params} />
           </div>
 
           <div className="overflow-x-auto">
@@ -306,6 +327,7 @@ export default async function UserManagementPage({
                               </Link>
                               {canSendPasswordReset ? (
                                 <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                                  <input type="hidden" name="returnTo" value={compactParams(params, {})} />
                                   <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                                     <KeyRound size={18} aria-hidden="true" />
                                     Send Password Reset

@@ -266,12 +266,25 @@ export async function deleteManagedUser(userId: string) {
   revalidatePath("/admin");
 }
 
-export async function sendPasswordChangeEmail(userId: string) {
+export async function sendPasswordChangeEmail(userId: string, formData?: FormData) {
   const actor = await requireUserManager();
   const user = await targetUser(userId);
-  if (!user || !canSendManagedUserPasswordReset(actor, user)) return;
+  const returnTo = managedUsersReturnPath(String(formData?.get("returnTo") ?? "/dashboard?panel=users"));
+  if (!user || !canSendManagedUserPasswordReset(actor, user)) {
+    const url = new URL(returnTo, "http://localhost");
+    url.searchParams.set("userResult", "password_reset_failed");
+    redirect(`${url.pathname}${url.search}`);
+  }
 
-  const { expiresAt } = await queuePasswordResetEmail(user);
+  let expiresAt: Date;
+  try {
+    ({ expiresAt } = await queuePasswordResetEmail(user));
+  } catch {
+    const url = new URL(returnTo, "http://localhost");
+    url.searchParams.set("userResult", "password_reset_failed");
+    url.searchParams.set("email", user.email);
+    redirect(`${url.pathname}${url.search}`);
+  }
   await writeAdminAuditLog({
     actorUserId: actor.id,
     targetUserId: user.id,
@@ -280,4 +293,9 @@ export async function sendPasswordChangeEmail(userId: string) {
   });
 
   revalidatePath("/admin/users");
+  revalidatePath("/dashboard");
+  const url = new URL(returnTo, "http://localhost");
+  url.searchParams.set("userResult", "password_reset_sent");
+  url.searchParams.set("email", user.email);
+  redirect(`${url.pathname}${url.search}`);
 }
