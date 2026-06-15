@@ -34,11 +34,14 @@ export function courseLocationLabel(course: Pick<Event, "locationName" | "addres
   return course.locationName?.trim() || course.addressOverride?.trim() || `${course.academy.name}, ${course.academy.city}`;
 }
 
-export function coursePriceLabel(course: { price: unknown; audience: EventAudience; pricingType?: EventPricingType }) {
+export function coursePriceLabel(course: { price: unknown; audience: EventAudience; pricingType?: EventPricingType; donationLabel?: string | null }) {
   if (course.pricingType === EventPricingType.FREE) return "Free";
   if (course.pricingType === EventPricingType.DONATION) {
     const value = Number(course.price);
-    return value > 0 ? `Optional donation - suggested from ${new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value)}` : "Optional donation";
+    const donation = value > 0 ? new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value) : "";
+    const customLabel = course.donationLabel?.trim();
+    if (customLabel) return customLabel.replaceAll("${donation}", donation).replaceAll("$donation", donation).replace(/\s+/g, " ").trim();
+    return donation ? `Optional donation - suggested from ${donation}` : "Optional donation";
   }
   const value = Number(course.price);
   if (value === 0) return "Free";

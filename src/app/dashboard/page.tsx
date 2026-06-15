@@ -139,6 +139,7 @@ export default async function DashboardPage({
           giType: true,
           pricingType: true,
           price: true,
+          donationLabel: true,
           audience: true,
         },
         orderBy: [{ eventDate: "asc" }, { startTime: "asc" }, { title: "asc" }],
@@ -217,6 +218,7 @@ type DashboardRoll = Prisma.EventGetPayload<{
     giType: true;
     pricingType: true;
     price: true;
+    donationLabel: true;
     audience: true;
   };
 }>;

@@ -16,6 +16,7 @@ describe("course cloning", () => {
       giType: GiType.BOTH,
       price: new Prisma.Decimal(10),
       pricingType: EventPricingType.DONATION,
+      donationLabel: "Support the mat ${donation}",
       audience: EventAudience.EXTERNAL_ONLY,
       capacity: 30,
       active: true,
@@ -47,6 +48,7 @@ describe("course cloning", () => {
 
     assert.equal(clone.title, "Sunday Sparring (Copy)");
     assert.equal(clone.price, "10");
+    assert.equal(clone.donationLabel, "Support the mat ${donation}");
     assert.deepEqual(clone.activities, [{
       name: "Rolling",
       activityType: CourseActivityType.ROLLING,

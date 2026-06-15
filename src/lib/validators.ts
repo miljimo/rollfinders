@@ -149,6 +149,7 @@ const eventShape = {
   giType: z.enum(GiType),
   pricingType: z.enum(EventPricingType).default(EventPricingType.FIXED),
   price: z.coerce.number().nonnegative(),
+  donationLabel: optionalTrimmedString.refine((value) => !value || value.length <= 160, "Donation text must be 160 characters or fewer"),
   audience: z.enum(EventAudience).default(EventAudience.EXTERNAL_ONLY),
   capacity: z.coerce.number().int().positive().optional().or(z.literal("")),
   active: checkboxSchema,

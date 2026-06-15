@@ -15,6 +15,7 @@ function eventFixture(overrides: Partial<Event> = {}): Event {
     endTime: "20:00",
     giType: GiType.BOTH,
     pricingType: EventPricingType.FREE,
+    donationLabel: null,
     price: 0 as unknown as Event["price"],
     audience: "EXTERNAL_ONLY" as Event["audience"],
     courseType: CourseType.OPEN_MAT,

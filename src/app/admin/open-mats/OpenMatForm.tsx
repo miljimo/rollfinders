@@ -164,6 +164,16 @@ export function OpenMatForm({
               ) : (
                 <input type="hidden" name="price" value="0" />
               )}
+              {donationPrice ? (
+                <label className="grid gap-1 text-sm font-semibold text-stone-800 sm:col-span-2">
+                  Donation Text
+                  <input name="donationLabel" defaultValue={state.values.donationLabel ?? event?.donationLabel ?? ""} placeholder="Optional donation - suggested from ${donation}" className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal aria-invalid:border-red-500" />
+                  <span className="text-xs font-medium text-stone-600">Use $donation or {"${donation}"} to insert the suggested amount. Leave blank for the default optional donation text.</span>
+                  <FieldError errors={state.fieldErrors.donationLabel} />
+                </label>
+              ) : (
+                <input type="hidden" name="donationLabel" value="" />
+              )}
               <Field name="capacity" label="Capacity" type="number" value={state.values.capacity ?? event?.capacity?.toString() ?? ""} required={false} errors={state.fieldErrors.capacity} />
             </div>
             {showAudience ? (

@@ -54,6 +54,7 @@ function eventData(data: {
   giType: "GI" | "NO_GI" | "BOTH";
   pricingType: EventPricingType;
   price: number;
+  donationLabel?: string;
   audience: EventAudience;
   courseType?: CourseType;
   instructor?: string;
@@ -78,6 +79,7 @@ function eventData(data: {
     giType: data.giType,
     pricingType: data.pricingType,
     price: data.pricingType === EventPricingType.FREE ? 0 : data.price,
+    donationLabel: data.pricingType === EventPricingType.DONATION ? data.donationLabel ?? null : null,
     audience: data.pricingType === EventPricingType.FIXED && data.price > 0 ? data.audience : EventAudience.EXTERNAL_ONLY,
     courseType: data.courseType ?? CourseType.OPEN_MAT,
     instructor: data.instructor ?? null,
@@ -133,6 +135,7 @@ function occurrenceDatesFor(data: ReturnType<typeof eventData>, from = startOfDa
     giType: data.giType,
     pricingType: data.pricingType,
     price: data.price,
+    donationLabel: data.donationLabel,
     audience: data.audience,
     courseType: data.courseType,
     instructor: data.instructor,
@@ -201,6 +204,7 @@ async function findDuplicateOpenMat({
       giType: existing.giType,
       pricingType: existing.pricingType,
       price: Number(existing.price),
+      donationLabel: existing.donationLabel,
       audience: existing.audience,
       instructor: existing.instructor,
       contactEmail: existing.contactEmail,

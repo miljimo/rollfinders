@@ -1769,6 +1769,7 @@ type OpenMatRow = {
   giType: string;
   pricingType: EventPricingType;
   price: { toString(): string };
+  donationLabel: string | null;
   audience: EventAudience;
   capacity: number | null;
   active: boolean;

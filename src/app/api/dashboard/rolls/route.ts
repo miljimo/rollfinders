@@ -77,6 +77,7 @@ export async function GET(request: Request) {
       giType: true,
       pricingType: true,
       price: true,
+      donationLabel: true,
       audience: true,
       createdAt: true,
     },
