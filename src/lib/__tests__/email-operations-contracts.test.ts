@@ -112,7 +112,7 @@ describe("email operations contracts", () => {
     }
   });
 
-  it("ses sandbox and identity verification failures are not classified as invalid recipient emails", () => {
+  it("provider configuration failures are not classified as invalid recipient emails", () => {
     const reliableEmail = readSource("src/lib/reliable-email.ts");
 
     assert.match(reliableEmail, /function\s+isProviderConfigurationFailure/);
@@ -127,31 +127,31 @@ describe("email operations contracts", () => {
     assert.match(reliableEmail, /emailStatus:\s*UserEmailStatus\.VALID/);
   });
 
-  it("supports SMTP delivery fallback behind environment configuration", () => {
+  it("uses SMTP-only delivery in application and production infrastructure", () => {
     const provisioning = readSource("src/lib/email-provisioning.ts");
     const reliableEmail = readSource("src/lib/reliable-email.ts");
     const terraform = readSource("terraform/main.tf");
     const variables = readSource("terraform/variables.tf");
+    const packageJson = readSource("package.json");
 
-    assert.match(provisioning, /EMAIL_DELIVERY_PROVIDER/);
-    assert.match(provisioning, /getEnvVariable\("EMAIL_DELIVERY_PROVIDER",\s*"smtp"\)\.toUpperCase\(\)/);
+    assert.doesNotMatch(provisioning, /EMAIL_DELIVERY_PROVIDER|provider:|region:/);
+    assert.doesNotMatch(reliableEmail, /@aws-sdk\/client-ses|SendEmailCommand|SESClient|config\.provider/);
     assert.match(provisioning, /smtpUsername:\s*getEnvVariable\("SMTP_USERNAME"/);
     assert.match(provisioning, /smtpPassword:\s*getEnvVariable\("SMTP_PASSWORD"/);
     assert.match(reliableEmail, /import\s+nodemailer\s+from\s+"nodemailer"/);
     assert.match(reliableEmail, /function\s+smtpTransport/);
-    assert.match(reliableEmail, /config\.provider\s*===\s*"SMTP"/);
     assert.match(reliableEmail, /sendMail\(/);
-    assert.match(reliableEmail, /SMTP delivery is enabled/);
-    assert.match(variables, /variable\s+"email_delivery_provider"/);
+    assert.doesNotMatch(packageJson, /@aws-sdk\/client-ses/);
+    assert.doesNotMatch(variables, /variable\s+"email_delivery_provider"/);
     assert.match(variables, /variable\s+"smtp_username"/);
     assert.match(variables, /variable\s+"smtp_password"/);
     assert.match(variables, /variable\s+"smtp_host"/);
     assert.match(variables, /variable\s+"smtp_port"/);
-    assert.match(terraform, /EMAIL_DELIVERY_PROVIDER/);
-    assert.match(terraform, /EMAIL_FROM\s*=\s*"noreply@\$\{module\.email\.sending_domain\}"/);
-    assert.match(terraform, /EMAIL_REPLY_TO\s*=\s*"support@\$\{module\.email\.sending_domain\}"/);
-    assert.match(terraform, /ses:FromAddress/);
-    assert.match(terraform, /values\s*=\s*\["noreply@\$\{module\.email\.sending_domain\}"\]/);
+    assert.match(variables, /variable\s+"email_from_address"/);
+    assert.match(variables, /variable\s+"email_reply_to_address"/);
+    assert.doesNotMatch(terraform, /EMAIL_DELIVERY_PROVIDER|EMAIL_REGION|ses:SendEmail|ses:SendRawEmail|ses:FromAddress/);
+    assert.match(terraform, /EMAIL_FROM\s*=\s*var\.email_from_address\s*!=\s*""\s*\?\s*var\.email_from_address/);
+    assert.match(terraform, /EMAIL_REPLY_TO\s*=\s*var\.email_reply_to_address\s*!=\s*""\s*\?\s*var\.email_reply_to_address/);
     assert.match(terraform, /var\.smtp_host\s*!=\s*""\s*\?\s*var\.smtp_host\s*:\s*module\.email\.smtp_host/);
     assert.match(terraform, /SMTP_USERNAME/);
     assert.match(terraform, /SMTP_PASSWORD/);
