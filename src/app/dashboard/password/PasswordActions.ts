@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { writeAdminAuditLog } from "@/lib/admin";
+import { queuePasswordChangedEmail } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 
@@ -38,6 +39,7 @@ export async function changeDashboardUserPassword(
     action: "DASHBOARD_PASSWORD_CHANGED",
     metadata: { role: user.role },
   });
+  await queuePasswordChangedEmail(user);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/password");

@@ -194,7 +194,7 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   }
 
   const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const url = new URL(returnTo.startsWith("/admin") ? returnTo : "/admin?panel=academies", "http://localhost");
+  const url = new URL(returnTo.startsWith("/admin") || returnTo.startsWith("/dashboard?panel=academies") ? returnTo : "/admin?panel=academies", "http://localhost");
   if (shouldSendClaimInvitation(formData)) {
     const outcome = await safeSendReminderForAcademy(actor.id, academy.id, "academy_creation");
     url.searchParams.set("claimInvitationResult", outcome.status);
@@ -203,6 +203,7 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
     url.searchParams.set("claimInvitationResult", "not_sent");
   }
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   redirect(`${url.pathname}${url.search}`);
 }
 
@@ -272,7 +273,7 @@ export async function updateAcademy(
   }
 
   const returnTo = String(formData.get("returnTo") ?? "").trim();
-  const url = new URL(returnTo.startsWith("/admin?panel=academies") ? returnTo : "/admin?panel=academies", "http://localhost");
+  const url = new URL(returnTo.startsWith("/admin?panel=academies") || returnTo.startsWith("/dashboard?panel=academies") ? returnTo : "/admin?panel=academies", "http://localhost");
   if (actor && isPlatformAdminRole(actor.role) && shouldSendClaimInvitation(formData)) {
     const outcome = await safeSendReminderForAcademy(actor.id, academy.id);
     url.searchParams.set("claimInvitationResult", outcome.status);
@@ -283,6 +284,7 @@ export async function updateAcademy(
     url.searchParams.set("claimInvitationResult", "not_sent");
   }
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   revalidatePath(`/admin/academies/${id}`);
   redirect(`${url.pathname}${url.search}`);
 }
@@ -335,6 +337,7 @@ function adminAcademiesRedirect(formData: FormData, params: Record<string, strin
   const url = new URL(returnTo.startsWith("/admin") ? returnTo : "/admin?panel=academies", "http://localhost");
   Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, String(value)));
   revalidatePath("/admin");
+  revalidatePath("/dashboard");
   redirect(`${url.pathname}${url.search}`);
 }
 

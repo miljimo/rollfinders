@@ -112,9 +112,27 @@ Email body must include:
 * Expiry warning
 * Security note
 
+The reset email SHALL render as a RollFinders HTML email with a plain-text fallback.
+
 Required security note:
 
 `If you did not request this password reset, you can safely ignore this email.`
+
+## Password Changed Notification Requirements
+
+IF a user successfully changes their password through the reset password page or dashboard password settings
+
+WHEN the password hash has been updated
+
+THEN the system SHALL send a password-changed notification email to the user's account email address.
+
+AND the email SHALL use the same RollFinders HTML email style as the password reset email with a plain-text fallback.
+
+AND the email SHALL include the username/email and a fresh password reset link.
+
+AND the email SHALL NOT include the submitted password or any plaintext password value.
+
+AND the email SHALL state that passwords are not sent by email.
 
 ## Database Requirements
 
@@ -169,6 +187,7 @@ Response must always be generic:
 Requirements:
 
 * If the email belongs to an active account, the API SHALL queue a password reset email.
+* The system SHALL immediately attempt delivery after queueing the reset email.
 * If the email does not belong to an active account, the API SHALL return the same generic response.
 * The API SHALL not reveal whether the account exists, is disabled, or has a specific role.
 
@@ -199,6 +218,7 @@ Requirements:
 * The API SHALL reject mismatched `password` and `confirmPassword`.
 * The API SHALL update the user's password hash only after token and password validation pass.
 * The API SHALL mark the token as used after successful password update.
+* The system SHALL queue and immediately attempt to send a password-changed notification after a successful password update.
 
 ## Acceptance Criteria
 

@@ -82,6 +82,18 @@ AND the table SHALL NOT duplicate the same send action as both an inline column 
 
 AND the row action menu SHALL remain the primary list-view location for sending a single claim reminder.
 
+IF an admin opens an academy row from the dashboard Academies panel
+WHEN the row or `View Academy` action is selected
+THEN the dashboard SHALL open a read-only academy detail dialog instead of navigating away from the dashboard.
+
+IF an admin opens the row action menu
+WHEN the admin selects `Edit Academy`
+THEN the dashboard SHALL open an edit dialog containing the Academy form.
+
+AND the edit dialog SHALL save academy changes through the existing academy update action without leaving the dashboard.
+
+AND the row action menu SHALL label the edit action `Edit Academy`, not `Profile Summary`.
+
 IF the `Claim Invite` status column renders an eligible academy
 WHEN the admin scans the table
 THEN the column SHALL show status only and SHALL NOT contain an inline link or button that opens the single reminder dialog.
@@ -188,6 +200,10 @@ IF the admin is academy scoped
 WHEN page renders  
 THEN it SHALL show only the assigned academy records.
 
+IF the dashboard academy detail dialog is opened  
+WHEN the selected academy is outside the user's academy scope  
+THEN the dialog SHALL NOT render that academy.
+
 IF filters are applied  
 WHEN page reloads  
 THEN selected filter values SHALL persist.
@@ -225,6 +241,8 @@ THEN it SHALL provide enough response data for the UI to update reminder status 
 * New Academy action appears only where permitted.
 * The existing search textbox remains visible and usable after reminder controls are added.
 * The Academies panel supports an `Unclaimed with valid email` filter preset.
+* Academy rows open a dashboard `View Academy` dialog instead of leaving the dashboard.
+* The row action menu exposes `Edit Academy`, which opens an editable academy dialog.
 * Eligible academy rows expose `Send claim reminder`.
 * Eligible academy rows expose `Send claim reminder` from the row action menu, not from the `Claim Invite` status column.
 * Ineligible academy rows show the reason the reminder action is unavailable.

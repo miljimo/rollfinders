@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { canSendManagedUserPasswordReset, getCurrentUser, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
-import { queuePasswordResetEmail } from "@/lib/password-reset";
+import { requestPasswordResetForEmail } from "@/lib/password-reset";
 import { prisma } from "@/lib/prisma";
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +16,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Password reset is not allowed for this account" }, { status: 403 });
   }
 
-  const { expiresAt } = await queuePasswordResetEmail(user);
+  const { expiresAt } = await requestPasswordResetForEmail(user.email);
+  if (!expiresAt) return NextResponse.json({ error: "Password reset email could not be sent" }, { status: 500 });
   await writeAdminAuditLog({
     actorUserId: actor.id,
     targetUserId: id,

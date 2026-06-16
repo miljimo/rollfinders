@@ -14,23 +14,24 @@ describe("admin-triggered password reset contracts", () => {
     assert.match(routeSource, /const\s+user\s*=\s*await\s+prisma\.user\.findUnique\(\{\s*where:\s*\{\s*id\s*\}\s*\}\)/);
     assert.match(routeSource, /if\s*\(!user\)\s*return\s+NextResponse\.json\(\{\s*error:\s*"User not found"\s*\},\s*\{\s*status:\s*404\s*\}\)/);
     assert.match(routeSource, /if\s*\(!canSendManagedUserPasswordReset\(actor,\s*user\)\)/);
-    assert.match(routeSource, /const\s+\{\s*expiresAt\s*\}\s*=\s*await\s+queuePasswordResetEmail\(user\)/);
+    assert.match(routeSource, /const\s+\{\s*expiresAt\s*\}\s*=\s*await\s+requestPasswordResetForEmail\(user\.email\)/);
     assert.match(routeSource, /action:\s*"USER_PASSWORD_RESET_EMAIL_SENT"/);
     assert.match(routeSource, /metadata:\s*\{\s*email:\s*user\.email,\s*expiresAt:\s*expiresAt\.toISOString\(\)\s*\}/);
 
     assert.ok(
-      routeSource.indexOf("await queuePasswordResetEmail(user)") > routeSource.indexOf("!canSendManagedUserPasswordReset(actor, user)"),
-      "password reset email must only queue after permission checks",
+      routeSource.indexOf("await requestPasswordResetForEmail(user.email)") > routeSource.indexOf("!canSendManagedUserPasswordReset(actor, user)"),
+      "password reset email must only be requested after permission checks",
     );
     assert.ok(
-      routeSource.indexOf('action: "USER_PASSWORD_RESET_EMAIL_SENT"') > routeSource.indexOf("await queuePasswordResetEmail(user)"),
-      "audit log must be written after the reset email is queued",
+      routeSource.indexOf('action: "USER_PASSWORD_RESET_EMAIL_SENT"') > routeSource.indexOf("await requestPasswordResetForEmail(user.email)"),
+      "audit log must be written after the reset email is requested",
     );
   });
 
   it("returns visible feedback after admin password reset form submissions", () => {
     assert.match(actionSource, /export\s+async\s+function\s+sendPasswordChangeEmail\(userId:\s*string,\s*formData\?:\s*FormData\)/);
     assert.match(actionSource, /managedUsersReturnPath\(String\(formData\?\.get\("returnTo"\)\s*\?\?\s*"\/dashboard\?panel=users"\)\)/);
+    assert.match(actionSource, /await\s+requestPasswordResetForEmail\(user\.email\)/);
     assert.match(actionSource, /userResult",\s*"password_reset_sent"/);
     assert.match(actionSource, /userResult",\s*"password_reset_failed"/);
     assert.match(actionSource, /email",\s*user\.email/);

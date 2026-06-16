@@ -67,7 +67,11 @@ export function ActionMenu({
       </button>
       {open ? (
         <div
-          onClick={() => setOpen(false)}
+          onClick={(event) => {
+            if (event.target instanceof Element && event.target.closest("a")) {
+              setOpen(false);
+            }
+          }}
           className={menuClassName}
           role="menu"
           style={menuPosition ? {

@@ -18,7 +18,7 @@ Sources:
 
 # Objective
 
-Allow any user to request and complete password reset securely, and allow platform admins and super admins to queue password reset emails for permitted lower user accounts when those users have lost their password.
+Allow any user to request and complete password reset securely, allow platform admins and super admins to request password reset emails for permitted lower user accounts through the same reset request service, and notify users when their password changes without exposing plaintext credentials.
 
 ---
 
@@ -31,6 +31,8 @@ IF a user requests a password reset for their own email address
 WHEN the email belongs to an active account
 
 THEN the API SHALL queue a password reset email without exposing account details to unauthenticated clients.
+
+AND the email SHALL use the approved RollFinders HTML password reset template with a plain-text fallback.
 
 ## USER-PWRESET-002: Unknown Email Privacy
 
@@ -114,7 +116,11 @@ IF a reset request is valid
 
 WHEN email queuing succeeds
 
-THEN the API SHALL queue a password reset email and return `{ "ok": true, "expiresAt": "<timestamp>" }`.
+THEN the API SHALL queue and immediately attempt to send a password reset email.
+
+AND admin reset endpoints SHALL use the same reset request service used by the login forgot-password flow.
+
+AND the API SHALL return `{ "ok": true, "expiresAt": "<timestamp>" }`.
 
 ## USER-PWRESET-010: Audit Logging
 
@@ -123,6 +129,22 @@ IF an admin-triggered password reset email is queued
 WHEN the operation succeeds
 
 THEN the API SHALL write an admin audit log entry with the target user and expiration timestamp.
+
+## USER-PWRESET-011: Password Changed Notification
+
+IF a user password is changed through reset-token confirmation or self-service dashboard password change
+
+WHEN the password hash has been updated successfully
+
+THEN the system SHALL queue and immediately attempt to send a password-changed notification email to the user's account email.
+
+AND the email SHALL use the same RollFinders HTML email style as password reset emails with a plain-text fallback.
+
+AND the email SHALL include the username/email and a fresh reset link.
+
+AND the email SHALL NOT include the user's plaintext password.
+
+AND the email SHALL explicitly state that passwords are not sent by email.
 
 ---
 
@@ -138,4 +160,6 @@ THEN the API SHALL write an admin audit log entry with the target user and expir
 * Admin role and academy scope are enforced.
 * Successful admin queue returns `ok` and `expiresAt`.
 * Plaintext credentials are not returned.
+* Password reset and password-changed email bodies do not include plaintext passwords.
+* Password-changed notifications include a secure reset link for account recovery.
 * Successful admin-triggered queue is audit logged.

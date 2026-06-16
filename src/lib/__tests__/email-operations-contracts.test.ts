@@ -21,6 +21,23 @@ describe("email operations contracts", () => {
     );
   });
 
+  it("password changed emails use HTML and do not send plaintext passwords", () => {
+    const source = readSource("src/lib/password-reset.ts");
+    const dashboardAction = readSource("src/app/dashboard/password/PasswordActions.ts");
+    const adminSettingsAction = readSource("src/app/admin/settings/actions.ts");
+
+    assert.match(source, /export\s+async\s+function\s+queuePasswordChangedEmail/);
+    assert.match(source, /subject:\s*"Your RollFinders password was changed"/);
+    assert.match(source, /Username:/);
+    assert.match(source, /Password:/);
+    assert.match(source, /Not sent by email/);
+    assert.match(source, /html:\s*passwordChangedEmailHtml/);
+    assert.match(source, /await\s+sendQueuedEmail\(outboundEmail\.id\)/);
+    assert.doesNotMatch(source, /password:\s*password\b|Password:\s*\$\{password\}/);
+    assert.match(dashboardAction, /await\s+queuePasswordChangedEmail\(user\)/);
+    assert.match(adminSettingsAction, /await\s+queuePasswordChangedEmail\(actor\)/);
+  });
+
   it("academy claim reminder emails are sent immediately after being queued", () => {
     const source = readSource("src/app/admin/academies/actions.ts");
 

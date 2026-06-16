@@ -170,7 +170,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(adminSource, /function AcademyProfilePanel/);
     assert.match(adminSource, /returnTo="\/dashboard\?panel=academies"/);
     assert.match(adminSource, /updateAcademy\.bind\(null,\s*academy\.id\)/);
-    assert.match(adminSource, /Profile Summary/);
+    assert.match(adminSource, /Edit Academy/);
     assert.match(academyDetailSource, /requireAcademyEditor\(id\)/);
     assert.match(academyDetailSource, /isPlatformAdminRole\(currentUser\?\.role\)/);
     assert.match(academyDetailSource, /prisma\.analyticsEvent\.count\(\{/);
@@ -182,6 +182,25 @@ describe("unified dashboard route contracts", () => {
     assert.match(academyDetailSource, /<Info label="Open mats" value=\{academy\.events\.length\.toString\(\)\} \/>/);
     assert.match(academyDetailSource, /<Info label="Admins" value=\{academy\.members\.length\.toString\(\)\} \/>/);
     assert.doesNotMatch(standardSource, /Academy Profile Summary|Profile Summary|\/admin\/academies\/\$\{currentUser\.academyId\}/);
+  });
+
+  it("dashboard academy table opens academy details in a dialog instead of leaving the dashboard", () => {
+    const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const academiesTableSource = source.match(/export function AcademiesTable[\s\S]*?function UsersTable/)?.[0] ?? "";
+
+    assert.match(source, /dialog\s*===\s*"view-academy"/);
+    assert.match(source, /dialog\s*===\s*"edit-academy"/);
+    assert.match(source, /<ViewAcademyDialog/);
+    assert.match(source, /<EditAcademyDialog/);
+    assert.match(source, /function\s+ViewAcademyDialog/);
+    assert.match(source, /function\s+EditAcademyDialog/);
+    assert.match(source, /<AcademyForm[\s\S]*action=\{updateAcademy\.bind\(null,\s*academy\.id\)\}/);
+    assert.match(academiesTableSource, /adminAcademiesHref\(params,\s*\{\s*dialog:\s*"view-academy",\s*academyId:\s*academy\.id\s*\}\)/);
+    assert.match(academiesTableSource, /adminAcademiesHref\(params,\s*\{\s*dialog:\s*"edit-academy",\s*academyId:\s*academy\.id\s*\}\)/);
+    assert.match(academiesTableSource, /Edit Academy/);
+    assert.doesNotMatch(academiesTableSource, /const\s+academyHref\s*=\s*`\/admin\/academies\/\$\{academy\.id\}`/);
+    assert.doesNotMatch(academiesTableSource, /href=\{`\/admin\/academies\/\$\{academy\.id\}`\}/);
+    assert.doesNotMatch(academiesTableSource, /Profile Summary/);
   });
 
   it("managed user actions only return to canonical admin or dashboard paths", () => {

@@ -217,6 +217,28 @@ function platformAdminAcademiesHref(searchParams: AdminSearchParams, overrides: 
   return `/dashboard?${params.toString()}`;
 }
 
+function dashboardUsersHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined> = {}) {
+  const params = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (!value || key === "userResult" || key === "email" || key === "dialog" || key === "userId") return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => item && params.append(key, item));
+      return;
+    }
+    params.set(key, value);
+  });
+  params.set("panel", "users");
+  Object.entries(overrides).forEach(([key, value]) => {
+    if (value === undefined || value === "" || value === 1) {
+      params.delete(key);
+      return;
+    }
+    params.set(key, String(value));
+  });
+  params.set("panel", "users");
+  return `/dashboard?${params.toString()}`;
+}
+
 function claimApiParams({ page, pageSize, search, status }: { page: number; pageSize: number; search: string; status: string }) {
   const params = new URLSearchParams();
   params.set("page", String(page));
@@ -509,6 +531,17 @@ export default async function AdminDashboardWorkspace({
           },
           activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
           createdBy: { select: { role: true, academyId: true, academyMemberships: { select: { academyId: true, role: true } } } },
+        },
+      })
+    : null;
+  const selectedDialogAcademy = panel === "academies" && (dialog === "view-academy" || dialog === "edit-academy") && academyDialogId
+    ? await prisma.academy.findFirst({
+        where: { AND: [academyScopeWhere, { id: academyDialogId }] },
+        include: {
+          claims: true,
+          events: { where: { active: true }, orderBy: { eventDate: "asc" }, take: 5 },
+          members: true,
+          socialLinks: { orderBy: { platform: "asc" } },
         },
       })
     : null;
@@ -895,7 +928,7 @@ export default async function AdminDashboardWorkspace({
               title="Users & Roles"
             >
               <UserResult params={params} />
-              <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} users={users} />
+              <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} params={params} users={users} />
               <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
             </AdminPanel>
           ) : null}
@@ -915,6 +948,12 @@ export default async function AdminDashboardWorkspace({
       ) : null}
       {panel === "academies" && dialog === "new-academy" && platformAdmin ? (
         <NewAcademyDialog />
+      ) : null}
+      {panel === "academies" && dialog === "view-academy" && selectedDialogAcademy ? (
+        <ViewAcademyDialog academy={selectedDialogAcademy} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} showAcademyStats={platformAdmin} />
+      ) : null}
+      {panel === "academies" && dialog === "edit-academy" && selectedDialogAcademy ? (
+        <EditAcademyDialog academy={selectedDialogAcademy} academyAdmin={academyAdmin} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} />
       ) : null}
       {panel === "academies" && dialog === "claim-reminder" && selectedReminderAcademy ? (
         <ClaimReminderDialog academy={selectedReminderAcademy} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} />
@@ -944,6 +983,117 @@ type DashboardEventDetail = Prisma.EventGetPayload<{
     createdBy: { select: { role: true; academyId: true; academyMemberships: { select: { academyId: true; role: true } } } };
   };
 }>;
+
+type DashboardAcademyDetail = Prisma.AcademyGetPayload<{
+  include: {
+    claims: true;
+    events: true;
+    members: true;
+    socialLinks: true;
+  };
+}>;
+
+function ViewAcademyDialog({ academy, closeHref, showAcademyStats }: { academy: DashboardAcademyDetail; closeHref: string; showAcademyStats: boolean }) {
+  const claimState = academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)
+    ? "Claimed"
+    : academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)
+      ? "Pending claim"
+      : "Unclaimed";
+
+  return (
+    <DialogShell closeHref={closeHref} description={`${academy.city}, ${academy.postcode}`} maxWidthClass="max-w-5xl" title={academy.name}>
+      <section className="pt-5">
+        <div className="flex flex-wrap gap-2">
+          <Badge>{academy.verificationStatus}</Badge>
+          <Badge>{academy.featured ? "Featured" : "Not Featured"}</Badge>
+          <Badge>{claimState}</Badge>
+        </div>
+
+        <div className={`mt-6 grid gap-4 ${showAcademyStats ? "lg:grid-cols-3" : ""}`}>
+          <section className={`rounded-lg border border-stone-200 bg-white p-4 ${showAcademyStats ? "lg:col-span-2" : ""}`}>
+            <h3 className="text-lg font-black text-stone-950">Summary</h3>
+            <p className="mt-3 whitespace-pre-wrap leading-7 text-stone-700">{academy.description || "No description has been added."}</p>
+            <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <DialogInfo label="Website" value={academy.website ? <a className="break-all text-teal-800" href={academy.website} target="_blank" rel="noreferrer">{academy.website}</a> : "Not listed"} />
+              <DialogInfo label="Email" value={academy.email ? <a className="break-all text-teal-800" href={`mailto:${academy.email}`}>{academy.email}</a> : "Not listed"} />
+              <DialogInfo label="Phone" value={academy.phone ? <a className="text-teal-800" href={`tel:${academy.phone}`}>{academy.phone}</a> : "Not listed"} />
+              <DialogInfo label="Categories" value={academy.categories || "Not categorised"} />
+              <DialogInfo label="Address" value={`${academy.address}, ${academy.city} ${academy.postcode}`} />
+              <DialogInfo label="Location" value={academy.borough ?? academy.city} />
+            </div>
+          </section>
+
+          {showAcademyStats ? (
+            <section className="rounded-lg border border-stone-200 bg-white p-4">
+              <h3 className="text-lg font-black text-stone-950">Statistics</h3>
+              <div className="mt-3 grid gap-3">
+                <DialogInfo label="Claim requests" value={academy.claims.length.toString()} />
+                <DialogInfo label="Admins" value={academy.members.length.toString()} />
+                <DialogInfo label="Upcoming courses/events" value={academy.events.length.toString()} />
+                <DialogInfo label="Reviews" value="0" />
+                <DialogInfo label="Average rating" value="Not rated" />
+              </div>
+            </section>
+          ) : null}
+        </div>
+
+        {academy.socialLinks.length ? (
+          <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
+            <h3 className="text-lg font-black text-stone-950">Social Links</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {academy.socialLinks.map((link) => (
+                <Button key={link.id} href={link.url} target="_blank" rel="noreferrer" variant="secondary" size="sm">
+                  {sentenceCase(link.platform)}
+                </Button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
+          <h3 className="text-lg font-black text-stone-950">Upcoming Courses/Events</h3>
+          <div className="mt-3 grid gap-3">
+            {academy.events.map((event) => (
+              <div key={event.id} className="rounded-md bg-stone-50 p-3 text-sm text-stone-700">
+                <p className="font-bold text-stone-950">{event.title}</p>
+                <p>{formatDate(event.eventDate)} · {event.startTime}-{event.endTime}</p>
+              </div>
+            ))}
+            {!academy.events.length ? <p className="text-sm font-semibold text-stone-600">No active courses or events are listed.</p> : null}
+          </div>
+        </section>
+
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Button href={`/academies/${academy.slug}`} target="_blank" rel="noreferrer" variant="secondary">View Public Profile</Button>
+          <Button href={directionsUrl(`${academy.address}, ${academy.city} ${academy.postcode}`)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
+        </div>
+      </section>
+    </DialogShell>
+  );
+}
+
+function EditAcademyDialog({ academy, academyAdmin, closeHref }: { academy: DashboardAcademyDetail; academyAdmin: boolean; closeHref: string }) {
+  return (
+    <DialogShell closeHref={closeHref} description="Edit academy information without leaving the dashboard." maxWidthClass="max-w-6xl" title={`Edit ${academy.name}`}>
+      <AcademyForm
+        action={updateAcademy.bind(null, academy.id)}
+        academy={academy}
+        canManagePlatformFields={!academyAdmin}
+        cancelHref={closeHref}
+        returnTo={closeHref}
+      />
+    </DialogShell>
+  );
+}
+
+function DialogInfo({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-bold uppercase text-slate-500">{label}</p>
+      <div className="mt-1 break-words font-semibold text-slate-950">{value}</div>
+    </div>
+  );
+}
 
 function ViewEventDialog({ event }: { event: DashboardEventDetail }) {
   const openMat = event.courseType === CourseType.OPEN_MAT;
@@ -2033,7 +2183,8 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
           <tbody>
             {academies.map((academy) => {
               const reminder = academyReminderState(academy);
-              const academyHref = `/admin/academies/${academy.id}`;
+              const academyHref = adminAcademiesHref(params, { dialog: "view-academy", academyId: academy.id });
+              const editAcademyHref = adminAcademiesHref(params, { dialog: "edit-academy", academyId: academy.id });
               return (
                 <TableRow key={academy.id} href={academyHref}>
                   <td className="px-4 py-4">
@@ -2055,13 +2206,13 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
                   <LinkedTableCell href={academyHref}><Badge>{academy.featured ? "Featured" : "No"}</Badge></LinkedTableCell>
                   <td className="px-5 py-4 text-center">
                     <ActionMenu label={`Open actions for ${academy.name}`}>
-                      <Link href={`/academies/${academy.slug}`} className={menuItemClass}>
+                      <Link href={academyHref} className={menuItemClass}>
                         <Eye size={18} aria-hidden />
                         View Academy
                       </Link>
-                      <Link href={`/admin/academies/${academy.id}`} className={menuItemClass}>
+                      <Link href={editAcademyHref} className={menuItemClass}>
                         <Edit3 size={18} aria-hidden />
-                        Profile Summary
+                        Edit Academy
                       </Link>
                       {reminder.eligible ? (
                         <Link href={adminAcademiesHref(params, { dialog: "claim-reminder", academyId: academy.id })} className={menuItemClass}>
@@ -2087,9 +2238,10 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
   );
 }
 
-function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcademyId?: string | null; actorId: string; actorRole: Role; users: UserRow[] }) {
+function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { actorAcademyId?: string | null; actorId: string; actorRole: Role; params: AdminSearchParams; users: UserRow[] }) {
   const canViewRoleColumn = isPlatformAdminRole(actorRole);
   const emptyColSpan = canViewRoleColumn ? 7 : 6;
+  const returnTo = dashboardUsersHref(params);
 
   return (
     <div className="mt-4 overflow-x-auto">
@@ -2147,8 +2299,8 @@ function UsersTable({ actorAcademyId, actorId, actorRole, users }: { actorAcadem
                         </Link>
                         {canSendPasswordReset ? (
                           <form action={sendPasswordChangeEmail.bind(null, user.id)}>
-                            <input type="hidden" name="returnTo" value="/dashboard?panel=users" />
-                            <button className={menuItemClass}>
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <button type="submit" className={menuItemClass}>
                               <KeyRound size={18} aria-hidden />
                               Send Password Reset
                             </button>

@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { canSendManagedUserPasswordReset, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
-import { queuePasswordResetEmail } from "@/lib/password-reset";
+import { requestPasswordResetForEmail } from "@/lib/password-reset";
 import { ensurePlatformAdminProfile } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";
 
@@ -278,7 +278,9 @@ export async function sendPasswordChangeEmail(userId: string, formData?: FormDat
 
   let expiresAt: Date;
   try {
-    ({ expiresAt } = await queuePasswordResetEmail(user));
+    const result = await requestPasswordResetForEmail(user.email);
+    if (!result.expiresAt) throw new Error("Password reset email was not sent.");
+    expiresAt = result.expiresAt;
   } catch {
     const url = new URL(returnTo, "http://localhost");
     url.searchParams.set("userResult", "password_reset_failed");
