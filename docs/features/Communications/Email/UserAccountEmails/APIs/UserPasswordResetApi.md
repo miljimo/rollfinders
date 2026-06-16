@@ -6,13 +6,13 @@ Routes:
 
 - `POST /api/auth/password/reset/request`
 - `POST /api/auth/password/reset/confirm`
-- `POST /api/admin/users/[id]/password/reset`
+- `POST /api/admin/users/[id]/password-reset`
 
 Sources:
 
 - `src/app/api/auth/password/reset/request/route.ts`
 - `src/app/api/auth/password/reset/confirm/route.ts`
-- `src/app/api/admin/users/[id]/password/reset/route.ts`
+- `src/app/api/admin/users/[id]/password-reset/route.ts`
 
 ---
 
@@ -60,7 +60,7 @@ THEN the API SHALL reject the password change without revealing sensitive accoun
 
 ## USER-PWRESET-005: Admin Authorization
 
-IF a user calls `POST /api/admin/users/[id]/password/reset`
+IF a user calls `POST /api/admin/users/[id]/password-reset`
 
 WHEN the user lacks admin API access
 
@@ -129,6 +129,20 @@ IF an admin-triggered password reset email is queued
 WHEN the operation succeeds
 
 THEN the API SHALL write an admin audit log entry with the target user and expiration timestamp.
+
+## USER-PWRESET-010A: Admin UI Feedback
+
+IF an admin triggers `Send Password Reset` from the dashboard Users panel
+
+WHEN the shared reset request service completes successfully
+
+THEN the dashboard SHALL return to the Users panel and show visible success feedback.
+
+IF the shared reset request service fails
+
+WHEN the dashboard receives the failure state
+
+THEN the dashboard SHALL show visible failure feedback.
 
 ## USER-PWRESET-011: Password Changed Notification
 

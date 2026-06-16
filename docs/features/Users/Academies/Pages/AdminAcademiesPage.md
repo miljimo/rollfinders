@@ -1,8 +1,10 @@
 # PRD: Admin Academies Page
 
-Route: `/admin?panel=academies`
+Route: `/dashboard?panel=academies`
 
-Source: `src/app/admin/page.tsx`
+Legacy compatible route: `/admin?panel=academies`
+
+Source: `src/app/dashboard/AdminDashboardWorkspace.tsx`
 
 Related PRDs:
 
