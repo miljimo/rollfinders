@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "crypto";
 import bcrypt from "bcryptjs";
+import { OutboundEmailStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
 
@@ -195,6 +196,13 @@ async function createPasswordResetLink(userId: string) {
   return { expiresAt, url };
 }
 
+async function sendQueuedPasswordEmail(outboundEmailId: string) {
+  const sentEmail = await sendQueuedEmail(outboundEmailId);
+  if (sentEmail?.status !== OutboundEmailStatus.SENT) {
+    throw new Error(sentEmail?.failureReason ?? "Password reset email was not sent.");
+  }
+}
+
 export async function queuePasswordResetEmail(user: { id: string; email: string; name?: string | null }) {
   const { expiresAt, url } = await createPasswordResetLink(user.id);
   const recipientName = user.name?.trim() || "there";
@@ -210,7 +218,7 @@ export async function queuePasswordResetEmail(user: { id: string; email: string;
       year: new Date().getFullYear(),
     }),
   });
-  await sendQueuedEmail(outboundEmail.id);
+  await sendQueuedPasswordEmail(outboundEmail.id);
 
   return { expiresAt };
 }
@@ -231,7 +239,7 @@ export async function queuePasswordChangedEmail(user: { id: string; email: strin
       year: new Date().getFullYear(),
     }),
   });
-  await sendQueuedEmail(outboundEmail.id);
+  await sendQueuedPasswordEmail(outboundEmail.id);
 
   return { expiresAt };
 }

@@ -29,7 +29,7 @@ import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders,
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
 import { createCourse } from "../admin/courses/actions";
-import { createManagedUser, deleteManagedUser, sendPasswordChangeEmail, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
+import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
@@ -2298,7 +2298,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                           Edit User
                         </Link>
                         {canSendPasswordReset ? (
-                          <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                          <form action={`/api/admin/users/${user.id}/password-reset`} method="post">
                             <input type="hidden" name="returnTo" value={returnTo} />
                             <button type="submit" className={menuItemClass}>
                               <KeyRound size={18} aria-hidden />

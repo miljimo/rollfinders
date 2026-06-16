@@ -2,12 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ChevronDown, Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
-import { GiType, Role, UserStatus, type Prisma } from "@prisma/client";
+import { GiType, Role, UserStatus, type CourseType, type Prisma } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { Table, type TableColumn, type TableRecord } from "@/components/Table";
-import { coursePriceLabel } from "@/lib/courses";
+import { courseHref, coursePriceLabel } from "@/lib/courses";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
@@ -37,6 +37,7 @@ type RollRow = TableRecord & {
   time: string;
   giType: string;
   price: string;
+  courseType: CourseType;
 };
 
 function firstParam(value: string | string[] | undefined) {
@@ -137,6 +138,7 @@ export default async function DashboardPage({
           startTime: true,
           endTime: true,
           giType: true,
+          courseType: true,
           pricingType: true,
           price: true,
           donationLabel: true,
@@ -216,6 +218,7 @@ type DashboardRoll = Prisma.EventGetPayload<{
     startTime: true;
     endTime: true;
     giType: true;
+    courseType: true;
     pricingType: true;
     price: true;
     donationLabel: true;
@@ -245,6 +248,7 @@ function DashboardPanel({
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
     price: coursePriceLabel(roll),
+    courseType: roll.courseType,
   }));
   const columns: TableColumn<RollRow>[] = [
     {
@@ -295,7 +299,7 @@ function DashboardPanel({
           columns={columns}
           data={rows}
           emptyMessage={academy ? "No upcoming courses/events match this academy search." : "No academy is assigned, so no courses/events data can be shown."}
-          getRowHref={(row) => `/open-mats/${row.id}`}
+          getRowHref={(row) => courseHref(row)}
           getRowId={(row) => row.id}
           pagination={{
             page: rollsPage,
