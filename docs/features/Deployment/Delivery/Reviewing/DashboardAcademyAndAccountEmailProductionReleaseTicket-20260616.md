@@ -2,7 +2,7 @@
 
 ## Status
 
-Prepared for production deployment on 2026-06-16.
+Deployed to production on 2026-06-16.
 
 ## Release Candidate
 
@@ -10,10 +10,10 @@ Prepared for production deployment on 2026-06-16.
 * Target environment: `production`
 * Base commit before release documentation commit: `851f6c6 Reset password send emails`
 * Release ticket preparation commit: `3d7ee0e Document dashboard academy and account email release`
-* Deployed master commit: pending
-* Production image: pending
-* Production image digest: pending
-* Production release tag: pending
+* Deployed master commit: `d03aa50d900d75d34b1b21a7908b816ccb0278a4`
+* Production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:d03aa50`
+* Production image digest: `sha256:ad9fd13d4d6afaee9ecce1eb612f399445df7345652414e0748e6559cd6340b3`
+* Production release tag: `production-2026-06-16-01`
 * Production URL: `https://rollfinders.com`
 * Requested date: 2026-06-16
 * Release owner request: Product owner request in Codex session
@@ -134,17 +134,17 @@ AND this ticket SHALL be updated with rollback reason, user impact, and follow-u
 
 ## Validation Checklist
 
-* [ ] `master` pushed to `origin/master`.
+* [x] `master` pushed to `origin/master`.
 * [x] Release owner request recorded.
 * [x] `npm run typecheck` passed.
 * [x] Targeted unit and contract tests passed.
 * [x] Local Docker app health check passed.
-* [ ] Production release tag selected.
-* [ ] Production shallow and deep health checks pass before deployment.
-* [ ] Production migrations complete successfully or report no pending changes.
-* [ ] ECS production service stabilizes.
-* [ ] Production shallow and deep health checks pass after deployment.
-* [ ] Public page smoke checks passed.
+* [x] Production release tag selected.
+* [x] Production shallow and deep health checks pass before deployment.
+* [x] Production migrations complete successfully or report no pending changes.
+* [x] ECS production service stabilizes.
+* [x] Production shallow and deep health checks pass after deployment.
+* [x] Public page smoke checks passed.
 * [ ] Authenticated dashboard smoke checks passed.
 * [x] E2E attempted; blocked by missing local Playwright runtime dependency `libnspr4.so`.
 * [x] Rollback criteria reviewed before deployment.
@@ -157,16 +157,16 @@ Record promotion evidence here:
 * Approval time: 2026-06-16.
 * Test engineer: Tina Ugbekile.
 * Platform engineer: delegated platform safety review in Codex session.
-* Pushed remote commit: pending (`3d7ee0e` prepared locally).
-* Pushed release tag: pending.
-* Production deployment: pending.
-* AWS account: pending.
-* Rollback target before deployment: pending.
-* Production task definition after deployment: pending.
-* ECS result: pending.
-* Target group result: pending.
-* Migration result: pending.
-* Super admin task result: pending.
-* Health check result: pending.
-* Public smoke result: pending.
-* Authenticated admin smoke result: pending.
+* Pushed remote commit: `d03aa50d900d75d34b1b21a7908b816ccb0278a4`.
+* Pushed release tag: `production-2026-06-16-01`.
+* Production deployment: completed with `scripts/cicd/deploy-environment.sh`.
+* AWS account: `533235209034`.
+* Rollback target before deployment: ECS service was on image `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:61a818e`.
+* Production task definition after deployment: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:37`.
+* ECS result: service `rollfinder-production/web` active, rollout completed, desired `2`, running `2`, pending `0`.
+* Target group result: covered by ECS stabilization and application health checks.
+* Migration result: migration task completed successfully.
+* Super admin task result: completed successfully.
+* Health check result: `https://rollfinders.com/api/health` returned HTTP 200 and `https://rollfinders.com/api/health?deep=1` returned HTTP 200 with database `ok`.
+* Public smoke result: `/login`, `/open-mats`, `/courses`, and `/academies` returned HTTP 200.
+* Authenticated admin smoke result: not manually completed in production because no browser-authenticated admin session was available in this deployment shell.
