@@ -9,7 +9,7 @@ Prepared for production deployment on 2026-06-16.
 * Source branch: `master`
 * Target environment: `production`
 * Base commit before release documentation commit: `851f6c6 Reset password send emails`
-* Release ticket preparation commit: pending
+* Release ticket preparation commit: `3d7ee0e Document dashboard academy and account email release`
 * Deployed master commit: pending
 * Production image: pending
 * Production image digest: pending
@@ -157,7 +157,7 @@ Record promotion evidence here:
 * Approval time: 2026-06-16.
 * Test engineer: Tina Ugbekile.
 * Platform engineer: delegated platform safety review in Codex session.
-* Pushed remote commit: pending.
+* Pushed remote commit: pending (`3d7ee0e` prepared locally).
 * Pushed release tag: pending.
 * Production deployment: pending.
 * AWS account: pending.
