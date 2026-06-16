@@ -37,6 +37,29 @@ curl -s http://localhost:8080/v1/payments \
   -d '{"amount":1299,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}'
 ```
 
+Create a RollFinders course occurrence checkout:
+
+```bash
+curl -s http://localhost:8080/v1/course-occurrence-checkouts \
+  -H 'Authorization: Bearer local-dev-key' \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: course-cmq123-2026-06-08-1900-student' \
+  -d '{
+    "course_id":"cmq123",
+    "academy_id":"academy123",
+    "occurrence_date":"2026-06-08",
+    "occurrence_start_time":"19:00",
+    "occurrence_end_time":"20:30",
+    "amount":1000,
+    "currency":"GBP",
+    "provider":"paypal",
+    "payment_method_type":"paypal",
+    "payer_email":"student@example.com",
+    "success_url":"https://rollfinders.com/payments/return?status=success",
+    "cancel_url":"https://rollfinders.com/payments/return?status=cancelled"
+  }'
+```
+
 Refund a payment:
 
 ```bash
@@ -79,12 +102,34 @@ If `DATABASE_URL` or `API_KEY` is missing, `/readyz` returns `503` with a clear 
 
 Money-moving mutating endpoints require `Idempotency-Key`:
 
+- `POST /v1/course-occurrence-checkouts`
 - `POST /v1/payments`
 - `POST /v1/payments/{id}/capture`
 - `POST /v1/payments/{id}/cancel`
 - `POST /v1/payments/{id}/refunds`
 
 Retrying the same key with the same request body returns the original response with `Idempotent-Replayed: true`. Reusing the same key for a different request returns `409 idempotency_conflict`.
+
+## RollFinders Course Occurrence Checkouts
+
+`POST /v1/course-occurrence-checkouts` is the RollFinders integration endpoint for paid Courses. It creates an underlying payment and returns:
+
+- `checkout_session_id`
+- `checkout_url`
+- `payment_id`
+- Course occurrence identifiers
+- payer email
+- expiry timestamp
+
+The endpoint requires one Course occurrence:
+
+- `course_id`
+- `academy_id`
+- `occurrence_date`
+- `occurrence_start_time`
+- `occurrence_end_time`
+
+Recurring Courses must call this endpoint for the selected occurrence only. The service writes `payment_scope=COURSE_OCCURRENCE` and the occurrence fields into payment metadata so downstream webhook reconciliation can verify the payment belongs to the expected RollFinders Course occurrence.
 
 ## Providers
 

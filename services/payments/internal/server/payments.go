@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"payments/internal/handlers"
@@ -20,6 +21,23 @@ type createPaymentRequest struct {
 	CaptureMethod     string            `json:"capture_method"`
 	ExternalReference string            `json:"external_reference"`
 	Metadata          map[string]string `json:"metadata"`
+}
+
+type createCourseOccurrenceCheckoutRequest struct {
+	CourseID            string            `json:"course_id"`
+	AcademyID           string            `json:"academy_id"`
+	OccurrenceDate      string            `json:"occurrence_date"`
+	OccurrenceStartTime string            `json:"occurrence_start_time"`
+	OccurrenceEndTime   string            `json:"occurrence_end_time"`
+	Amount              int64             `json:"amount"`
+	Currency            string            `json:"currency"`
+	Provider            string            `json:"provider"`
+	PaymentMethodType   string            `json:"payment_method_type"`
+	PayerUserID         string            `json:"payer_user_id"`
+	PayerEmail          string            `json:"payer_email"`
+	SuccessURL          string            `json:"success_url"`
+	CancelURL           string            `json:"cancel_url"`
+	Metadata            map[string]string `json:"metadata"`
 }
 
 type refundRequest struct {
@@ -60,6 +78,67 @@ func (s *server) createPayment(w http.ResponseWriter, r *http.Request) {
 		s.store.metrics.providerSuccess++
 		s.store.mu.Unlock()
 		return http.StatusCreated, payment
+	})
+	if err != nil {
+		writeIdempotencyError(w, r, err)
+		return
+	}
+	if replay {
+		w.Header().Set("Idempotent-Replayed", "true")
+	}
+	writeJSON(w, status, response)
+}
+
+func (s *server) createCourseOccurrenceCheckout(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readJSONEndpoint(w, r, true)
+	if !ok {
+		return
+	}
+	req, details := decodeCreateCourseOccurrenceCheckout(raw)
+	if len(details) > 0 {
+		writeError(w, r, http.StatusBadRequest, "validation_error", "Course checkout request validation failed.", details)
+		return
+	}
+	key := r.Header.Get("Idempotency-Key")
+	status, response, replay, err := s.store.withIdempotency("course_occurrence_checkout", key, fingerprint(raw), func() (int, any) {
+		adapter, err := s.providers.get(req.Provider)
+		if err != nil {
+			return http.StatusBadRequest, ErrorEnvelope{Error: APIError{Code: "unsupported_provider", Message: "Provider is not supported.", RequestID: requestIDFrom(r)}}
+		}
+		metadata := cloneMap(req.Metadata)
+		if metadata == nil {
+			metadata = map[string]string{}
+		}
+		metadata["payment_scope"] = "COURSE_OCCURRENCE"
+		metadata["course_id"] = req.CourseID
+		metadata["academy_id"] = req.AcademyID
+		metadata["occurrence_date"] = req.OccurrenceDate
+		metadata["occurrence_start_time"] = req.OccurrenceStartTime
+		metadata["occurrence_end_time"] = req.OccurrenceEndTime
+		metadata["payer_email"] = req.PayerEmail
+		if req.PayerUserID != "" {
+			metadata["payer_user_id"] = req.PayerUserID
+		}
+		paymentReq := createPaymentRequest{
+			Amount:            req.Amount,
+			Currency:          req.Currency,
+			Provider:          req.Provider,
+			PaymentMethodType: req.PaymentMethodType,
+			CaptureMethod:     "automatic",
+			ExternalReference: courseOccurrenceExternalReference(req),
+			Metadata:          metadata,
+		}
+		result, err := adapter.CreatePayment(paymentReq, key)
+		if err != nil {
+			return http.StatusBadGateway, ErrorEnvelope{Error: APIError{Code: "provider_error", Message: "Provider request failed.", RequestID: requestIDFrom(r)}}
+		}
+		payment := s.store.createPayment(paymentReq, result)
+		checkout := s.store.createCourseOccurrenceCheckout(req, payment, checkoutURLForPayment(payment, req.SuccessURL))
+		s.store.mu.Lock()
+		s.store.metrics.payments++
+		s.store.metrics.providerSuccess++
+		s.store.mu.Unlock()
+		return http.StatusCreated, checkout
 	})
 	if err != nil {
 		writeIdempotencyError(w, r, err)
@@ -234,6 +313,73 @@ func decodeCreatePayment(raw []byte) (createPaymentRequest, map[string]string) {
 		details["capture_method"] = "must be automatic or manual"
 	}
 	return req, details
+}
+
+func decodeCreateCourseOccurrenceCheckout(raw []byte) (createCourseOccurrenceCheckoutRequest, map[string]string) {
+	var req createCourseOccurrenceCheckoutRequest
+	details := map[string]string{}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		details["body"] = "does not match the course checkout schema"
+		return req, details
+	}
+	if strings.TrimSpace(req.CourseID) == "" {
+		details["course_id"] = "required"
+	}
+	if strings.TrimSpace(req.AcademyID) == "" {
+		details["academy_id"] = "required"
+	}
+	if strings.TrimSpace(req.OccurrenceDate) == "" {
+		details["occurrence_date"] = "required"
+	}
+	if strings.TrimSpace(req.OccurrenceStartTime) == "" {
+		details["occurrence_start_time"] = "required"
+	}
+	if strings.TrimSpace(req.OccurrenceEndTime) == "" {
+		details["occurrence_end_time"] = "required"
+	}
+	if req.Amount <= 0 {
+		details["amount"] = "must be a positive integer in minor currency units"
+	}
+	if !validCurrency(req.Currency) {
+		details["currency"] = "must be a three-letter uppercase currency code"
+	}
+	if req.Provider != "stripe" && req.Provider != "paypal" {
+		details["provider"] = "must be stripe or paypal"
+	}
+	if req.PaymentMethodType != "card" && req.PaymentMethodType != "paypal" {
+		details["payment_method_type"] = "must be card or paypal"
+	}
+	if strings.TrimSpace(req.PayerEmail) == "" || !strings.Contains(req.PayerEmail, "@") {
+		details["payer_email"] = "must be a valid email address"
+	}
+	if !validAbsoluteURL(req.SuccessURL) {
+		details["success_url"] = "must be an absolute http or https URL"
+	}
+	if !validAbsoluteURL(req.CancelURL) {
+		details["cancel_url"] = "must be an absolute http or https URL"
+	}
+	return req, details
+}
+
+func courseOccurrenceExternalReference(req createCourseOccurrenceCheckoutRequest) string {
+	return strings.Join([]string{req.CourseID, req.OccurrenceDate, req.OccurrenceStartTime}, ":")
+}
+
+func checkoutURLForPayment(payment Payment, fallback string) string {
+	if payment.NextAction != nil {
+		if url := payment.NextAction["url"]; url != "" {
+			return url
+		}
+	}
+	return fallback
+}
+
+func validAbsoluteURL(value string) bool {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return false
+	}
+	return parsed.Scheme == "http" || parsed.Scheme == "https"
 }
 
 func validCurrency(currency string) bool {

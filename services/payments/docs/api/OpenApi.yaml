@@ -52,6 +52,41 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /v1/course-occurrence-checkouts:
+    post:
+      summary: Create a RollFinders course occurrence checkout
+      description: Creates an underlying payment and returns a hosted checkout URL for one Course occurrence.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCourseOccurrenceCheckoutRequest' }
+            examples:
+              paypal:
+                value:
+                  course_id: cmq123
+                  academy_id: academy123
+                  occurrence_date: '2026-06-08'
+                  occurrence_start_time: '19:00'
+                  occurrence_end_time: '20:30'
+                  amount: 1000
+                  currency: GBP
+                  provider: paypal
+                  payment_method_type: paypal
+                  payer_email: student@example.com
+                  success_url: https://rollfinders.com/payments/return?status=success
+                  cancel_url: https://rollfinders.com/payments/return?status=cancelled
+      responses:
+        '201':
+          description: Course occurrence checkout created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CourseOccurrenceCheckout' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /v1/payments/{id}:
     get:
       summary: Get payment
@@ -180,6 +215,47 @@ components:
       properties:
         amount: { type: integer, format: int64, minimum: 1, description: Omit or use zero for full remaining refund. }
         reason: { type: string }
+    CreateCourseOccurrenceCheckoutRequest:
+      type: object
+      required: [course_id, academy_id, occurrence_date, occurrence_start_time, occurrence_end_time, amount, currency, provider, payment_method_type, payer_email, success_url, cancel_url]
+      additionalProperties: false
+      properties:
+        course_id: { type: string, minLength: 1 }
+        academy_id: { type: string, minLength: 1 }
+        occurrence_date: { type: string, format: date }
+        occurrence_start_time: { type: string, example: '19:00' }
+        occurrence_end_time: { type: string, example: '20:30' }
+        amount: { type: integer, format: int64, minimum: 1 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        provider: { type: string, enum: [stripe, paypal] }
+        payment_method_type: { type: string, enum: [card, paypal] }
+        payer_user_id: { type: string }
+        payer_email: { type: string, format: email }
+        success_url: { type: string, format: uri }
+        cancel_url: { type: string, format: uri }
+        metadata:
+          type: object
+          additionalProperties: { type: string }
+    CourseOccurrenceCheckout:
+      type: object
+      required: [checkout_session_id, checkout_url, payment_id, course_id, academy_id, occurrence_date, occurrence_start_time, occurrence_end_time, amount, currency, payer_email, success_url, cancel_url, expires_at, created_at]
+      properties:
+        checkout_session_id: { type: string }
+        checkout_url: { type: string, format: uri }
+        payment_id: { type: string }
+        course_id: { type: string }
+        academy_id: { type: string }
+        occurrence_date: { type: string, format: date }
+        occurrence_start_time: { type: string }
+        occurrence_end_time: { type: string }
+        amount: { type: integer, format: int64 }
+        currency: { type: string }
+        payer_user_id: { type: string }
+        payer_email: { type: string, format: email }
+        success_url: { type: string, format: uri }
+        cancel_url: { type: string, format: uri }
+        expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
     Payment:
       type: object
       required: [id, amount, currency, provider, payment_method_type, capture_method, status, created_at, updated_at]

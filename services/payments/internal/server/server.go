@@ -43,6 +43,7 @@ func New(opts Options) http.Handler {
 		mustHandle("/metrics", []string{http.MethodGet}, s.metrics)
 	}
 	auth := s.requireAuth
+	mustHandle("/v1/course-occurrence-checkouts", []string{http.MethodPost}, s.createCourseOccurrenceCheckout, auth)
 	mustHandle("/v1/payments", []string{http.MethodPost}, s.createPayment, auth)
 	mustHandle("/v1/payments/{id}", []string{http.MethodGet}, s.getPayment, auth)
 	mustHandle("/v1/payments/{id}/capture", []string{http.MethodPost}, s.capturePayment, auth)

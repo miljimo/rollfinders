@@ -114,6 +114,73 @@ func TestCreatePaymentValidRequestCreatesPayment(t *testing.T) {
 	}
 }
 
+func TestCreateCourseOccurrenceCheckoutCreatesCheckout(t *testing.T) {
+	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com","success_url":"https://rollfinders.test/payments/return?status=success","cancel_url":"https://rollfinders.test/payments/return?status=cancelled"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "checkout-test")
+	res := httptest.NewRecorder()
+	testServer("").ServeHTTP(res, req)
+
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
+	}
+
+	var checkout CourseOccurrenceCheckout
+	if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
+		t.Fatal(err)
+	}
+	if checkout.PaymentID == "" || checkout.CheckoutSessionID == "" || checkout.CheckoutURL == "" {
+		t.Fatalf("expected checkout ids and url, got %+v", checkout)
+	}
+	if checkout.CourseID != "course_123" || checkout.OccurrenceDate != "2026-06-08" {
+		t.Fatalf("unexpected checkout course occurrence: %+v", checkout)
+	}
+}
+
+func TestCreateCourseOccurrenceCheckoutRejectsMissingOccurrence(t *testing.T) {
+	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","amount":1000,"currency":"GBP","provider":"stripe","payment_method_type":"card","payer_email":"student@example.com","success_url":"https://rollfinders.test/success","cancel_url":"https://rollfinders.test/cancel"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "checkout-invalid")
+	res := httptest.NewRecorder()
+	testServer("").ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", res.Code)
+	}
+}
+
+func TestCreateCourseOccurrenceCheckoutIdempotentReplay(t *testing.T) {
+	srv := testServer("")
+	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com","success_url":"https://rollfinders.test/success","cancel_url":"https://rollfinders.test/cancel"}`)
+	var first CourseOccurrenceCheckout
+	for i := 0; i < 2; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+		authed(req)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", "same-checkout")
+		res := httptest.NewRecorder()
+		srv.ServeHTTP(res, req)
+		if res.Code != http.StatusCreated {
+			t.Fatalf("request %d expected status 201, got %d", i+1, res.Code)
+		}
+		var checkout CourseOccurrenceCheckout
+		if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			first = checkout
+			continue
+		}
+		if checkout.CheckoutSessionID != first.CheckoutSessionID || checkout.PaymentID != first.PaymentID {
+			t.Fatalf("expected replayed checkout, first=%+v second=%+v", first, checkout)
+		}
+	}
+}
+
 func TestCreatePaymentIdempotentReplay(t *testing.T) {
 	srv := testServer("")
 	body := []byte(`{"amount":1299,"currency":"GBP","provider":"stripe","payment_method_type":"card"}`)

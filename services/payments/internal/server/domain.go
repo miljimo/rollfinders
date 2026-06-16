@@ -50,6 +50,25 @@ type Payment struct {
 	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
+type CourseOccurrenceCheckout struct {
+	CheckoutSessionID   string    `json:"checkout_session_id"`
+	CheckoutURL         string    `json:"checkout_url"`
+	PaymentID           string    `json:"payment_id"`
+	CourseID            string    `json:"course_id"`
+	AcademyID           string    `json:"academy_id"`
+	OccurrenceDate      string    `json:"occurrence_date"`
+	OccurrenceStartTime string    `json:"occurrence_start_time"`
+	OccurrenceEndTime   string    `json:"occurrence_end_time"`
+	Amount              int64     `json:"amount"`
+	Currency            string    `json:"currency"`
+	PayerUserID         string    `json:"payer_user_id,omitempty"`
+	PayerEmail          string    `json:"payer_email"`
+	SuccessURL          string    `json:"success_url"`
+	CancelURL           string    `json:"cancel_url"`
+	ExpiresAt           time.Time `json:"expires_at"`
+	CreatedAt           time.Time `json:"created_at"`
+}
+
 type Refund struct {
 	ID               string    `json:"id"`
 	PaymentID        string    `json:"payment_id"`
@@ -86,24 +105,26 @@ type providerEvent struct {
 }
 
 type store struct {
-	mu       sync.Mutex
-	next     int64
-	payments map[string]*Payment
-	refunds  map[string][]*Refund
-	idem     map[string]idempotencyRecord
-	idemWait map[string]chan struct{}
-	events   map[providerEvent]struct{}
-	outbox   []*OutboxEvent
-	metrics  metrics
+	mu        sync.Mutex
+	next      int64
+	payments  map[string]*Payment
+	checkouts map[string]*CourseOccurrenceCheckout
+	refunds   map[string][]*Refund
+	idem      map[string]idempotencyRecord
+	idemWait  map[string]chan struct{}
+	events    map[providerEvent]struct{}
+	outbox    []*OutboxEvent
+	metrics   metrics
 }
 
 func newStore() *store {
 	return &store{
-		payments: map[string]*Payment{},
-		refunds:  map[string][]*Refund{},
-		idem:     map[string]idempotencyRecord{},
-		idemWait: map[string]chan struct{}{},
-		events:   map[providerEvent]struct{}{},
+		payments:  map[string]*Payment{},
+		checkouts: map[string]*CourseOccurrenceCheckout{},
+		refunds:   map[string][]*Refund{},
+		idem:      map[string]idempotencyRecord{},
+		idemWait:  map[string]chan struct{}{},
+		events:    map[providerEvent]struct{}{},
 	}
 }
 
@@ -135,6 +156,43 @@ func (s *store) createPayment(req createPaymentRequest, provider providerResult)
 	s.payments[p.ID] = p
 	s.addOutboxLocked("payment.status_changed", p.ID, paymentEventPayload(*p))
 	return *clonePayment(p)
+}
+
+func (s *store) createCourseOccurrenceCheckout(req createCourseOccurrenceCheckoutRequest, payment Payment, checkoutURL string) CourseOccurrenceCheckout {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now().UTC()
+	checkout := &CourseOccurrenceCheckout{
+		CheckoutSessionID:   s.newID("checkout"),
+		CheckoutURL:         checkoutURL,
+		PaymentID:           payment.ID,
+		CourseID:            req.CourseID,
+		AcademyID:           req.AcademyID,
+		OccurrenceDate:      req.OccurrenceDate,
+		OccurrenceStartTime: req.OccurrenceStartTime,
+		OccurrenceEndTime:   req.OccurrenceEndTime,
+		Amount:              req.Amount,
+		Currency:            req.Currency,
+		PayerUserID:         req.PayerUserID,
+		PayerEmail:          req.PayerEmail,
+		SuccessURL:          req.SuccessURL,
+		CancelURL:           req.CancelURL,
+		ExpiresAt:           now.Add(30 * time.Minute),
+		CreatedAt:           now,
+	}
+	s.checkouts[checkout.CheckoutSessionID] = checkout
+	s.addOutboxLocked("course_occurrence.checkout_created", checkout.CheckoutSessionID, map[string]any{
+		"checkout_session_id": checkout.CheckoutSessionID,
+		"payment_id":          checkout.PaymentID,
+		"course_id":           checkout.CourseID,
+		"academy_id":          checkout.AcademyID,
+		"occurrence_date":     checkout.OccurrenceDate,
+		"amount":              checkout.Amount,
+		"currency":            checkout.Currency,
+		"payer_email":         checkout.PayerEmail,
+		"created_at":          checkout.CreatedAt,
+	})
+	return *cloneCourseOccurrenceCheckout(checkout)
 }
 
 func (s *store) getPayment(id string) (Payment, bool) {
@@ -340,6 +398,11 @@ func clonePayment(p *Payment) *Payment {
 
 func cloneRefund(r *Refund) *Refund {
 	cp := *r
+	return &cp
+}
+
+func cloneCourseOccurrenceCheckout(c *CourseOccurrenceCheckout) *CourseOccurrenceCheckout {
+	cp := *c
 	return &cp
 }
 

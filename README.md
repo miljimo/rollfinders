@@ -107,3 +107,12 @@ Deployment is handled by Bitbucket Pipelines and Terraform. See `docs/features/D
 - Academy claim requests
 - Admin portal with academy CRUD and claim approval/rejection
 - Prisma migration, seed data, Docker support, and CI
+
+
+
+## Production Local Deployment
+```bash
+git push origin master
+ENVIRONMENT_NAME=production PRODUCTION_APPROVED=true ALLOW_DIRECT_ENV_DEPLOY=true ./scripts/cicd/build.sh
+ENVIRONMENT_NAME=production PRODUCTION_APPROVED=true ALLOW_DIRECT_ENV_DEPLOY=true ./scripts/cicd/deploy-environment.sh
+```
