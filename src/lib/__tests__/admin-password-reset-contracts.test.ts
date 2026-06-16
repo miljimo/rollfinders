@@ -12,6 +12,8 @@ describe("admin-triggered password reset contracts", () => {
     assert.match(routeSource, /export\s+async\s+function\s+POST\(request:\s*Request,\s*\{\s*params\s*\}:\s*\{\s*params:\s*Promise<\{\s*id:\s*string\s*\}>\s*\}\)/);
     assert.match(routeSource, /const\s+returnTo\s*=\s*await\s+formReturnTo\(request\)/);
     assert.match(routeSource, /function\s+resultRedirect/);
+    assert.match(routeSource, /const\s+publicOrigin\s*=\s*process\.env\.NEXTAUTH_URL\s*\?\?\s*new URL\(request\.url\)\.origin/);
+    assert.match(routeSource, /new URL\(managedUsersReturnPath\(returnTo\),\s*publicOrigin\)/);
     assert.match(routeSource, /const\s+\{\s*id\s*\}\s*=\s*await\s+params/);
     assert.match(routeSource, /const\s+user\s*=\s*await\s+prisma\.user\.findUnique\(\{\s*where:\s*\{\s*id\s*\}\s*\}\)/);
     assert.match(routeSource, /if\s*\(!user\)\s*return\s+NextResponse\.json\(\{\s*error:\s*"User not found"\s*\},\s*\{\s*status:\s*404\s*\}\)/);

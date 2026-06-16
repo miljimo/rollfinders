@@ -21,7 +21,8 @@ async function formReturnTo(request: Request) {
 }
 
 function resultRedirect(request: Request, returnTo: string, result: "password_reset_sent" | "password_reset_failed", email?: string) {
-  const url = new URL(managedUsersReturnPath(returnTo), new URL(request.url).origin);
+  const publicOrigin = process.env.NEXTAUTH_URL ?? new URL(request.url).origin;
+  const url = new URL(managedUsersReturnPath(returnTo), publicOrigin);
   url.searchParams.set("userResult", result);
   if (email) url.searchParams.set("email", email);
   return NextResponse.redirect(url, 303);
