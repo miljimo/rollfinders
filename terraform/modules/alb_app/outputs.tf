@@ -15,5 +15,5 @@ output "http_listener_arn" {
 }
 
 output "https_listener_arn" {
-  value = aws_lb_listener.https.arn
+  value = try(aws_lb_listener.https[0].arn, null)
 }

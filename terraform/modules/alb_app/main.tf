@@ -30,17 +30,22 @@ resource "aws_lb_listener" "http_redirect" {
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
+    type             = var.enable_https ? "redirect" : "forward"
+    target_group_arn = var.enable_https ? null : aws_lb_target_group.app.arn
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+    dynamic "redirect" {
+      for_each = var.enable_https ? [1] : []
+      content {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
     }
   }
 }
 
 resource "aws_lb_listener" "https" {
+  count             = var.enable_https ? 1 : 0
   load_balancer_arn = aws_lb.app.arn
   port              = 443
   protocol          = "HTTPS"
@@ -54,8 +59,8 @@ resource "aws_lb_listener" "https" {
 }
 
 resource "aws_lb_listener_rule" "www_redirect" {
-  count        = var.www_domain == "" ? 0 : 1
-  listener_arn = aws_lb_listener.https.arn
+  count        = var.enable_https && var.www_domain != "" ? 1 : 0
+  listener_arn = aws_lb_listener.https[0].arn
   priority     = 10
 
   action {

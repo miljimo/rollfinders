@@ -10,12 +10,12 @@ output "rds_instance_identifier" {
 
 output "application_url" {
   description = "Primary application URL."
-  value       = "https://${local.canonical_domain}"
+  value       = local.app_base_url
 }
 
 output "frontend_url" {
   description = "Frontend URL."
-  value       = "https://${local.canonical_domain}"
+  value       = local.app_base_url
 }
 
 output "frontend_domain" {
@@ -30,12 +30,12 @@ output "www_url" {
 
 output "api_url" {
   description = "Prepared API URL."
-  value       = "https://${local.api_domain}"
+  value       = var.enable_custom_domain ? "https://${local.api_domain}" : ""
 }
 
 output "certificate_arn" {
   description = "ACM certificate ARN."
-  value       = module.certificate.certificate_arn
+  value       = try(module.certificate[0].certificate_arn, null)
 }
 
 output "hosted_zone_id" {

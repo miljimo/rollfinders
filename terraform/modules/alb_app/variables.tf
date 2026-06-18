@@ -15,7 +15,13 @@ variable "subnet_ids" {
 }
 
 variable "certificate_arn" {
-  type = string
+  type    = string
+  default = null
+}
+
+variable "enable_https" {
+  type    = bool
+  default = true
 }
 
 variable "canonical_domain" {

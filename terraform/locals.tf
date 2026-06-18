@@ -4,6 +4,7 @@ locals {
   canonical_domain = var.domain_name
   www_domain       = local.is_production ? "www.${var.hosted_zone_name}" : ""
   api_domain       = local.is_production ? "api.${var.hosted_zone_name}" : "api.${var.domain_name}"
+  app_base_url     = var.enable_custom_domain ? "https://${local.canonical_domain}" : "http://${module.alb.dns_name}"
 
   common_tags = {
     Project     = var.project_name

@@ -73,6 +73,12 @@ variable "domain_name" {
   default     = ""
 }
 
+variable "enable_custom_domain" {
+  type        = bool
+  description = "Whether to provision ACM, HTTPS listener, and Route53 app records for domain_name."
+  default     = true
+}
+
 variable "hosted_zone_name" {
   type        = string
   description = "Existing Route53 hosted zone name to discover."

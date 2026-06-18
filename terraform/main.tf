@@ -90,6 +90,7 @@ module "database_security_group" {
 }
 
 module "certificate" {
+  count                     = var.enable_custom_domain ? 1 : 0
   source                    = "./modules/acm_dns_certificate"
   canonical_domain          = local.canonical_domain
   subject_alternative_names = local.is_production ? ["*.${var.hosted_zone_name}"] : ["*.${local.canonical_domain}"]
@@ -102,7 +103,8 @@ module "alb" {
   vpc_id             = module.networking.vpc_id
   security_group_ids = [module.alb_security_group.id]
   subnet_ids         = module.networking.public_subnet_ids
-  certificate_arn    = module.certificate.certificate_arn
+  certificate_arn    = var.enable_custom_domain ? module.certificate[0].certificate_arn : null
+  enable_https       = var.enable_custom_domain
   canonical_domain   = local.canonical_domain
   www_domain         = local.www_domain
 }
@@ -169,7 +171,7 @@ module "app_secrets" {
 
   secret_values = {
     NEXTAUTH_SECRET         = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
-    NEXTAUTH_URL            = var.domain_name != "" ? "https://${var.domain_name}" : "http://${module.alb.dns_name}"
+    NEXTAUTH_URL            = local.app_base_url
     DATABASE_URL            = "postgresql://${var.db_username}:${random_password.db.result}@${module.database.address}:5432/${var.db_name}?sslmode=require&uselibpqcompat=true"
     DB_HOST                 = module.database.address
     DB_PORT                 = "5432"
@@ -359,10 +361,10 @@ module "app_service" {
       log_region = var.aws_region
       environments = [
         { name = "PORT", value = "8082" },
-        { name = "PAYMENT_PUBLIC_BASE_URL", value = "https://${local.canonical_domain}" },
+        { name = "PAYMENT_PUBLIC_BASE_URL", value = local.app_base_url },
         { name = "PAYMENT_DEFAULT_CLIENT_ID", value = "rollfinders" },
         { name = "PAYMENT_DEFAULT_CLIENT_NAME", value = "RollFinders" },
-        { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "https://${local.canonical_domain}/payments/status" },
+        { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "${local.app_base_url}/payments/status" },
         { name = "METRICS_ENABLED", value = "true" },
         { name = "READ_TIMEOUT", value = "5s" },
         { name = "WRITE_TIMEOUT", value = "10s" },
@@ -429,6 +431,7 @@ module "assets_cdn" {
 }
 
 module "app_dns_records" {
+  count            = var.enable_custom_domain ? 1 : 0
   source           = "./modules/route53_app_records"
   zone_id          = data.aws_route53_zone.public.zone_id
   canonical_domain = local.canonical_domain
