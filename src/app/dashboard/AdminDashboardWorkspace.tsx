@@ -54,6 +54,7 @@ export const metadata: Metadata = {
 };
 
 const pageSize = 8;
+const usersPageSize = 10;
 const platformAdminAcademyPageSize = 5;
 const claimPageSizes = [20, 50, 100];
 const openMatSessionsLabel = "Courses/Events";
@@ -403,7 +404,7 @@ export default async function AdminDashboardWorkspace({
   const eventWhere: Prisma.EventWhereInput = { AND: [eventScopeWhere, { active: true }, eventFilterWhere] };
   const userQueryParams = new URLSearchParams({
     page: String(userPage),
-    pageSize: String(pageSize),
+    pageSize: String(usersPageSize),
   });
   if (search) userQueryParams.set("q", search);
   if (roleSearch) userQueryParams.set("role", roleSearch);

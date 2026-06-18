@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   description: "Search, filter, edit, disable, delete, and manage users.",
 };
 
-const supportedPageSizes = [10, 20, 50, 100];
+const usersPageSize = 10;
 
 type UserSearchParams = Record<string, string | string[] | undefined>;
 
@@ -31,11 +31,6 @@ function firstParam(value: string | string[] | undefined) {
 function parsePositiveInt(value: string | undefined, fallback: number) {
   const parsed = Number(value ?? fallback);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
-}
-
-function selectedPageSize(value: string | undefined) {
-  const parsed = parsePositiveInt(value, 10);
-  return supportedPageSizes.includes(parsed) ? parsed : 10;
 }
 
 function selectedRole(value: string | undefined) {
@@ -71,7 +66,7 @@ function initialsFor(name: string | null, email: string) {
 function compactParams(params: UserSearchParams, overrides: Record<string, string | number | undefined>) {
   const next = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (!value) return;
+    if (!value || key === "pageSize") return;
     if (Array.isArray(value)) {
       value.forEach((item) => item && next.append(key, item));
       return;
@@ -126,7 +121,7 @@ export default async function UserManagementPage({
   const params = await searchParams;
 
   const page = parsePositiveInt(firstParam(params.page), 1);
-  const pageSize = selectedPageSize(firstParam(params.pageSize));
+  const pageSize = usersPageSize;
   const search = (firstParam(params.search) ?? "").trim();
   const role = selectedRole(firstParam(params.role));
   const status = selectedStatus(firstParam(params.status));
@@ -202,12 +197,6 @@ export default async function UserManagementPage({
                       <option value="VALID">Valid</option>
                       <option value="INVALID">Invalid</option>
                       <option value="PENDING_VERIFICATION">Pending</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
-                    Rows
-                    <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
-                      {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
                     </select>
                   </label>
                   <div className="flex items-end gap-2">
@@ -335,16 +324,6 @@ export default async function UserManagementPage({
           <div className="flex flex-col gap-4 border-t border-stone-100 px-5 py-5 text-sm lg:flex-row lg:items-center lg:justify-between">
             <p className="text-base text-slate-700">Showing {start} to {end} of {totalItems} users</p>
             <div className="flex flex-wrap items-center gap-3">
-              <form action="/admin/users" className="flex min-h-11 items-center rounded-md border border-slate-200 bg-white">
-                <span className="px-4 text-sm font-semibold text-slate-600">Rows per page</span>
-                <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-r-md border-l border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 outline-none">
-                  {supportedPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
-                </select>
-                <input type="hidden" name="search" value={search} />
-                <input type="hidden" name="role" value={role} />
-                <input type="hidden" name="status" value={status} />
-                <input type="hidden" name="emailStatus" value={emailStatus} />
-              </form>
               <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })} iconOnly>
                 <ChevronLeft size={20} aria-hidden="true" />
                 <span className="sr-only">Previous</span>

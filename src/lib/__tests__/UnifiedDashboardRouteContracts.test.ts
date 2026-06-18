@@ -236,6 +236,17 @@ describe("unified dashboard route contracts", () => {
     assert.match(usersListFunction, /SELECT ou\.organisation_id[\s\S]*AS academy_id/);
   });
 
+  it("managed user tables request exactly ten users per page", () => {
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const adminUsersSource = readSource("src/app/admin/users/page.tsx");
+
+    assert.match(dashboardSource, /const\s+usersPageSize\s*=\s*10/);
+    assert.match(dashboardSource, /pageSize:\s*String\(usersPageSize\)/);
+    assert.match(adminUsersSource, /const\s+usersPageSize\s*=\s*10/);
+    assert.match(adminUsersSource, /const\s+pageSize\s*=\s*usersPageSize/);
+    assert.doesNotMatch(adminUsersSource, /supportedPageSizes|Rows per page/);
+  });
+
   it("admin side panel keeps Settings as the final primary navigation item", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
     const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
