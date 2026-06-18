@@ -40,6 +40,92 @@ BEGIN
      AND to_regclass('users.credentials') IS NOT NULL
      AND to_regclass('users.user_roles') IS NOT NULL
      AND to_regclass('users.organisation_users') IS NOT NULL THEN
+    WITH service_projection AS (
+      SELECT
+        service_users.id,
+        COALESCE(service_credentials.credential_identifier, service_users.external_id, service_users.id || '@rollfinder.local') AS email,
+        NULLIF(TRIM(COALESCE(service_users.display_name, CONCAT_WS(' ', service_users.first_name, service_users.last_name))), '') AS name,
+        COALESCE(service_roles.role_key::public."Role", 'STANDARD_USER'::public."Role") AS role,
+        academies.id AS academy_id,
+        COALESCE(service_users.status::text::public."UserStatus", 'ACTIVE'::public."UserStatus") AS status,
+        service_users.disabled,
+        service_users.is_protected,
+        service_users.created_at,
+        service_users.updated_at
+      FROM users.users service_users
+      LEFT JOIN LATERAL (
+        SELECT credentials.credential_identifier
+        FROM users.credentials credentials
+        WHERE credentials.user_id = service_users.id
+          AND credentials.credential_type = 'EMAIL_PASSWORD'
+        ORDER BY credentials.created_at ASC
+        LIMIT 1
+      ) service_credentials ON true
+      LEFT JOIN LATERAL (
+        SELECT user_roles.role_key
+        FROM users.user_roles user_roles
+        WHERE user_roles.user_id = service_users.id
+        ORDER BY user_roles.created_at ASC
+        LIMIT 1
+      ) service_roles ON true
+      LEFT JOIN LATERAL (
+        SELECT organisation_users.organisation_id
+        FROM users.organisation_users organisation_users
+        WHERE organisation_users.user_id = service_users.id
+        ORDER BY organisation_users.created_at ASC
+        LIMIT 1
+      ) service_organisations ON true
+      LEFT JOIN public.academies academies ON academies.id = service_organisations.organisation_id
+    )
+    UPDATE public."users" existing_users
+    SET
+      "name" = service_projection.name,
+      "role" = service_projection.role,
+      "academy_id" = COALESCE(existing_users."academy_id", service_projection.academy_id),
+      "status" = service_projection.status,
+      "disabled" = service_projection.disabled,
+      "is_protected" = service_projection.is_protected,
+      "updated_at" = service_projection.updated_at
+    FROM service_projection
+    WHERE existing_users."email" = service_projection.email;
+
+    WITH service_projection AS (
+      SELECT
+        service_users.id,
+        COALESCE(service_credentials.credential_identifier, service_users.external_id, service_users.id || '@rollfinder.local') AS email,
+        NULLIF(TRIM(COALESCE(service_users.display_name, CONCAT_WS(' ', service_users.first_name, service_users.last_name))), '') AS name,
+        COALESCE(service_roles.role_key::public."Role", 'STANDARD_USER'::public."Role") AS role,
+        academies.id AS academy_id,
+        COALESCE(service_users.status::text::public."UserStatus", 'ACTIVE'::public."UserStatus") AS status,
+        service_users.disabled,
+        service_users.is_protected,
+        service_users.created_at,
+        service_users.updated_at
+      FROM users.users service_users
+      LEFT JOIN LATERAL (
+        SELECT credentials.credential_identifier
+        FROM users.credentials credentials
+        WHERE credentials.user_id = service_users.id
+          AND credentials.credential_type = 'EMAIL_PASSWORD'
+        ORDER BY credentials.created_at ASC
+        LIMIT 1
+      ) service_credentials ON true
+      LEFT JOIN LATERAL (
+        SELECT user_roles.role_key
+        FROM users.user_roles user_roles
+        WHERE user_roles.user_id = service_users.id
+        ORDER BY user_roles.created_at ASC
+        LIMIT 1
+      ) service_roles ON true
+      LEFT JOIN LATERAL (
+        SELECT organisation_users.organisation_id
+        FROM users.organisation_users organisation_users
+        WHERE organisation_users.user_id = service_users.id
+        ORDER BY organisation_users.created_at ASC
+        LIMIT 1
+      ) service_organisations ON true
+      LEFT JOIN public.academies academies ON academies.id = service_organisations.organisation_id
+    )
     INSERT INTO public."users" (
       "id",
       "email",
@@ -53,42 +139,33 @@ BEGIN
       "updated_at"
     )
     SELECT
-      service_users.id,
-      COALESCE(service_credentials.credential_identifier, service_users.external_id, service_users.id || '@rollfinder.local') AS email,
-      NULLIF(TRIM(COALESCE(service_users.display_name, CONCAT_WS(' ', service_users.first_name, service_users.last_name))), '') AS name,
-      COALESCE(service_roles.role_key::public."Role", 'STANDARD_USER'::public."Role") AS role,
-      academies.id AS academy_id,
-      COALESCE(service_users.status::text::public."UserStatus", 'ACTIVE'::public."UserStatus") AS status,
-      service_users.disabled,
-      service_users.is_protected,
-      service_users.created_at,
-      service_users.updated_at
-    FROM users.users service_users
-    LEFT JOIN LATERAL (
-      SELECT credentials.credential_identifier
-      FROM users.credentials credentials
-      WHERE credentials.user_id = service_users.id
-        AND credentials.credential_type = 'EMAIL_PASSWORD'
-      ORDER BY credentials.created_at ASC
-      LIMIT 1
-    ) service_credentials ON true
-    LEFT JOIN LATERAL (
-      SELECT user_roles.role_key
-      FROM users.user_roles user_roles
-      WHERE user_roles.user_id = service_users.id
-      ORDER BY user_roles.created_at ASC
-      LIMIT 1
-    ) service_roles ON true
-    LEFT JOIN LATERAL (
-      SELECT organisation_users.organisation_id
-      FROM users.organisation_users organisation_users
-      WHERE organisation_users.user_id = service_users.id
-      ORDER BY organisation_users.created_at ASC
-      LIMIT 1
-    ) service_organisations ON true
-    LEFT JOIN public.academies academies ON academies.id = service_organisations.organisation_id
+      service_projection.id,
+      service_projection.email,
+      service_projection.name,
+      service_projection.role,
+      service_projection.academy_id,
+      service_projection.status,
+      service_projection.disabled,
+      service_projection.is_protected,
+      service_projection.created_at,
+      service_projection.updated_at
+    FROM service_projection
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM public."users" existing_users
+      WHERE existing_users."email" = service_projection.email
+        AND existing_users."id" <> service_projection.id
+    )
     ON CONFLICT ("id") DO UPDATE SET
-      "email" = EXCLUDED."email",
+      "email" = CASE
+        WHEN NOT EXISTS (
+          SELECT 1
+          FROM public."users" existing_users
+          WHERE existing_users."email" = EXCLUDED."email"
+            AND existing_users."id" <> public."users"."id"
+        ) THEN EXCLUDED."email"
+        ELSE public."users"."email"
+      END,
       "name" = EXCLUDED."name",
       "role" = EXCLUDED."role",
       "academy_id" = COALESCE(public."users"."academy_id", EXCLUDED."academy_id"),
