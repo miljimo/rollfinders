@@ -20,8 +20,17 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS payment_clients (
+    id text PRIMARY KEY,
+    name text NOT NULL,
+    callback_url text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS course_occurrence_checkouts (
     id text PRIMARY KEY,
+    client_id text NOT NULL REFERENCES payment_clients(id),
+    client_state text,
     payment_id text NOT NULL REFERENCES payments(id),
     course_id text NOT NULL,
     academy_id text NOT NULL,
@@ -31,7 +40,7 @@ CREATE TABLE IF NOT EXISTS course_occurrence_checkouts (
     amount_minor bigint NOT NULL CHECK (amount_minor > 0),
     currency char(3) NOT NULL,
     payer_user_id text,
-    payer_email text NOT NULL,
+    payer_email text,
     success_url text NOT NULL,
     cancel_url text NOT NULL,
     checkout_url text NOT NULL,

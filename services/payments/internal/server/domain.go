@@ -52,6 +52,8 @@ type Payment struct {
 
 type CourseOccurrenceCheckout struct {
 	CheckoutSessionID   string    `json:"checkout_session_id"`
+	ClientID            string    `json:"client_id"`
+	ClientState         string    `json:"client_state,omitempty"`
 	CheckoutURL         string    `json:"checkout_url"`
 	PaymentID           string    `json:"payment_id"`
 	CourseID            string    `json:"course_id"`
@@ -62,11 +64,18 @@ type CourseOccurrenceCheckout struct {
 	Amount              int64     `json:"amount"`
 	Currency            string    `json:"currency"`
 	PayerUserID         string    `json:"payer_user_id,omitempty"`
-	PayerEmail          string    `json:"payer_email"`
-	SuccessURL          string    `json:"success_url"`
-	CancelURL           string    `json:"cancel_url"`
+	PayerEmail          string    `json:"payer_email,omitempty"`
+	SuccessURL          string    `json:"success_url,omitempty"`
+	CancelURL           string    `json:"cancel_url,omitempty"`
 	ExpiresAt           time.Time `json:"expires_at"`
 	CreatedAt           time.Time `json:"created_at"`
+}
+
+type PaymentClient struct {
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	CallbackURL string    `json:"callback_url"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type Refund struct {
@@ -109,6 +118,7 @@ type store struct {
 	next      int64
 	payments  map[string]*Payment
 	checkouts map[string]*CourseOccurrenceCheckout
+	clients   map[string]*PaymentClient
 	refunds   map[string][]*Refund
 	idem      map[string]idempotencyRecord
 	idemWait  map[string]chan struct{}
@@ -121,11 +131,40 @@ func newStore() *store {
 	return &store{
 		payments:  map[string]*Payment{},
 		checkouts: map[string]*CourseOccurrenceCheckout{},
+		clients:   map[string]*PaymentClient{},
 		refunds:   map[string][]*Refund{},
 		idem:      map[string]idempotencyRecord{},
 		idemWait:  map[string]chan struct{}{},
 		events:    map[providerEvent]struct{}{},
 	}
+}
+
+func (s *store) createPaymentClient(req createPaymentClientRequest) PaymentClient {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := time.Now().UTC()
+	id := req.ID
+	if id == "" {
+		id = s.newID("client")
+	}
+	client := &PaymentClient{
+		ID:          id,
+		Name:        req.Name,
+		CallbackURL: req.CallbackURL,
+		CreatedAt:   now,
+	}
+	s.clients[client.ID] = client
+	return *clonePaymentClient(client)
+}
+
+func (s *store) getPaymentClient(id string) (PaymentClient, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	client, ok := s.clients[id]
+	if !ok {
+		return PaymentClient{}, false
+	}
+	return *clonePaymentClient(client), true
 }
 
 func (s *store) newID(prefix string) string {
@@ -158,13 +197,18 @@ func (s *store) createPayment(req createPaymentRequest, provider providerResult)
 	return *clonePayment(p)
 }
 
-func (s *store) createCourseOccurrenceCheckout(req createCourseOccurrenceCheckoutRequest, payment Payment, checkoutURL string) CourseOccurrenceCheckout {
+func (s *store) createCourseOccurrenceCheckout(req createCourseOccurrenceCheckoutRequest, payment Payment, serviceBaseURL string) CourseOccurrenceCheckout {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now().UTC()
+	checkoutID := s.newID("checkout")
+	successURL := courseOccurrenceCallbackURL(serviceBaseURL, checkoutID, "success")
+	cancelURL := courseOccurrenceCallbackURL(serviceBaseURL, checkoutID, "cancelled")
 	checkout := &CourseOccurrenceCheckout{
-		CheckoutSessionID:   s.newID("checkout"),
-		CheckoutURL:         checkoutURL,
+		CheckoutSessionID:   checkoutID,
+		ClientID:            req.ClientID,
+		ClientState:         req.ClientState,
+		CheckoutURL:         checkoutURLForPayment(payment, successURL),
 		PaymentID:           payment.ID,
 		CourseID:            req.CourseID,
 		AcademyID:           req.AcademyID,
@@ -175,14 +219,15 @@ func (s *store) createCourseOccurrenceCheckout(req createCourseOccurrenceCheckou
 		Currency:            req.Currency,
 		PayerUserID:         req.PayerUserID,
 		PayerEmail:          req.PayerEmail,
-		SuccessURL:          req.SuccessURL,
-		CancelURL:           req.CancelURL,
+		SuccessURL:          successURL,
+		CancelURL:           cancelURL,
 		ExpiresAt:           now.Add(30 * time.Minute),
 		CreatedAt:           now,
 	}
 	s.checkouts[checkout.CheckoutSessionID] = checkout
 	s.addOutboxLocked("course_occurrence.checkout_created", checkout.CheckoutSessionID, map[string]any{
 		"checkout_session_id": checkout.CheckoutSessionID,
+		"client_id":           checkout.ClientID,
 		"payment_id":          checkout.PaymentID,
 		"course_id":           checkout.CourseID,
 		"academy_id":          checkout.AcademyID,
@@ -193,6 +238,16 @@ func (s *store) createCourseOccurrenceCheckout(req createCourseOccurrenceCheckou
 		"created_at":          checkout.CreatedAt,
 	})
 	return *cloneCourseOccurrenceCheckout(checkout)
+}
+
+func (s *store) getCourseOccurrenceCheckout(id string) (CourseOccurrenceCheckout, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	checkout, ok := s.checkouts[id]
+	if !ok {
+		return CourseOccurrenceCheckout{}, false
+	}
+	return *cloneCourseOccurrenceCheckout(checkout), true
 }
 
 func (s *store) getPayment(id string) (Payment, bool) {
@@ -402,6 +457,11 @@ func cloneRefund(r *Refund) *Refund {
 }
 
 func cloneCourseOccurrenceCheckout(c *CourseOccurrenceCheckout) *CourseOccurrenceCheckout {
+	cp := *c
+	return &cp
+}
+
+func clonePaymentClient(c *PaymentClient) *PaymentClient {
 	cp := *c
 	return &cp
 }

@@ -26,6 +26,8 @@ services:
       DB_NAME: "${DB_NAME:-payments}"
       DB_PASSWORD: "${DB_PASSWORD:-postgres}"
       API_KEY: local-dev-key
+      PAYMENT_PUBLIC_BASE_URL: "${PAYMENT_PUBLIC_BASE_URL:-http://localhost:8080}"
+      PAYMENT_APPLICATION_STATUS_URL: "${PAYMENT_APPLICATION_STATUS_URL:-http://localhost:3000/payments/status}"
       METRICS_ENABLED: "true"
       READ_TIMEOUT: 5s
       WRITE_TIMEOUT: 10s

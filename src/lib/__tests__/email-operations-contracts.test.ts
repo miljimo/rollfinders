@@ -14,9 +14,10 @@ describe("email operations contracts", () => {
     const source = readSource("src/lib/password-reset.ts");
 
     assert.match(source, /const\s+outboundEmail\s*=\s*await\s+queueEmail\(/);
-    assert.match(source, /await\s+sendQueuedEmail\(outboundEmail\.id\)/);
+    assert.match(source, /await\s+sendQueuedPasswordEmail\(outboundEmail\.id\)/);
+    assert.match(source, /sentEmail\?\.status\s*!==\s*OutboundEmailStatus\.SENT/);
     assert.ok(
-      source.indexOf("await sendQueuedEmail(outboundEmail.id)") > source.indexOf("const outboundEmail = await queueEmail("),
+      source.indexOf("await sendQueuedPasswordEmail(outboundEmail.id)") > source.indexOf("const outboundEmail = await queueEmail("),
       "sendQueuedEmail must stay after the password reset email is queued",
     );
   });
@@ -32,7 +33,7 @@ describe("email operations contracts", () => {
     assert.match(source, /Password:/);
     assert.match(source, /Not sent by email/);
     assert.match(source, /html:\s*passwordChangedEmailHtml/);
-    assert.match(source, /await\s+sendQueuedEmail\(outboundEmail\.id\)/);
+    assert.match(source, /await\s+sendQueuedPasswordEmail\(outboundEmail\.id\)/);
     assert.doesNotMatch(source, /password:\s*password\b|Password:\s*\$\{password\}/);
     assert.match(dashboardAction, /await\s+queuePasswordChangedEmail\(user\)/);
     assert.match(adminSettingsAction, /await\s+queuePasswordChangedEmail\(actor\)/);
@@ -65,7 +66,12 @@ describe("email operations contracts", () => {
 
   it("academy claim reminder cooldown is scoped to the current recipient email", () => {
     const source = readSource("src/app/admin/academies/actions.ts");
+    const cooldownSource = readSource("src/lib/academy-claim-reminders.ts");
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
+    assert.match(cooldownSource, /claimReminderCooldownDays\s*=\s*7/);
+    assert.match(source, /import\s+\{\s*claimReminderCooldownDays\s*\}\s+from\s+"@\/lib\/academy-claim-reminders"/);
+    assert.match(dashboardSource, /import\s+\{\s*claimReminderCooldownDays\s*\}\s+from\s+"@\/lib\/academy-claim-reminders"/);
     assert.match(source, /const\s+recentReminder\s*=\s*await\s+prisma\.academyClaimReminder\.findFirst\(/);
     assert.match(source, /recipientEmail:\s*email/);
     assert.match(source, /status:\s*"QUEUED"/);
@@ -118,6 +124,12 @@ describe("email operations contracts", () => {
     assert.match(reliableEmail, /email address is not verified/);
     assert.match(reliableEmail, /identity\.\*failed\.\*check/);
     assert.match(reliableEmail, /if\s*\(\s*isProviderConfigurationFailure\(error\)\s*\)\s*return\s+false/);
+    assert.match(reliableEmail, /invalidAddressIsProviderConfig/);
+    assert.match(reliableEmail, /userInvalidIsProviderConfig/);
+    assert.match(reliableEmail, /user\?\.emailStatus\s*===\s*UserEmailStatus\.INVALID\s*&&\s*!userInvalidIsProviderConfig/);
+    assert.match(reliableEmail, /async\s+function\s+clearProviderConfigurationInvalidEmail/);
+    assert.match(reliableEmail, /await\s+clearProviderConfigurationInvalidEmail\(\{\s*userId:\s*email\.userId,\s*email:\s*email\.recipientEmail\s*\}\)/);
+    assert.match(reliableEmail, /emailStatus:\s*UserEmailStatus\.VALID/);
   });
 
   it("supports SMTP delivery fallback behind environment configuration", () => {

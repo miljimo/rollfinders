@@ -13,12 +13,12 @@ describe("dashboard clickable row contracts", () => {
   it("keeps academy rows clickable to profiles while action controls stay separate", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
-    assert.match(source, /const academyHref = `\/admin\/academies\/\$\{academy\.id\}`;/);
+    assert.match(source, /const academyHref = adminAcademiesHref\(params, \{ dialog: "view-academy", academyId: academy\.id \}\);/);
     assert.match(source, /<TableRow key=\{academy\.id\} href=\{academyHref\}>/);
     assert.match(source, /<LinkedTableCell href=\{academyHref\} className="font-bold text-slate-950">\{academy\.name\}<\/LinkedTableCell>/);
     assert.match(source, /<ActionMenu label=\{`Open actions for \$\{academy\.name\}`\}>/);
     assert.match(source, /href=\{`\/academies\/\$\{academy\.slug\}`\}/);
-    assert.match(source, /href=\{`\/admin\/academies\/\$\{academy\.id\}`\}/);
+    assert.match(source, /href=\{academyHref\}/);
     assert.match(source, /aria-label=\{`Select \$\{academy\.name\} for claim reminder`\}/);
   });
 
@@ -38,6 +38,16 @@ describe("dashboard clickable row contracts", () => {
     assert.match(source, /Edit Course/);
     assert.match(source, /Clone Course/);
     assert.doesNotMatch(source, /View \{itemLabel\}|Edit \{itemLabel\}|Clone \{itemLabel\}/);
+  });
+
+  it("routes standard dashboard course rows to the matching public detail page", () => {
+    const source = readSource("src/app/dashboard/page.tsx");
+
+    assert.match(source, /import \{ courseHref, coursePriceLabel \} from "@\/lib\/courses";/);
+    assert.match(source, /courseType: true,/);
+    assert.match(source, /courseType: roll\.courseType,/);
+    assert.match(source, /getRowHref=\{\(row\) => courseHref\(row\)\}/);
+    assert.doesNotMatch(source, /getRowHref=\{\(row\) => `\/open-mats\/\$\{row\.id\}`\}/);
   });
 
   it("opens dashboard user rows in the user detail dialog", () => {

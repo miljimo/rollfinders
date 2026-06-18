@@ -55,7 +55,7 @@ paths:
   /v1/course-occurrence-checkouts:
     post:
       summary: Create a RollFinders course occurrence checkout
-      description: Creates an underlying payment and returns a hosted checkout URL for one Course occurrence.
+      description: Creates an underlying payment and returns a hosted checkout URL for one Course occurrence. The payment service owns provider callback URI handling and payment status orchestration; RollFinders does not need to send success or cancel URLs.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -66,6 +66,8 @@ paths:
             examples:
               paypal:
                 value:
+                  client_id: rollfinders
+                  client_state: order_123
                   course_id: cmq123
                   academy_id: academy123
                   occurrence_date: '2026-06-08'
@@ -76,8 +78,6 @@ paths:
                   provider: paypal
                   payment_method_type: paypal
                   payer_email: student@example.com
-                  success_url: https://rollfinders.com/payments/return?status=success
-                  cancel_url: https://rollfinders.com/payments/return?status=cancelled
       responses:
         '201':
           description: Course occurrence checkout created.
@@ -87,6 +87,47 @@ paths:
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /v1/clients:
+    post:
+      summary: Register a payment service client
+      description: Registers an application or service that can create payments and receive service-owned payment status callback redirects.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePaymentClientRequest' }
+            examples:
+              partner:
+                value:
+                  id: partner_app
+                  name: Partner App
+                  callback_url: https://partner.example.com/payments/callback
+      responses:
+        '201':
+          description: Client registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentClient' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+  /v1/course-occurrence-checkouts/{id}/callbacks/{result}:
+    get:
+      security: []
+      summary: Handle provider checkout callback
+      description: Service-owned browser callback endpoint used by provider return/cancel URLs. The payment service maps provider return state to canonical payment state and redirects to the configured RollFinders payment status URL.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: path
+          name: result
+          required: true
+          schema: { type: string, enum: [success, cancelled, failed, expired] }
+      responses:
+        '302': { description: Redirects to the configured application payment status URL. }
+        '400': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /v1/payments/{id}:
     get:
       summary: Get payment
@@ -217,9 +258,11 @@ components:
         reason: { type: string }
     CreateCourseOccurrenceCheckoutRequest:
       type: object
-      required: [course_id, academy_id, occurrence_date, occurrence_start_time, occurrence_end_time, amount, currency, provider, payment_method_type, payer_email, success_url, cancel_url]
+      required: [course_id, academy_id, occurrence_date, occurrence_start_time, occurrence_end_time, amount, currency, provider, payment_method_type]
       additionalProperties: false
       properties:
+        client_id: { type: string, description: Registered payment service client id. Defaults to rollfinders for backwards compatibility. }
+        client_state: { type: string, description: Opaque client state returned to the client callback URL. }
         course_id: { type: string, minLength: 1 }
         academy_id: { type: string, minLength: 1 }
         occurrence_date: { type: string, format: date }
@@ -231,16 +274,18 @@ components:
         payment_method_type: { type: string, enum: [card, paypal] }
         payer_user_id: { type: string }
         payer_email: { type: string, format: email }
-        success_url: { type: string, format: uri }
-        cancel_url: { type: string, format: uri }
+        success_url: { type: string, format: uri, deprecated: true, description: Legacy caller-supplied return URL. Omit for RollFinders; the payment service owns callback URI handling. }
+        cancel_url: { type: string, format: uri, deprecated: true, description: Legacy caller-supplied cancel URL. Omit for RollFinders; the payment service owns callback URI handling. }
         metadata:
           type: object
           additionalProperties: { type: string }
     CourseOccurrenceCheckout:
       type: object
-      required: [checkout_session_id, checkout_url, payment_id, course_id, academy_id, occurrence_date, occurrence_start_time, occurrence_end_time, amount, currency, payer_email, success_url, cancel_url, expires_at, created_at]
+      required: [checkout_session_id, checkout_url, payment_id, course_id, academy_id, occurrence_date, occurrence_start_time, occurrence_end_time, amount, currency, expires_at, created_at]
       properties:
         checkout_session_id: { type: string }
+        client_id: { type: string }
+        client_state: { type: string }
         checkout_url: { type: string, format: uri }
         payment_id: { type: string }
         course_id: { type: string }
@@ -252,9 +297,25 @@ components:
         currency: { type: string }
         payer_user_id: { type: string }
         payer_email: { type: string, format: email }
-        success_url: { type: string, format: uri }
-        cancel_url: { type: string, format: uri }
+        success_url: { type: string, format: uri, deprecated: true }
+        cancel_url: { type: string, format: uri, deprecated: true }
         expires_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+    CreatePaymentClientRequest:
+      type: object
+      required: [name, callback_url]
+      additionalProperties: false
+      properties:
+        id: { type: string, description: Optional stable client id. If omitted, the service generates one. }
+        name: { type: string, minLength: 1 }
+        callback_url: { type: string, format: uri }
+    PaymentClient:
+      type: object
+      required: [id, name, callback_url, created_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        callback_url: { type: string, format: uri }
         created_at: { type: string, format: date-time }
     Payment:
       type: object

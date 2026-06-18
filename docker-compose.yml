@@ -80,6 +80,8 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payments:8080}
+      PAYMENT_SERVICE_API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
     ports:
       - "3000:3000"
     depends_on:
@@ -88,5 +90,51 @@ services:
       migrate:
         condition: service_completed_successfully
 
+  payments-db:
+    image: postgres:16-alpine
+    profiles:
+      - payments
+    environment:
+      POSTGRES_USER: ${PAYMENTS_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${PAYMENTS_DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${PAYMENTS_DB_NAME:-payments}
+    ports:
+      - "${PAYMENTS_DB_PORT:-54323}:5432"
+    volumes:
+      - payments_postgres_data:/var/lib/postgresql/data
+      - ./services/payments/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  payments:
+    build:
+      context: ./services/payments
+    profiles:
+      - payments
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://${PAYMENTS_DB_USER:-postgres}:${PAYMENTS_DB_PASSWORD:-postgres}@payments-db:5432/${PAYMENTS_DB_NAME:-payments}?sslmode=disable
+      API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
+      PAYMENT_PUBLIC_BASE_URL: ${PAYMENT_PUBLIC_BASE_URL:-http://localhost:8080}
+      PAYMENT_APPLICATION_STATUS_URL: ${PAYMENT_APPLICATION_STATUS_URL:-http://localhost:3000/payments/status}
+      METRICS_ENABLED: "true"
+      READ_TIMEOUT: 5s
+      WRITE_TIMEOUT: 10s
+      SHUTDOWN_TIMEOUT: 10s
+    ports:
+      - "${PAYMENT_SERVICE_PORT:-8080}:8080"
+    depends_on:
+      payments-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
+  payments_postgres_data:

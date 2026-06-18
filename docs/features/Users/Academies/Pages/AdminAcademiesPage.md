@@ -18,7 +18,7 @@ Related PRDs:
 * `Unclaimed` means the academy has no academy members and no approved claim.
 * Academies with pending claim requests are skipped as `pending_claim` in MVP.
 * `Usable email` means the academy email is present, syntactically valid, and not recorded in the invalid email list.
-* Claim reminder cooldown is 30 days.
+* Claim reminder cooldown is 7 days, allowing at least one reminder per week.
 * Bulk sending is limited to current-page selected academies in MVP.
 * Maximum bulk batch size is 50 academy IDs.
 * Last reminder state is sourced from a dedicated claim reminder ledger.

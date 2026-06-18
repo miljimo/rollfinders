@@ -25,6 +25,13 @@ func New(opts Options) http.Handler {
 		store:     newStore(),
 		providers: providerRegistry{"stripe": stripeAdapter{}, "paypal": paypalAdapter{}},
 	}
+	if opts.Config.ApplicationPaymentStatusURL != "" {
+		s.store.createPaymentClient(createPaymentClientRequest{
+			ID:          "rollfinders",
+			Name:        "RollFinders",
+			CallbackURL: opts.Config.ApplicationPaymentStatusURL,
+		})
+	}
 
 	router := &handlers.Router{}
 	mustHandle := func(pattern string, methods []string, handler handlers.HttpHandler, middleware ...handlers.MiddlewareFunc) {
@@ -43,7 +50,9 @@ func New(opts Options) http.Handler {
 		mustHandle("/metrics", []string{http.MethodGet}, s.metrics)
 	}
 	auth := s.requireAuth
+	mustHandle("/v1/clients", []string{http.MethodPost}, s.createPaymentClient, auth)
 	mustHandle("/v1/course-occurrence-checkouts", []string{http.MethodPost}, s.createCourseOccurrenceCheckout, auth)
+	mustHandle("/v1/course-occurrence-checkouts/{id}/callbacks/{result}", []string{http.MethodGet}, s.courseOccurrenceCheckoutCallback)
 	mustHandle("/v1/payments", []string{http.MethodPost}, s.createPayment, auth)
 	mustHandle("/v1/payments/{id}", []string{http.MethodGet}, s.getPayment, auth)
 	mustHandle("/v1/payments/{id}/capture", []string{http.MethodPost}, s.capturePayment, auth)

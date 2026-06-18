@@ -24,6 +24,8 @@ type createPaymentRequest struct {
 }
 
 type createCourseOccurrenceCheckoutRequest struct {
+	ClientID            string            `json:"client_id"`
+	ClientState         string            `json:"client_state"`
 	CourseID            string            `json:"course_id"`
 	AcademyID           string            `json:"academy_id"`
 	OccurrenceDate      string            `json:"occurrence_date"`
@@ -40,6 +42,12 @@ type createCourseOccurrenceCheckoutRequest struct {
 	Metadata            map[string]string `json:"metadata"`
 }
 
+type createPaymentClientRequest struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	CallbackURL string `json:"callback_url"`
+}
+
 type refundRequest struct {
 	Amount int64  `json:"amount"`
 	Reason string `json:"reason"`
@@ -50,6 +58,20 @@ type webhookEvent struct {
 	PaymentID string `json:"payment_id"`
 	Status    string `json:"status"`
 	Type      string `json:"type"`
+}
+
+func (s *server) createPaymentClient(w http.ResponseWriter, r *http.Request) {
+	raw, ok := readJSONEndpoint(w, r, false)
+	if !ok {
+		return
+	}
+	req, details := decodeCreatePaymentClient(raw)
+	if len(details) > 0 {
+		writeError(w, r, http.StatusBadRequest, "validation_error", "Client registration validation failed.", details)
+		return
+	}
+	client := s.store.createPaymentClient(req)
+	writeJSON(w, http.StatusCreated, client)
 }
 
 func (s *server) createPayment(w http.ResponseWriter, r *http.Request) {
@@ -101,6 +123,10 @@ func (s *server) createCourseOccurrenceCheckout(w http.ResponseWriter, r *http.R
 	}
 	key := r.Header.Get("Idempotency-Key")
 	status, response, replay, err := s.store.withIdempotency("course_occurrence_checkout", key, fingerprint(raw), func() (int, any) {
+		_, ok := s.store.getPaymentClient(req.ClientID)
+		if !ok {
+			return http.StatusBadRequest, ErrorEnvelope{Error: APIError{Code: "unknown_client", Message: "Payment client is not registered.", RequestID: requestIDFrom(r)}}
+		}
 		adapter, err := s.providers.get(req.Provider)
 		if err != nil {
 			return http.StatusBadRequest, ErrorEnvelope{Error: APIError{Code: "unsupported_provider", Message: "Provider is not supported.", RequestID: requestIDFrom(r)}}
@@ -110,6 +136,10 @@ func (s *server) createCourseOccurrenceCheckout(w http.ResponseWriter, r *http.R
 			metadata = map[string]string{}
 		}
 		metadata["payment_scope"] = "COURSE_OCCURRENCE"
+		metadata["client_id"] = req.ClientID
+		if req.ClientState != "" {
+			metadata["client_state"] = req.ClientState
+		}
 		metadata["course_id"] = req.CourseID
 		metadata["academy_id"] = req.AcademyID
 		metadata["occurrence_date"] = req.OccurrenceDate
@@ -133,7 +163,7 @@ func (s *server) createCourseOccurrenceCheckout(w http.ResponseWriter, r *http.R
 			return http.StatusBadGateway, ErrorEnvelope{Error: APIError{Code: "provider_error", Message: "Provider request failed.", RequestID: requestIDFrom(r)}}
 		}
 		payment := s.store.createPayment(paymentReq, result)
-		checkout := s.store.createCourseOccurrenceCheckout(req, payment, checkoutURLForPayment(payment, req.SuccessURL))
+		checkout := s.store.createCourseOccurrenceCheckout(req, payment, s.cfg.PublicBaseURL)
 		s.store.mu.Lock()
 		s.store.metrics.payments++
 		s.store.metrics.providerSuccess++
@@ -148,6 +178,31 @@ func (s *server) createCourseOccurrenceCheckout(w http.ResponseWriter, r *http.R
 		w.Header().Set("Idempotent-Replayed", "true")
 	}
 	writeJSON(w, status, response)
+}
+
+func (s *server) courseOccurrenceCheckoutCallback(w http.ResponseWriter, r *http.Request) {
+	checkout, ok := s.store.getCourseOccurrenceCheckout(handlers.Param(r, "id"))
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "not_found", "Checkout session was not found.", nil)
+		return
+	}
+	result := strings.ToLower(strings.TrimSpace(handlers.Param(r, "result")))
+	if result != "success" && result != "cancelled" && result != "failed" && result != "expired" {
+		writeError(w, r, http.StatusBadRequest, "validation_error", "Checkout callback result is not supported.", nil)
+		return
+	}
+	client, ok := s.store.getPaymentClient(checkout.ClientID)
+	if !ok {
+		writeError(w, r, http.StatusConflict, "unknown_client", "Checkout client is no longer registered.", nil)
+		return
+	}
+	payment, _ := s.store.getPayment(checkout.PaymentID)
+	redirectURL, err := paymentStatusRedirectURL(client.CallbackURL, checkout, payment, result)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "callback_url_invalid", "Application payment status URL is not configured.", nil)
+		return
+	}
+	http.Redirect(w, r, redirectURL, http.StatusFound)
 }
 
 func (s *server) getPayment(w http.ResponseWriter, r *http.Request) {
@@ -322,6 +377,9 @@ func decodeCreateCourseOccurrenceCheckout(raw []byte) (createCourseOccurrenceChe
 		details["body"] = "does not match the course checkout schema"
 		return req, details
 	}
+	if strings.TrimSpace(req.ClientID) == "" {
+		req.ClientID = "rollfinders"
+	}
 	if strings.TrimSpace(req.CourseID) == "" {
 		details["course_id"] = "required"
 	}
@@ -349,14 +407,27 @@ func decodeCreateCourseOccurrenceCheckout(raw []byte) (createCourseOccurrenceChe
 	if req.PaymentMethodType != "card" && req.PaymentMethodType != "paypal" {
 		details["payment_method_type"] = "must be card or paypal"
 	}
-	if strings.TrimSpace(req.PayerEmail) == "" || !strings.Contains(req.PayerEmail, "@") {
+	if strings.TrimSpace(req.PayerEmail) != "" && !strings.Contains(req.PayerEmail, "@") {
 		details["payer_email"] = "must be a valid email address"
 	}
-	if !validAbsoluteURL(req.SuccessURL) {
-		details["success_url"] = "must be an absolute http or https URL"
+	return req, details
+}
+
+func decodeCreatePaymentClient(raw []byte) (createPaymentClientRequest, map[string]string) {
+	var req createPaymentClientRequest
+	details := map[string]string{}
+	if err := json.Unmarshal(raw, &req); err != nil {
+		details["body"] = "does not match the client registration schema"
+		return req, details
 	}
-	if !validAbsoluteURL(req.CancelURL) {
-		details["cancel_url"] = "must be an absolute http or https URL"
+	req.ID = strings.TrimSpace(req.ID)
+	req.Name = strings.TrimSpace(req.Name)
+	req.CallbackURL = strings.TrimSpace(req.CallbackURL)
+	if req.Name == "" {
+		details["name"] = "required"
+	}
+	if !validAbsoluteURL(req.CallbackURL) {
+		details["callback_url"] = "must be an absolute http or https URL"
 	}
 	return req, details
 }
@@ -372,6 +443,34 @@ func checkoutURLForPayment(payment Payment, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+func courseOccurrenceCallbackURL(baseURL string, checkoutID string, result string) string {
+	base := strings.TrimRight(baseURL, "/")
+	return base + "/v1/course-occurrence-checkouts/" + url.PathEscape(checkoutID) + "/callbacks/" + url.PathEscape(result)
+}
+
+func paymentStatusRedirectURL(baseURL string, checkout CourseOccurrenceCheckout, payment Payment, result string) (string, error) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", errors.New("invalid application status url")
+	}
+	q := parsed.Query()
+	q.Set("checkout_session_id", checkout.CheckoutSessionID)
+	q.Set("client_id", checkout.ClientID)
+	q.Set("payment_id", checkout.PaymentID)
+	q.Set("course_id", checkout.CourseID)
+	q.Set("academy_id", checkout.AcademyID)
+	q.Set("occurrence_date", checkout.OccurrenceDate)
+	q.Set("result", result)
+	if payment.Status != "" {
+		q.Set("payment_status", payment.Status)
+	}
+	if checkout.ClientState != "" {
+		q.Set("state", checkout.ClientState)
+	}
+	parsed.RawQuery = q.Encode()
+	return parsed.String(), nil
 }
 
 func validAbsoluteURL(value string) bool {

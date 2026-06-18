@@ -10,7 +10,6 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import {
   deleteManagedUser,
-  sendPasswordChangeEmail,
   toggleManagedUserDisabled,
 } from "./actions";
 
@@ -326,9 +325,9 @@ export default async function UserManagementPage({
                                 Edit User
                               </Link>
                               {canSendPasswordReset ? (
-                                <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                                <form action={`/api/admin/users/${user.id}/password-reset`} method="post">
                                   <input type="hidden" name="returnTo" value={compactParams(params, {})} />
-                                  <button className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                  <button type="submit" className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                                     <KeyRound size={18} aria-hidden="true" />
                                     Send Password Reset
                                   </button>

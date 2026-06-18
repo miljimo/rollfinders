@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
+import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
@@ -29,7 +30,7 @@ import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders,
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
 import { createCourse } from "../admin/courses/actions";
-import { createManagedUser, deleteManagedUser, sendPasswordChangeEmail, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
+import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
@@ -325,7 +326,7 @@ export default async function AdminDashboardWorkspace({
   const roleSearch = matchingRole(search);
   const userStatusSearch = matchingUserStatus(search);
   const reminderCooldownStart = new Date();
-  reminderCooldownStart.setDate(reminderCooldownStart.getDate() - 30);
+  reminderCooldownStart.setDate(reminderCooldownStart.getDate() - claimReminderCooldownDays);
   const monthStart = startOfMonth(new Date());
   const weekStart = startOfWeek(new Date());
 
@@ -2298,7 +2299,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                           Edit User
                         </Link>
                         {canSendPasswordReset ? (
-                          <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                          <form action={`/api/admin/users/${user.id}/password-reset`} method="post">
                             <input type="hidden" name="returnTo" value={returnTo} />
                             <button type="submit" className={menuItemClass}>
                               <KeyRound size={18} aria-hidden />

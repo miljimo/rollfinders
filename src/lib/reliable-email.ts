@@ -184,13 +184,47 @@ async function markInvalidEmail({
   });
 }
 
+async function clearProviderConfigurationInvalidEmail({
+  userId,
+  email,
+}: {
+  userId?: string | null;
+  email: string;
+}) {
+  const invalidAddress = await prisma.invalidEmailAddress.findUnique({ where: { email } });
+  if (invalidAddress && isProviderConfigurationFailure(invalidAddress.failureReason)) {
+    await prisma.invalidEmailAddress.delete({ where: { email } });
+  }
+
+  if (!userId) return;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { emailStatus: true, emailInvalidReason: true },
+  });
+  if (user?.emailStatus === UserEmailStatus.INVALID && user.emailInvalidReason && isProviderConfigurationFailure(user.emailInvalidReason)) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailStatus: UserEmailStatus.VALID,
+        emailInvalidReason: null,
+        emailInvalidAt: null,
+      },
+    });
+  }
+}
+
 export async function queueEmail(payload: EmailPayload) {
   const recipientEmail = normalizeEmail(payload.to);
   const invalidAddress = await prisma.invalidEmailAddress.findUnique({ where: { email: recipientEmail } });
   const user = payload.userId
-    ? await prisma.user.findUnique({ where: { id: payload.userId }, select: { emailStatus: true } })
+    ? await prisma.user.findUnique({ where: { id: payload.userId }, select: { emailStatus: true, emailInvalidReason: true } })
     : null;
-  const blocked = Boolean(invalidAddress || user?.emailStatus === UserEmailStatus.INVALID);
+  const invalidAddressIsProviderConfig = invalidAddress ? isProviderConfigurationFailure(invalidAddress.failureReason) : false;
+  const userInvalidIsProviderConfig = user?.emailInvalidReason ? isProviderConfigurationFailure(user.emailInvalidReason) : false;
+  const blocked = Boolean(
+    (invalidAddress && !invalidAddressIsProviderConfig) ||
+    (user?.emailStatus === UserEmailStatus.INVALID && !userInvalidIsProviderConfig),
+  );
   const failureReason = invalidAddress?.failureReason ?? (blocked ? "Recipient email is marked invalid." : null);
 
   const email = await prisma.outboundEmail.create({
@@ -240,6 +274,7 @@ export async function sendQueuedEmail(outboundEmailId: string) {
 
   const result = await deliverEmail(email);
   if (result.ok) {
+    await clearProviderConfigurationInvalidEmail({ userId: email.userId, email: email.recipientEmail });
     return prisma.$transaction(async (tx) => {
       const updated = await tx.outboundEmail.update({
         where: { id: email.id },

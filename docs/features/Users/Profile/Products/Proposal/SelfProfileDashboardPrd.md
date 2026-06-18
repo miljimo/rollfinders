@@ -13,6 +13,8 @@ Replace the current `My Profile` panel in `src/app/dashboard/page.tsx` with the 
 
 The self-profile dashboard SHALL let a signed-in user understand their identity, account status, role, academy context, and available self-service actions.
 
+The self-profile dashboard SHALL be mobile-first and SHALL work as the canonical profile presentation for Standard Users while remaining compatible with the shared all-role `UserProfile` component.
+
 ## Current Source Reference
 
 Current self-profile implementation:
@@ -67,12 +69,44 @@ The self-profile SHALL show:
 * email
 * role
 * account status
+* current belt or rank when available
+* practitioner verification status when available
 * academy name or `No academy assigned`
 * academy location when available
+* coach or professor when available
+* member-since date when available
 * created date
 * last login or `Never`
 
 The profile SHALL NOT show placeholder fields such as phone unless the field is backed by real product data and editing behavior.
+
+## Belt Journey Requirement
+
+IF practitioner belt or graduation data exists for the authenticated user
+
+WHEN the self-profile renders
+
+THEN the profile SHOULD show a compact belt journey section.
+
+AND the current belt SHALL be visually identifiable with visible text such as `Current`.
+
+AND completed belts or graduations SHALL be shown only when backed by reliable source data.
+
+AND missing belt history SHALL not produce fake milestones.
+
+## Academy Events Requirement
+
+IF the authenticated user belongs to an academy
+
+WHEN current or upcoming events exist for that academy
+
+THEN the self-profile SHOULD show a `Current Academy Events` section.
+
+AND the events SHALL be scoped to the authenticated user's assigned academy.
+
+AND the section SHALL NOT show events from other academies.
+
+AND event controls SHALL be read-only unless the user's role has explicit permission to manage the event.
 
 ## Required Self-Profile Actions
 
@@ -95,6 +129,10 @@ The UI SHALL use:
 * restrained styling
 * consistent badge treatment
 * efficient action placement
+
+The mobile layout SHALL prioritize the identity header, academy context, primary actions, belt journey, and current academy events before lower-priority account metadata.
+
+Desktop layouts MAY use additional columns, but the mobile order SHALL remain the baseline content hierarchy.
 
 The UI SHALL preserve existing dashboard visual continuity.
 

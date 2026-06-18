@@ -9,12 +9,16 @@ const adminUsersPageSource = readFileSync("src/app/admin/users/page.tsx", "utf8"
 
 describe("admin-triggered password reset contracts", () => {
   it("routes admin reset requests through the shared permission contract before queueing email", () => {
-    assert.match(routeSource, /export\s+async\s+function\s+POST\(_request:\s*Request,\s*\{\s*params\s*\}:\s*\{\s*params:\s*Promise<\{\s*id:\s*string\s*\}>\s*\}\)/);
+    assert.match(routeSource, /export\s+async\s+function\s+POST\(request:\s*Request,\s*\{\s*params\s*\}:\s*\{\s*params:\s*Promise<\{\s*id:\s*string\s*\}>\s*\}\)/);
+    assert.match(routeSource, /const\s+returnTo\s*=\s*await\s+formReturnTo\(request\)/);
+    assert.match(routeSource, /function\s+resultRedirect/);
     assert.match(routeSource, /const\s+\{\s*id\s*\}\s*=\s*await\s+params/);
     assert.match(routeSource, /const\s+user\s*=\s*await\s+prisma\.user\.findUnique\(\{\s*where:\s*\{\s*id\s*\}\s*\}\)/);
     assert.match(routeSource, /if\s*\(!user\)\s*return\s+NextResponse\.json\(\{\s*error:\s*"User not found"\s*\},\s*\{\s*status:\s*404\s*\}\)/);
     assert.match(routeSource, /if\s*\(!canSendManagedUserPasswordReset\(actor,\s*user\)\)/);
-    assert.match(routeSource, /const\s+\{\s*expiresAt\s*\}\s*=\s*await\s+requestPasswordResetForEmail\(user\.email\)/);
+    assert.match(routeSource, /try\s*\{\s*\(\{\s*expiresAt\s*\}\s*=\s*await\s+requestPasswordResetForEmail\(user\.email\)\);/);
+    assert.match(routeSource, /catch\s*\{\s*if\s*\(wantsRedirect\)\s*return\s+resultRedirect\(request,\s*returnTo,\s*"password_reset_failed",\s*user\.email\);/);
+    assert.match(routeSource, /return\s+NextResponse\.json\(\{\s*error:\s*"Password reset email could not be sent"\s*\},\s*\{\s*status:\s*500\s*\}\)/);
     assert.match(routeSource, /action:\s*"USER_PASSWORD_RESET_EMAIL_SENT"/);
     assert.match(routeSource, /metadata:\s*\{\s*email:\s*user\.email,\s*expiresAt:\s*expiresAt\.toISOString\(\)\s*\}/);
 
@@ -38,6 +42,7 @@ describe("admin-triggered password reset contracts", () => {
     assert.match(actionSource, /redirect\(`\$\{url\.pathname\}\$\{url\.search\}`\)/);
 
     for (const source of [dashboardSource, adminUsersPageSource]) {
+      assert.match(source, /action=\{`\/api\/admin\/users\/\$\{user\.id\}\/password-reset`\}\s+method="post"/);
       assert.match(source, /password_reset_sent/);
       assert.match(source, /Password reset email sent/);
       assert.match(source, /password_reset_failed/);

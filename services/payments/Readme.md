@@ -45,6 +45,8 @@ curl -s http://localhost:8080/v1/course-occurrence-checkouts \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: course-cmq123-2026-06-08-1900-student' \
   -d '{
+    "client_id":"rollfinders",
+    "client_state":"order_123",
     "course_id":"cmq123",
     "academy_id":"academy123",
     "occurrence_date":"2026-06-08",
@@ -54,10 +56,17 @@ curl -s http://localhost:8080/v1/course-occurrence-checkouts \
     "currency":"GBP",
     "provider":"paypal",
     "payment_method_type":"paypal",
-    "payer_email":"student@example.com",
-    "success_url":"https://rollfinders.com/payments/return?status=success",
-    "cancel_url":"https://rollfinders.com/payments/return?status=cancelled"
+    "payer_email":"student@example.com"
   }'
+```
+
+Register another service as a payment client:
+
+```bash
+curl -s http://localhost:8080/v1/clients \
+  -H 'Authorization: Bearer local-dev-key' \
+  -H 'Content-Type: application/json' \
+  -d '{"id":"partner_app","name":"Partner App","callback_url":"https://partner.example.com/payments/callback"}'
 ```
 
 Refund a payment:
@@ -86,6 +95,8 @@ The service reads configuration from environment variables only.
 - `PORT`, default `8080`
 - `DATABASE_URL`, required for `/readyz`
 - `API_KEY`, required for protected payment/refund/status endpoints and `/readyz`
+- `PAYMENT_PUBLIC_BASE_URL`, default `http://localhost:8080`; used to build service-owned provider callback URLs
+- `PAYMENT_APPLICATION_STATUS_URL`, default `http://localhost:3000/payments/status`; RollFinders status page URL that receives service-owned callback redirects
 - `METRICS_ENABLED`, default `true`; set to `false` to hide `/metrics`
 - `READ_TIMEOUT`, default `5s`
 - `WRITE_TIMEOUT`, default `10s`
@@ -130,6 +141,18 @@ The endpoint requires one Course occurrence:
 - `occurrence_end_time`
 
 Recurring Courses must call this endpoint for the selected occurrence only. The service writes `payment_scope=COURSE_OCCURRENCE` and the occurrence fields into payment metadata so downstream webhook reconciliation can verify the payment belongs to the expected RollFinders Course occurrence.
+
+The payment service owns provider callback URI handling and canonical payment status orchestration. RollFinders callers should not build success or cancel URLs for this endpoint; legacy `success_url` and `cancel_url` fields remain accepted only for backward compatibility while provider adapters move to service-owned callback configuration.
+
+Clients are registered with a callback URL. Checkout requests carry a `client_id` and may include an opaque `client_state`; the service redirects back to the registered client callback with checkout id, payment id, canonical status, and state.
+
+Provider return and cancel URLs should target the service-owned callback route:
+
+```text
+GET /v1/course-occurrence-checkouts/{checkout_session_id}/callbacks/{success|cancelled|failed|expired}
+```
+
+That route redirects browsers to `PAYMENT_APPLICATION_STATUS_URL` with checkout, payment, occurrence, result, and payment status query parameters.
 
 ## Providers
 

@@ -137,6 +137,26 @@ export type UserProfileViewModel = {
     locationLabel?: string;
     href?: string;
   } | null;
+  practitioner?: {
+    currentBeltLabel?: string;
+    currentBeltColor?: string;
+    verificationLabel?: string;
+    coachLabel?: string;
+    memberSinceLabel?: string;
+    locationLabel?: string;
+    beltJourney?: Array<{
+      label: string;
+      yearLabel?: string;
+      status: "completed" | "current" | "upcoming";
+    }>;
+  };
+  academyEvents?: Array<{
+    id: string;
+    title: string;
+    dateLabel: string;
+    locationLabel?: string;
+    href?: string;
+  }>;
   protectedLabel?: string;
 };
 ```
@@ -151,6 +171,8 @@ View model normalization SHALL derive:
 * `createdAtLabel` from formatted created date.
 * `lastLoginAtLabel` from formatted last login or `Never`.
 * `academy.locationLabel` from available academy city/postcode or equivalent display location.
+* `practitioner.currentBeltLabel` and `practitioner.beltJourney` from trusted graduation or belt history data only.
+* `academyEvents` from the displayed user's assigned academy only.
 
 ## Component Props
 
@@ -171,6 +193,8 @@ export type UserProfileProps = {
     personal?: boolean;
     account?: boolean;
     academy?: boolean;
+    beltJourney?: boolean;
+    academyEvents?: boolean;
     help?: boolean;
   };
   className?: string;
@@ -212,6 +236,10 @@ The surrounding container SHALL own:
 
 `UserProfile` SHALL render the profile content surface only.
 
+The profile content SHALL be mobile-first. Small viewports SHALL use a compact vertical composition with the identity header, status/academy context, primary actions, belt journey, academy events, and information sections stacked in a single readable flow.
+
+Desktop and larger dialog layouts MAY expand sections into multiple columns, but SHALL preserve the same content hierarchy and SHALL NOT require horizontal scrolling.
+
 ## Required Sections
 
 The default profile SHALL include:
@@ -219,6 +247,8 @@ The default profile SHALL include:
 * Personal Information
 * Account
 * Academy when academy data is available or when a missing academy message is useful
+* Belt Journey when practitioner belt data exists
+* Current Academy Events when assigned-academy event data exists
 
 The Help section MAY render for self-profile contexts when the caller provides support or contact action content.
 
