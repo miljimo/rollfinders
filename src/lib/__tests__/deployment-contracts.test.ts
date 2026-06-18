@@ -104,6 +104,14 @@ describe("deployment safety contracts", () => {
     assert.match(deploy, /terraform output -raw certificate_arn 2>\/dev\/null \|\| true/);
   });
 
+  it("skips duplicate ECS redeploys when Terraform already applied target images", () => {
+    const deploy = readSource("scripts/cicd/deploy.sh");
+
+    assert.match(deploy, /IMAGES_ALREADY_MATCH=/);
+    assert.match(deploy, /if \[\[ "\$\{IMAGES_ALREADY_MATCH\}" == "true" \]\]/);
+    assert.match(deploy, /aws ecs wait services-stable/);
+  });
+
   it("configures Prisma pg pools for RDS sslmode=require", () => {
     const prisma = readSource("src/lib/prisma.ts");
     const seed = readSource("prisma/seed.ts");

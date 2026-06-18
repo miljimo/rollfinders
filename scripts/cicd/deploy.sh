@@ -71,6 +71,65 @@ TASK_DEFINITION_PAYLOAD="$(
     --query 'taskDefinition'
 )"
 
+IMAGES_ALREADY_MATCH="$(
+  TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" python3 - <<'PY'
+import json
+import os
+
+task_definition = json.loads(os.environ["TASK_DEFINITION_PAYLOAD"])
+desired = {
+    "web": os.environ["IMAGE_URI"],
+}
+if os.environ.get("USER_SERVICE_IMAGE_URI"):
+    desired["users"] = os.environ["USER_SERVICE_IMAGE_URI"]
+if os.environ.get("PAYMENT_SERVICE_IMAGE_URI"):
+    desired["payments"] = os.environ["PAYMENT_SERVICE_IMAGE_URI"]
+
+current = {container["name"]: container["image"] for container in task_definition["containerDefinitions"]}
+print("true" if all(current.get(name) == image for name, image in desired.items()) else "false")
+PY
+)"
+
+if [[ "${IMAGES_ALREADY_MATCH}" == "true" ]]; then
+  aws ecs wait services-stable \
+    --region "${AWS_REGION}" \
+    --cluster "${ECS_CLUSTER}" \
+    --services "${ECS_SERVICE}"
+
+  cat <<EOF
+================================================
+
+Deployment Successful
+
+Environment:
+${ENVIRONMENT_NAME}
+
+Frontend URL:
+${FRONTEND_URL}
+
+WWW URL:
+${WWW_URL}
+
+API URL:
+${API_URL}
+
+ECS Cluster:
+${ECS_CLUSTER}
+
+Service:
+${ECS_SERVICE}
+
+Docker Image:
+${IMAGE_URI}
+
+Certificate ARN:
+${CERTIFICATE_ARN}
+
+================================================
+EOF
+  exit 0
+fi
+
 TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" TASK_DEFINITION_FILE="${TASK_DEFINITION_FILE}" python3 - <<'PY'
 import json
 import os
