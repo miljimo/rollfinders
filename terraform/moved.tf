@@ -104,8 +104,18 @@ moved {
 }
 
 moved {
+  from = module.alb.aws_lb_listener.https
+  to   = module.alb.aws_lb_listener.https[0]
+}
+
+moved {
   from = aws_lb_listener_rule.www_redirect
   to   = module.alb.aws_lb_listener_rule.www_redirect
+}
+
+moved {
+  from = module.alb.aws_lb_listener_rule.www_redirect
+  to   = module.alb.aws_lb_listener_rule.www_redirect[0]
 }
 
 moved {
@@ -114,13 +124,43 @@ moved {
 }
 
 moved {
+  from = module.certificate.aws_acm_certificate.app
+  to   = module.certificate[0].aws_acm_certificate.app
+}
+
+moved {
   from = aws_route53_record.certificate_validation
   to   = module.certificate.aws_route53_record.certificate_validation
 }
 
 moved {
+  from = module.certificate.aws_route53_record.certificate_validation
+  to   = module.certificate[0].aws_route53_record.certificate_validation
+}
+
+moved {
   from = aws_acm_certificate_validation.app
   to   = module.certificate.aws_acm_certificate_validation.app
+}
+
+moved {
+  from = module.certificate.aws_acm_certificate_validation.app
+  to   = module.certificate[0].aws_acm_certificate_validation.app
+}
+
+moved {
+  from = module.app_dns_records.aws_route53_record.frontend
+  to   = module.app_dns_records[0].aws_route53_record.frontend
+}
+
+moved {
+  from = module.app_dns_records.aws_route53_record.api
+  to   = module.app_dns_records[0].aws_route53_record.api
+}
+
+moved {
+  from = module.app_dns_records.aws_route53_record.www
+  to   = module.app_dns_records[0].aws_route53_record.www
 }
 
 moved {
