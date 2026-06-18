@@ -16,6 +16,7 @@ Deployment requirements are split into smaller infrastructure PRDs by operationa
 - [Deployment Validation](Delivery/Reviewing/DeploymentValidationPrd.md)
 - [Environment Promotion](Delivery/Completed/EnvironmentPromotionPrd.md)
 - [Seed Data and Migrations](Delivery/Reviewing/SeedDataAndMigrationsPrd.md)
+- [Monolithic Services App Dev Deployment](Delivery/Reviewing/MonolithicServicesAppDevDeploymentPrd.md)
 - [Deployment Locking](Delivery/Completed/DeploymentLockingPrd.md)
 
 ## Operations
