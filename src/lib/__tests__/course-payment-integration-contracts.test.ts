@@ -38,6 +38,7 @@ describe("course payment service integration", () => {
 
     const formSource = readSource("src/app/courses/[id]/CourseCheckoutForm.tsx");
     assert.match(formSource, /useActionState/);
+    assert.match(formSource, /checkoutAttemptId/);
     assert.match(formSource, /startCourseCheckout/);
     assert.match(formSource, /window\.location\.href\s*=\s*state\.checkoutUrl/);
     assert.match(formSource, /Continue to Secure Payment/);
@@ -50,6 +51,8 @@ describe("course payment service integration", () => {
     const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
     assert.match(actionSource, /EventPricingType\.DONATION/);
     assert.match(actionSource, /donationAmount/);
+    assert.match(actionSource, /checkoutIdempotencyKey/);
+    assert.match(actionSource, /clientState:\s*`\$\{courseId\}:\$\{event\.occurrenceDateParam\}:\$\{attemptId\}`/);
     assert.match(actionSource, /Enter a donation amount greater than zero/);
 
     const formSource = readSource("src/app/courses/[id]/CourseCheckoutForm.tsx");

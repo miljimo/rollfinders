@@ -1,6 +1,6 @@
 "use server";
 
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { getServerSession } from "next-auth";
 import { EventPricingType } from "@prisma/client";
 import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
@@ -23,11 +23,23 @@ function checkoutError(message: string): CourseCheckoutState {
   return { error: message };
 }
 
+function checkoutAttemptId(value: FormDataEntryValue | null) {
+  const candidate = String(value ?? "").trim();
+  if (/^[A-Za-z0-9_-]{8,80}$/.test(candidate)) return candidate;
+  return randomUUID();
+}
+
+function checkoutIdempotencyKey(parts: string[]) {
+  const digest = createHash("sha256").update(parts.join("\u001f")).digest("hex").slice(0, 32);
+  return `course-checkout-${digest}`;
+}
+
 export async function startCourseCheckout(_state: CourseCheckoutState, formData: FormData): Promise<CourseCheckoutState> {
   const courseId = String(formData.get("courseId") ?? "");
   const occurrenceDate = String(formData.get("occurrenceDate") ?? "");
   const payerEmail = String(formData.get("payerEmail") ?? "").trim().toLowerCase();
   const donationAmount = String(formData.get("donationAmount") ?? "").trim();
+  const attemptId = checkoutAttemptId(formData.get("checkoutAttemptId"));
   if (!courseId) return checkoutError("This event could not be found. Refresh the page and try again.");
 
   const event = await getCourseOccurrence(courseId, occurrenceDate || undefined);
@@ -48,8 +60,15 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
   const receiptEmail = payerEmail || sessionUser?.email || undefined;
 
   try {
+    const idempotencyKey = checkoutIdempotencyKey([
+      courseId,
+      event.occurrenceDateParam,
+      String(amount),
+      receiptEmail ?? "",
+      attemptId,
+    ]);
     const checkout = await createCourseOccurrenceCheckout({
-      clientState: `${courseId}:${event.occurrenceDateParam}:${randomUUID()}`,
+      clientState: `${courseId}:${event.occurrenceDateParam}:${attemptId}`,
       courseId,
       academyId: event.academyId,
       occurrenceDate: event.occurrenceDateParam,
@@ -61,7 +80,7 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
       paymentMethodType: "card",
       payerUserId: sessionUser?.id,
       payerEmail: receiptEmail,
-      idempotencyKey: `course-${courseId}-${event.occurrenceDateParam}-${randomUUID()}`,
+      idempotencyKey,
       metadata: {
         course_title: event.title,
         academy_name: event.academy.name,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/Button";
 import { startCourseCheckout, type CourseCheckoutState } from "./payment-actions";
 
@@ -18,6 +18,12 @@ export function CourseCheckoutForm({
   suggestedAmount?: number;
 }) {
   const [state, formAction, pending] = useActionState(startCourseCheckout, courseCheckoutInitialState);
+  const [checkoutAttemptId] = useState(() => {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  });
   const defaultDonationAmount = suggestedAmount && suggestedAmount > 0 ? suggestedAmount.toFixed(2) : "";
   const formClassName = mode === "donation" ? "mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]" : "mt-4 grid gap-3 sm:grid-cols-[1fr_auto]";
 
@@ -30,6 +36,7 @@ export function CourseCheckoutForm({
     <form action={formAction} className={formClassName}>
       <input type="hidden" name="courseId" value={courseId} />
       <input type="hidden" name="occurrenceDate" value={occurrenceDate} />
+      <input type="hidden" name="checkoutAttemptId" value={checkoutAttemptId} />
       {state.error ? (
         <p className="rounded-md border border-red-200 bg-white p-3 text-sm font-semibold text-red-700 sm:col-span-2" role="alert">
           {state.error}
