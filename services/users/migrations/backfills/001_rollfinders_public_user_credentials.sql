@@ -1,4 +1,6 @@
 DO $$
+DECLARE
+    public_users_updated_at_expr text := 'now()';
 BEGIN
     IF to_regclass('public.users') IS NULL THEN
         RETURN;
@@ -32,7 +34,17 @@ BEGIN
         RETURN;
     END IF;
 
-    EXECUTE $sql$
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'users'
+          AND column_name = 'updated_at'
+    ) THEN
+        public_users_updated_at_expr := 'COALESCE(pu.updated_at, now())';
+    END IF;
+
+    EXECUTE format($sql$
         INSERT INTO users.users (
             id,
             external_id,
@@ -62,7 +74,7 @@ BEGIN
             COALESCE(pu.disabled, false),
             COALESCE(pu.is_protected, false),
             COALESCE(pu.created_at, now()),
-            COALESCE(pu.updated_at, now())
+            %s
         FROM public.users pu
         WHERE COALESCE(trim(pu.id), '') <> ''
           AND COALESCE(trim(pu.email), '') <> ''
@@ -75,9 +87,9 @@ BEGIN
             disabled = EXCLUDED.disabled,
             is_protected = EXCLUDED.is_protected,
             updated_at = now()
-    $sql$;
+    $sql$, public_users_updated_at_expr);
 
-    EXECUTE $sql$
+    EXECUTE format($sql$
         INSERT INTO users.credentials (
             id,
             user_id,
@@ -94,7 +106,7 @@ BEGIN
             lower(trim(pu.email)),
             'ACTIVE'::users."CredentialStatus",
             COALESCE(pu.created_at, now()),
-            COALESCE(pu.updated_at, now())
+            %s
         FROM public.users pu
         JOIN users.users uu ON uu.id = pu.id
         WHERE COALESCE(trim(pu.id), '') <> ''
@@ -104,9 +116,9 @@ BEGIN
         SET user_id = EXCLUDED.user_id,
             status = EXCLUDED.status,
             updated_at = now()
-    $sql$;
+    $sql$, public_users_updated_at_expr);
 
-    EXECUTE $sql$
+    EXECUTE format($sql$
         INSERT INTO users.credential_secrets (
             id,
             credential_id,
@@ -119,7 +131,7 @@ BEGIN
             c.id,
             pu.password_hash,
             COALESCE(pu.created_at, now()),
-            COALESCE(pu.updated_at, now())
+            %s
         FROM public.users pu
         JOIN users.credentials c
           ON c.credential_type = 'EMAIL_PASSWORD'::users."CredentialType"
@@ -130,7 +142,7 @@ BEGIN
         ON CONFLICT (credential_id) DO UPDATE
         SET password_hash = EXCLUDED.password_hash,
             updated_at = now()
-    $sql$;
+    $sql$, public_users_updated_at_expr);
 
     EXECUTE $sql$
         INSERT INTO users.user_roles (user_id, role_key, organisation_id)
