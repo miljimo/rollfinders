@@ -1,10 +1,10 @@
-import type { Academy, CourseActivity, Event } from "@prisma/client";
+import type { Academy, CourseActivity } from "@prisma/client";
 import type { InstructorUserOption } from "@/lib/instructor-users";
-import { OpenMatForm } from "../open-mats/OpenMatForm";
+import { OpenMatForm, type OpenMatFormEvent } from "../open-mats/OpenMatForm";
 import type { CourseFormState } from "./actions";
 
 type CourseAction = (state: CourseFormState, formData: FormData) => Promise<CourseFormState>;
-export type CourseFormEvent = Omit<Event, "price"> & { price: string };
+export type CourseFormEvent = OpenMatFormEvent;
 type CourseFormActivity = Pick<CourseActivity, "name" | "activityType" | "startTime" | "endTime" | "description"> & { id?: string };
 type CourseFormEventWithActivities = CourseFormEvent & { activities?: CourseFormActivity[] };
 

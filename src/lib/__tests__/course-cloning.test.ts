@@ -49,6 +49,10 @@ describe("course cloning", () => {
     assert.equal(clone.title, "Sunday Sparring (Copy)");
     assert.equal(clone.price, "10");
     assert.equal(clone.donationLabel, "Support the mat ${donation}");
+    assert.equal("id" in clone, false);
+    assert.equal("createdAt" in clone, false);
+    assert.equal("updatedAt" in clone, false);
+    assert.equal("createdById" in clone, false);
     assert.deepEqual(clone.activities, [{
       name: "Rolling",
       activityType: CourseActivityType.ROLLING,

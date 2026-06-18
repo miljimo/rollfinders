@@ -11,7 +11,31 @@ import type { InstructorUserOption } from "@/lib/instructor-users";
 import type { EventFormState } from "./actions";
 
 type EventAction = (state: EventFormState, formData: FormData) => Promise<EventFormState>;
-export type OpenMatFormEvent = Omit<Event, "price"> & { price: string };
+export type OpenMatFormEvent = Pick<Event,
+  | "academyId"
+  | "title"
+  | "description"
+  | "startTime"
+  | "endTime"
+  | "giType"
+  | "pricingType"
+  | "donationLabel"
+  | "audience"
+  | "courseType"
+  | "instructor"
+  | "contactEmail"
+  | "contactPhone"
+  | "locationName"
+  | "addressOverride"
+  | "capacity"
+  | "active"
+  | "recurrenceType"
+  | "recurrenceInterval"
+> & {
+  price: string;
+  eventDate: Date | string;
+  recurrenceEndDate?: Date | string | null;
+};
 type FormCourseActivity = Pick<CourseActivity, "name" | "activityType" | "startTime" | "endTime" | "description"> & { id?: string };
 
 const initialState: EventFormState = {
@@ -19,6 +43,11 @@ const initialState: EventFormState = {
   fieldErrors: {},
   values: {},
 };
+
+function dateInputValue(value?: Date | string | null) {
+  if (!value) return undefined;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
+}
 
 const formSteps = [
   { id: "basics", label: "Basics" },
@@ -50,8 +79,8 @@ export function OpenMatForm({
 }) {
   const [state, formAction, isPending] = useActionState(action, initialState);
   const [stepIndex, setStepIndex] = useState(0);
-  const eventDate = event?.eventDate.toISOString().slice(0, 10);
-  const recurrenceEndDate = event?.recurrenceEndDate?.toISOString().slice(0, 10);
+  const eventDate = dateInputValue(event?.eventDate);
+  const recurrenceEndDate = dateInputValue(event?.recurrenceEndDate);
   const recurrenceInterval = state.values.recurrenceInterval ?? event?.recurrenceInterval?.toString() ?? "1";
   const initialAcademyId = state.values.academyId ?? event?.academyId ?? "";
   const [selectedAcademyId, setSelectedAcademyId] = useState(initialAcademyId);
