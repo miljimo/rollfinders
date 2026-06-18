@@ -1,7 +1,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --no-audit --no-fund --prefer-offline
 
 FROM node:22-alpine AS builder
 WORKDIR /app
