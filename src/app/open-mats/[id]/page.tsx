@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { EventPricingType } from "@prisma/client";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
+import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LinkedText } from "@/components/LinkedText";
 import { PageShell } from "@/components/PageShell";
 import { isPublicAcademyTrusted, PublicListingWarning } from "@/components/PublicListingWarning";
@@ -81,7 +82,13 @@ export default async function EventPage({
           <div><dt className="font-bold text-stone-950">Time</dt><dd>{event.startTime}-{event.endTime}</dd></div>
           <div><dt className="font-bold text-stone-950">Cost</dt><dd>{priceLabel}</dd></div>
           <div><dt className="font-bold text-stone-950">Capacity</dt><dd>{event.capacity ?? "Check with academy"}</dd></div>
-          <div className="sm:col-span-2"><dt className="font-bold text-stone-950">Location</dt><dd>{address}</dd></div>
+          <div className="sm:col-span-2">
+            <dt className="font-bold text-stone-950">Location</dt>
+            <dd className="mt-1 flex flex-wrap items-center gap-2">
+              <span>{address}</span>
+              <InlineDirectionsButton address={address} />
+            </dd>
+          </div>
         </dl>
         {event.activities.length ? (
           <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">

@@ -24,6 +24,7 @@ import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, Even
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
+import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LinkedText } from "@/components/LinkedText";
 import { LogoutButton } from "@/components/LogoutButton";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
@@ -1148,7 +1149,13 @@ function ViewEventDialog({ event }: { event: DashboardEventDetail }) {
           {event.instructor ? <div><dt className="font-bold text-stone-950">Instructor</dt><dd>{event.instructor}</dd></div> : null}
           {event.contactEmail ? <div><dt className="font-bold text-stone-950">Contact Email</dt><dd><a className="text-teal-800" href={`mailto:${event.contactEmail}`}>{event.contactEmail}</a></dd></div> : null}
           {event.contactPhone ? <div><dt className="font-bold text-stone-950">Contact Phone</dt><dd><a className="text-teal-800" href={`tel:${event.contactPhone}`}>{event.contactPhone}</a></dd></div> : null}
-          <div className="sm:col-span-2"><dt className="font-bold text-stone-950">{openMat ? "Location" : "Address"}</dt><dd>{address}</dd></div>
+          <div className="sm:col-span-2">
+            <dt className="font-bold text-stone-950">{openMat ? "Location" : "Address"}</dt>
+            <dd className="mt-1 flex flex-wrap items-center gap-2">
+              <span>{address}</span>
+              <InlineDirectionsButton address={address} />
+            </dd>
+          </div>
         </dl>
         {event.activities.length ? (
           <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
