@@ -1,7 +1,6 @@
 import "dotenv/config";
-import { PrismaClient, Role, UserStatus } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
 import { Pool } from "pg";
 
 function getDatabaseUrl() {
@@ -25,41 +24,11 @@ async function main() {
   const email = (process.env.SUPER_ADMIN_EMAIL ?? process.env.DEFAULT_SUPER_ADMIN_EMAIL ?? "admin@rollfinder.com")
     .trim()
     .toLowerCase();
-  const password = process.env.SUPER_ADMIN_PASSWORD ?? process.env.DEFAULT_SUPER_ADMIN_PASSWORD ?? "admin";
-  const name = process.env.SUPER_ADMIN_NAME ?? process.env.DEFAULT_SUPER_ADMIN_NAME ?? "RollFinder Admin";
-
   if (!email) {
     throw new Error("SUPER_ADMIN_EMAIL cannot be empty.");
   }
 
-  if (!password) {
-    throw new Error("SUPER_ADMIN_PASSWORD cannot be empty.");
-  }
-
-  const passwordHash = await bcrypt.hash(password, 10);
-
-  await prisma.user.upsert({
-    where: { email },
-    update: {
-      name,
-      passwordHash,
-      role: Role.SUPER_ADMIN,
-      status: UserStatus.ACTIVE,
-      disabled: false,
-      isProtected: true,
-    },
-    create: {
-      name,
-      email,
-      passwordHash,
-      role: Role.SUPER_ADMIN,
-      status: UserStatus.ACTIVE,
-      disabled: false,
-      isProtected: true,
-    },
-  });
-
-  console.log(`Ensured protected super admin user: ${email}`);
+  console.log(`Super admin identity is managed by the users service: ${email}`);
 }
 
 main()

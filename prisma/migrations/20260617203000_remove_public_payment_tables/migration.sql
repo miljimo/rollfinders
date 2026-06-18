@@ -1,0 +1,8 @@
+DROP TABLE IF EXISTS "payment_status_history" CASCADE;
+DROP TABLE IF EXISTS "refunds" CASCADE;
+DROP TABLE IF EXISTS "checkouts" CASCADE;
+DROP TABLE IF EXISTS "provider_events" CASCADE;
+DROP TABLE IF EXISTS "idempotency_keys" CASCADE;
+DROP TABLE IF EXISTS "outbox_events" CASCADE;
+DROP TABLE IF EXISTS "payment_clients" CASCADE;
+DROP TABLE IF EXISTS "payments" CASCADE;

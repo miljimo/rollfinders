@@ -1,18 +1,24 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
+import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
+import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
-import { academyScopedAcademyWhere, academyScopedEventWhere, academyScopedUserWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, elevatedAdminPrivacyUserWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { academyScopedAcademyWhere, academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
 import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, recurrenceLabel as courseRecurrenceLabel } from "@/lib/courses";
 import { getMapItems } from "@/lib/data";
+import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
+import { listCourseOccurrencePayments, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
+import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
+import { listManagedUsers } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -29,7 +35,7 @@ import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders,
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
 import { createCourse } from "../admin/courses/actions";
-import { createManagedUser, deleteManagedUser, sendPasswordChangeEmail, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
+import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
@@ -76,14 +82,14 @@ function clampPlatformAcademyPage(page: number, totalItems: number) {
 function platformAdminCreatedAcademyWhere(extra: Prisma.AcademyWhereInput = {}): Prisma.AcademyWhereInput {
   return {
     AND: [
-      { createdBy: { role: Role.PLATFORM_ADMIN } },
+      { createdById: { not: null } },
       extra,
     ],
   };
 }
 
 function selectedPanel(value: string | undefined) {
-  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics") return value;
+  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics") return value;
   return "academies";
 }
 
@@ -269,6 +275,25 @@ function emptyEmailOperationsSummary(): Awaited<ReturnType<typeof getEmailQueueO
   };
 }
 
+type DashboardPaymentsResult = {
+  error?: string;
+  payments: PaymentRecord[];
+};
+
+async function getDashboardPayments(academyId?: string | null): Promise<DashboardPaymentsResult> {
+  try {
+    const payments = await listCourseOccurrencePayments({ limit: 100 });
+    return {
+      payments: academyId ? payments.filter((payment) => payment.metadata?.academy_id === academyId) : payments,
+    };
+  } catch (error) {
+    if (error instanceof PaymentServiceError) {
+      return { error: error.status === 0 ? error.message : `Payment service returned status ${error.status}.`, payments: [] };
+    }
+    return { error: "Payment service is unavailable.", payments: [] };
+  }
+}
+
 export default async function AdminDashboardWorkspace({
   searchParams,
 }: {
@@ -281,17 +306,7 @@ export default async function AdminDashboardWorkspace({
     redirect("/");
   }
   if (isAcademyAdminRole(currentUser.role) && !currentUser.academyId) redirect("/");
-  const account = await prisma.user.findUnique({
-    where: { id: currentUser.id },
-    select: {
-      academy: { select: { name: true } },
-      disabled: true,
-      email: true,
-      name: true,
-      role: true,
-      status: true,
-    },
-  });
+  const account = await getDashboardShadowAccount(currentUser);
   const params = await searchParams;
   const requestedPanel = selectedPanel(firstParam(params.panel));
   const academyAdmin = isAcademyAdminRole(currentUser.role);
@@ -307,6 +322,7 @@ export default async function AdminDashboardWorkspace({
   const academyDialogId = firstParam(params.academyId);
   const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
   const search = (firstParam(params.search) ?? "").trim();
+  const paymentsSearch = (firstParam(params.paymentsSearch) ?? "").trim();
   const platformAcademiesSearch = (firstParam(params.platformAcademiesSearch) ?? "").trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
@@ -325,7 +341,7 @@ export default async function AdminDashboardWorkspace({
   const roleSearch = matchingRole(search);
   const userStatusSearch = matchingUserStatus(search);
   const reminderCooldownStart = new Date();
-  reminderCooldownStart.setDate(reminderCooldownStart.getDate() - 30);
+  reminderCooldownStart.setDate(reminderCooldownStart.getDate() - claimReminderCooldownDays);
   const monthStart = startOfMonth(new Date());
   const weekStart = startOfWeek(new Date());
 
@@ -347,8 +363,6 @@ export default async function AdminDashboardWorkspace({
           { city: { contains: platformAcademiesSearch, mode: "insensitive" } },
           { borough: { contains: platformAcademiesSearch, mode: "insensitive" } },
           { postcode: { contains: platformAcademiesSearch, mode: "insensitive" } },
-          { createdBy: { name: { contains: platformAcademiesSearch, mode: "insensitive" } } },
-          { createdBy: { email: { contains: platformAcademiesSearch, mode: "insensitive" } } },
         ],
       }
     : {};
@@ -374,7 +388,6 @@ export default async function AdminDashboardWorkspace({
           : {};
   const academyScopeWhere = academyScopedAcademyWhere(currentUser);
   const eventScopeWhere = academyScopedEventWhere(currentUser);
-  const userScopeWhere = academyScopedUserWhere(currentUser);
   const academyWhere: Prisma.AcademyWhereInput = { AND: [academyScopeWhere, academySearchWhere, elevatedAdmin ? academyReminderWhere : {}] };
   const eventFilterWhere: Prisma.EventWhereInput = search
     ? {
@@ -388,19 +401,14 @@ export default async function AdminDashboardWorkspace({
       }
     : {};
   const eventWhere: Prisma.EventWhereInput = { AND: [eventScopeWhere, { active: true }, eventFilterWhere] };
-  const userFilterWhere: Prisma.UserWhereInput = search
-    ? {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { email: { contains: search, mode: "insensitive" } },
-          { academy: { name: { contains: search, mode: "insensitive" } } },
-          ...(roleSearch ? [{ role: roleSearch }] : []),
-          ...(userStatusSearch ? [{ status: userStatusSearch }] : []),
-        ],
-      }
-    : {};
-  const visibleUserWhere = elevatedAdminPrivacyUserWhere({ role: currentUser.role });
-  const scopedUserWhere: Prisma.UserWhereInput = { AND: [userScopeWhere, visibleUserWhere, userFilterWhere] };
+  const userQueryParams = new URLSearchParams({
+    page: String(userPage),
+    pageSize: String(pageSize),
+  });
+  if (search) userQueryParams.set("q", search);
+  if (roleSearch) userQueryParams.set("role", roleSearch);
+  if (userStatusSearch) userQueryParams.set("status", userStatusSearch);
+  const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString());
   const platformAdminAcademiesWhere = platformAdminCreatedAcademyWhere(platformAdminAcademySearchWhere);
 
   const [
@@ -429,17 +437,17 @@ export default async function AdminDashboardWorkspace({
     prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED }] } }),
     prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.PENDING }] } }),
     prisma.academy.count({ where: { AND: [academyScopeWhere, { members: { some: {} } }] } }),
-    prisma.user.count({ where: { AND: [userScopeWhere, visibleUserWhere] } }),
+    managedUsersPagePromise.then((result) => result.totalItems),
     prisma.event.count({ where: eventWhere }),
-    prisma.user.count({ where: scopedUserWhere }),
+    managedUsersPagePromise.then((result) => result.totalItems),
     superAdmin ? prisma.academy.count({ where: platformAdminAcademiesWhere }) : Promise.resolve(0),
     superAdmin ? prisma.academy.count({ where: platformAdminCreatedAcademyWhere({ verificationStatus: AcademyVerificationStatus.VERIFIED }) }) : Promise.resolve(0),
     superAdmin ? prisma.academy.count({ where: platformAdminCreatedAcademyWhere({ verificationStatus: AcademyVerificationStatus.PENDING }) }) : Promise.resolve(0),
-    superAdmin ? prisma.user.count({ where: { role: Role.PLATFORM_ADMIN, createdAcademies: { some: {} } } }) : Promise.resolve(0),
+    Promise.resolve(0),
     superAdmin ? prisma.academy.count({ where: platformAdminCreatedAcademyWhere({ createdAt: { gte: monthStart } }) }) : Promise.resolve(0),
     prisma.academy.count({ where: { AND: [academyScopeWhere, { createdAt: { gte: monthStart } }] } }),
     prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED, updatedAt: { gte: monthStart } }] } }),
-    prisma.user.count({ where: { AND: [userScopeWhere, visibleUserWhere, { createdAt: { gte: monthStart } }] } }),
+    Promise.resolve(0),
     prisma.event.count({ where: { ...eventWhere, createdAt: { gte: weekStart } } }),
     elevatedAdmin ? getEmailQueueOperationsSummary() : Promise.resolve(emptyEmailOperationsSummary()),
     superAdmin ? getFounderAnalyticsReport() : Promise.resolve(null),
@@ -464,6 +472,7 @@ export default async function AdminDashboardWorkspace({
     instructorUsers,
     platformAdminActivitySummary,
     assignedAcademyProfile,
+    paymentResult,
   ] = await Promise.all([
     prisma.academy.findMany({
       where: academyWhere,
@@ -482,9 +491,6 @@ export default async function AdminDashboardWorkspace({
           skip: (currentPlatformAcademyPage - 1) * platformAdminAcademyPageSize,
           take: platformAdminAcademyPageSize,
           orderBy: [{ createdAt: "desc" }, { name: "asc" }],
-          include: {
-            createdBy: { select: { email: true, name: true } },
-          },
         })
       : Promise.resolve([]),
     prisma.event.findMany({
@@ -494,22 +500,23 @@ export default async function AdminDashboardWorkspace({
       include: { academy: true },
       orderBy: { eventDate: "asc" },
     }),
-    prisma.user.findMany({
-      where: scopedUserWhere,
-      skip: (currentUserPage - 1) * pageSize,
-      take: pageSize,
-      include: { academy: true },
-      orderBy: [{ createdAt: "desc" }, { email: "asc" }],
-    }),
+    managedUsersPagePromise.then((result) =>
+      result.users.map((user) => ({
+        ...user,
+        role: user.role as Role,
+        status: user.status as UserStatus,
+        createdAt: new Date(user.createdAt),
+        academy: null,
+      })),
+    ),
     prisma.adminAuditLog.findMany({
       where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
       take: 8,
-      include: { actor: true, target: true },
       orderBy: { createdAt: "desc" },
     }),
     panel === "maps" ? getMapItems() : Promise.resolve([]),
     prisma.academy.findMany({ where: academyScopeWhere, orderBy: { name: "asc" } }),
-    getInstructorUserOptions({ AND: [userScopeWhere, visibleUserWhere, { OR: [{ academyId: { not: null } }, { academyMemberships: { some: {} } }] }] }),
+    Promise.resolve([]),
     elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
     academyAdmin && currentUser.academyId
       ? prisma.academy.findUnique({
@@ -517,6 +524,7 @@ export default async function AdminDashboardWorkspace({
           include: { events: true, claims: true, members: true, socialLinks: { orderBy: { platform: "asc" } } },
         })
       : Promise.resolve(null),
+    panel === "payments" ? getDashboardPayments(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ payments: [] }),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
   const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
@@ -530,7 +538,6 @@ export default async function AdminDashboardWorkspace({
             },
           },
           activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
-          createdBy: { select: { role: true, academyId: true, academyMemberships: { select: { academyId: true, role: true } } } },
         },
       })
     : null;
@@ -573,6 +580,7 @@ export default async function AdminDashboardWorkspace({
       label: academyAdmin ? "Academy Profile" : "Manage Academies",
     },
     { active: panel === "open-mats", href: "/dashboard?panel=open-mats", icon: "events", label: openMatSessionsLabel },
+    { active: panel === "payments", href: "/dashboard?panel=payments", icon: "payments", label: "Payments" },
     { active: panel === "users", href: "/dashboard?panel=users", icon: "users", label: "Manage Users" },
     ...(superAdmin
       ? [
@@ -746,6 +754,14 @@ export default async function AdminDashboardWorkspace({
       title: openMatSessionsLabel,
     },
     {
+      active: panel === "payments",
+      description: academyAdmin ? "Review payments made to your academy courses/events" : "Review course and event payments",
+      href: "/dashboard?panel=payments",
+      icon: <CreditCard size={24} aria-hidden />,
+      id: "payments",
+      title: "Payments",
+    },
+    {
       active: panel === "users",
       description: academyAdmin ? "Create and manage academy users" : "Create, edit and manage users",
       href: "/dashboard?panel=users",
@@ -898,6 +914,16 @@ export default async function AdminDashboardWorkspace({
               <Pagination currentPage={currentEventPage} totalItems={activeEventCount} pageKey="eventsPage" searchParams={params} />
             </AdminPanel>
           ) : null}
+          {panel === "payments" ? (
+            <AdminPanel
+              description={academyAdmin ? "Payments made to your academy courses and events." : "Payments made to RollFinders courses and events."}
+              id="payments"
+              search={<PaymentsPanelSearch search={paymentsSearch} />}
+              title="Payments"
+            >
+              <PaymentsPanel academyAdmin={academyAdmin} result={paymentResult} search={paymentsSearch} />
+            </AdminPanel>
+          ) : null}
           {panel === "academy-claims" ? (
             <AdminPanel
               action={<ClaimsFilter status={claimStatus} pageSize={claimPageSize} search={search} />}
@@ -980,7 +1006,6 @@ type DashboardEventDetail = Prisma.EventGetPayload<{
       };
     };
     activities: true;
-    createdBy: { select: { role: true; academyId: true; academyMemberships: { select: { academyId: true; role: true } } } };
   };
 }>;
 
@@ -1100,6 +1125,9 @@ function ViewEventDialog({ event }: { event: DashboardEventDetail }) {
   const address = openMat ? `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}` : courseAddress(event);
   const capacity = event.capacity ?? "Check with academy";
   const price = coursePriceLabel(event);
+  const permanentHref = eventPermanentPath(event.id);
+  const permanentUrl = eventPermanentUrl(event.id);
+  const qrCodeHref = eventQrCodePath(event.id);
 
   return (
     <DialogShell closeHref="/dashboard?panel=open-mats" description={event.academy.name} title={event.title}>
@@ -1139,10 +1167,24 @@ function ViewEventDialog({ event }: { event: DashboardEventDetail }) {
           </section>
         ) : null}
         <PublicListingWarning academy={event.academy} course={event} className="mt-4" />
+        <section className="mt-4 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 sm:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <h3 className="text-lg font-black text-stone-950">Integration Event URI</h3>
+            <p className="mt-2 break-all rounded-md bg-slate-50 p-3 text-sm font-semibold text-slate-700">{permanentUrl}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button href={permanentHref} target="_blank" rel="noreferrer" variant="secondary">Open URI</Button>
+              <Button href={qrCodeHref} target="_blank" rel="noreferrer" variant="neutral">Open QR Code</Button>
+            </div>
+          </div>
+          <a href={permanentHref} target="_blank" rel="noreferrer" className="inline-flex rounded-md border border-stone-200 bg-white p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrCodeHref} alt={`QR code for ${event.title}`} className="size-32" />
+          </a>
+        </section>
         <p className="mt-6 whitespace-pre-wrap text-lg leading-8 text-stone-700"><LinkedText text={event.description} /></p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
-          <Button href={event.academy.website ?? `/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
+          <Button href={`/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
         </div>
       </section>
     </DialogShell>
@@ -1171,7 +1213,6 @@ function ViewUserDialog({ user }: { user: UserRow }) {
           <ProfileInfo label="Role" value={roleLabel(user.role)} />
           <ProfileInfo label="Academy" value={user.academy?.name ?? "None"} />
           <ProfileInfo label="Status" value={disabled ? "Disabled" : "Active"} />
-          <ProfileInfo label="Last Login" value={user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"} />
           <ProfileInfo label="Created" value={formatDate(user.createdAt)} />
         </div>
       </div>
@@ -1432,6 +1473,23 @@ function PanelSearch({ panel, search }: { panel: string; search: string }) {
   );
 }
 
+function PaymentsPanelSearch({ search }: { search: string }) {
+  return (
+    <form action="/dashboard" className="flex min-w-0 gap-2">
+      <input type="hidden" name="panel" value="payments" />
+      <input
+        name="paymentsSearch"
+        defaultValue={search}
+        placeholder="Search payments by amount, event, email, or phone"
+        className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
+      />
+      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label="Search payments">
+        <Search size={20} aria-hidden />
+      </Button>
+    </form>
+  );
+}
+
 function ClaimsPanelSearch({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
   return (
     <form action="/dashboard" className="flex min-w-0 gap-2">
@@ -1603,8 +1661,8 @@ type SettingsAuditLog = {
   id: string;
   action: string;
   createdAt: Date;
-  actor: { email: string };
-  target: { email: string } | null;
+  actorUserId: string;
+  targetUserId: string | null;
 };
 
 function SettingsDashboardContent({
@@ -1780,7 +1838,7 @@ function RecentAuditList({ logs }: { logs: SettingsAuditLog[] }) {
           <div key={log.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3 last:border-b-0">
             <div className="min-w-0">
               <p className="truncate font-semibold text-stone-950">{sentenceCase(log.action)}</p>
-              <p className="truncate text-sm text-stone-600">{log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}</p>
+              <p className="truncate text-sm text-stone-600">{log.actorUserId}{log.targetUserId ? ` -> ${log.targetUserId}` : ""}</p>
             </div>
             <p className="shrink-0 text-xs font-semibold text-stone-500">{formatDate(log.createdAt)}</p>
           </div>
@@ -1863,6 +1921,166 @@ function LinkedTableCell({ children, className }: { children: React.ReactNode; c
   );
 }
 
+function formatMinorCurrency(amount: number, currency: string) {
+  return new Intl.NumberFormat("en-GB", { currency: currency || "GBP", style: "currency" }).format((amount || 0) / 100);
+}
+
+function formatPaymentDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function paymentStatusTone(status: string) {
+  if (status === "succeeded") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "failed" || status === "cancelled") return "bg-red-50 text-red-700 ring-red-100";
+  if (status === "refunded" || status === "partially_refunded") return "bg-amber-50 text-amber-800 ring-amber-100";
+  return "bg-slate-50 text-slate-700 ring-slate-100";
+}
+
+function paymentEventHref(payment: PaymentRecord) {
+  const courseId = payment.metadata?.course_id;
+  if (!courseId) return null;
+  const params = new URLSearchParams();
+  const occurrenceDate = payment.metadata?.occurrence_date;
+  if (occurrenceDate) params.set("date", occurrenceDate);
+  const query = params.toString();
+  return `/courses/${courseId}${query ? `?${query}` : ""}`;
+}
+
+function paymentSearchText(payment: PaymentRecord) {
+  const metadata = payment.metadata ?? {};
+  return [
+    payment.id,
+    payment.checkoutSessionId,
+    payment.resourceId,
+    payment.resourceLabel,
+    payment.payerEmail,
+    payment.payerUserId,
+    metadata.course_id,
+    metadata.course_title,
+    metadata.academy_id,
+    metadata.academy_name,
+    metadata.occurrence_date,
+    metadata.occurrence_start_time,
+    metadata.occurrence_end_time,
+    metadata.payer_email,
+    metadata.payer_phone,
+    metadata.phone,
+    metadata.phone_number,
+    metadata.contact_phone,
+    formatMinorCurrency(payment.amount, payment.currency),
+    String(payment.amount),
+    ((payment.amount || 0) / 100).toFixed(2),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function paymentMatchesSearch(payment: PaymentRecord, search: string) {
+  const normalizedSearch = search.trim().toLowerCase();
+  if (!normalizedSearch) return true;
+  return normalizedSearch.split(/\s+/).every((term) => paymentSearchText(payment).includes(term));
+}
+
+function PaymentCell({
+  children,
+  href,
+  className = "",
+}: {
+  children: ReactNode;
+  href: string | null;
+  className?: string;
+}) {
+  const contentClassName = `block h-full px-5 py-4 ${className}`.trim();
+  return (
+    <td className="p-0 align-top">
+      {href ? (
+        <Link href={href} className={`${contentClassName} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-teal-700`}>
+          {children}
+        </Link>
+      ) : (
+        <div className={contentClassName}>{children}</div>
+      )}
+    </td>
+  );
+}
+
+function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean; result: DashboardPaymentsResult; search: string }) {
+  const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
+  const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded");
+  const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const currency = visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
+
+  return (
+    <div className="grid gap-4">
+      {result.error ? (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">{result.error}</div>
+      ) : null}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-stone-200 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-500">Gross paid</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{formatMinorCurrency(grossAmount, currency)}</p>
+        </div>
+        <div className="rounded-lg border border-stone-200 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-500">Successful payments</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{succeededPayments.length}</p>
+        </div>
+        <div className="rounded-lg border border-stone-200 bg-slate-50 p-4">
+          <p className="text-xs font-black uppercase text-slate-500">{academyAdmin ? "Academy scope" : "Platform scope"}</p>
+          <p className="mt-1 text-2xl font-black text-slate-950">{visiblePayments.length}</p>
+        </div>
+      </div>
+      {search ? (
+        <p className="text-sm font-semibold text-slate-600">
+          Showing {visiblePayments.length} of {result.payments.length} payments matching &quot;{search}&quot;.
+        </p>
+      ) : null}
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
+            <tr>
+              <th className="px-5 py-4">Course/Event</th>
+              {!academyAdmin ? <th className="px-5 py-4">Academy</th> : null}
+              <th className="px-5 py-4">Payer</th>
+              <th className="px-5 py-4">Amount</th>
+              <th className="px-5 py-4">Method</th>
+              <th className="px-5 py-4">Status</th>
+              <th className="px-5 py-4">Paid</th>
+            </tr>
+          </thead>
+          <tbody>
+            {visiblePayments.map((payment) => {
+              const eventHref = paymentEventHref(payment);
+              return (
+                <tr key={payment.id} className="group border-b border-stone-100 last:border-b-0 hover:bg-teal-50/40">
+                  <PaymentCell href={eventHref}>
+                    <p className="font-bold text-slate-950 group-hover:text-teal-800">{payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment"}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{payment.metadata?.occurrence_date ?? "Occurrence date unavailable"}</p>
+                  </PaymentCell>
+                  {!academyAdmin ? <PaymentCell href={eventHref} className="text-slate-700">{payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy"}</PaymentCell> : null}
+                  <PaymentCell href={eventHref} className="text-slate-700">{payment.payerEmail ?? payment.payerUserId ?? "Guest"}</PaymentCell>
+                  <PaymentCell href={eventHref} className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</PaymentCell>
+                  <PaymentCell href={eventHref}><Badge>{payment.paymentMethodType.replace("_", " ")}</Badge></PaymentCell>
+                  <PaymentCell href={eventHref}><span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status.replace("_", " ")}</span></PaymentCell>
+                  <PaymentCell href={eventHref} className="text-slate-700">{formatPaymentDate(payment.createdAt)}</PaymentCell>
+                </tr>
+              );
+            })}
+            {!visiblePayments.length ? (
+              <tr>
+                <td colSpan={academyAdmin ? 6 : 7} className="px-5 py-10 text-center text-stone-600">
+                  {result.payments.length ? "No payments match that search." : "No course or event payments have been recorded yet."}
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 type AcademyRow = {
   id: string;
   name: string;
@@ -1892,7 +2110,7 @@ type PlatformAdminAcademyRow = {
   postcode: string;
   verificationStatus: AcademyVerificationStatus;
   createdAt: Date;
-  createdBy: { email: string; name: string | null } | null;
+  createdById: string | null;
 };
 
 type PlatformAdminAcademyTableRow = Record<string, unknown> & {
@@ -1939,7 +2157,6 @@ type UserRow = {
   status: UserStatus;
   disabled: boolean;
   academyId: string | null;
-  lastLoginAt: Date | null;
   createdAt: Date;
   academy: { name: string } | null;
 };
@@ -2085,8 +2302,8 @@ export function SuperAdminPlatformAcademiesPanel({
   const rows: PlatformAdminAcademyTableRow[] = academies.map((academy) => ({
     academy: academy.name,
     createdAt: academy.createdAt,
-    creator: academy.createdBy?.name ?? academy.createdBy?.email ?? "Unknown Platform Admin",
-    creatorEmail: academy.createdBy?.email ?? "Unknown",
+    creator: academy.createdById ?? "Unknown Platform Admin",
+    creatorEmail: academy.createdById ?? "Unknown",
     id: academy.id,
     location: [academy.borough ?? academy.city, academy.postcode].filter(Boolean).join(", "),
     reviewHref: `/admin/academies/${academy.id}`,
@@ -2240,7 +2457,7 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
 
 function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { actorAcademyId?: string | null; actorId: string; actorRole: Role; params: AdminSearchParams; users: UserRow[] }) {
   const canViewRoleColumn = isPlatformAdminRole(actorRole);
-  const emptyColSpan = canViewRoleColumn ? 7 : 6;
+  const emptyColSpan = canViewRoleColumn ? 6 : 5;
   const returnTo = dashboardUsersHref(params);
 
   return (
@@ -2252,7 +2469,6 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
             {canViewRoleColumn ? <th className="px-5 py-4">Role</th> : null}
             <th className="px-5 py-4">Academy</th>
             <th className="px-5 py-4">Status</th>
-            <th className="px-5 py-4">Last Login</th>
             <th className="px-5 py-4">Created</th>
             <th className="px-5 py-4 text-center">Actions</th>
           </tr>
@@ -2284,7 +2500,6 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                 {canViewRoleColumn ? <LinkedTableCell href={userHref}><RolePill role={user.role} /></LinkedTableCell> : null}
                 <LinkedTableCell href={userHref} className="text-slate-700">{user.academy?.name ?? "None"}</LinkedTableCell>
                 <LinkedTableCell href={userHref}><StatusPill disabled={disabled} /></LinkedTableCell>
-                <LinkedTableCell href={userHref} className="text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</LinkedTableCell>
                 <LinkedTableCell href={userHref} className="text-slate-600">{formatDate(user.createdAt)}</LinkedTableCell>
                 <td className="px-5 py-4 text-center">
                   {canManage ? (
@@ -2298,7 +2513,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                           Edit User
                         </Link>
                         {canSendPasswordReset ? (
-                          <form action={sendPasswordChangeEmail.bind(null, user.id)}>
+                          <form action={`/api/admin/users/${user.id}/password-reset`} method="post">
                             <input type="hidden" name="returnTo" value={returnTo} />
                             <button type="submit" className={menuItemClass}>
                               <KeyRound size={18} aria-hidden />
@@ -2392,11 +2607,12 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
         <tbody>
           {events.map((event) => {
             const openMat = event.courseType === CourseType.OPEN_MAT;
-            const publicPath = openMat ? `/open-mats/${event.id}` : `/courses/${event.id}`;
-            const publicHref = `${publicPath}?returnTo=${encodeURIComponent("/dashboard?panel=open-mats")}`;
             const detailHref = `/dashboard?panel=open-mats&dialog=view-event&eventId=${event.id}`;
-            const adminHref = openMat ? `/admin/open-mats/${event.id}` : `/admin/courses/${event.id}`;
+            const adminReturnTo = "/dashboard?panel=open-mats";
+            const adminHref = `${openMat ? `/admin/open-mats/${event.id}` : `/admin/courses/${event.id}`}?returnTo=${encodeURIComponent(adminReturnTo)}`;
             const cloneHref = `/dashboard?panel=open-mats&dialog=create-course&cloneFrom=${event.id}`;
+            const permanentHref = eventPermanentPath(event.id);
+            const qrCodeHref = eventQrCodePath(event.id);
 
             return (
               <TableRow key={event.id} href={detailHref}>
@@ -2410,7 +2626,7 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
                 <LinkedTableCell href={detailHref}><Badge>{event.active ? "Active" : "Inactive"}</Badge></LinkedTableCell>
                 <td className="px-5 py-4 text-center">
                   <ActionMenu label={`Open actions for ${event.title}`}>
-                    <Link href={publicHref} className={menuItemClass}>
+                    <Link href={detailHref} className={menuItemClass}>
                       <Eye size={18} aria-hidden />
                       View Course
                     </Link>
@@ -2421,6 +2637,14 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
                     <Link href={cloneHref} className={menuItemClass}>
                       <Copy size={18} aria-hidden />
                       Clone Course
+                    </Link>
+                    <Link href={permanentHref} className={menuItemClass} target="_blank" rel="noreferrer">
+                      <Globe2 size={18} aria-hidden />
+                      Integration URI
+                    </Link>
+                    <Link href={qrCodeHref} className={menuItemClass} target="_blank" rel="noreferrer">
+                      <QrCode size={18} aria-hidden />
+                      QR Code
                     </Link>
                   </ActionMenu>
                 </td>

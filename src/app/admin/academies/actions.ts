@@ -7,6 +7,7 @@ import { randomBytes } from "crypto";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
+import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { renderAcademyClaimInvitationEmail } from "@/lib/email/academy-claim-invitation";
 import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
@@ -14,7 +15,6 @@ import { prisma } from "@/lib/prisma";
 import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
 import { academySchema } from "@/lib/validators";
 
-const claimReminderCooldownDays = 30;
 const claimReminderBatchLimit = 50;
 
 export type AcademyFormState = {

@@ -70,7 +70,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
             ) : "Not listed"}</p>
             <p><strong>Website:</strong> {academy.website ? (
               <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "website", academyId: academy.id, external: true, sourcePage: "academy_profile" }}>
-                <a className="text-teal-800" href={academy.website}>{academy.website}</a>
+                <a className="text-teal-800" href={academy.website} target="_blank" rel="noreferrer">{academy.website}</a>
               </AnalyticsClickTracker>
             ) : "Not listed"}</p>
             <p><strong>Drop-in:</strong> {academy.dropInPrice !== null ? formatMoney(academy.dropInPrice) : "Check with academy"}</p>

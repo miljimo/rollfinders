@@ -138,7 +138,7 @@ WHEN another reminder is requested
 
 THEN the API SHALL skip that academy with `recently_sent`.
 
-The MVP cooldown window is 30 days.
+The MVP cooldown window is 7 days, allowing at least one reminder per week.
 
 ## ADMIN-ACADEMIES-013: Claim Reminder Batch Limit
 

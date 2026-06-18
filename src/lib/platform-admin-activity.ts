@@ -2,8 +2,6 @@ import {
   PlatformAdminActivityAction,
   PlatformAdminActivitySource,
   PlatformAdminExemptionType,
-  Role,
-  UserStatus,
   type PlatformAdminActivityEvent,
   type Prisma,
 } from "@prisma/client";
@@ -160,12 +158,6 @@ export async function recordPlatformAdminActivityEvent(
   input: RecordPlatformAdminActivityEventInput,
   db: DbClient = prisma,
 ): Promise<PlatformAdminActivityEvent | null> {
-  const actor = await db.user.findUnique({
-    where: { id: input.actorUserId },
-    select: { role: true, status: true, disabled: true },
-  });
-  if (!actor || actor.role !== Role.PLATFORM_ADMIN || actor.status !== UserStatus.ACTIVE || actor.disabled) return null;
-
   await ensurePlatformAdminProfile(input.actorUserId, db);
 
   const sourceType = input.sourceType ?? defaultActivitySourceType(input.action);
@@ -243,17 +235,8 @@ export async function getPlatformAdminActivitySummary(
   at: Date = new Date(),
   db: DbClient = prisma,
 ): Promise<PlatformAdminActivitySummary | null> {
-  const user = await db.user.findUnique({
-    where: { id: actorUserId },
-    select: {
-      role: true,
-      status: true,
-      disabled: true,
-      createdAt: true,
-      platformAdminProfile: { select: { createdAt: true } },
-    },
-  });
-  if (!user || user.role !== Role.PLATFORM_ADMIN || user.status !== UserStatus.ACTIVE || user.disabled) return null;
+  await ensurePlatformAdminProfile(actorUserId, db);
+  const profile = await db.platformAdminProfile.findUnique({ where: { userId: actorUserId }, select: { createdAt: true } });
 
   const week = getUtcIsoWeek(at);
   const [target, defaultTarget, weeklyEvents, weeklyPoints, totalPoints, exemptions] = await Promise.all([
@@ -280,7 +263,7 @@ export async function getPlatformAdminActivitySummary(
   const remainingAcademiesToTarget = Math.max(weeklyAcademyTarget - academiesCreated, 0);
   const qualifyingContributionCount = academiesCreated + openMatsCreated + academyAdminsActivated;
   const activityExempt = exemptions.permanentExemption || exemptions.activeExemption;
-  const assignedAt = user.platformAdminProfile?.createdAt ?? user.createdAt;
+  const assignedAt = profile?.createdAt ?? at;
   const hasCompletedFirstFullWeek = week.startsAt >= firstFullWeekStart(assignedAt);
 
   return {

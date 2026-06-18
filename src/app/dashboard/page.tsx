@@ -2,12 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { ChevronDown, Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
-import { GiType, Role, UserStatus, type Prisma } from "@prisma/client";
+import { GiType, Role, UserStatus, type CourseType, type Prisma } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { Table, type TableColumn, type TableRecord } from "@/components/Table";
-import { coursePriceLabel } from "@/lib/courses";
+import { courseHref, coursePriceLabel } from "@/lib/courses";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
@@ -37,6 +37,7 @@ type RollRow = TableRecord & {
   time: string;
   giType: string;
   price: string;
+  courseType: CourseType;
 };
 
 function firstParam(value: string | string[] | undefined) {
@@ -79,6 +80,14 @@ function standardDashboardHref(searchParams: DashboardSearchParams, overrides: R
   });
   const query = params.toString();
   return query ? `/dashboard?${query}` : "/dashboard";
+}
+
+function dashboardCourseHref(course: RollRow, returnTo: string) {
+  const href = courseHref(course);
+  const [pathname, query = ""] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("returnTo", returnTo);
+  return `${pathname}?${params.toString()}`;
 }
 
 function startOfToday() {
@@ -137,6 +146,7 @@ export default async function DashboardPage({
           startTime: true,
           endTime: true,
           giType: true,
+          courseType: true,
           pricingType: true,
           price: true,
           donationLabel: true,
@@ -149,7 +159,7 @@ export default async function DashboardPage({
     : [];
 
   const initials = (user.name ?? user.email).slice(0, 2).toUpperCase();
-  const active = user.status !== UserStatus.DISABLED && !user.disabled;
+  const active = String(user.status) !== UserStatus.DISABLED && !user.disabled;
   const accountLabel = user.name ?? user.email;
   const standardNavigationItems: SidePanelItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: "dashboard", active: panel === "dashboard" },
@@ -216,6 +226,7 @@ type DashboardRoll = Prisma.EventGetPayload<{
     startTime: true;
     endTime: true;
     giType: true;
+    courseType: true;
     pricingType: true;
     price: true;
     donationLabel: true;
@@ -245,7 +256,9 @@ function DashboardPanel({
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
     price: coursePriceLabel(roll),
+    courseType: roll.courseType,
   }));
+  const returnTo = standardDashboardHref(searchParams, { panel: "dashboard" });
   const columns: TableColumn<RollRow>[] = [
     {
       key: "title",
@@ -295,7 +308,7 @@ function DashboardPanel({
           columns={columns}
           data={rows}
           emptyMessage={academy ? "No upcoming courses/events match this academy search." : "No academy is assigned, so no courses/events data can be shown."}
-          getRowHref={(row) => `/open-mats/${row.id}`}
+          getRowHref={(row) => dashboardCourseHref(row, returnTo)}
           getRowId={(row) => row.id}
           pagination={{
             page: rollsPage,
@@ -375,7 +388,7 @@ function SettingsPanel({ academy, searchParams, user }: { academy: DashboardAcad
   ];
   const detailTitle = activeAction === "change-password" ? "Change Password" : activeAction === "edit-profile" ? "Edit Profile" : "Select an account action";
   const detailIcon = activeAction === "change-password" ? <KeyRound size={20} aria-hidden className="text-teal-700" /> : activeAction === "edit-profile" ? <UserRound size={20} aria-hidden className="text-teal-700" /> : null;
-  const active = user.status !== UserStatus.DISABLED && !user.disabled;
+  const active = String(user.status) !== UserStatus.DISABLED && !user.disabled;
 
   return (
     <div>

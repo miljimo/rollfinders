@@ -56,16 +56,16 @@ Users need a simple way to book and pay for a Course without contacting the acad
 
 RollFinders needs payment visibility, booking state, and reconciliation while avoiding direct payment-provider complexity.
 
-The external Go payment service SHALL own payment provider integration, hosted checkout, payment authorization, refunds, and provider webhook complexity.
+The external Go payment service SHALL own payment provider integration, hosted checkout, payment authorization, refunds, provider callback URI handling, provider webhook complexity, and canonical payment status orchestration.
 
 RollFinders SHALL own:
 
 * Course payment eligibility
 * Booking records
-* Payment status display
+* Payment status display from Go payment service state
 * Academy-scoped payment visibility
 * Platform payment operations
-* Webhook verification and reconciliation records
+* Booking fulfillment after Go payment service confirmed status
 
 ---
 
@@ -117,7 +117,19 @@ The payment SHALL store:
 | Amount | Yes |
 | Currency | Yes |
 | Payer User Id | No |
-| Payer Email | Yes |
+| Payer Email | No |
+
+Guest users SHALL be allowed to pay without creating an account.
+
+RollFinders SHALL ask guest users for an optional receipt email during checkout review.
+
+IF a receipt email is provided
+
+THEN RollFinders SHALL store it as the payer email and use it for booking receipt and support lookup.
+
+IF no receipt email is provided
+
+THEN RollFinders SHALL still allow checkout when the payment service can process the payment without it, and SHALL show an on-screen receipt after trusted payment confirmation.
 
 ---
 
@@ -185,7 +197,8 @@ The checkout review screen SHALL display:
 * Occurrence date
 * Time
 * Location
-* Payer email
+* Optional receipt email field for guest users
+* Payer email for logged-in users, when available
 * Course fee
 * Service fee, if any
 * Total amount
@@ -202,6 +215,18 @@ The checkout review screen SHALL include trust copy:
 You will complete payment securely with our payment partner.
 RollFinders does not store your card details.
 ```
+
+The checkout review screen SHALL ask:
+
+```text
+Where should we send your receipt?
+```
+
+The receipt email field SHALL be optional for guest checkout.
+
+IF the user leaves the receipt email blank
+
+THEN the checkout review screen SHALL explain that the receipt will be shown on screen after payment confirmation and may not be recoverable by email.
 
 ---
 
@@ -223,11 +248,11 @@ The checkout request SHALL include:
 * Amount
 * Currency
 * Payer User Id, when logged in
-* Payer Email
-* Success URL
-* Cancel URL
+* Payer Email, when provided
 * Metadata
 * Idempotency key
+
+RollFinders SHALL NOT build or send provider success, cancel, or callback URLs for the default Course occurrence checkout flow. Callback URI handling and provider return routing SHALL be configured and owned by the Go payment service.
 
 IF the Go payment service returns a checkout URL
 
@@ -245,9 +270,9 @@ Please try again.
 
 ---
 
-# Requirement 6: Payment Return States
+# Requirement 6: Payment Status Return
 
-RollFinders SHALL support payment return states after the Go payment service redirects the user back.
+RollFinders SHALL support payment status display after the Go payment service redirects the user back to the RollFinders payment status route.
 
 Supported states:
 
@@ -260,38 +285,51 @@ EXPIRED
 ALREADY_CONFIRMED
 ```
 
-IF the user returns before webhook confirmation
+IF the user returns before the Go payment service has confirmed a terminal status
 
 THEN RollFinders SHALL show `Payment pending`.
 
 RollFinders SHALL NOT mark a booking as confirmed based only on browser redirect.
 
-Trusted confirmation SHALL come from a signed webhook.
+Trusted confirmation SHALL come from Go payment service owned payment status orchestration.
+
+IF the Go payment service has already confirmed successful payment
+
+THEN RollFinders SHALL show an on-screen booking receipt.
+
+The on-screen receipt SHALL include:
+
+* Booking reference
+* Course name
+* Academy
+* Occurrence date
+* Time
+* Amount paid
+* Payment status
+* Receipt email, when one was provided
+
+IF no receipt email was provided
+
+THEN the on-screen receipt SHALL remain the primary receipt for the user.
 
 ---
 
-# Requirement 7: Webhook Processing
+# Requirement 7: Payment Status Synchronization
 
-The Go payment service SHALL send signed payment webhooks to RollFinders.
+The Go payment service SHALL own provider webhook ingestion and callback processing.
 
-RollFinders SHALL expose a webhook endpoint:
+RollFinders SHALL consume payment status from the Go payment service through service-owned status callbacks, status API reads, or future service-originated application events.
 
-```text
-POST /api/payments/go/webhook
-```
+The RollFinders synchronization handler SHALL:
 
-The webhook handler SHALL:
-
-* Verify signature or shared secret
-* Reject invalid webhook events
-* Store provider event ids
-* Process events idempotently
+* Trust only authenticated Go payment service communication or server-side status reads
+* Process status updates idempotently
 * Verify amount and currency
 * Verify Course Id and occurrence metadata
 * Update booking and payment state
-* Store raw event reference for operations
+* Store Go payment service references for operations
 
-IF a duplicate webhook is received
+IF a duplicate status update is received
 
 THEN RollFinders SHALL NOT create duplicate paid bookings.
 
@@ -353,7 +391,7 @@ The MVP policy SHALL be:
 Capacity is consumed only after trusted payment success.
 ```
 
-IF payment succeeds but the occurrence became full before webhook confirmation
+IF payment succeeds but the occurrence became full before service-confirmed status synchronization
 
 THEN RollFinders SHALL mark the booking as `MANUAL_REVIEW`.
 
@@ -394,7 +432,7 @@ The platform payment operations view SHALL support:
 * Search by provider reference
 * Filter by status
 * Filter by academy
-* View webhook processing history
+* View payment status synchronization history
 * Identify manual review records
 
 Platform Admins SHALL be able to add reconciliation notes.
@@ -421,9 +459,13 @@ THEN RollFinders SHALL require Platform Admin review or a defined cancellation/r
 
 IF payment succeeds
 
-WHEN RollFinders receives trusted webhook confirmation
+WHEN RollFinders receives trusted payment success confirmation from the Go payment service
 
-THEN RollFinders SHOULD send a booking confirmation email.
+THEN RollFinders SHOULD send a booking confirmation email when a receipt email is available.
+
+IF no receipt email is available
+
+THEN RollFinders SHALL NOT fail the booking confirmation, and SHALL rely on the on-screen receipt.
 
 The confirmation email SHOULD include:
 
@@ -487,27 +529,72 @@ No existing discovery functionality SHALL be broken.
 
 # Go Payment Service Contract
 
-The Go payment service SHALL provide a checkout creation endpoint.
+## Service Interaction Model
+
+The payment interaction SHALL follow this boundary:
+
+```text
+RollFinders <-> Payment Service <-> Stripe API
+```
+
+RollFinders SHALL communicate only with the Payment Service for checkout creation, status display, booking fulfillment, refunds, and payment operations.
+
+The Payment Service SHALL communicate with Stripe API for hosted checkout creation, provider status reads, provider callbacks, webhooks, refunds, and reconciliation.
+
+Stripe SHALL redirect browser returns to the Payment Service callback route first. The Payment Service SHALL map or refresh provider state, then redirect the browser to the registered RollFinders callback URI with canonical payment status query parameters.
+
+RollFinders SHALL NOT call Stripe API directly and SHALL NOT trust Stripe browser redirects directly.
+
+The Payment Service SHALL be the system of record for payment transactions and payment history. RollFinders SHALL query recorded transactions from the Payment Service when users view payment history and SHALL NOT call Stripe API for user-facing history.
+
+The Go payment service SHALL provide a generic checkout creation endpoint.
+
+The generic checkout endpoint SHALL be reusable by RollFinders and other registered services. It SHALL NOT expose a separate endpoint for every application domain such as Courses, invoices, bookings, or orders.
+
+The Go payment service SHALL provide a client registration endpoint so RollFinders and future services can register their own callback URI and receive a stable client id.
+
+Registered clients SHALL include:
+
+* Client id
+* Client name
+* Callback URI
+* Created timestamp
+
+Checkout creation requests SHALL include the registered client id and MAY include opaque client state.
+
+Checkout creation requests SHALL identify the client-owned payable resource using:
+
+* Resource type
+* Resource id
+* Optional resource label
+* Optional metadata for application-specific lookup fields
+
+RollFinders Course occurrence payments SHALL use `resourceType = COURSE_OCCURRENCE` and SHALL place Course-specific fields such as Course id, Academy id, occurrence date, occurrence start time, and occurrence end time into metadata.
+
+The Go payment service SHALL use the stored callback URI for payment status returns and SHALL NOT rely on callback URIs supplied per checkout request.
 
 Example request:
 
 ```json
 {
   "idempotencyKey": "course_cmq123_2026-06-08_1900_user_abc",
-  "courseId": "cmq123",
-  "academyId": "academy123",
-  "occurrenceDate": "2026-06-08",
-  "occurrenceStartTime": "19:00",
-  "occurrenceEndTime": "20:30",
+  "clientId": "rollfinders",
+  "clientState": "order_123",
+  "resourceType": "COURSE_OCCURRENCE",
+  "resourceId": "cmq123:2026-06-08:19:00",
+  "resourceLabel": "Beginner BJJ",
   "amountMinor": 1000,
   "currency": "GBP",
   "payerUserId": "user123",
   "payerEmail": "student@example.com",
-  "successUrl": "https://rollfinders.com/payments/return?status=success",
-  "cancelUrl": "https://rollfinders.com/payments/return?status=cancelled",
   "metadata": {
     "source": "rollfinders",
-    "paymentScope": "COURSE_OCCURRENCE"
+    "paymentScope": "COURSE_OCCURRENCE",
+    "courseId": "cmq123",
+    "academyId": "academy123",
+    "occurrenceDate": "2026-06-08",
+    "occurrenceStartTime": "19:00",
+    "occurrenceEndTime": "20:30"
   }
 }
 ```
@@ -522,23 +609,46 @@ Example response:
 }
 ```
 
-The Go payment service SHALL send signed webhook events.
+The Go payment service SHALL own provider callback URLs and SHALL redirect users to the configured RollFinders payment status URL after it maps provider return state to canonical payment state.
 
-Webhook events SHOULD include:
+Service-confirmed status payloads or status API responses SHOULD include:
 
-* Provider event id
-* Event type
 * Checkout session id
 * Payment id
 * Status
 * Amount
 * Currency
-* Course Id
-* Academy Id
+* Resource type
+* Resource id
+* Resource metadata
 * Occurrence Date
 * Occurrence Start Time
 * Payer email
 * Timestamp
+
+The Go payment service SHALL provide a payment history endpoint that returns recorded transactions with payment state and checkout context.
+
+The payment history endpoint SHOULD support filters for:
+
+* Client id
+* Resource type
+* Resource id
+* Payer user id
+* Payer email
+* Payment status
+
+The payment history response SHALL include enough data for RollFinders to show user payment history without calling Stripe:
+
+* Payment id
+* Checkout session id
+* Amount
+* Currency
+* Provider
+* Payment status
+* Resource type
+* Resource id
+* Payer email
+* Created and updated timestamps
 
 ---
 
@@ -594,7 +704,7 @@ The following decisions SHALL be confirmed before implementation:
 | Initial currency | GBP |
 | Card handling | External Go payment service only |
 | Online payment eligibility | Verified or approved academies only |
-| Guest checkout | Allow payer email, link to user when logged in |
+| Guest checkout | Allow guest payment, ask for optional receipt email, link to user when logged in |
 | Seat reservation | Confirm capacity only after payment success for MVP |
 | Refund initiation | External-only or Platform Admin only for MVP |
 | Seller of record | To be confirmed |
@@ -612,11 +722,19 @@ IF checkout is created successfully
 
 THEN the user is redirected to the Go payment service.
 
-IF payment succeeds and RollFinders receives a valid webhook
+IF payment succeeds and RollFinders receives service-confirmed payment status
 
 THEN RollFinders marks the booking as confirmed.
 
-IF the user returns before webhook confirmation
+IF a confirmed booking has a receipt email
+
+THEN RollFinders sends the receipt or confirmation email to that address.
+
+IF a confirmed booking has no receipt email
+
+THEN RollFinders shows the receipt on screen.
+
+IF the user returns before service-confirmed terminal status
 
 THEN RollFinders shows a pending state.
 
@@ -624,7 +742,7 @@ IF payment fails or is cancelled
 
 THEN RollFinders does not confirm the booking and clearly states that no booking was confirmed.
 
-IF duplicate webhooks are received
+IF duplicate status updates are received
 
 THEN RollFinders processes them idempotently.
 
@@ -638,7 +756,7 @@ THEN they only see payments for their academy.
 
 IF a Platform Admin views payments
 
-THEN they can inspect all payment records and webhook processing history.
+THEN they can inspect all payment records and payment status synchronization history.
 
 IF existing free Courses or Open Mats are viewed
 
@@ -658,11 +776,49 @@ Includes:
 * Platform fee decision
 * Refund ownership
 * Go checkout endpoint contract
-* Go webhook event contract
+* Go status callback/API contract
+* Payment client registration contract
 * Signature verification method
 * Payment status model
 * Capacity policy
-* Guest checkout policy
+* Guest checkout and receipt email policy
+
+IF a client is not registered
+
+WHEN it attempts to create a checkout
+
+THEN the payment service SHALL reject the request.
+
+## P0: Payment Service Runtime And Deployment
+
+Deploy the Go payment service as its own runtime container, separate from the RollFinders Next.js application container.
+
+The payment service SHALL be independently buildable, testable, and deployable.
+
+Local development SHALL support running the payment service through Docker Compose with its PostgreSQL dependency.
+
+The root RollFinders compose workflow SHALL make it clear how to run the application and payment service together for end-to-end payment development.
+
+Includes:
+
+* Payment service Docker image definition.
+* Local payment-service PostgreSQL dependency.
+* Root or documented compose workflow that starts RollFinders app, RollFinders database, payment service, and payment-service database together.
+* Environment variables for RollFinders-to-payment-service API URL and API key.
+* Stripe secret key configuration passed into the payment service container from environment.
+* Rotation-safe Stripe secret key file support for deployments that need to rotate the Stripe key without restarting the payment service.
+* Health check for the payment service container.
+* Production deployment definition for a separate payment service container or ECS service.
+* Network/security boundary so only server-side RollFinders code calls the payment service.
+* CI validation that runs Go tests and verifies the payment service container starts.
+
+Done when:
+
+* `npm run payments:test` passes.
+* The payment service can run locally with Docker Compose.
+* The RollFinders app can call the local payment service from the compose network.
+* Production infrastructure can deploy the payment service without baking it into the Next.js container.
+* Payment service logs and health checks are independently visible from the RollFinders app.
 
 ## P0: Payment Data Model
 
@@ -670,7 +826,7 @@ Add RollFinders persistence for:
 
 * Course booking
 * Course payment
-* Payment webhook event
+* Payment status synchronization event
 * Provider references
 * Idempotency keys
 * Manual review state
@@ -689,13 +845,13 @@ Validate:
 * Price is fixed
 * Capacity is available, when enforced
 
-## P0: Go Webhook Receiver
+## P0: Go Payment Status Synchronization
 
-Build the signed webhook endpoint.
+Build the RollFinders side of service-confirmed payment status synchronization.
 
 Support:
 
-* Signature verification
+* Authenticated Go payment service communication or server-side status reads
 * Idempotency
 * Amount and currency verification
 * Course occurrence verification
@@ -710,6 +866,7 @@ Add:
 * Checkout review screen
 * Payment handoff loading state
 * Success return state
+* On-screen booking receipt
 * Pending return state
 * Failed return state
 * Cancelled return state
@@ -746,13 +903,15 @@ Scope:
 
 ## P1: Payment Confirmation Emails
 
-Send confirmation emails after trusted payment success.
+Send confirmation emails after trusted payment success when a receipt email is available.
 
 Reuse the existing reliable email infrastructure where possible.
 
+If no receipt email was provided during guest checkout, the booking confirmation email SHALL be skipped and the on-screen receipt SHALL be the customer receipt.
+
 ## P2: Refund And Reconciliation Workflow
 
-Expose refund status from Go webhooks.
+Expose refund status from Go payment service status synchronization.
 
 Add manual review and reconciliation notes for Platform Admins.
 

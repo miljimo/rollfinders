@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Role } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
+import { getManagedUser } from "@/lib/users-service";
 import { updateManagedUser } from "../actions";
 import { UserForm } from "../UserForm";
 
@@ -15,13 +15,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const currentUser = await getCurrentUser();
   const superAdmin = isSuperAdminRole(currentUser?.role);
   const platformAdmin = isPlatformAdminRole(currentUser?.role);
-  const [user, academies] = await Promise.all([
-    prisma.user.findUnique({ where: { id } }),
-    prisma.academy.findMany({
-      select: { id: true, name: true },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  if (!currentUser) redirect("/admin/users");
+  const { user } = await getManagedUser(currentUser, id).catch(() => ({ user: null }));
 
   if (!user) notFound();
 
@@ -35,7 +30,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
         <Link href="/admin/users" className="text-sm font-bold text-teal-800">User Management</Link>
         <h1 className="mt-2 text-5xl font-black text-stone-950">Edit User</h1>
         <p className="mt-3 break-all text-stone-700">{user.email}</p>
-        <UserForm academies={academies} action={updateManagedUser.bind(null, user.id)} mode="edit" superAdmin={superAdmin} user={user} />
+        <UserForm academies={[]} action={updateManagedUser.bind(null, user.id)} mode="edit" superAdmin={superAdmin} user={{ ...user, role: user.role as Role, status: user.status as UserStatus }} />
       </section>
     </PageShell>
   );

@@ -97,7 +97,6 @@ export default async function SettingsPage({
     prisma.adminAuditLog.findMany({
       where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
       take: 8,
-      include: { actor: true, target: true },
       orderBy: { createdAt: "desc" },
     }),
     elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
@@ -172,7 +171,7 @@ function SettingsDetailPanel({ children, title }: { children: React.ReactNode; t
   );
 }
 
-function RecentAuditList({ logs }: { logs: Array<{ id: string; action: string; createdAt: Date; actor: { email: string }; target: { email: string } | null }> }) {
+function RecentAuditList({ logs }: { logs: Array<{ id: string; action: string; createdAt: Date; actorUserId: string; targetUserId: string | null }> }) {
   return (
     <div>
       {logs.length ? (
@@ -180,7 +179,7 @@ function RecentAuditList({ logs }: { logs: Array<{ id: string; action: string; c
           <div key={log.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3 last:border-b-0">
             <div className="min-w-0">
               <p className="truncate font-semibold text-stone-950">{sentenceCase(log.action)}</p>
-              <p className="truncate text-sm text-stone-600">{log.actor.email}{log.target ? ` -> ${log.target.email}` : ""}</p>
+              <p className="truncate text-sm text-stone-600">{log.actorUserId}{log.targetUserId ? ` -> ${log.targetUserId}` : ""}</p>
             </div>
             <p className="shrink-0 text-xs font-semibold text-stone-500">{formatDate(log.createdAt)}</p>
           </div>

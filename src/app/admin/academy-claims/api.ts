@@ -143,11 +143,11 @@ export async function fetchAcademyClaim(id: string): Promise<AdminApiResult<Acad
       publicProofLink: true,
       status: true,
       reviewedAt: true,
+      reviewedById: true,
       rejectionReason: true,
       linkedUserId: true,
       createdAt: true,
       academy: { select: { id: true, name: true, slug: true, address: true, city: true, postcode: true, website: true, email: true, phone: true } },
-      reviewedBy: { select: { id: true, name: true, email: true } },
     },
   });
 
@@ -171,7 +171,7 @@ export async function fetchAcademyClaim(id: string): Promise<AdminApiResult<Acad
       verificationNotes: claim.verificationNotes,
       publicProofLink: claim.publicProofLink,
       reviewedAt: claim.reviewedAt?.toISOString() ?? null,
-      reviewedBy: claim.reviewedBy,
+      reviewedBy: claim.reviewedById ? { id: claim.reviewedById, name: null, email: claim.reviewedById } : null,
       rejectionReason: claim.rejectionReason,
       linkedUserId: claim.linkedUserId,
     },

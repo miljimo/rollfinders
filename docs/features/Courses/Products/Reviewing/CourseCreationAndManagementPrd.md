@@ -580,6 +580,7 @@ Done when:
 * Add Course Type, Course Activity Blocks, Discipline, and Display Name fields.
 * Rename dashboard `New Open Mat` action to `New Course`.
 * Reuse the Open Mat form as the New Course Form dialog, defaulting to `OPEN_MAT` while allowing supported Course Type, Activity Type, and Discipline selection.
+* Keep dashboard Course/Open Mat view actions inside the dashboard detail dialog instead of navigating admins to public `/courses/{id}` or `/open-mats/{id}` pages.
 * Reuse existing recurrence, price audience, URI-safe description, and academy permission logic.
 
 ## Phase 4: Public Discovery
@@ -609,6 +610,20 @@ IF an authorized admin clicks `New Course`
 WHEN the admin dashboard is on the Open Mats/Sessions management panel
 
 THEN a New Course Form dialog SHALL open.
+
+IF an authorized admin clicks `View Course`
+
+WHEN the admin dashboard is on the Courses/Events management panel
+
+THEN a Course detail dialog SHALL open at `/dashboard?panel=open-mats&dialog=view-event&eventId={id}`.
+
+IF the Course detail dialog is opened from the dashboard
+
+THEN the user SHALL remain in the dashboard context and SHALL NOT be navigated to the public `/courses/{id}` or `/open-mats/{id}` detail page.
+
+IF a public Course or Open Mat detail URL is opened with `returnTo=/dashboard?panel=open-mats`
+
+THEN the route SHALL redirect to `/dashboard?panel=open-mats&dialog=view-event&eventId={id}` so the user sees the same dialog experience as clicking the dashboard table row.
 
 IF the New Course Form opens
 

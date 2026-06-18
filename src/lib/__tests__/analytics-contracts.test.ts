@@ -160,9 +160,9 @@ describe("analytics feature contracts", () => {
     const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
     matchAny(reportingSource, [/lastLoginAt/, /last_login_at/], "analytics reporting must query recent user login timestamps");
-    matchAny(reportingSource, [/prisma\.user\.(?:count|groupBy|findMany)/, /FROM\s+users?\b/i], "currently logged-in stats must be derived from users");
+    matchAny(reportingSource, [/listManagedUsers\(/, /users-service/], "currently logged-in stats must be derived from the users service");
     matchAny(reportingSource, [/lastLoginAt[\s\S]*(?:gte|>=)/, /last_login_at\s*>=/i], "currently logged-in stats must use a recent lastLoginAt lower bound");
-    matchAny(reportingSource, [/disabled\s*=\s*false/, /status\s*=\s*['"]ACTIVE['"]/], "currently logged-in stats must exclude disabled or inactive users");
+    matchAny(reportingSource, [/!user\.disabled/, /user\.status\s*===\s*["']ACTIVE["']/], "currently logged-in stats must exclude disabled or inactive users");
     matchAny(reportingSource, [/CURRENT_TIMESTAMP|CURRENT_DATE|NOW\(\)|new Date\(/], "recent login stats must be time-window based");
     matchAny(reportingSource, [/currentlyLoggedIn|loggedInUsers|activeUsers|recentLogins/i], "reporting must expose a named currently logged-in user stat");
 

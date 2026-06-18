@@ -1,40 +1,35 @@
 services:
-  db:
-    container_name: "payment_db"
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: "${DB_USER:-postgres}"
-      POSTGRES_PASSWORD: "${DB_PASSWORD:-postgres}"
-      POSTGRES_DB: "${DB_NAME:-payments}"
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./migrations:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d payments"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  app:
-    container_name: "payment_app"
-    build: .
+  payments:
+    build:
+      context: .
+    profiles:
+      - payments
     environment:
       PORT: "8080"
-      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-payments}?sslmode=disable
-      DB_NAME: "${DB_NAME:-payments}"
-      DB_PASSWORD: "${DB_PASSWORD:-postgres}"
-      API_KEY: local-dev-key
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
+      API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
+      PAYMENT_GATEWAY_API_KEY: ${PAYMENT_GATEWAY_API_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_SECRET_KEY_FILE: ${STRIPE_SECRET_KEY_FILE:-}
+      PAYMENT_PUBLIC_BASE_URL: ${PAYMENT_PUBLIC_BASE_URL:-http://localhost:3002}
+      PAYMENT_DEFAULT_CLIENT_ID: ${PAYMENT_DEFAULT_CLIENT_ID:-rollfinders}
+      PAYMENT_DEFAULT_CLIENT_NAME: ${PAYMENT_DEFAULT_CLIENT_NAME:-Rollfinders}
+      PAYMENT_DEFAULT_CLIENT_CALLBACK_URL: ${PAYMENT_DEFAULT_CLIENT_CALLBACK_URL:-http://localhost:3000/payments/status}
       METRICS_ENABLED: "true"
       READ_TIMEOUT: 5s
       WRITE_TIMEOUT: 10s
       SHUTDOWN_TIMEOUT: 10s
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${PAYMENT_SERVICE_PORT:-3002}:8080"
     depends_on:
       db:
         condition: service_healthy
-
-volumes:
-  postgres_data:
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

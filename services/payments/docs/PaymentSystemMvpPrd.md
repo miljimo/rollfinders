@@ -66,8 +66,9 @@ The payment service does not own:
 
 ### Payment Methods
 
-- Support `card` and `paypal` as first-class payment method types.
+- Support `card`, `google_pay`, and `paypal` as first-class payment method types.
 - For cards, support Stripe-tokenized credit and debit cards, including Visa and Mastercard networks.
+- For Google Pay, accept `payment_method_type: "google_pay"` with the Stripe provider and map hosted Stripe Checkout requests onto Stripe's `card` payment method type, because Stripe presents Google Pay through wallet-enabled card rails.
 - Use Stripe.js or Stripe-hosted/provider SDK collection so raw card data never passes through this Go backend.
 - Create and confirm Stripe PaymentIntents from the backend. Treat `requires_action` and `processing` as normal non-terminal states, not failures.
 - Store card network, funding type, last four digits, and expiry only when returned by the provider and safe to store.

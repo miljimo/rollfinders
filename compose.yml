@@ -1,3 +1,7 @@
+include:
+  - path: ./services/payments/compose.yml
+  - path: ./services/users/compose.yml
+
 services:
   db:
     image: postgres:16-alpine
@@ -13,6 +17,7 @@ services:
       - "${DB_PORT:-54322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./services/payments/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -80,6 +85,10 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
+      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payments:8080}
+      PAYMENT_SERVICE_API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
+      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://users:8080}
+      USER_SERVICE_API_KEY: ${USER_SERVICE_API_KEY:-local-user-dev-key}
     ports:
       - "3000:3000"
     depends_on:
@@ -87,6 +96,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      users:
+        condition: service_healthy
 
 volumes:
   postgres_data:

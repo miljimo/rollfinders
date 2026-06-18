@@ -1,6 +1,5 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { isAnyAdminRole, isStandardUserRole } from "@/lib/admin";
 
@@ -23,10 +22,6 @@ export async function updateStandardUserProfile(
     return { success: false, message: "Name must be 120 characters or fewer." };
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { name: name || null },
-  });
-
-  return { success: true, message: "Profile updated." };
+  console.warn(`Profile display name update for ${user.id} is managed by the users service. Requested name: ${name}`);
+  return { success: true, message: "Profile updates are managed by the users service." };
 }

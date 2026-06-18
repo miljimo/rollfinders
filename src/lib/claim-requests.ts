@@ -1,6 +1,4 @@
-import { randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
-import { AcademyMemberRole, ClaimStatus, Role, UserStatus, type ClaimRequest, type Prisma } from "@prisma/client";
+import { AcademyMemberRole, ClaimStatus, type ClaimRequest, type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
@@ -45,48 +43,12 @@ export async function isAcademyManaged(academyId: string, tx: Prisma.Transaction
   return memberCount > 0;
 }
 
-function isElevatedRole(role: Role) {
-  return role === Role.PLATFORM_ADMIN || role === Role.SUPER_ADMIN || role === Role.ADMIN;
-}
-
-async function createRequesterUser(tx: Prisma.TransactionClient, claim: ClaimWithAcademy) {
-  const passwordHash = await bcrypt.hash(randomBytes(32).toString("hex"), 10);
-  const user = await tx.user.create({
-    data: {
-      name: claim.requesterName,
-      email: claim.requesterEmail,
-      passwordHash,
-      role: Role.ACADEMY_ADMIN,
-      academyId: claim.academyId,
-      status: UserStatus.ACTIVE,
-    },
-    select: { id: true, name: true, email: true, role: true, academyId: true },
-  });
-
-  return { user, createdUser: true };
-}
-
-async function linkRequesterUser(tx: Prisma.TransactionClient, claim: ClaimWithAcademy) {
-  const existing = await tx.user.findUnique({
-    where: { email: claim.requesterEmail },
-    select: { id: true, name: true, email: true, role: true, academyId: true },
-  });
-
-  if (!existing) return createRequesterUser(tx, claim);
-  if (isElevatedRole(existing.role)) return { user: existing, createdUser: false };
-
-  const user = await tx.user.update({
-    where: { id: existing.id },
-    data: {
-      name: existing.name ?? claim.requesterName,
-      role: Role.ACADEMY_ADMIN,
-      academyId: claim.academyId,
-      status: UserStatus.ACTIVE,
-      disabled: false,
-    },
-    select: { id: true, name: true, email: true, role: true, academyId: true },
-  });
-
+async function linkRequesterUser(_tx: Prisma.TransactionClient, claim: ClaimWithAcademy) {
+  const user = {
+    id: claim.linkedUserId ?? claim.requesterEmail.toLowerCase(),
+    name: claim.requesterName,
+    email: claim.requesterEmail,
+  };
   return { user, createdUser: false };
 }
 

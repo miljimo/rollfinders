@@ -1,98 +1,30 @@
-CREATE TABLE IF NOT EXISTS schema_migrations (
-    version text PRIMARY KEY,
-    applied_at timestamptz NOT NULL DEFAULT now()
-);
+\ir schema/001_payment_schema.sql
+SET search_path TO payments, public;
 
-CREATE TABLE IF NOT EXISTS payments (
-    id text PRIMARY KEY,
-    amount_minor bigint NOT NULL CHECK (amount_minor > 0),
-    currency char(3) NOT NULL,
-    provider text NOT NULL CHECK (provider IN ('stripe', 'paypal')),
-    payment_method_type text NOT NULL,
-    capture_method text NOT NULL DEFAULT 'automatic',
-    status text NOT NULL,
-    refunded_amount_minor bigint NOT NULL DEFAULT 0,
-    external_reference text,
-    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
-    provider_payment_id text,
-    provider_raw_status text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS course_occurrence_checkouts (
-    id text PRIMARY KEY,
-    payment_id text NOT NULL REFERENCES payments(id),
-    course_id text NOT NULL,
-    academy_id text NOT NULL,
-    occurrence_date date NOT NULL,
-    occurrence_start_time text NOT NULL,
-    occurrence_end_time text NOT NULL,
-    amount_minor bigint NOT NULL CHECK (amount_minor > 0),
-    currency char(3) NOT NULL,
-    payer_user_id text,
-    payer_email text NOT NULL,
-    success_url text NOT NULL,
-    cancel_url text NOT NULL,
-    checkout_url text NOT NULL,
-    expires_at timestamptz NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS refunds (
-    id text PRIMARY KEY,
-    payment_id text NOT NULL REFERENCES payments(id),
-    amount_minor bigint NOT NULL CHECK (amount_minor > 0),
-    currency char(3) NOT NULL,
-    status text NOT NULL,
-    reason text,
-    provider_refund_id text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS provider_events (
-    provider text NOT NULL,
-    provider_event_id text NOT NULL,
-    payload jsonb NOT NULL,
-    processed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (provider, provider_event_id)
-);
-
-CREATE TABLE IF NOT EXISTS idempotency_keys (
-    scope text NOT NULL,
-    key text NOT NULL,
-    request_fingerprint text NOT NULL,
-    status_code integer,
-    response_body jsonb,
-    resource_id text,
-    expires_at timestamptz NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (scope, key)
-);
-
-CREATE TABLE IF NOT EXISTS payment_status_history (
-    id bigserial PRIMARY KEY,
-    payment_id text NOT NULL REFERENCES payments(id),
-    from_status text,
-    to_status text NOT NULL,
-    reason text,
-    created_at timestamptz NOT NULL DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS outbox_events (
-    id text PRIMARY KEY,
-    event_type text NOT NULL,
-    aggregate_id text NOT NULL,
-    payload jsonb NOT NULL,
-    delivered_at timestamptz,
-    attempts integer NOT NULL DEFAULT 0,
-    last_error text,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
+\ir schema/002_schema_migrations.sql
+\ir types/001_payment_types.sql
+\ir tables/001_payments.sql
+\ir tables/002_payment_clients.sql
+\ir tables/003_checkouts.sql
+\ir tables/004_refunds.sql
+\ir tables/005_provider_events.sql
+\ir tables/006_idempotency_keys.sql
+\ir tables/007_payment_status_history.sql
+\ir tables/008_outbox_events.sql
+\ir functions/001_payment_get.sql
+\ir functions/002_payment_client_get.sql
+\ir functions/003_checkout_get.sql
+\ir functions/004_payment_history_list.sql
+\ir functions/005_refund_list.sql
+\ir functions/006_idempotency_get.sql
+\ir functions/007_provider_event_exists.sql
+\ir procedures/001_paymentClientUpsert.sql
+\ir procedures/002_paymentInsert.sql
+\ir procedures/003_checkoutInsert.sql
+\ir procedures/004_paymentTransition.sql
+\ir procedures/005_refundInsert.sql
+\ir procedures/006_providerEventRecord.sql
+\ir procedures/007_idempotencyRecordSave.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_core_schema')
 ON CONFLICT (version) DO NOTHING;

@@ -169,6 +169,18 @@ function duplicateError(formData: FormData): CourseFormState {
   }, "A course with this academy, name, course type, date, and start time already exists.");
 }
 
+function courseManagementReturnPath(value: string) {
+  const returnTo = value.trim();
+  if (
+    returnTo.startsWith("/dashboard?panel=open-mats")
+    || returnTo.startsWith("/admin?panel=open-mats")
+    || returnTo.startsWith("/admin/courses")
+  ) {
+    return returnTo;
+  }
+  return "/dashboard?panel=open-mats";
+}
+
 export async function createCourse(_state: CourseFormState, formData: FormData): Promise<CourseFormState> {
   const parsed = await parseCourseData(formData);
   if (!parsed.ok) return formError(formData, parsed.errors);
@@ -229,12 +241,15 @@ export async function updateCourse(id: string, _state: CourseFormState, formData
   redirect(returnTo.startsWith("/admin") || returnTo.startsWith("/dashboard") ? returnTo : "/admin/courses");
 }
 
-export async function deleteCourse(id: string) {
+export async function deleteCourse(id: string, formData?: FormData) {
   const event = await prisma.event.findUnique({ where: { id }, select: { academyId: true, createdById: true } });
-  if (!event) return;
+  const returnTo = courseManagementReturnPath(String(formData?.get("returnTo") ?? ""));
+  if (!event) redirect(returnTo);
   await requireOpenMatAccess(event, "delete");
   await prisma.event.delete({ where: { id } });
   revalidatePath("/admin/courses");
+  revalidatePath("/dashboard");
   revalidatePath("/courses");
-  redirect("/admin/courses");
+  revalidatePath("/open-mats");
+  redirect(returnTo);
 }

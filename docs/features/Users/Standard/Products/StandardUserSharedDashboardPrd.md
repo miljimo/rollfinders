@@ -12,6 +12,8 @@ This feature reuses the dashboard shell, side panel behavior, responsive layout,
 
 It does not grant standard users admin permissions.
 
+The Standard User dashboard SHALL be mobile-first. Desktop behavior SHALL be a responsive expansion of the mobile information hierarchy, not the only supported layout.
+
 ## User Experience Requirements
 
 ### Shared Dashboard Shell
@@ -76,6 +78,16 @@ WHEN the panel renders
 
 THEN the page title SHALL be the user's assigned academy name.
 
+AND the panel SHALL prioritize current or upcoming events at the user's assigned academy before lower-priority roll-management style data on mobile.
+
+AND the panel SHALL include a current academy events section when current or upcoming events exist.
+
+AND each event SHALL be scoped to the user's assigned academy.
+
+AND event cards or rows SHALL show the event title, date or time label, and location label when available.
+
+AND event controls SHALL be read-only for Standard Users unless a separate permission grants action access.
+
 AND the panel SHALL include a search text box for searching rolls within that academy.
 
 AND the panel SHALL include a paginated roll table.
@@ -94,9 +106,13 @@ IF a Standard User opens the Profile panel
 
 WHEN profile data loads
 
-THEN the panel SHALL show the user's information.
+THEN the panel SHALL show the mobile-first `UserProfile` experience.
+
+AND the panel SHALL show the user's information.
 
 AND the panel SHALL show the user's academy information.
+
+AND the panel SHOULD show current belt or rank, practitioner verification status, coach or professor, member-since date, belt journey, and current academy events when those data sources are available.
 
 AND the panel SHALL NOT expose academy-management actions.
 
@@ -242,11 +258,28 @@ THEN the dashboard navigation SHALL use the same mobile drawer behavior as the a
 
 AND all visible roll data SHALL remain readable without horizontal overflow.
 
+AND the Dashboard panel SHALL show assigned-academy current events in mobile-friendly cards or rows before lower-priority roll list content when events exist.
+
+AND the Profile panel SHALL render the mobile-first profile header, actions, belt journey, academy events, and profile sections without horizontal overflow.
+
+### STD-SHARED-DASH-006: Academy-Scoped Events
+
+IF a Standard User belongs to an academy
+
+WHEN the dashboard or profile requests current events
+
+THEN the backend SHALL return only current or upcoming events for the user's assigned academy.
+
+AND events from other academies SHALL never be returned.
+
+AND Standard Users SHALL NOT receive event management actions unless explicitly authorized by role or permission.
+
 ## Non-Goals
 
 * Standard users do not manage academies.
 * Standard users do not manage members.
 * Standard users do not create or edit rolls.
+* Standard users do not create, edit, delete, or manage academy events unless a separate role or permission explicitly grants it.
 * Standard users do not access platform admin, super admin, email operations, or claim-management features.
 
 ## Development Notes
@@ -255,11 +288,15 @@ AND all visible roll data SHALL remain readable without horizontal overflow.
 * Keep existing `/api/dashboard/rolls` as the read-only data source unless a stronger shared API boundary is introduced.
 * Add tests proving standard users can view same-academy rolls and cannot access write actions.
 * Add tests proving standard users cannot see admin navigation items.
+* Add tests proving standard users see only assigned-academy current events.
+* Add responsive tests or screenshots for mobile dashboard and profile layouts.
 
 ## Done When
 
 * Standard user dashboard visually aligns with admin dashboard patterns.
 * Standard users can view academy rolls in read-only mode.
+* Standard users can view current events for their assigned academy in read-only mode.
+* Standard user profile and dashboard layouts are usable mobile-first.
 * Standard users cannot mutate rolls.
 * Standard users cannot see or access admin-only panels.
 * Existing admin, academy admin, platform admin, and super admin dashboard behavior is unchanged.

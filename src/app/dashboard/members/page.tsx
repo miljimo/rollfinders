@@ -23,9 +23,9 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
   const { academy } = await requireStandardDashboardUser();
   const params = await searchParams;
   const q = (firstParam(params.q) ?? "").trim();
-  const members = await prisma.user.findMany({
+  const members = await prisma.academyMember.findMany({
     where: memberSearchWhere(academy.id, q),
-    orderBy: [{ createdAt: "desc" }, { email: "asc" }],
+    orderBy: [{ createdAt: "desc" }],
   });
 
   return (
@@ -65,11 +65,11 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
                 {members.map((member) => (
                   <tr key={member.id} className="border-t border-stone-100">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-stone-950">{member.name ?? member.email}</p>
-                      <p className="break-all text-stone-600">{member.email}</p>
+                      <p className="font-semibold text-stone-950">{member.userId}</p>
+                      <p className="break-all text-stone-600">User service identity</p>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">Standard User</span>
+                      <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{member.role}</span>
                     </td>
                     <td className="px-4 py-3 text-stone-600">{formatDate(member.createdAt)}</td>
                   </tr>

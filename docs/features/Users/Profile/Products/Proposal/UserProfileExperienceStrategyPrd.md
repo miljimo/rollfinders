@@ -30,12 +30,15 @@ The admin user profile modal in `src/app/admin/page.tsx` SHALL be upgraded or re
 
 The reusable `UserProfile` component SHALL be the shared display component for self-profile and admin-view profile surfaces.
 
+The new profile experience SHALL apply to all authenticated user roles: Standard Users, Academy Admins, Platform Admins, Super Admins, and legacy Admin users. Role-specific data and actions MAY vary, but the visual profile system SHALL remain consistent.
+
 ## Product Principles
 
 The profile SHALL be:
 
 * Role-aware.
 * Actionable.
+* Mobile-first.
 * Secure by default.
 * Minimal by default.
 * Clear about account scope and permissions.
@@ -117,8 +120,42 @@ The profile experience SHOULD support these sections:
 * Access: role, academy or platform assignment, permission summary.
 * Account: created date, last login, invitation or activation state where available.
 * Academy context: assigned academy name, location, and public academy link where available.
+* Academy events: current or upcoming events at the user's assigned academy where reliable event data exists.
+* Belt journey: current belt or rank and graduation history where reliable practitioner data exists.
 * Actions: role- and capability-aware profile actions.
 * Security and activity: future-ready sections only when reliable data exists.
+
+## Mobile-First Profile Requirements
+
+The profile SHALL be designed mobile-first and then expanded for tablet and desktop layouts.
+
+IF any authenticated user opens a profile on a small viewport
+
+WHEN profile data renders
+
+THEN the profile SHALL present a compact mobile-first identity header with avatar or initials, display name, current belt or role label where available, verification/status badge, assigned academy, coach or professor where available, member-since date, and location where available.
+
+AND primary actions such as `Edit Profile`, `Change Password`, `View Academy`, or `Add Graduation` SHALL be visible without requiring table-style scanning.
+
+AND profile sections SHALL stack vertically with stable spacing and no horizontal overflow.
+
+AND long names, emails, academy names, and locations SHALL wrap or truncate safely without overlapping actions.
+
+IF belt history exists
+
+WHEN the profile renders
+
+THEN the profile SHOULD show a compact belt journey strip that highlights the current belt and shows known previous or next belt milestones where available.
+
+IF the user has an assigned academy
+
+WHEN current or upcoming events exist for that academy
+
+THEN the profile SHOULD show an academy events section scoped only to that academy.
+
+AND the section SHALL NOT expose events from other academies.
+
+AND event actions SHALL respect the viewer's role and permissions.
 
 ## Role-Specific Needs
 

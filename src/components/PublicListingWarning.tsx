@@ -8,11 +8,11 @@ type PublicAcademyTrust = {
   claims?: { status: ClaimStatus }[];
 };
 
-type PublicListingCourseTrust = {
+type CourseCreatorTrust = {
   createdBy?: {
-    role: Role;
+    role?: Role;
     academyId?: string | null;
-    academyMemberships?: { academyId: string; role: AcademyMemberRole }[];
+    academyMemberships?: { academyId?: string | null; role?: AcademyMemberRole }[];
   } | null;
 };
 
@@ -20,27 +20,23 @@ export function isPublicAcademyTrusted(academy: PublicAcademyTrust) {
   const verified = academy.verified === true || academy.verificationStatus === AcademyVerificationStatus.VERIFIED;
   const managed = Boolean(academy.members?.length) || Boolean(academy.claims?.some((claim) => claim.status === ClaimStatus.APPROVED));
 
-  return verified && managed;
+	return verified && managed;
 }
 
-function isCreatedByAcademyAdmin(academy: PublicAcademyTrust, course?: PublicListingCourseTrust) {
-  if (!academy.id || !course?.createdBy) return false;
-
-  const creator = course.createdBy;
-  const academyRole = creator.role === Role.ACADEMY_ADMIN || creator.role === Role.ACADEMY_OWNER;
-  const directAcademyAdmin = academyRole && creator.academyId === academy.id;
-  const memberAcademyAdmin = creator.academyMemberships?.some(
-    (membership) => membership.academyId === academy.id && (membership.role === AcademyMemberRole.ADMIN || membership.role === AcademyMemberRole.OWNER),
-  );
-
-  return directAcademyAdmin || Boolean(memberAcademyAdmin);
+function wasCreatedByAcademyAdmin(academy: PublicAcademyTrust, course?: CourseCreatorTrust) {
+  const creator = course?.createdBy;
+  if (!creator || creator.role !== Role.ACADEMY_ADMIN || !academy.id) return false;
+  if (creator.academyId === academy.id) return true;
+  return Boolean(creator.academyMemberships?.some((membership) => membership.academyId === academy.id && membership.role === AcademyMemberRole.ADMIN));
 }
 
-export function PublicListingWarning({ academy, className = "", course }: { academy: PublicAcademyTrust; className?: string; course?: PublicListingCourseTrust }) {
-  if (isPublicAcademyTrusted(academy)) {
-    if (isCreatedByAcademyAdmin(academy, course)) return null;
+export function PublicListingWarning({ academy, className = "", course }: { academy: PublicAcademyTrust; className?: string; course?: unknown }) {
+	if (isPublicAcademyTrusted(academy)) {
+		if (wasCreatedByAcademyAdmin(academy, course as CourseCreatorTrust | undefined)) {
+			return null;
+		}
 
-    return (
+		return (
       <div className={`rounded-md border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-stone-800 ${className}`}>
         <p className="font-bold text-stone-950">Confirm before visiting</p>
         <p className="mt-1 font-semibold text-stone-700">
