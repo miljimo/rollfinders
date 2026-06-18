@@ -103,4 +103,14 @@ describe("deployment safety contracts", () => {
 
     assert.match(deploy, /terraform output -raw certificate_arn 2>\/dev\/null \|\| true/);
   });
+
+  it("configures Prisma pg pools for RDS sslmode=require", () => {
+    const prisma = readSource("src/lib/prisma.ts");
+    const seed = readSource("prisma/seed.ts");
+    const superAdmin = readSource("prisma/ensure-super-admin.ts");
+
+    for (const source of [prisma, seed, superAdmin]) {
+      assert.match(source, /ssl:\s*connectionString\.includes\("sslmode=require"\)\s*\?\s*\{\s*rejectUnauthorized:\s*false\s*\}\s*:\s*undefined/);
+    }
+  });
 });

@@ -17,7 +17,13 @@ function getDatabaseUrl() {
   return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(password)}@${host}:${port}/${name}`;
 }
 
-const adapter = new PrismaPg(new Pool({ connectionString: getDatabaseUrl() }));
+const connectionString = getDatabaseUrl();
+const adapter = new PrismaPg(
+  new Pool({
+    connectionString,
+    ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
+  }),
+);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
