@@ -205,5 +205,10 @@ export async function listCourseOccurrencePayments({ limit = 100 }: { limit?: nu
     resourceLabel: payment.resource_label,
     payerUserId: payment.payer_user_id,
     payerEmail: payment.payer_email,
-  }));
+  })).filter(isProviderBackedPaymentRecord);
+}
+
+function isProviderBackedPaymentRecord(payment: PaymentRecord) {
+  if (payment.provider !== "stripe") return true;
+  return typeof payment.providerPaymentId === "string" && payment.providerPaymentId.startsWith("cs_");
 }

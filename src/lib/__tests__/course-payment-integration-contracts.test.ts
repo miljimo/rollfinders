@@ -84,6 +84,8 @@ describe("course payment service integration", () => {
 
     assert.match(paymentsSource, /listCourseOccurrencePayments/);
     assert.match(paymentsSource, /resource_type:\s*"course_occurrence"/);
+    assert.match(paymentsSource, /isProviderBackedPaymentRecord/);
+    assert.match(paymentsSource, /providerPaymentId\.startsWith\("cs_"\)/);
     assert.match(dashboardSource, /panel=payments/);
     assert.match(dashboardSource, /label:\s*"Payments"/);
     assert.match(dashboardSource, /academyId \? payments\.filter/);
