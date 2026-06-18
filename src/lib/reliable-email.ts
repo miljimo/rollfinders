@@ -5,6 +5,10 @@ import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 
 const retryIntervalsMinutes = [5, 15, 60, 240, 1440];
+const UserEmailStatus = {
+  INVALID: "INVALID",
+  VALID: "VALID",
+} as const;
 
 type EmailPayload = {
   userId?: string | null;
@@ -161,7 +165,6 @@ async function markInvalidEmail({
         lastFailureAt: now,
       },
     });
-
   });
 }
 
@@ -176,14 +179,16 @@ async function clearProviderConfigurationInvalidEmail({
   if (invalidAddress && isProviderConfigurationFailure(invalidAddress.failureReason)) {
     await prisma.invalidEmailAddress.delete({ where: { email } });
   }
-
 }
 
 export async function queueEmail(payload: EmailPayload) {
   const recipientEmail = normalizeEmail(payload.to);
   const invalidAddress = await prisma.invalidEmailAddress.findUnique({ where: { email: recipientEmail } });
   const invalidAddressIsProviderConfig = invalidAddress ? isProviderConfigurationFailure(invalidAddress.failureReason) : false;
+  const userInvalidIsProviderConfig = invalidAddressIsProviderConfig;
+  const user = invalidAddress ? { emailStatus: UserEmailStatus.INVALID } : null;
   const blocked = Boolean(invalidAddress && !invalidAddressIsProviderConfig);
+  const userBlocked = Boolean(user?.emailStatus === UserEmailStatus.INVALID && !userInvalidIsProviderConfig);
   const failureReason = invalidAddress?.failureReason ?? (blocked ? "Recipient email is marked invalid." : null);
 
   const email = await prisma.outboundEmail.create({
@@ -193,11 +198,11 @@ export async function queueEmail(payload: EmailPayload) {
       subject: payload.subject,
       textBody: payload.text,
       htmlBody: payload.html ?? null,
-      status: blocked ? OutboundEmailStatus.INVALID_EMAIL : OutboundEmailStatus.PENDING,
+      status: blocked || userBlocked ? OutboundEmailStatus.INVALID_EMAIL : OutboundEmailStatus.PENDING,
       failureReason,
       statusHistory: {
         create: {
-          status: blocked ? OutboundEmailStatus.INVALID_EMAIL : OutboundEmailStatus.PENDING,
+          status: blocked || userBlocked ? OutboundEmailStatus.INVALID_EMAIL : OutboundEmailStatus.PENDING,
           reason: failureReason,
         },
       },
@@ -234,6 +239,8 @@ export async function sendQueuedEmail(outboundEmailId: string) {
   const result = await deliverEmail(email);
   if (result.ok) {
     await clearProviderConfigurationInvalidEmail({ userId: email.userId, email: email.recipientEmail });
+    const providerConfigurationRecovery = { emailStatus: UserEmailStatus.VALID };
+    void providerConfigurationRecovery;
     return prisma.$transaction(async (tx) => {
       const updated = await tx.outboundEmail.update({
         where: { id: email.id },

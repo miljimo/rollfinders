@@ -1,6 +1,10 @@
-import "server-only";
+// import "server-only";
 
 import { getEnvVariable } from "./environments";
+
+if (typeof window !== "undefined") {
+  throw new Error("Payment service calls are server-only.");
+}
 
 type PaymentProvider = "stripe" | "paypal";
 type PaymentMethodType = "card" | "google_pay" | "paypal";

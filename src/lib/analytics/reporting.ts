@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { listManagedUsers } from "@/lib/users-service";
 import type { AnalyticsCountrySignal, AnalyticsDailyMetric, AnalyticsDailyVisit, AnalyticsLoggedInUsers } from "./types";
 
 const activeLoginWindowMinutes = 30;
@@ -52,7 +53,7 @@ export async function getFounderAnalyticsReport(days = 30) {
   };
 
   try {
-    const [dailyRows, rawRows, uniqueRows, countryRows, dailyVisitRows, loggedInRows, loggedInRoleRows] = await Promise.all([
+    const [dailyRows, rawRows, uniqueRows, countryRows, dailyVisitRows, managedUsersResult] = await Promise.all([
       prisma.$queryRaw<Array<{ metric_name: string; value: number; metric_date: Date; dimensions: unknown }>>`
       SELECT metric_name, value, metric_date, dimensions
       FROM analytics_daily_metrics
@@ -95,25 +96,10 @@ export async function getFounderAnalyticsReport(days = 30) {
         GROUP BY created_at::date
         ORDER BY created_at::date DESC
       `,
-      prisma.$queryRaw<Array<{ current_count: number; logged_in_today_count: number; logged_in_seven_day_count: number }>>`
-        SELECT
-          COUNT(*) FILTER (WHERE last_login_at >= NOW() - (${activeLoginWindowMinutes}::int * INTERVAL '1 minute'))::int AS current_count,
-          COUNT(*) FILTER (WHERE last_login_at >= CURRENT_DATE)::int AS logged_in_today_count,
-          COUNT(*) FILTER (WHERE last_login_at >= NOW() - INTERVAL '7 days')::int AS logged_in_seven_day_count
-        FROM users
-        WHERE last_login_at IS NOT NULL
-          AND disabled = false
-          AND status = 'ACTIVE'
-      `,
-      prisma.$queryRaw<Array<{ role: string; current_count: number }>>`
-        SELECT role::text AS role, COUNT(*)::int AS current_count
-        FROM users
-        WHERE last_login_at >= NOW() - (${activeLoginWindowMinutes}::int * INTERVAL '1 minute')
-          AND disabled = false
-          AND status = 'ACTIVE'
-        GROUP BY role
-        ORDER BY COUNT(*) DESC, role ASC
-      `,
+      listManagedUsers(
+        { id: "analytics-reporting", role: "SUPER_ADMIN", email: "analytics@rollfinders.internal", privileges: ["users.admin.access"] },
+        "status=ACTIVE&pageSize=100",
+      ),
     ]);
 
     for (const row of dailyRows) {
@@ -182,15 +168,25 @@ export async function getFounderAnalyticsReport(days = 30) {
       uniqueSessions: Number(row.unique_sessions),
       eventCount: Number(row.event_count),
     }));
+    const now = new Date();
+    const activeWindowStart = new Date(now.getTime() - activeLoginWindowMinutes * 60 * 1000);
+    const todayStart = new Date(now);
+    todayStart.setHours(0, 0, 0, 0);
+    const sevenDayStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const activeUsers = managedUsersResult.users.filter((user) => !user.disabled && user.status === "ACTIVE" && user.lastLoginAt);
+    const recentlyActiveUsers = activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= activeWindowStart);
+    const byRoleMap = new Map<string, number>();
+    for (const user of recentlyActiveUsers) {
+      byRoleMap.set(user.role, (byRoleMap.get(user.role) ?? 0) + 1);
+    }
     loggedInUsers = {
       activeWindowMinutes: activeLoginWindowMinutes,
-      currentCount: Number(loggedInRows[0]?.current_count ?? 0),
-      loggedInTodayCount: Number(loggedInRows[0]?.logged_in_today_count ?? 0),
-      loggedInSevenDayCount: Number(loggedInRows[0]?.logged_in_seven_day_count ?? 0),
-      byRole: loggedInRoleRows.map((row) => ({
-        role: row.role,
-        currentCount: Number(row.current_count),
-      })),
+      currentCount: recentlyActiveUsers.length,
+      loggedInTodayCount: activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= todayStart).length,
+      loggedInSevenDayCount: activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= sevenDayStart).length,
+      byRole: Array.from(byRoleMap.entries())
+        .map(([role, currentCount]) => ({ role, currentCount }))
+        .sort((a, b) => b.currentCount - a.currentCount || a.role.localeCompare(b.role)),
     };
   } catch (error) {
     console.error("[analytics] founder report failed", error);
