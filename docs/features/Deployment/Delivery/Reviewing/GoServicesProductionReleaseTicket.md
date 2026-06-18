@@ -15,6 +15,18 @@ Included services:
 * `services/users/migrations/001_core_schema.sql` and `services/payments/migrations/001_core_schema.sql`.
 * Private ECS/Fargate deployment with no public ALB listener or public IP for either Go service.
 
+## Current Release Candidate
+
+* Source branch: `master`
+* Target environment: `production`
+* Current local commit: `69f24a89a263499fbdae558134c84625026b1b8d`
+* Short commit: `69f24a8 Fix course clone dialog payload`
+* Requested date: 2026-06-18
+* Release owner request: Product owner request in Codex session
+* Local application URL: `http://localhost:3000`
+
+This release candidate includes the Go users/auth service integration, Go payments service integration, service-owned schemas, private-only service topology, RollFinders public-schema user-to-academy assignment compatibility, assigned academy table visibility, 10-row user pagination, resilient payment-to-event links, and the course clone dialog payload fix.
+
 ## Current Pipeline Findings
 
 The production Bitbucket path for `main` currently runs:
@@ -87,7 +99,75 @@ Remaining release gates:
 * Production image digests must be recorded for `web`, `users`, and `payments`.
 * Service SQL migrations must be validated idempotently against a production-like database.
 * Production Terraform plan must be reviewed before apply.
+* Browser E2E must pass in CI or on a host with Playwright Chromium dependencies installed.
 * Production smoke and rollback evidence must be recorded after deployment.
+
+## Local Validation Evidence
+
+Completed on 2026-06-18 against release candidate `69f24a89a263499fbdae558134c84625026b1b8d`:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+npm run users:test
+npm run payments:test
+npm run build
+docker compose --profile app up -d --build app
+curl -fsS http://localhost:3000/api/health
+curl -fsS 'http://localhost:3000/api/health?deep=1'
+curl -fsS http://localhost:3002/healthz
+curl -fsS http://localhost:3002/readyz
+curl -fsS http://localhost:3003/healthz
+curl -fsS http://localhost:3003/readyz
+```
+
+Results:
+
+* `npm run lint` passed with existing warnings only.
+* `npm run typecheck` passed.
+* `npm run test` passed: 177/177 unit and contract tests.
+* `npm run users:test` passed.
+* `npm run payments:test` passed.
+* `npm run build` passed with Next.js 16.2.7.
+* Local Docker app rebuilt and started successfully.
+* `rollfinder-app-1` is healthy.
+* `rollfinder-users-1` is healthy.
+* `rollfinder-payments-1` is healthy.
+* Web shallow health returned `{"status":"ok"}`.
+* Web deep health returned `{"status":"ok","database":"ok"}`.
+* Users service returned `healthz` ok and `readyz` ready.
+* Payments service returned `healthz` ok and `readyz` ready.
+
+Local schema validation:
+
+```sql
+SELECT to_regclass('users.users');
+SELECT to_regclass('users.credentials');
+SELECT to_regclass('payments.payments');
+SELECT to_regclass('payments.payment_clients');
+SELECT to_regclass('public.users');
+SELECT version FROM users.schema_migrations ORDER BY version;
+SELECT version FROM payments.schema_migrations ORDER BY version;
+```
+
+Observed:
+
+* `users.users` exists.
+* `users.credentials` exists.
+* `payments.payments` exists.
+* `payments.payment_clients` exists.
+* `public.users` exists for RollFinders application-specific user profile and academy assignment data.
+* `users.schema_migrations` contains `001_core_schema`.
+* `payments.schema_migrations` contains `001_core_schema`.
+
+`npm run test:e2e` was attempted on 2026-06-18 and failed before running browser assertions:
+
+```text
+chrome-headless-shell: error while loading shared libraries: libnspr4.so: cannot open shared object file: No such file or directory
+```
+
+This is an environment blocker, not an application assertion failure. Production approval still requires `npm run test:e2e` to pass in CI or on a host with Playwright Chromium dependencies installed.
 
 ## Required Production Pipeline Steps
 
@@ -106,6 +186,7 @@ npm run test
 npm run build
 npm run users:test
 npm run payments:test
+npm run test:e2e
 cd terraform
 terraform fmt -check
 terraform init -backend=false
@@ -170,8 +251,11 @@ Gate: verify readiness functions and required tables:
 SELECT * FROM users.database_ready();
 SELECT to_regclass('users.users');
 SELECT to_regclass('users.credentials');
+SELECT to_regclass('users.sessions');
+SELECT to_regclass('users.refresh_tokens');
 SELECT to_regclass('payments.payments');
 SELECT to_regclass('payments.payment_clients');
+SELECT to_regclass('payments.refunds');
 SELECT to_regclass('payments.outbox_events');
 ```
 
@@ -256,8 +340,18 @@ aws ecs wait services-stable --region eu-west-2 --cluster <cluster> --services <
 * [x] Users and payments services have no public ALB listener or public DNS route.
 * [x] Task-local private routing is configured.
 * [x] Go SQL migrations have a production runner.
-* [ ] Users migration validates cleanly and idempotently.
-* [ ] Payments migration validates cleanly and idempotently.
+* [x] Local users migration schema and version validate.
+* [x] Local payments migration schema and version validate.
+* [ ] Users migration validates cleanly and idempotently against a production-like database.
+* [ ] Payments migration validates cleanly and idempotently against a production-like database.
+* [x] `npm run lint` passes with warnings only.
+* [x] `npm run typecheck` passes.
+* [x] `npm run test` passes.
+* [x] `npm run users:test` passes.
+* [x] `npm run payments:test` passes.
+* [x] `npm run build` passes.
+* [x] Local Docker app/users/payments health checks pass.
+* [ ] Browser E2E passes in CI or a host with Playwright dependencies.
 * [ ] Production backup/PITR marker is recorded before migrations.
 * [x] `go test ./... && go vet ./...` passes in `services/users`.
 * [x] `go test ./... && go vet ./...` passes in `services/payments`.
