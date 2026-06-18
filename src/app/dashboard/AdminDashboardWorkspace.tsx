@@ -17,6 +17,7 @@ import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } fr
 import { listCourseOccurrencePayments, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
+import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { listManagedUsers } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
@@ -502,13 +503,12 @@ export default async function AdminDashboardWorkspace({
       orderBy: { eventDate: "asc" },
     }),
     managedUsersPagePromise.then((result) =>
-      result.users.map((user) => ({
+      enrichUsersWithAcademyNames(result.users.map((user) => ({
         ...user,
         role: user.role as Role,
         status: user.status as UserStatus,
         createdAt: new Date(user.createdAt),
-        academy: null,
-      })),
+      }))),
     ),
     prisma.adminAuditLog.findMany({
       where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),

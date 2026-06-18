@@ -239,8 +239,12 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(dashboardSource, /const\s+usersPageSize\s*=\s*10/);
     assert.match(dashboardSource, /pageSize:\s*String\(usersPageSize\)/);
+    assert.match(dashboardSource, /enrichUsersWithAcademyNames\(result\.users\.map/);
+    assert.doesNotMatch(dashboardSource, /academy:\s*null/);
     assert.match(adminUsersSource, /const\s+usersPageSize\s*=\s*10/);
     assert.match(adminUsersSource, /const\s+pageSize\s*=\s*usersPageSize/);
+    assert.match(adminUsersSource, /enrichUsersWithAcademyNames\(result\.users\)/);
+    assert.match(adminUsersSource, /user\.academy\?\.name\s*\?\?\s*"None"/);
     assert.doesNotMatch(adminUsersSource, /supportedPageSizes|Rows per page/);
   });
 

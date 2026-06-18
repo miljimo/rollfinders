@@ -204,3 +204,19 @@ export async function academyMemberProfiles(academyId: string, query = "") {
     user: userById.get(member.userId) ?? null,
   }));
 }
+
+export async function enrichUsersWithAcademyNames<T extends { academyId: string | null }>(users: T[]) {
+  const academyIds = [...new Set(users.map((user) => user.academyId).filter((academyId): academyId is string => Boolean(academyId)))];
+  if (!academyIds.length) return users.map((user) => ({ ...user, academy: null }));
+
+  const academies = await prisma.academy.findMany({
+    where: { id: { in: academyIds } },
+    select: { id: true, name: true },
+  });
+  const academyById = new Map(academies.map((academy) => [academy.id, { name: academy.name }]));
+
+  return users.map((user) => ({
+    ...user,
+    academy: user.academyId ? academyById.get(user.academyId) ?? null : null,
+  }));
+}

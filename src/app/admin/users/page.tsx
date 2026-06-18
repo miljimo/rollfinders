@@ -6,6 +6,7 @@ import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { TableRow } from "@/components/Table";
 import { canSendManagedUserPasswordReset, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { listManagedUsers } from "@/lib/users-service";
 import { formatDate } from "@/lib/utils";
 import {
@@ -136,7 +137,7 @@ export default async function UserManagementPage({
   const result = currentUser
     ? await listManagedUsers(currentUser, query.toString())
     : { users: [], page: 1, pageSize, totalItems: 0, totalPages: 1 };
-  const users = result.users;
+  const users = await enrichUsersWithAcademyNames(result.users);
   const totalItems = result.totalItems;
   const totalPages = result.totalPages;
   const currentPage = result.page;
@@ -257,7 +258,7 @@ export default async function UserManagementPage({
                         <RoleBadge role={user.role} />
                       </td>
                       <td className="px-5 py-4 text-slate-700">
-                        {user.academyId ?? "None"}
+                        {user.academy?.name ?? "None"}
                       </td>
                       <td className="px-5 py-4">
                         <StatusBadge disabled={disabled} />
