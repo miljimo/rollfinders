@@ -40,7 +40,7 @@ BEGIN
      AND to_regclass('users.credentials') IS NOT NULL
      AND to_regclass('users.user_roles') IS NOT NULL
      AND to_regclass('users.organisation_users') IS NOT NULL THEN
-    WITH service_projection AS (
+    WITH raw_service_projection AS (
       SELECT
         service_users.id,
         COALESCE(service_credentials.credential_identifier, service_users.external_id, service_users.id || '@rollfinder.local') AS email,
@@ -76,6 +76,12 @@ BEGIN
         LIMIT 1
       ) service_organisations ON true
       LEFT JOIN public.academies academies ON academies.id = service_organisations.organisation_id
+    ),
+    service_projection AS (
+      SELECT DISTINCT ON (raw_service_projection.email)
+        raw_service_projection.*
+      FROM raw_service_projection
+      ORDER BY raw_service_projection.email, raw_service_projection.created_at ASC, raw_service_projection.id ASC
     )
     UPDATE public."users" existing_users
     SET
