@@ -26,6 +26,15 @@ describe("deployment safety contracts", () => {
     assert.match(deployEnvironment, /build-go-services\.sh/);
   });
 
+  it("promotes app, users, and payments images together", () => {
+    const promotion = readSource("scripts/cicd/promotion.sh");
+
+    assert.match(promotion, /"user_service_image_uri":\s*os\.environ\["USER_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"payment_service_image_uri":\s*os\.environ\["PAYMENT_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /echo "USER_SERVICE_IMAGE_URI=\$\{user_service_image\}"/);
+    assert.match(promotion, /echo "PAYMENT_SERVICE_IMAGE_URI=\$\{payment_service_image\}"/);
+  });
+
   it("runs migrations before rolling the ECS service to the new task definition", () => {
     const deployEnvironment = readSource("scripts/cicd/deploy-environment.sh");
 
