@@ -137,6 +137,10 @@ describe("CourseCreationAndManagement rollout contracts", () => {
     assert.match(academyProfileSource, /Upcoming Courses/);
     assert.doesNotMatch(academyProfileSource, /Upcoming Open Mats/);
     assert.match(academyProfileSource, /courseType/);
+    assert.match(academyProfileSource, /upcomingCoursesPageSize\s*=\s*6/);
+    assert.match(academyProfileSource, /pagedCourses\.map/);
+    assert.match(academyProfileSource, /coursesPage/);
+    assert.match(academyProfileSource, /UpcomingCoursesPagination/);
     assert.match(academyProfileSource, /\/open-mats\/\$\{[^}]+\.id\}/);
     assert.match(academyProfileSource, /\/courses\/\$\{[^}]+\.id\}/);
   });

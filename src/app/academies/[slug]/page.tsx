@@ -14,8 +14,37 @@ import { ClaimStatus, CourseType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
-export default async function AcademyPage({ params }: { params: Promise<{ slug: string }> }) {
+const upcomingCoursesPageSize = 6;
+
+type AcademyPageSearchParams = { coursesPage?: string };
+
+function pageFromParam(value?: string) {
+  const page = Number(value ?? "1");
+  return Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+}
+
+function upcomingCoursesPageHref(slug: string, page: number) {
+  const next = new URLSearchParams();
+  if (page > 1) next.set("coursesPage", String(page));
+  const query = next.toString();
+  return query ? `/academies/${slug}?${query}` : `/academies/${slug}`;
+}
+
+function paginationPages(currentPage: number, totalPages: number) {
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(totalPages, currentPage + 2);
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+}
+
+export default async function AcademyPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<AcademyPageSearchParams>;
+}) {
   const { slug } = await params;
+  const query = await searchParams;
   const academy = await prisma.academy.findUnique({
     where: { slug },
     include: {
@@ -27,6 +56,15 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
 
   if (!academy) notFound();
   const courses = await getCourseDiscovery({ academyId: academy.id });
+  const totalUpcomingCourses = courses.length;
+  const totalUpcomingCoursePages = Math.max(1, Math.ceil(totalUpcomingCourses / upcomingCoursesPageSize));
+  const currentUpcomingCoursePage = Math.min(pageFromParam(query.coursesPage), totalUpcomingCoursePages);
+  const pagedCourses = courses.slice(
+    (currentUpcomingCoursePage - 1) * upcomingCoursesPageSize,
+    currentUpcomingCoursePage * upcomingCoursesPageSize,
+  );
+  const upcomingCourseStart = totalUpcomingCourses === 0 ? 0 : (currentUpcomingCoursePage - 1) * upcomingCoursesPageSize + 1;
+  const upcomingCourseEnd = Math.min(currentUpcomingCoursePage * upcomingCoursesPageSize, totalUpcomingCourses);
   const academyIsManaged = academy.members.length > 0;
   const country = analyticsCountryFromHeaders(await headers());
 
@@ -95,8 +133,13 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
           </div>
           <div className="mt-8">
             <h2 className="text-2xl font-black text-stone-950">Upcoming Courses</h2>
+            {totalUpcomingCourses > 0 ? (
+              <p className="mt-2 text-sm font-medium text-stone-600">
+                {totalUpcomingCourses} upcoming courses · showing {upcomingCourseStart}-{upcomingCourseEnd}
+              </p>
+            ) : null}
             <div className="mt-4 grid gap-4 md:grid-cols-2">
-              {courses.map((course) => (
+              {pagedCourses.map((course) => (
                 <article key={course.occurrenceId ?? course.id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap gap-2">
                     <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(course.courseType)}</span>
@@ -114,6 +157,7 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
               ))}
               {courses.length === 0 ? <p className="text-stone-600">No upcoming courses listed yet.</p> : null}
             </div>
+            <UpcomingCoursesPagination currentPage={currentUpcomingCoursePage} slug={academy.slug} totalPages={totalUpcomingCoursePages} />
           </div>
         </div>
         <aside className="h-fit rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
@@ -143,5 +187,21 @@ export default async function AcademyPage({ params }: { params: Promise<{ slug: 
         </aside>
       </section>
     </PageShell>
+  );
+}
+
+function UpcomingCoursesPagination({ currentPage, slug, totalPages }: { currentPage: number; slug: string; totalPages: number }) {
+  if (totalPages <= 1) return null;
+
+  return (
+    <nav className="mt-6 flex flex-wrap items-center justify-end gap-2" aria-label="Upcoming courses pagination">
+      <Button href={upcomingCoursesPageHref(slug, currentPage - 1)} disabled={currentPage <= 1} variant="secondary" size="sm">Previous</Button>
+      {paginationPages(currentPage, totalPages).map((pageNumber) => (
+        <Button key={pageNumber} href={upcomingCoursesPageHref(slug, pageNumber)} variant={pageNumber === currentPage ? "primary" : "secondary"} size="sm" aria-current={pageNumber === currentPage ? "page" : undefined}>
+          {pageNumber}
+        </Button>
+      ))}
+      <Button href={upcomingCoursesPageHref(slug, currentPage + 1)} disabled={currentPage >= totalPages} variant="secondary" size="sm">Next</Button>
+    </nav>
   );
 }
