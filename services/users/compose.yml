@@ -51,7 +51,6 @@ services:
         -U ${DB_USER:-postgres}
         -d ${DB_NAME:-rollfinder}
         -f /migrations/001_core_schema.sql
-        -c 'CALL users."bootstrapFromPublicUsers"();'
     depends_on:
       migrate:
         condition: service_completed_successfully

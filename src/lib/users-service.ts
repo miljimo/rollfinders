@@ -75,7 +75,8 @@ function splitRollfinderAcademyInput(input: unknown) {
     return { serviceInput: input, academyId: undefined as string | null | undefined };
   }
 
-  const { academyId, ...serviceInput } = input as Record<string, unknown>;
+  const serviceInput = { ...(input as Record<string, unknown>) };
+  const academyId = serviceInput.academyId;
   return {
     serviceInput,
     academyId: typeof academyId === "string" ? academyId.trim() || null : academyId === null ? null : undefined,

@@ -226,7 +226,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(actionsSource, /const\s+academyId\s*=\s*String\(formData\.get\("academyId"\)/);
     assert.match(actionsSource, /createUserInService\(actor,\s*\{[\s\S]*academyId[\s\S]*\}\)/);
     assert.match(actionsSource, /updateUserInService\(actor,\s*userId,\s*\{[\s\S]*academyId[\s\S]*\}\)/);
-    assert.match(userServiceSource, /const\s+\{\s*academyId,\s*\.\.\.serviceInput\s*\}\s*=\s*input as Record<string, unknown>/);
+    assert.match(userServiceSource, /const serviceInput = \{ \.\.\.\(input as Record<string, unknown>\) \}/);
+    assert.doesNotMatch(userServiceSource, /const\s+\{\s*academyId,\s*\.\.\.serviceInput\s*\}/);
     assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId\)/);
     assert.match(profileSource, /tx\.user\.upsert/);
     assert.match(profileSource, /academyMember\.create/);

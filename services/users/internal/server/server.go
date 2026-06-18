@@ -213,7 +213,7 @@ func (s *server) listUsers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Unable to list users.")
 		return
 	}
-	total := intValue(rows[0]["total"])
+	total := intValue(firstValue(rows[0]))
 	totalPages := max(1, (total+pageSize-1)/pageSize)
 	if page > totalPages {
 		page = totalPages

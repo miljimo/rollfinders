@@ -28,6 +28,7 @@ SET search_path TO users, public;
 \ir procedures/006_adminAuditLogInsert.sql
 \ir procedures/007_roleAndPermissionManagement.sql
 \ir procedures/008_runtimeMutations.sql
+\ir backfills/002_rollfinders_public_academy_memberships.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_core_schema')
 ON CONFLICT (version) DO NOTHING;
