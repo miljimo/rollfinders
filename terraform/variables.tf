@@ -179,3 +179,16 @@ variable "payment_gateway_api_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "stripe_api_version" {
+  type        = string
+  description = "Stripe API version header used by the payments service."
+  default     = "2024-09-30.acacia"
+}
+
+variable "stripe_context" {
+  type        = string
+  description = "Stripe-Context target account for organization API keys, usually an acct_... value."
+  sensitive   = true
+  default     = ""
+}

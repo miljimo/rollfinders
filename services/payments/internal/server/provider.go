@@ -41,7 +41,9 @@ func (r providerRegistry) get(name string) (providerAdapter, error) {
 }
 
 type stripeAdapter struct {
-	secret stripeSecretResolver
+	secret     stripeSecretResolver
+	apiVersion string
+	context    string
 }
 type paypalAdapter struct{}
 
@@ -121,6 +123,7 @@ func (a stripeAdapter) createCheckoutSession(req createPaymentRequest, key strin
 	}
 	httpReq.SetBasicAuth(a.secret.value(), "")
 	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	a.setRequestHeaders(httpReq)
 	if key != "" {
 		httpReq.Header.Set("Idempotency-Key", key)
 	}
@@ -181,6 +184,7 @@ func (a stripeAdapter) Refresh(p Payment) (providerResult, error) {
 		return providerResult{}, err
 	}
 	httpReq.SetBasicAuth(a.secret.value(), "")
+	a.setRequestHeaders(httpReq)
 	res, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
 		return providerResult{}, err
@@ -221,6 +225,15 @@ func (a stripeAdapter) Refresh(p Payment) (providerResult, error) {
 		action["url"] = session.URL
 	}
 	return providerResult{ProviderID: p.ProviderPaymentID, Status: status, RawStatus: session.Status + ":" + session.PaymentStatus, NextAction: action}, nil
+}
+
+func (a stripeAdapter) setRequestHeaders(req *http.Request) {
+	if strings.TrimSpace(a.apiVersion) != "" {
+		req.Header.Set("Stripe-Version", strings.TrimSpace(a.apiVersion))
+	}
+	if strings.TrimSpace(a.context) != "" {
+		req.Header.Set("Stripe-Context", strings.TrimSpace(a.context))
+	}
 }
 
 func redactStripeError(body []byte) string {

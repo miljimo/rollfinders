@@ -55,6 +55,27 @@ if [[ -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" ]]
   exit 1
 fi
 
+preserve_existing_secret_var() {
+  local tf_var_name="$1"
+  local parameter_name="$2"
+
+  if [[ -n "${!tf_var_name:-}" ]]; then
+    return 0
+  fi
+
+  local value
+  if value="$(aws ssm get-parameter --region "${AWS_REGION:-eu-west-2}" --name "${parameter_name}" --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)"; then
+    if [[ -n "${value}" && "${value}" != "__UNSET__" ]]; then
+      export "${tf_var_name}=${value}"
+    fi
+  fi
+}
+
+if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
+  preserve_existing_secret_var "TF_VAR_payment_gateway_api_key" "/rollfinder-production/app/PAYMENT_GATEWAY_API_KEY"
+  preserve_existing_secret_var "TF_VAR_stripe_context" "/rollfinder-production/app/STRIPE_CONTEXT"
+fi
+
 "${SCRIPT_DIR}/bootstrap-state.sh"
 
 cd "${TERRAFORM_DIR}"

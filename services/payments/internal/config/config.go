@@ -15,6 +15,8 @@ type Config struct {
 	APIKey                   string
 	StripeSecretKey          string
 	StripeSecretKeyFile      string
+	StripeAPIVersion         string
+	StripeContext            string
 	PublicBaseURL            string
 	DefaultClientID          string
 	DefaultClientName        string
@@ -36,6 +38,8 @@ func LoadFrom(env environments.Environment) (Config, error) {
 		APIKey:                   env.Get("API_KEY"),
 		StripeSecretKey:          firstNonEmpty(env.Get("STRIPE_SECRET_KEY"), env.Get("PAYMENT_GATEWAY_API_KEY")),
 		StripeSecretKeyFile:      env.Get("STRIPE_SECRET_KEY_FILE"),
+		StripeAPIVersion:         env.GetWithDefault("STRIPE_API_VERSION", "2024-09-30.acacia"),
+		StripeContext:            nonUnset(env.Get("STRIPE_CONTEXT")),
 		PublicBaseURL:            env.GetWithDefault("PAYMENT_PUBLIC_BASE_URL", "http://localhost:8080"),
 		DefaultClientID:          env.GetWithDefault("PAYMENT_DEFAULT_CLIENT_ID", "default"),
 		DefaultClientName:        env.GetWithDefault("PAYMENT_DEFAULT_CLIENT_NAME", "Default Client"),
@@ -76,6 +80,13 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func nonUnset(value string) string {
+	if value == "__UNSET__" {
+		return ""
+	}
+	return value
 }
 
 func durationOrDefault(env environments.Environment, key string, fallback time.Duration) time.Duration {

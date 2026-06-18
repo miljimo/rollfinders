@@ -23,7 +23,7 @@ func New(opts Options) http.Handler {
 		cfg:       opts.Config,
 		logger:    opts.Logger,
 		store:     newStore(opts.Config.DatabaseURL),
-		providers: providerRegistry{"stripe": stripeAdapter{secret: stripeSecretResolver{envValue: opts.Config.StripeSecretKey, filePath: opts.Config.StripeSecretKeyFile}}, "paypal": paypalAdapter{}},
+		providers: providerRegistry{"stripe": stripeAdapter{secret: stripeSecretResolver{envValue: opts.Config.StripeSecretKey, filePath: opts.Config.StripeSecretKeyFile}, apiVersion: opts.Config.StripeAPIVersion, context: opts.Config.StripeContext}, "paypal": paypalAdapter{}},
 	}
 	if opts.Config.DefaultClientCallbackURL != "" {
 		s.store.createPaymentClient(createPaymentClientRequest{

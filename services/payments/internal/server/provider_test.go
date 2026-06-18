@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
@@ -50,6 +51,40 @@ func TestStripeCheckoutMapsGooglePayToCardPaymentMethod(t *testing.T) {
 	}
 	if got := stripeCheckoutPaymentMethodType("card"); got != "card" {
 		t.Fatalf("expected card method to remain card, got %q", got)
+	}
+}
+
+func TestStripeAdapterSetsVersionAndContextHeaders(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://api.stripe.com/v1/balance", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := stripeAdapter{apiVersion: "2024-09-30.acacia", context: "acct_123"}
+
+	adapter.setRequestHeaders(req)
+
+	if got := req.Header.Get("Stripe-Version"); got != "2024-09-30.acacia" {
+		t.Fatalf("expected Stripe-Version header, got %q", got)
+	}
+	if got := req.Header.Get("Stripe-Context"); got != "acct_123" {
+		t.Fatalf("expected Stripe-Context header, got %q", got)
+	}
+}
+
+func TestStripeAdapterOmitsBlankContextHeader(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://api.stripe.com/v1/balance", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapter := stripeAdapter{apiVersion: "2024-09-30.acacia"}
+
+	adapter.setRequestHeaders(req)
+
+	if got := req.Header.Get("Stripe-Version"); got != "2024-09-30.acacia" {
+		t.Fatalf("expected Stripe-Version header, got %q", got)
+	}
+	if got := req.Header.Get("Stripe-Context"); got != "" {
+		t.Fatalf("expected blank Stripe-Context header, got %q", got)
 	}
 }
 

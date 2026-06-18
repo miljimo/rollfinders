@@ -192,6 +192,8 @@ module "app_secrets" {
     PAYMENT_SERVICE_URL     = "http://127.0.0.1:8082"
     PAYMENT_SERVICE_API_KEY = random_password.payment_service_api_key.result
     PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key != "" ? var.payment_gateway_api_key : "__UNSET__"
+    STRIPE_API_VERSION      = var.stripe_api_version
+    STRIPE_CONTEXT          = var.stripe_context != "" ? var.stripe_context : "__UNSET__"
   }
 
   secure_value_keys = [
@@ -204,7 +206,8 @@ module "app_secrets" {
     "USER_SERVICE_API_KEY",
     "USER_SERVICE_JWT_SECRET",
     "PAYMENT_SERVICE_API_KEY",
-    "PAYMENT_GATEWAY_API_KEY"
+    "PAYMENT_GATEWAY_API_KEY",
+    "STRIPE_CONTEXT"
   ]
 }
 
@@ -368,12 +371,14 @@ module "app_service" {
         { name = "METRICS_ENABLED", value = "true" },
         { name = "READ_TIMEOUT", value = "5s" },
         { name = "WRITE_TIMEOUT", value = "10s" },
-        { name = "SHUTDOWN_TIMEOUT", value = "10s" }
+        { name = "SHUTDOWN_TIMEOUT", value = "10s" },
+        { name = "STRIPE_API_VERSION", value = var.stripe_api_version }
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_API_KEY"] },
-        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_GATEWAY_API_KEY"] }
+        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_GATEWAY_API_KEY"] },
+        { name = "STRIPE_CONTEXT", valueFrom = module.app_secrets.arn_by_key["STRIPE_CONTEXT"] }
       ]
       ports = [
         {
