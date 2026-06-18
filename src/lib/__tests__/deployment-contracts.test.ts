@@ -97,4 +97,10 @@ describe("deployment safety contracts", () => {
     assert.match(migration, /service_credential\."credential_identifier"/);
     assert.doesNotMatch(migration, /service_user\."email"/);
   });
+
+  it("allows dev deployments without a certificate output", () => {
+    const deploy = readSource("scripts/cicd/deploy.sh");
+
+    assert.match(deploy, /terraform output -raw certificate_arn 2>\/dev\/null \|\| true/);
+  });
 });

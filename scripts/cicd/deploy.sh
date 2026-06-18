@@ -45,7 +45,7 @@ ECS_SERVICE="$(terraform output -raw ecs_service_name)"
 FRONTEND_URL="$(terraform output -raw frontend_url)"
 WWW_URL="$(terraform output -raw www_url)"
 API_URL="$(terraform output -raw api_url)"
-CERTIFICATE_ARN="$(terraform output -raw certificate_arn)"
+CERTIFICATE_ARN="$(terraform output -raw certificate_arn 2>/dev/null || true)"
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 is required for application-only ECS deployments."
