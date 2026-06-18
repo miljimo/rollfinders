@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
-import { prisma } from "@/lib/prisma";
-import { memberSearchWhere, requireStandardDashboardUser } from "@/lib/standard-dashboard";
+import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
+import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
 import { formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +23,7 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
   const { academy } = await requireStandardDashboardUser();
   const params = await searchParams;
   const q = (firstParam(params.q) ?? "").trim();
-  const members = await prisma.academyMember.findMany({
-    where: memberSearchWhere(academy.id, q),
-    orderBy: [{ createdAt: "desc" }],
-  });
+  const members = await academyMemberProfiles(academy.id, q);
 
   return (
     <PageShell>
@@ -65,8 +62,8 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
                 {members.map((member) => (
                   <tr key={member.id} className="border-t border-stone-100">
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-stone-950">{member.userId}</p>
-                      <p className="break-all text-stone-600">User service identity</p>
+                      <p className="font-semibold text-stone-950">{member.user?.name ?? member.user?.email ?? member.userId}</p>
+                      <p className="break-all text-stone-600">{member.user?.email ?? member.userId}</p>
                     </td>
                     <td className="px-4 py-3">
                       <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{member.role}</span>

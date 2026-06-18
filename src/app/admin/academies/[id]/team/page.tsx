@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canManageAcademyTeam, canTransferAcademyOwnership, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
+import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { formatDate } from "@/lib/utils";
 import { cancelAcademyInvitation, inviteAcademyAdmin, removeAcademyMember, resendAcademyInvitation, transferAcademyOwnership } from "../../actions";
 
@@ -22,6 +23,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
 
   if (!academy || !canViewAcademyTeam(access)) return null;
   const canManageTeam = canManageAcademyTeam(access);
+  const members = await academyMemberProfiles(academy.id);
 
   return (
     <PageShell>
@@ -44,11 +46,11 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
           <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
             <h2 className="text-xl font-black text-stone-950">Members</h2>
             <div className="mt-3">
-              {academy.members.map((member) => (
+              {members.map((member) => (
                 <div key={member.id} className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
                   <div>
-                    <p className="font-semibold text-stone-950">{member.userId}</p>
-                    <p className="text-sm text-stone-600">{member.role}</p>
+                    <p className="font-semibold text-stone-950">{member.user?.name ?? member.user?.email ?? member.userId}</p>
+                    <p className="break-all text-sm text-stone-600">{member.user?.email ?? member.userId} · {member.role}</p>
                   </div>
                   {canManageTeam ? (
                     <div className="flex flex-wrap justify-end gap-2">
@@ -66,7 +68,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
                   ) : null}
                 </div>
               ))}
-              {academy.members.length === 0 ? <p className="py-3 text-sm text-stone-600">No members yet.</p> : null}
+              {members.length === 0 ? <p className="py-3 text-sm text-stone-600">No members yet.</p> : null}
             </div>
           </section>
 

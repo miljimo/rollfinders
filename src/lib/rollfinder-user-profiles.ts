@@ -166,3 +166,41 @@ export async function enrichManagedUsersWithRollfinderProfiles<T extends Rollfin
     };
   });
 }
+
+export async function academyMemberProfiles(academyId: string, query = "") {
+  const search = query.trim();
+  const matchingUsers = search
+    ? await prisma.user.findMany({
+        where: {
+          OR: [
+            { email: { contains: search, mode: "insensitive" } },
+            { name: { contains: search, mode: "insensitive" } },
+            { id: { contains: search, mode: "insensitive" } },
+          ],
+        },
+        select: { id: true },
+      })
+    : null;
+
+  if (matchingUsers && matchingUsers.length === 0) return [];
+
+  const members = await prisma.academyMember.findMany({
+    where: {
+      academyId,
+      ...(matchingUsers ? { userId: { in: matchingUsers.map((user) => user.id) } } : {}),
+    },
+    orderBy: [{ createdAt: "desc" }],
+  });
+  if (!members.length) return [];
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: members.map((member) => member.userId) } },
+    select: { id: true, email: true, name: true, role: true },
+  });
+  const userById = new Map(users.map((user) => [user.id, user]));
+
+  return members.map((member) => ({
+    ...member,
+    user: userById.get(member.userId) ?? null,
+  }));
+}

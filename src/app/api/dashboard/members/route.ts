@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { memberSearchWhere, requireStandardDashboardUser } from "@/lib/standard-dashboard";
-import { prisma } from "@/lib/prisma";
+import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
+import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
 
 export async function GET(request: Request) {
   const { academy } = await requireStandardDashboardUser();
   const url = new URL(request.url);
   const q = url.searchParams.get("q") ?? "";
 
-  const members = await prisma.academyMember.findMany({
-    where: memberSearchWhere(academy.id, q),
-    orderBy: [{ createdAt: "desc" }],
-  });
+  const members = await academyMemberProfiles(academy.id, q);
 
   return NextResponse.json({
     members: members.map((member) => ({
       id: member.id,
-      name: null,
-      email: member.userId,
+      name: member.user?.name ?? null,
+      email: member.user?.email ?? member.userId,
       role: member.role,
       createdAt: member.createdAt,
     })),

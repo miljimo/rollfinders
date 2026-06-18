@@ -244,6 +244,19 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(adminUsersSource, /supportedPageSizes|Rows per page/);
   });
 
+  it("academy member surfaces resolve RollFinders public user profiles", () => {
+    const memberPage = readSource("src/app/dashboard/members/page.tsx");
+    const memberApi = readSource("src/app/api/dashboard/members/route.ts");
+    const academyTeamPage = readSource("src/app/admin/academies/[id]/team/page.tsx");
+    const profileHelper = readSource("src/lib/rollfinder-user-profiles.ts");
+
+    assert.match(memberPage, /academyMemberProfiles\(academy\.id,\s*q\)/);
+    assert.match(memberPage, /member\.user\?\.name\s*\?\?\s*member\.user\?\.email/);
+    assert.match(memberApi, /academyMemberProfiles\(academy\.id,\s*q\)/);
+    assert.match(academyTeamPage, /academyMemberProfiles\(academy\.id\)/);
+    assert.match(profileHelper, /prisma\.user\.findMany\(\{[\s\S]*email:[\s\S]*contains:\s*search/);
+  });
+
   it("admin side panel keeps Settings as the final primary navigation item", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
     const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
