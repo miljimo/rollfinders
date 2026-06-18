@@ -82,4 +82,11 @@ describe("deployment safety contracts", () => {
     assert.match(terraform, /valueFrom\s+=\s+module\.app_secrets\.arn_by_key\["DATABASE_URL"\]/);
     assert.doesNotMatch(terraform, /module\.app_secrets\.arn\}:/);
   });
+
+  it("keeps DATABASE_URL compatible with psql and Go libpq clients", () => {
+    const terraform = readSource("terraform/main.tf");
+
+    assert.doesNotMatch(terraform, /uselibpqcompat/);
+    assert.match(terraform, /DATABASE_URL\s*=\s*"postgresql:\/\/\$\{var\.db_username\}:\$\{random_password\.db\.result\}@\$\{module\.database\.address\}:5432\/\$\{var\.db_name\}\?sslmode=require"/);
+  });
 });

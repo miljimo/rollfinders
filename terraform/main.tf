@@ -172,7 +172,7 @@ module "app_secrets" {
   secret_values = {
     NEXTAUTH_SECRET         = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
     NEXTAUTH_URL            = local.app_base_url
-    DATABASE_URL            = "postgresql://${var.db_username}:${random_password.db.result}@${module.database.address}:5432/${var.db_name}?sslmode=require&uselibpqcompat=true"
+    DATABASE_URL            = "postgresql://${var.db_username}:${random_password.db.result}@${module.database.address}:5432/${var.db_name}?sslmode=require"
     DB_HOST                 = module.database.address
     DB_PORT                 = "5432"
     DB_USER                 = var.db_username
