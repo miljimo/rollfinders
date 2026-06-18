@@ -180,8 +180,8 @@ module "app_secrets" {
     EMAIL_REPLY_TO          = var.email_reply_to_address != "" ? var.email_reply_to_address : "support@${module.email.sending_domain}"
     SMTP_HOST               = var.smtp_host != "" ? var.smtp_host : module.email.smtp_host
     SMTP_PORT               = var.smtp_port
-    SMTP_USERNAME           = var.smtp_username
-    SMTP_PASSWORD           = var.smtp_password
+    SMTP_USERNAME           = var.smtp_username != "" ? var.smtp_username : "__UNSET__"
+    SMTP_PASSWORD           = var.smtp_password != "" ? var.smtp_password : "__UNSET__"
     MAILBOX_LINK            = "https://${module.email.mailbox_domain}"
     CRON_SECRET             = random_password.cron.result
     USER_SERVICE_URL        = "http://127.0.0.1:8081"
@@ -189,7 +189,7 @@ module "app_secrets" {
     USER_SERVICE_JWT_SECRET = random_password.user_service_jwt.result
     PAYMENT_SERVICE_URL     = "http://127.0.0.1:8082"
     PAYMENT_SERVICE_API_KEY = random_password.payment_service_api_key.result
-    PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key
+    PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key != "" ? var.payment_gateway_api_key : "__UNSET__"
   }
 
   secure_value_keys = [

@@ -141,8 +141,10 @@ describe("email operations contracts", () => {
 
     assert.doesNotMatch(provisioning, /EMAIL_DELIVERY_PROVIDER|provider:|region:/);
     assert.doesNotMatch(reliableEmail, /@aws-sdk\/client-ses|SendEmailCommand|SESClient|config\.provider/);
-    assert.match(provisioning, /smtpUsername:\s*getEnvVariable\("SMTP_USERNAME"/);
-    assert.match(provisioning, /smtpPassword:\s*getEnvVariable\("SMTP_PASSWORD"/);
+    assert.match(provisioning, /const\s+smtpUsername\s*=\s*getEnvVariable\("SMTP_USERNAME"/);
+    assert.match(provisioning, /const\s+smtpPassword\s*=\s*getEnvVariable\("SMTP_PASSWORD"/);
+    assert.match(provisioning, /smtpUsername:\s*smtpUsername\s*===\s*unsetSentinel\s*\?\s*""\s*:\s*smtpUsername/);
+    assert.match(provisioning, /smtpPassword:\s*smtpPassword\s*===\s*unsetSentinel\s*\?\s*""\s*:\s*smtpPassword/);
     assert.match(reliableEmail, /import\s+nodemailer\s+from\s+"nodemailer"/);
     assert.match(reliableEmail, /function\s+smtpTransport/);
     assert.match(reliableEmail, /sendMail\(/);
