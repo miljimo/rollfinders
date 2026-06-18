@@ -1,4 +1,3 @@
-import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
 import { EmailDeliveryJobRunStatus, OutboundEmailStatus, type Prisma } from "@prisma/client";
 import nodemailer from "nodemailer";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
@@ -22,15 +21,10 @@ type DeliveryResult =
   | { ok: true; messageId?: string }
   | { ok: false; permanent: boolean; reason: string };
 
-function sesClient() {
-  const config = getEmailProvisioningConfig();
-  return new SESClient({ region: config.region });
-}
-
 function smtpTransport() {
   const config = getEmailProvisioningConfig();
   if (!config.smtpUsername || !config.smtpPassword) {
-    throw new Error("SMTP delivery is enabled but SMTP_USERNAME or SMTP_PASSWORD is missing.");
+    throw new Error("SMTP_USERNAME or SMTP_PASSWORD is missing.");
   }
 
   return nodemailer.createTransport({
@@ -100,35 +94,16 @@ async function deliverEmail(email: {
   const config = getEmailProvisioningConfig();
 
   try {
-    if (config.provider === "SMTP") {
-      const response = await smtpTransport().sendMail({
-        from: config.fromAddress,
-        replyTo: config.replyToAddress,
-        to: email.recipientEmail,
-        subject: email.subject,
-        text: email.textBody,
-        ...(email.htmlBody ? { html: email.htmlBody } : {}),
-      });
+    const response = await smtpTransport().sendMail({
+      from: config.fromAddress,
+      replyTo: config.replyToAddress,
+      to: email.recipientEmail,
+      subject: email.subject,
+      text: email.textBody,
+      ...(email.htmlBody ? { html: email.htmlBody } : {}),
+    });
 
-      return { ok: true, messageId: response.messageId };
-    }
-
-    const response = await sesClient().send(
-      new SendEmailCommand({
-        Source: config.fromAddress,
-        ReplyToAddresses: [config.replyToAddress],
-        Destination: { ToAddresses: [email.recipientEmail] },
-        Message: {
-          Subject: { Data: email.subject, Charset: "UTF-8" },
-          Body: {
-            Text: { Data: email.textBody, Charset: "UTF-8" },
-            ...(email.htmlBody ? { Html: { Data: email.htmlBody, Charset: "UTF-8" } } : {}),
-          },
-        },
-      }),
-    );
-
-    return { ok: true, messageId: response.MessageId };
+    return { ok: true, messageId: response.messageId };
   } catch (error) {
     return {
       ok: false,

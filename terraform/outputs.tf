@@ -89,13 +89,13 @@ output "secrets_manager_secret_arn" {
 }
 
 output "email_sending_domain" {
-  description = "SES-verified RollFinders sending domain."
+  description = "RollFinders email sending domain."
   value       = module.email.sending_domain
 }
 
 output "email_from_address" {
   description = "Default backend sender address."
-  value       = "support@${module.email.sending_domain}"
+  value       = var.email_from_address != "" ? var.email_from_address : "support@${module.email.sending_domain}"
 }
 
 output "email_smtp_host" {
@@ -105,5 +105,5 @@ output "email_smtp_host" {
 
 output "email_mailbox_link" {
   description = "Mailbox link exposed to backend/admin users."
-  value       = "https://${module.email.mail_from_domain}"
+  value       = "https://${module.email.mailbox_domain}"
 }

@@ -1,15 +1,9 @@
 import { getEnvVariable } from "./environments";
 
-
-
 const emailDomain = getEnvVariable("EMAIL_DOMAIN", "rollfinders.com");
-const emailDeliveryProvider = getEnvVariable("EMAIL_DELIVERY_PROVIDER", "smtp").toUpperCase();
-
 
 export type SMTPConfiguration = {
-  provider: string
   domain: string
-  region: string
   fromAddress: string
   replyToAddress: string
   smtpHost: string
@@ -23,9 +17,7 @@ export type SMTPConfiguration = {
 
 export const getEmailProvisioningConfig = (): SMTPConfiguration => {
   return {
-    provider: emailDeliveryProvider,
     domain: emailDomain,
-    region: getEnvVariable("AWS_REGION", "eu-west-2"),
     fromAddress: getEnvVariable("EMAIL_FROM", `noreply@${emailDomain}`),
     replyToAddress: getEnvVariable("EMAIL_REPLY_TO", `support@${emailDomain}`),
     smtpHost: getEnvVariable("SMTP_HOST", `smtp.${emailDomain}`),
@@ -34,4 +26,4 @@ export const getEmailProvisioningConfig = (): SMTPConfiguration => {
     smtpPassword: getEnvVariable("SMTP_PASSWORD", ""),
     mailboxLink: getEnvVariable("MAILBOX_LINK", `https://mail.${emailDomain}`),
   };
-}
+};

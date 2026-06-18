@@ -155,10 +155,9 @@ module "database" {
 }
 
 module "email" {
-  source                      = "./modules/ses_email"
+  source                      = "./modules/smtp_email_dns"
   domain_name                 = var.hosted_zone_name
   zone_id                     = data.aws_route53_zone.public.zone_id
-  aws_region                  = var.aws_region
   dmarc_rua_email             = "postmaster@${var.hosted_zone_name}"
   privateemail_dkim_txt_value = var.privateemail_dkim_txt_value
 }
@@ -177,15 +176,13 @@ module "app_secrets" {
     DB_USER                 = var.db_username
     DB_PASSWORD             = random_password.db.result
     DB_NAME                 = var.db_name
-    EMAIL_FROM              = "noreply@${module.email.sending_domain}"
-    EMAIL_REPLY_TO          = "support@${module.email.sending_domain}"
-    EMAIL_REGION            = var.aws_region
-    EMAIL_DELIVERY_PROVIDER = lower(var.email_delivery_provider)
+    EMAIL_FROM              = var.email_from_address != "" ? var.email_from_address : "support@${module.email.sending_domain}"
+    EMAIL_REPLY_TO          = var.email_reply_to_address != "" ? var.email_reply_to_address : "support@${module.email.sending_domain}"
     SMTP_HOST               = var.smtp_host != "" ? var.smtp_host : module.email.smtp_host
     SMTP_PORT               = var.smtp_port
     SMTP_USERNAME           = var.smtp_username
     SMTP_PASSWORD           = var.smtp_password
-    MAILBOX_LINK            = "https://${module.email.mail_from_domain}"
+    MAILBOX_LINK            = "https://${module.email.mailbox_domain}"
     CRON_SECRET             = random_password.cron.result
     USER_SERVICE_URL        = "http://127.0.0.1:8081"
     USER_SERVICE_API_KEY    = random_password.user_service_api_key.result
@@ -217,19 +214,6 @@ module "task_role" {
   assume_role_principals = [
     {
       identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-  ]
-
-  statements = [
-    {
-      id        = "ses-send-email"
-      actions   = ["ses:SendEmail", "ses:SendRawEmail"]
-      resources = ["*"]
-      condition = {
-        test     = "StringEquals"
-        variable = "ses:FromAddress"
-        values   = ["noreply@${module.email.sending_domain}"]
-      }
     }
   ]
 }
@@ -278,14 +262,12 @@ module "app_service" {
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = "3000" },
         { name = "HOSTNAME", value = "0.0.0.0" },
-        { name = "EMAIL_DOMAIN", value = module.email.sending_domain },
-        { name = "EMAIL_REGION", value = var.aws_region }
+        { name = "EMAIL_DOMAIN", value = module.email.sending_domain }
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
         { name = "NEXTAUTH_SECRET", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_SECRET::" },
         { name = "NEXTAUTH_URL", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_URL::" },
-        { name = "EMAIL_DELIVERY_PROVIDER", valueFrom = "${module.app_secrets.arn}:EMAIL_DELIVERY_PROVIDER::" },
         { name = "USER_SERVICE_URL", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_URL::" },
         { name = "USER_SERVICE_API_KEY", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_API_KEY::" },
         { name = "PAYMENT_SERVICE_URL", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_URL::" },
