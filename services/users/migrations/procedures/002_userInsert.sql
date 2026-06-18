@@ -34,5 +34,17 @@ BEGIN
         VALUES (p_id, trim(p_role))
         ON CONFLICT DO NOTHING;
     END IF;
+
+    IF COALESCE(trim(p_academy_id), '') <> '' THEN
+        INSERT INTO organisations (id, name, status)
+        VALUES (trim(p_academy_id), trim(p_academy_id), 'ACTIVE')
+        ON CONFLICT (id) DO NOTHING;
+
+        INSERT INTO organisation_users (organisation_id, user_id, status)
+        VALUES (trim(p_academy_id), p_id, 'ACTIVE')
+        ON CONFLICT (organisation_id, user_id) DO UPDATE
+        SET status = EXCLUDED.status,
+            updated_at = now();
+    END IF;
 END;
 $$;

@@ -26,6 +26,12 @@ AS $$
       AND (p_role IS NULL OR p_role = '' OR EXISTS (
           SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role_key = p_role
       ))
+      AND (p_actor_academy_id IS NULL OR p_actor_academy_id = '' OR EXISTS (
+          SELECT 1 FROM organisation_users ou
+          WHERE ou.user_id = u.id
+            AND ou.organisation_id = p_actor_academy_id
+            AND ou.status = 'ACTIVE'
+      ))
       AND (p_status IS NULL OR p_status = '' OR u.status::text = p_status)
       AND (p_email_status IS NULL OR p_email_status = '' OR p_email_status = 'VALID');
 $$;

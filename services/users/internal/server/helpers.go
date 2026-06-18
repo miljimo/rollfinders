@@ -193,8 +193,8 @@ func (s *server) insertUser(ctx context.Context, id string, name *string, email,
 	return s.findUserByID(ctx, id)
 }
 
-func (s *server) updateUserRecord(ctx context.Context, id string, name *string, email, role, status string) (userRecord, error) {
-	if _, err := s.db.Procedure(ctx, `users."userUpdate"`, id, name, email, role, status); err != nil {
+func (s *server) updateUserRecord(ctx context.Context, id string, name *string, email, role, status string, academyID *string) (userRecord, error) {
+	if _, err := s.db.Procedure(ctx, `users."userUpdate"`, id, name, email, role, status, academyID); err != nil {
 		return userRecord{}, err
 	}
 	return s.findUserByID(ctx, id)

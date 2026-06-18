@@ -26,7 +26,14 @@ AS $$
             ORDER BY ur.organisation_id NULLS FIRST, ur.created_at ASC
             LIMIT 1
         ), '') AS role,
-        NULL::text AS academy_id
+        (
+            SELECT ou.organisation_id
+            FROM organisation_users ou
+            WHERE ou.user_id = u.id
+              AND ou.status = 'ACTIVE'
+            ORDER BY ou.created_at ASC
+            LIMIT 1
+        ) AS academy_id
     FROM users u
     WHERE u.id = p_user_id
       AND u.status = 'ACTIVE'

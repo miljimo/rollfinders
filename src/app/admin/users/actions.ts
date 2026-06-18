@@ -45,13 +45,14 @@ export async function createManagedUser(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const password = String(formData.get("password") ?? "rollfinder-user");
+  const academyId = String(formData.get("academyId") ?? "").trim() || null;
   const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = managedUsersReturnPath(returnTo);
 
   if (!email || !email.includes("@")) return;
 
   try {
-    await createUserInService(actor, { name, email, password, role });
+    await createUserInService(actor, { name, email, password, role, academyId });
   } catch (error) {
     if (typeof error === "object" && error !== null && "status" in error && error.status === 409) {
       const url = new URL(redirectTo, "http://localhost");
@@ -72,13 +73,14 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const status = normalizeStatus(String(formData.get("status") ?? UserStatus.ACTIVE));
+  const academyId = String(formData.get("academyId") ?? "").trim() || null;
   const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = managedUsersReturnPath(returnTo);
 
   if (!email || !email.includes("@")) return;
 
   try {
-    await updateUserInService(actor, userId, { name, email, role, status });
+    await updateUserInService(actor, userId, { name, email, role, status, academyId });
   } catch (error) {
     if (typeof error === "object" && error !== null && "status" in error && error.status === 409) {
       const url = new URL(redirectTo, "http://localhost");

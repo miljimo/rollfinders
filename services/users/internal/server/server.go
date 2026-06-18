@@ -270,7 +270,8 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 	}
 	id := newID()
 	name := nullString(strings.TrimSpace(body.Name))
-	user, err := s.insertUser(r.Context(), id, name, email, hash, role, nil)
+	academyID := nullString(strings.TrimSpace(body.AcademyID))
+	user, err := s.insertUser(r.Context(), id, name, email, hash, role, academyID)
 	if err != nil {
 		if isUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "A user with this email already exists.")
@@ -315,7 +316,7 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Insufficient user management permissions.")
 		return
 	}
-	var body struct{ Name, Email, Role, Status string }
+	var body struct{ Name, Email, Role, Status, AcademyID string }
 	if !decodeJSON(w, r, &body) {
 		return
 	}
@@ -333,7 +334,7 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "You cannot disable the last active super admin account.")
 		return
 	}
-	user, err := s.updateUserRecord(r.Context(), id, nullString(strings.TrimSpace(body.Name)), email, role, status)
+	user, err := s.updateUserRecord(r.Context(), id, nullString(strings.TrimSpace(body.Name)), email, role, status, nullString(strings.TrimSpace(body.AcademyID)))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Unable to update user.")
 		return
