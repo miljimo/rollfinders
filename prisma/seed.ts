@@ -3,7 +3,7 @@ import { PrismaClient, GiType } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { readFile } from "fs/promises";
 import path from "path";
-import { Pool } from "pg";
+import { createPrismaPgPool } from "../src/lib/prisma-pg-pool";
 
 type CsvRow = Record<string, string>;
 type Mapping = Record<string, string>;
@@ -25,12 +25,7 @@ function getDatabaseUrl() {
 }
 
 const connectionString = getDatabaseUrl();
-const adapter = new PrismaPg(
-  new Pool({
-    connectionString,
-    ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
-  }),
-);
+const adapter = new PrismaPg(createPrismaPgPool(connectionString));
 const prisma = new PrismaClient({ adapter });
 
 function parseCsv(content: string): CsvRow[] {

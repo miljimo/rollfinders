@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { Pool } from "pg";
+import { createPrismaPgPool } from "../src/lib/prisma-pg-pool";
 
 function getDatabaseUrl() {
   if (process.env.DATABASE_URL) {
@@ -18,12 +18,7 @@ function getDatabaseUrl() {
 }
 
 const connectionString = getDatabaseUrl();
-const adapter = new PrismaPg(
-  new Pool({
-    connectionString,
-    ssl: connectionString.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
-  }),
-);
+const adapter = new PrismaPg(createPrismaPgPool(connectionString));
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
