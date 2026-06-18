@@ -89,4 +89,12 @@ describe("deployment safety contracts", () => {
     assert.doesNotMatch(terraform, /uselibpqcompat/);
     assert.match(terraform, /DATABASE_URL\s*=\s*"postgresql:\/\/\$\{var\.db_username\}:\$\{random_password\.db\.result\}@\$\{module\.database\.address\}:5432\/\$\{var\.db_name\}\?sslmode=require"/);
   });
+
+  it("resolves service user emails through credentials in public Prisma migrations", () => {
+    const migration = readSource("prisma/migrations/20260618113000_restore_seed_academy_admin_membership/migration.sql");
+
+    assert.match(migration, /JOIN "users"\."credentials" service_credential/);
+    assert.match(migration, /service_credential\."credential_identifier"/);
+    assert.doesNotMatch(migration, /service_user\."email"/);
+  });
 });

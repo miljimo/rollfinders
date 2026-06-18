@@ -8,7 +8,11 @@ SELECT
   now()
 FROM "academies" academy
 JOIN "users"."users" service_user
-  ON lower(service_user."email") = 'academy@rollfinder.com'
+  ON true
+JOIN "users"."credentials" service_credential
+  ON service_credential."user_id" = service_user."id"
+ AND service_credential."credential_type" = 'EMAIL_PASSWORD'
+ AND lower(service_credential."credential_identifier") = 'academy@rollfinder.com'
 WHERE academy."slug" = 'brixton-jiu-jitsu'
 ON CONFLICT ("academy_id", "user_id") DO UPDATE
 SET
