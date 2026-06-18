@@ -1,8 +1,9 @@
 package server
 
 import (
-	"encoding/json"
 	"net/http"
+
+	"payments/internal/handlers"
 )
 
 type ErrorEnvelope struct {
@@ -17,7 +18,7 @@ type APIError struct {
 }
 
 func writeError(w http.ResponseWriter, r *http.Request, status int, code, message string, details map[string]string) {
-	writeJSON(w, status, ErrorEnvelope{
+	handlers.WriteError(w, status, ErrorEnvelope{
 		Error: APIError{
 			Code:      code,
 			Message:   message,
@@ -28,7 +29,5 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code, messag
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(body)
+	handlers.WriteJSON(w, status, body)
 }

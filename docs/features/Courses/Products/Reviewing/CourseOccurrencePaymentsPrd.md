@@ -529,7 +529,27 @@ No existing discovery functionality SHALL be broken.
 
 # Go Payment Service Contract
 
-The Go payment service SHALL provide a checkout creation endpoint.
+## Service Interaction Model
+
+The payment interaction SHALL follow this boundary:
+
+```text
+RollFinders <-> Payment Service <-> Stripe API
+```
+
+RollFinders SHALL communicate only with the Payment Service for checkout creation, status display, booking fulfillment, refunds, and payment operations.
+
+The Payment Service SHALL communicate with Stripe API for hosted checkout creation, provider status reads, provider callbacks, webhooks, refunds, and reconciliation.
+
+Stripe SHALL redirect browser returns to the Payment Service callback route first. The Payment Service SHALL map or refresh provider state, then redirect the browser to the registered RollFinders callback URI with canonical payment status query parameters.
+
+RollFinders SHALL NOT call Stripe API directly and SHALL NOT trust Stripe browser redirects directly.
+
+The Payment Service SHALL be the system of record for payment transactions and payment history. RollFinders SHALL query recorded transactions from the Payment Service when users view payment history and SHALL NOT call Stripe API for user-facing history.
+
+The Go payment service SHALL provide a generic checkout creation endpoint.
+
+The generic checkout endpoint SHALL be reusable by RollFinders and other registered services. It SHALL NOT expose a separate endpoint for every application domain such as Courses, invoices, bookings, or orders.
 
 The Go payment service SHALL provide a client registration endpoint so RollFinders and future services can register their own callback URI and receive a stable client id.
 
@@ -542,6 +562,15 @@ Registered clients SHALL include:
 
 Checkout creation requests SHALL include the registered client id and MAY include opaque client state.
 
+Checkout creation requests SHALL identify the client-owned payable resource using:
+
+* Resource type
+* Resource id
+* Optional resource label
+* Optional metadata for application-specific lookup fields
+
+RollFinders Course occurrence payments SHALL use `resourceType = COURSE_OCCURRENCE` and SHALL place Course-specific fields such as Course id, Academy id, occurrence date, occurrence start time, and occurrence end time into metadata.
+
 The Go payment service SHALL use the stored callback URI for payment status returns and SHALL NOT rely on callback URIs supplied per checkout request.
 
 Example request:
@@ -551,18 +580,21 @@ Example request:
   "idempotencyKey": "course_cmq123_2026-06-08_1900_user_abc",
   "clientId": "rollfinders",
   "clientState": "order_123",
-  "courseId": "cmq123",
-  "academyId": "academy123",
-  "occurrenceDate": "2026-06-08",
-  "occurrenceStartTime": "19:00",
-  "occurrenceEndTime": "20:30",
+  "resourceType": "COURSE_OCCURRENCE",
+  "resourceId": "cmq123:2026-06-08:19:00",
+  "resourceLabel": "Beginner BJJ",
   "amountMinor": 1000,
   "currency": "GBP",
   "payerUserId": "user123",
   "payerEmail": "student@example.com",
   "metadata": {
     "source": "rollfinders",
-    "paymentScope": "COURSE_OCCURRENCE"
+    "paymentScope": "COURSE_OCCURRENCE",
+    "courseId": "cmq123",
+    "academyId": "academy123",
+    "occurrenceDate": "2026-06-08",
+    "occurrenceStartTime": "19:00",
+    "occurrenceEndTime": "20:30"
   }
 }
 ```
@@ -586,12 +618,37 @@ Service-confirmed status payloads or status API responses SHOULD include:
 * Status
 * Amount
 * Currency
-* Course Id
-* Academy Id
+* Resource type
+* Resource id
+* Resource metadata
 * Occurrence Date
 * Occurrence Start Time
 * Payer email
 * Timestamp
+
+The Go payment service SHALL provide a payment history endpoint that returns recorded transactions with payment state and checkout context.
+
+The payment history endpoint SHOULD support filters for:
+
+* Client id
+* Resource type
+* Resource id
+* Payer user id
+* Payer email
+* Payment status
+
+The payment history response SHALL include enough data for RollFinders to show user payment history without calling Stripe:
+
+* Payment id
+* Checkout session id
+* Amount
+* Currency
+* Provider
+* Payment status
+* Resource type
+* Resource id
+* Payer email
+* Created and updated timestamps
 
 ---
 
@@ -748,6 +805,8 @@ Includes:
 * Local payment-service PostgreSQL dependency.
 * Root or documented compose workflow that starts RollFinders app, RollFinders database, payment service, and payment-service database together.
 * Environment variables for RollFinders-to-payment-service API URL and API key.
+* Stripe secret key configuration passed into the payment service container from environment.
+* Rotation-safe Stripe secret key file support for deployments that need to rotate the Stripe key without restarting the payment service.
 * Health check for the payment service container.
 * Production deployment definition for a separate payment service container or ECS service.
 * Network/security boundary so only server-side RollFinders code calls the payment service.

@@ -7,17 +7,16 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = url.searchParams.get("q") ?? "";
 
-  const members = await prisma.user.findMany({
+  const members = await prisma.academyMember.findMany({
     where: memberSearchWhere(academy.id, q),
-    select: { id: true, name: true, email: true, role: true, createdAt: true },
-    orderBy: [{ createdAt: "desc" }, { email: "asc" }],
+    orderBy: [{ createdAt: "desc" }],
   });
 
   return NextResponse.json({
     members: members.map((member) => ({
       id: member.id,
-      name: member.name,
-      email: member.email,
+      name: null,
+      email: member.userId,
       role: member.role,
       createdAt: member.createdAt,
     })),

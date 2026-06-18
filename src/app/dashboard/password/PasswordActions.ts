@@ -1,11 +1,10 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { writeAdminAuditLog } from "@/lib/admin";
 import { queuePasswordChangedEmail } from "@/lib/password-reset";
-import { prisma } from "@/lib/prisma";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
+import { changeUserPassword } from "@/lib/users-service";
 
 export type ChangePasswordState = {
   message: string;
@@ -28,11 +27,7 @@ export async function changeDashboardUserPassword(
     return { success: false, message: "Passwords do not match." };
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { passwordHash },
-  });
+  await changeUserPassword(user.id, password);
   await writeAdminAuditLog({
     actorUserId: user.id,
     targetUserId: user.id,

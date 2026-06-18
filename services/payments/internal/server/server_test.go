@@ -15,12 +15,14 @@ import (
 func testServer(databaseURL string) http.Handler {
 	return New(Options{
 		Config: config.Config{
-			Port:                        "8080",
-			DatabaseURL:                 databaseURL,
-			APIKey:                      "test-key",
-			PublicBaseURL:               "https://payments.rollfinders.test",
-			ApplicationPaymentStatusURL: "https://rollfinders.test/payments/status",
-			MetricsEnabled:              true,
+			Port:                     "8080",
+			DatabaseURL:              databaseURL,
+			APIKey:                   "test-key",
+			PublicBaseURL:            "https://payments.rollfinders.test",
+			DefaultClientID:          "rollfinders",
+			DefaultClientName:        "Rollfinders",
+			DefaultClientCallbackURL: "https://rollfinders.test/payments/status",
+			MetricsEnabled:           true,
 		},
 		Logger: slog.Default(),
 	})
@@ -122,9 +124,37 @@ func TestCreatePaymentValidRequestCreatesPayment(t *testing.T) {
 	}
 }
 
-func TestCreateCourseOccurrenceCheckoutCreatesCheckout(t *testing.T) {
-	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+func TestCreatePaymentAcceptsStripeGooglePay(t *testing.T) {
+	body := []byte(`{"amount":1299,"currency":"GBP","provider":"stripe","payment_method_type":"google_pay"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/payments", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "google-pay-payment")
+	res := httptest.NewRecorder()
+	testServer("").ServeHTTP(res, req)
+
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
+	}
+}
+
+func TestCreatePaymentRejectsProviderMethodMismatch(t *testing.T) {
+	body := []byte(`{"amount":1299,"currency":"GBP","provider":"paypal","payment_method_type":"google_pay"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/payments", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "google-pay-paypal-mismatch")
+	res := httptest.NewRecorder()
+	testServer("").ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d: %s", res.Code, res.Body.String())
+	}
+}
+
+func TestCreateCheckoutCreatesCheckout(t *testing.T) {
+	body := []byte(`{"resource_type":"course_occurrence","resource_id":"course_123:2026-06-08:19:00","resource_label":"Beginner BJJ","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com","metadata":{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
 	authed(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", "checkout-test")
@@ -135,27 +165,30 @@ func TestCreateCourseOccurrenceCheckoutCreatesCheckout(t *testing.T) {
 		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
 	}
 
-	var checkout CourseOccurrenceCheckout
+	var checkout Checkout
 	if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
 		t.Fatal(err)
 	}
 	if checkout.PaymentID == "" || checkout.CheckoutSessionID == "" || checkout.CheckoutURL == "" {
 		t.Fatalf("expected checkout ids and url, got %+v", checkout)
 	}
-	if checkout.CourseID != "course_123" || checkout.OccurrenceDate != "2026-06-08" {
-		t.Fatalf("unexpected checkout course occurrence: %+v", checkout)
+	if checkout.ResourceType != "course_occurrence" || checkout.ResourceID != "course_123:2026-06-08:19:00" {
+		t.Fatalf("unexpected checkout resource: %+v", checkout)
 	}
-	if !strings.HasPrefix(checkout.SuccessURL, "https://payments.rollfinders.test/v1/course-occurrence-checkouts/") {
+	if checkout.Metadata["course_id"] != "course_123" || checkout.Metadata["academy_id"] != "academy_123" {
+		t.Fatalf("expected course metadata on checkout, got %+v", checkout.Metadata)
+	}
+	if !strings.HasPrefix(checkout.SuccessURL, "https://payments.rollfinders.test/v1/checkouts/") {
 		t.Fatalf("expected service-owned success callback url, got %s", checkout.SuccessURL)
 	}
-	if !strings.HasPrefix(checkout.CancelURL, "https://payments.rollfinders.test/v1/course-occurrence-checkouts/") {
+	if !strings.HasPrefix(checkout.CancelURL, "https://payments.rollfinders.test/v1/checkouts/") {
 		t.Fatalf("expected service-owned cancel callback url, got %s", checkout.CancelURL)
 	}
 }
 
-func TestCreateCourseOccurrenceCheckoutRejectsMissingOccurrence(t *testing.T) {
-	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","amount":1000,"currency":"GBP","provider":"stripe","payment_method_type":"card","payer_email":"student@example.com"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+func TestCreateCheckoutRejectsMissingResource(t *testing.T) {
+	body := []byte(`{"amount":1000,"currency":"GBP","provider":"stripe","payment_method_type":"card","payer_email":"student@example.com"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
 	authed(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", "checkout-invalid")
@@ -167,10 +200,31 @@ func TestCreateCourseOccurrenceCheckoutRejectsMissingOccurrence(t *testing.T) {
 	}
 }
 
-func TestCourseOccurrenceCheckoutCallbackRedirectsToApplicationStatus(t *testing.T) {
-	srv := testServer("")
-	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com"}`)
+func TestLegacyCourseOccurrenceCheckoutRouteRemainsCompatible(t *testing.T) {
+	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "legacy-checkout")
+	res := httptest.NewRecorder()
+	testServer("").ServeHTTP(res, req)
+
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
+	}
+	var checkout Checkout
+	if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
+		t.Fatal(err)
+	}
+	if checkout.ResourceType != "course_occurrence" || checkout.Metadata["course_id"] != "course_123" {
+		t.Fatalf("expected legacy course request to map to generic checkout, got %+v", checkout)
+	}
+}
+
+func TestCheckoutCallbackRedirectsToApplicationStatus(t *testing.T) {
+	srv := testServer("")
+	body := []byte(`{"resource_type":"course_occurrence","resource_id":"course_123:2026-06-08:19:00","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com","metadata":{"course_id":"course_123","academy_id":"academy_123"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
 	authed(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", "callback-checkout")
@@ -180,12 +234,12 @@ func TestCourseOccurrenceCheckoutCallbackRedirectsToApplicationStatus(t *testing
 		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
 	}
 
-	var checkout CourseOccurrenceCheckout
+	var checkout Checkout
 	if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
 		t.Fatal(err)
 	}
 
-	callbackReq := httptest.NewRequest(http.MethodGet, "/v1/course-occurrence-checkouts/"+checkout.CheckoutSessionID+"/callbacks/success", nil)
+	callbackReq := httptest.NewRequest(http.MethodGet, "/v1/checkouts/"+checkout.CheckoutSessionID+"/callbacks/success", nil)
 	callbackRes := httptest.NewRecorder()
 	srv.ServeHTTP(callbackRes, callbackReq)
 	if callbackRes.Code != http.StatusFound {
@@ -198,8 +252,10 @@ func TestCourseOccurrenceCheckoutCallbackRedirectsToApplicationStatus(t *testing
 	for _, expected := range []string{
 		"checkout_session_id=" + checkout.CheckoutSessionID,
 		"payment_id=" + checkout.PaymentID,
-		"course_id=course_123",
-		"academy_id=academy_123",
+		"resource_type=course_occurrence",
+		"resource_id=course_123%3A2026-06-08%3A19%3A00",
+		"metadata_course_id=course_123",
+		"metadata_academy_id=academy_123",
 		"result=success",
 		"payment_status=requires_action",
 	} {
@@ -221,8 +277,8 @@ func TestRegisteredClientCallbackReceivesCheckoutStatus(t *testing.T) {
 		t.Fatalf("expected client status 201, got %d: %s", clientRes.Code, clientRes.Body.String())
 	}
 
-	body := []byte(`{"client_id":"partner_app","client_state":"order_abc","course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+	body := []byte(`{"client_id":"partner_app","client_state":"order_abc","resource_type":"invoice","resource_id":"invoice_123","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
 	authed(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", "partner-checkout")
@@ -231,7 +287,7 @@ func TestRegisteredClientCallbackReceivesCheckoutStatus(t *testing.T) {
 	if res.Code != http.StatusCreated {
 		t.Fatalf("expected checkout status 201, got %d: %s", res.Code, res.Body.String())
 	}
-	var checkout CourseOccurrenceCheckout
+	var checkout Checkout
 	if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +295,7 @@ func TestRegisteredClientCallbackReceivesCheckoutStatus(t *testing.T) {
 		t.Fatalf("expected client metadata on checkout, got %+v", checkout)
 	}
 
-	callbackReq := httptest.NewRequest(http.MethodGet, "/v1/course-occurrence-checkouts/"+checkout.CheckoutSessionID+"/callbacks/success", nil)
+	callbackReq := httptest.NewRequest(http.MethodGet, "/v1/checkouts/"+checkout.CheckoutSessionID+"/callbacks/success", nil)
 	callbackRes := httptest.NewRecorder()
 	srv.ServeHTTP(callbackRes, callbackReq)
 	location := callbackRes.Header().Get("Location")
@@ -253,9 +309,9 @@ func TestRegisteredClientCallbackReceivesCheckoutStatus(t *testing.T) {
 	}
 }
 
-func TestCreateCourseOccurrenceCheckoutRejectsUnknownClient(t *testing.T) {
-	body := []byte(`{"client_id":"missing_client","course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}`)
-	req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+func TestCreateCheckoutRejectsUnknownClient(t *testing.T) {
+	body := []byte(`{"client_id":"missing_client","resource_type":"invoice","resource_id":"invoice_123","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
 	authed(req)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Idempotency-Key", "unknown-client-checkout")
@@ -266,12 +322,12 @@ func TestCreateCourseOccurrenceCheckoutRejectsUnknownClient(t *testing.T) {
 	}
 }
 
-func TestCreateCourseOccurrenceCheckoutIdempotentReplay(t *testing.T) {
+func TestCreateCheckoutIdempotentReplay(t *testing.T) {
 	srv := testServer("")
-	body := []byte(`{"course_id":"course_123","academy_id":"academy_123","occurrence_date":"2026-06-08","occurrence_start_time":"19:00","occurrence_end_time":"20:30","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com"}`)
-	var first CourseOccurrenceCheckout
+	body := []byte(`{"resource_type":"course_occurrence","resource_id":"course_123:2026-06-08:19:00","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com"}`)
+	var first Checkout
 	for i := 0; i < 2; i++ {
-		req := httptest.NewRequest(http.MethodPost, "/v1/course-occurrence-checkouts", bytes.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
 		authed(req)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Idempotency-Key", "same-checkout")
@@ -280,7 +336,7 @@ func TestCreateCourseOccurrenceCheckoutIdempotentReplay(t *testing.T) {
 		if res.Code != http.StatusCreated {
 			t.Fatalf("request %d expected status 201, got %d", i+1, res.Code)
 		}
-		var checkout CourseOccurrenceCheckout
+		var checkout Checkout
 		if err := json.Unmarshal(res.Body.Bytes(), &checkout); err != nil {
 			t.Fatal(err)
 		}
@@ -291,6 +347,74 @@ func TestCreateCourseOccurrenceCheckoutIdempotentReplay(t *testing.T) {
 		if checkout.CheckoutSessionID != first.CheckoutSessionID || checkout.PaymentID != first.PaymentID {
 			t.Fatalf("expected replayed checkout, first=%+v second=%+v", first, checkout)
 		}
+	}
+}
+
+func TestListPaymentsReturnsStoredTransactionHistory(t *testing.T) {
+	srv := testServer("")
+	firstBody := []byte(`{"resource_type":"invoice","resource_id":"invoice_123","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com"}`)
+	secondBody := []byte(`{"resource_type":"invoice","resource_id":"invoice_456","amount":2500,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"other@example.com"}`)
+	for key, body := range map[string][]byte{"history-one": firstBody, "history-two": secondBody} {
+		req := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
+		authed(req)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Idempotency-Key", key)
+		res := httptest.NewRecorder()
+		srv.ServeHTTP(res, req)
+		if res.Code != http.StatusCreated {
+			t.Fatalf("expected checkout status 201, got %d: %s", res.Code, res.Body.String())
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/payments?payer_email=student@example.com&resource_type=invoice", nil)
+	authed(req)
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected history status 200, got %d: %s", res.Code, res.Body.String())
+	}
+	var history PaymentHistoryResponse
+	if err := json.Unmarshal(res.Body.Bytes(), &history); err != nil {
+		t.Fatal(err)
+	}
+	if history.Count != 1 || len(history.Payments) != 1 {
+		t.Fatalf("expected one payment history record, got %+v", history)
+	}
+	record := history.Payments[0]
+	if record.Payment.ID == "" || record.CheckoutSessionID == "" {
+		t.Fatalf("expected payment and checkout ids in history, got %+v", record)
+	}
+	if record.ResourceID != "invoice_123" || record.PayerEmail != "student@example.com" {
+		t.Fatalf("unexpected history record: %+v", record)
+	}
+}
+
+func TestListPaymentsCanFilterByResourceID(t *testing.T) {
+	srv := testServer("")
+	body := []byte(`{"resource_type":"invoice","resource_id":"invoice_history_789","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com"}`)
+	createReq := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
+	authed(createReq)
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Idempotency-Key", "history-resource")
+	createRes := httptest.NewRecorder()
+	srv.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("expected checkout status 201, got %d: %s", createRes.Code, createRes.Body.String())
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/payments?resource_id=invoice_history_789", nil)
+	authed(req)
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected history status 200, got %d: %s", res.Code, res.Body.String())
+	}
+	var history PaymentHistoryResponse
+	if err := json.Unmarshal(res.Body.Bytes(), &history); err != nil {
+		t.Fatal(err)
+	}
+	if history.Count != 1 || history.Payments[0].ResourceID != "invoice_history_789" {
+		t.Fatalf("expected resource-filtered payment history, got %+v", history)
 	}
 }
 

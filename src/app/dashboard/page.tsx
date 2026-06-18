@@ -82,6 +82,14 @@ function standardDashboardHref(searchParams: DashboardSearchParams, overrides: R
   return query ? `/dashboard?${query}` : "/dashboard";
 }
 
+function dashboardCourseHref(course: RollRow, returnTo: string) {
+  const href = courseHref(course);
+  const [pathname, query = ""] = href.split("?");
+  const params = new URLSearchParams(query);
+  params.set("returnTo", returnTo);
+  return `${pathname}?${params.toString()}`;
+}
+
 function startOfToday() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -151,7 +159,7 @@ export default async function DashboardPage({
     : [];
 
   const initials = (user.name ?? user.email).slice(0, 2).toUpperCase();
-  const active = user.status !== UserStatus.DISABLED && !user.disabled;
+  const active = String(user.status) !== UserStatus.DISABLED && !user.disabled;
   const accountLabel = user.name ?? user.email;
   const standardNavigationItems: SidePanelItem[] = [
     { label: "Dashboard", href: "/dashboard", icon: "dashboard", active: panel === "dashboard" },
@@ -250,6 +258,7 @@ function DashboardPanel({
     price: coursePriceLabel(roll),
     courseType: roll.courseType,
   }));
+  const returnTo = standardDashboardHref(searchParams, { panel: "dashboard" });
   const columns: TableColumn<RollRow>[] = [
     {
       key: "title",
@@ -299,7 +308,7 @@ function DashboardPanel({
           columns={columns}
           data={rows}
           emptyMessage={academy ? "No upcoming courses/events match this academy search." : "No academy is assigned, so no courses/events data can be shown."}
-          getRowHref={(row) => courseHref(row)}
+          getRowHref={(row) => dashboardCourseHref(row, returnTo)}
           getRowId={(row) => row.id}
           pagination={{
             page: rollsPage,
@@ -379,7 +388,7 @@ function SettingsPanel({ academy, searchParams, user }: { academy: DashboardAcad
   ];
   const detailTitle = activeAction === "change-password" ? "Change Password" : activeAction === "edit-profile" ? "Edit Profile" : "Select an account action";
   const detailIcon = activeAction === "change-password" ? <KeyRound size={20} aria-hidden className="text-teal-700" /> : activeAction === "edit-profile" ? <UserRound size={20} aria-hidden className="text-teal-700" /> : null;
-  const active = user.status !== UserStatus.DISABLED && !user.disabled;
+  const active = String(user.status) !== UserStatus.DISABLED && !user.disabled;
 
   return (
     <div>

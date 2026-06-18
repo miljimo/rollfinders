@@ -1,20 +1,34 @@
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
-import { Role, UserStatus, type Prisma } from "@prisma/client";
+import { Role, type Prisma } from "@prisma/client";
 import { authOptions } from "./auth";
 import { prisma } from "./prisma";
+import { getUserAccount, UserServiceError } from "./users-service";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
   const user = session?.user as { id?: string; role?: string; email?: string } | undefined;
   if (!user?.id || !user.email) return null;
-  const account = await prisma.user.findUnique({
-    where: { id: user.id },
-    select: { id: true, role: true, email: true, status: true, disabled: true, academyId: true },
-  });
-  if (!account || account.status === UserStatus.DISABLED || account.disabled) return null;
-  return { id: account.id, role: account.role, email: account.email, academyId: account.academyId };
+  try {
+    const account = await getUserAccount(user.id);
+    if (account.user.academyId) return account.user;
+
+    const membership = await prisma.academyMember.findFirst({
+      where: { userId: account.user.id },
+      select: { academyId: true },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return { ...account.user, academyId: membership?.academyId ?? null };
+  } catch (error) {
+    if (error instanceof UserServiceError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export function hasUserPrivilege(user: { privileges?: string[] } | null | undefined, privilege: string) {
+  return Array.isArray(user?.privileges) && user.privileges.includes(privilege);
 }
 
 export function isSuperAdminRole(role?: string) {
@@ -52,7 +66,7 @@ export function canManageNonPlatformUsers(role?: string) {
 export async function requireAdminPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!isAnyAdminRole(user.role)) redirect("/");
+  if (!isAnyAdminRole(user.role) && !hasUserPrivilege(user, "users.admin.access")) redirect("/");
   if (isAcademyAdminRole(user.role) && !user.academyId) redirect("/");
   return user;
 }
@@ -75,7 +89,7 @@ export async function requirePlatformAdminPage() {
 
 export async function requireAdminApi() {
   const user = await getCurrentUser();
-  if (!isAnyAdminRole(user?.role) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
+  if ((!isAnyAdminRole(user?.role) && !hasUserPrivilege(user, "users.admin.access")) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
   return null;
@@ -83,38 +97,16 @@ export async function requireAdminApi() {
 
 export async function requireAdminApiUser() {
   const user = await getCurrentUser();
-  if (!isAnyAdminRole(user?.role) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
+  if ((!isAnyAdminRole(user?.role) && !hasUserPrivilege(user, "users.admin.access")) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
     return { response: NextResponse.json({ error: "Admin access required" }, { status: 403 }), user: null };
   }
   return { response: null, user };
 }
 
-export function academyScopedUserWhere(actor: { role?: string; academyId?: string | null }): Prisma.UserWhereInput {
-  if (!isAcademyAdminRole(actor.role)) return {};
-  return {
-    academyId: actor.academyId ?? "__missing_academy__",
-    role: { in: [Role.STANDARD_USER, Role.USER, Role.ACADEMY_ADMIN, Role.ACADEMY_OWNER] },
-  };
-}
-
-export function elevatedAdminPrivacyUserWhere(actor: { role?: string }): Prisma.UserWhereInput {
-  if (isSuperAdminRole(actor.role)) return {};
-  if (actor.role !== Role.PLATFORM_ADMIN) return {};
-  return {
-    role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] },
-  };
-}
-
 export function elevatedAdminPrivacyAuditLogWhere(actor: { role?: string }): Prisma.AdminAuditLogWhereInput {
   if (isSuperAdminRole(actor.role)) return {};
   if (actor.role !== Role.PLATFORM_ADMIN) return {};
-  return {
-    actor: { role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] } },
-    OR: [
-      { targetUserId: null },
-      { target: { role: { notIn: [Role.PLATFORM_ADMIN, Role.SUPER_ADMIN, Role.ADMIN] } } },
-    ],
-  };
+  return {};
 }
 
 export function canViewManagedUser(

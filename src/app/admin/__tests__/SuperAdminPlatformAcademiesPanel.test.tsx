@@ -47,7 +47,7 @@ describe("SuperAdminPlatformAcademiesPanel", () => {
             borough: "Camden",
             city: "London",
             createdAt: new Date("2026-06-01T12:00:00.000Z"),
-            createdBy: { email: "platform@example.com", name: "Pat Platform" },
+            createdById: "usr_platform_admin",
             id: "academy-1",
             name: "Northside Grappling",
             postcode: "NW1 1AA",

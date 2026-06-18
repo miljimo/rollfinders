@@ -1,0 +1,93 @@
+CREATE OR REPLACE FUNCTION users_list(
+    p_actor_user_id text,
+    p_actor_academy_id text DEFAULT NULL,
+    p_search text DEFAULT NULL,
+    p_role text DEFAULT NULL,
+    p_status text DEFAULT NULL,
+    p_email_status text DEFAULT NULL,
+    p_limit integer DEFAULT 20,
+    p_offset integer DEFAULT 0
+)
+RETURNS TABLE (
+    id text,
+    name text,
+    email text,
+    username text,
+    first_name text,
+    last_name text,
+    phone text,
+    password_hash text,
+    role text,
+    academy_id text,
+    status text,
+    disabled boolean,
+    is_protected boolean,
+    email_status text,
+    last_login_at timestamptz,
+    created_at timestamptz
+)
+LANGUAGE sql
+STABLE
+SET search_path TO users, public
+AS $$
+    SELECT
+        u.id,
+        NULLIF(u.display_name, '') AS name,
+        COALESCE((
+            SELECT c.credential_identifier
+            FROM credentials c
+            WHERE c.user_id = u.id
+              AND c.credential_type = 'EMAIL_PASSWORD'
+            ORDER BY c.created_at ASC
+            LIMIT 1
+        ), '') AS email,
+        (
+            SELECT c.credential_identifier
+            FROM credentials c
+            WHERE c.user_id = u.id
+              AND c.credential_type = 'USERNAME_PASSWORD'
+            ORDER BY c.created_at ASC
+            LIMIT 1
+        ) AS username,
+        u.first_name,
+        u.last_name,
+        NULL::text AS phone,
+        ''::text AS password_hash,
+        COALESCE((
+            SELECT ur.role_key
+            FROM user_roles ur
+            WHERE ur.user_id = u.id
+            ORDER BY ur.organisation_id NULLS FIRST, ur.created_at ASC
+            LIMIT 1
+        ), '') AS role,
+        NULL::text AS academy_id,
+        u.status::text,
+        u.disabled,
+        u.is_protected,
+        'VALID'::text AS email_status,
+        (
+            SELECT max(s.last_activity_at)
+            FROM sessions s
+            WHERE s.user_id = u.id
+        ) AS last_login_at,
+        u.created_at
+    FROM users u
+    WHERE (
+        COALESCE(trim(p_search), '') = ''
+        OR u.display_name ILIKE '%' || p_search || '%'
+        OR EXISTS (
+            SELECT 1
+            FROM credentials c
+            WHERE c.user_id = u.id
+              AND c.credential_identifier ILIKE '%' || p_search || '%'
+        )
+      )
+      AND (p_role IS NULL OR p_role = '' OR EXISTS (
+          SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role_key = p_role
+      ))
+      AND (p_status IS NULL OR p_status = '' OR u.status::text = p_status)
+      AND (p_email_status IS NULL OR p_email_status = '' OR p_email_status = 'VALID')
+    ORDER BY u.created_at DESC, email ASC
+    LIMIT LEAST(GREATEST(COALESCE(p_limit, 20), 1), 100)
+    OFFSET GREATEST(COALESCE(p_offset, 0), 0);
+$$;

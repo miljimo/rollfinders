@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { CourseType } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
@@ -89,12 +90,13 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
         <p className="mt-5 text-sm font-medium text-stone-600">{totalItems} upcoming courses</p>
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {pagedCourses.map((course) => (
-            <article key={course.occurrenceId ?? course.id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <article key={course.occurrenceId ?? course.id} className="group relative rounded-lg border border-stone-200 bg-white p-4 shadow-sm transition hover:border-teal-500 hover:shadow-md">
+              <Link href={courseHref(course)} className="absolute inset-0 z-10 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" aria-label={`View details for ${course.title}`} />
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(course.courseType)}</span>
                 {course.isRecurringOccurrence ? <span className="rounded-md bg-stone-100 px-2 py-1 text-xs font-bold text-stone-700">{recurrenceLabel(course)}</span> : null}
               </div>
-              <h2 className="mt-2 text-lg font-bold text-stone-950"><a href={courseHref(course)}>{course.title}</a></h2>
+              <h2 className="mt-2 text-lg font-bold text-stone-950 transition group-hover:text-teal-800">{course.title}</h2>
               <p className="mt-1 text-sm font-medium text-stone-700">{course.academy.name}</p>
               {course.distanceMiles != null ? <p className="mt-1 text-sm font-semibold text-teal-800">{formatDistanceMiles(course.distanceMiles)}</p> : null}
               <dl className="mt-4 grid grid-cols-1 gap-2 text-sm text-stone-700 sm:grid-cols-2">
@@ -104,7 +106,9 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
                 <div><dt className="font-bold text-stone-950">Location</dt><dd>{courseLocationLabel(course)}</dd></div>
               </dl>
               <p className="mt-3 line-clamp-2 text-sm leading-6 text-stone-700">{course.description}</p>
-              <Button href={courseHref(course)} size="sm" variant="neutral" className="mt-4 px-3 py-2 text-sm font-semibold">View Details</Button>
+              <div className="relative z-20 mt-4">
+                <Button href={courseHref(course)} size="sm" variant="neutral" className="px-3 py-2 text-sm font-semibold">View Details</Button>
+              </div>
             </article>
           ))}
           {pagedCourses.length === 0 ? <p className="text-stone-600">No courses match those filters yet.</p> : null}

@@ -22,15 +22,15 @@ describe("dashboard clickable row contracts", () => {
     assert.match(source, /aria-label=\{`Select \$\{academy\.name\} for claim reminder`\}/);
   });
 
-  it("keeps dashboard open mat and course rows clickable to dashboard details while public/edit actions stay separate", () => {
+  it("keeps dashboard open mat and course rows and view actions in the dashboard detail dialog while edit actions stay separate", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
-    assert.match(source, /const publicPath = openMat \? `\/open-mats\/\$\{event\.id\}` : `\/courses\/\$\{event\.id\}`;/);
     assert.match(source, /const detailHref = `\/dashboard\?panel=open-mats&dialog=view-event&eventId=\$\{event\.id\}`;/);
     assert.match(source, /<TableRow key=\{event\.id\} href=\{detailHref\}>/);
     assert.match(source, /<LinkedTableCell href=\{detailHref\} className="font-bold text-slate-950">\{event\.title\}<\/LinkedTableCell>/);
     assert.match(source, /<ActionMenu label=\{`Open actions for \$\{event\.title\}`\}>/);
-    assert.match(source, /href=\{publicHref\}/);
+    assert.match(source, /href=\{detailHref\}/);
+    assert.doesNotMatch(source, /href=\{publicHref\}/);
     assert.match(source, /href=\{adminHref\}/);
     assert.match(source, /const cloneHref = `\/dashboard\?panel=open-mats&dialog=create-course&cloneFrom=\$\{event\.id\}`;/);
     assert.match(source, /href=\{cloneHref\}/);
@@ -44,9 +44,12 @@ describe("dashboard clickable row contracts", () => {
     const source = readSource("src/app/dashboard/page.tsx");
 
     assert.match(source, /import \{ courseHref, coursePriceLabel \} from "@\/lib\/courses";/);
+    assert.match(source, /function dashboardCourseHref\(course: RollRow, returnTo: string\)/);
+    assert.match(source, /const href = courseHref\(course\);/);
+    assert.match(source, /params\.set\("returnTo", returnTo\);/);
     assert.match(source, /courseType: true,/);
     assert.match(source, /courseType: roll\.courseType,/);
-    assert.match(source, /getRowHref=\{\(row\) => courseHref\(row\)\}/);
+    assert.match(source, /getRowHref=\{\(row\) => dashboardCourseHref\(row, returnTo\)\}/);
     assert.doesNotMatch(source, /getRowHref=\{\(row\) => `\/open-mats\/\$\{row\.id\}`\}/);
   });
 

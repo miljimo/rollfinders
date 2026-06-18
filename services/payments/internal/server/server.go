@@ -22,14 +22,14 @@ func New(opts Options) http.Handler {
 	s := &server{
 		cfg:       opts.Config,
 		logger:    opts.Logger,
-		store:     newStore(),
-		providers: providerRegistry{"stripe": stripeAdapter{}, "paypal": paypalAdapter{}},
+		store:     newStore(opts.Config.DatabaseURL),
+		providers: providerRegistry{"stripe": stripeAdapter{secret: stripeSecretResolver{envValue: opts.Config.StripeSecretKey, filePath: opts.Config.StripeSecretKeyFile}}, "paypal": paypalAdapter{}},
 	}
-	if opts.Config.ApplicationPaymentStatusURL != "" {
+	if opts.Config.DefaultClientCallbackURL != "" {
 		s.store.createPaymentClient(createPaymentClientRequest{
-			ID:          "rollfinders",
-			Name:        "RollFinders",
-			CallbackURL: opts.Config.ApplicationPaymentStatusURL,
+			ID:          opts.Config.DefaultClientID,
+			Name:        opts.Config.DefaultClientName,
+			CallbackURL: opts.Config.DefaultClientCallbackURL,
 		})
 	}
 
@@ -51,9 +51,12 @@ func New(opts Options) http.Handler {
 	}
 	auth := s.requireAuth
 	mustHandle("/v1/clients", []string{http.MethodPost}, s.createPaymentClient, auth)
-	mustHandle("/v1/course-occurrence-checkouts", []string{http.MethodPost}, s.createCourseOccurrenceCheckout, auth)
-	mustHandle("/v1/course-occurrence-checkouts/{id}/callbacks/{result}", []string{http.MethodGet}, s.courseOccurrenceCheckoutCallback)
+	mustHandle("/v1/checkouts", []string{http.MethodPost}, s.createCheckout, auth)
+	mustHandle("/v1/checkouts/{id}/callbacks/{result}", []string{http.MethodGet}, s.checkoutCallback)
+	mustHandle("/v1/course-occurrence-checkouts", []string{http.MethodPost}, s.createCheckout, auth)
+	mustHandle("/v1/course-occurrence-checkouts/{id}/callbacks/{result}", []string{http.MethodGet}, s.checkoutCallback)
 	mustHandle("/v1/payments", []string{http.MethodPost}, s.createPayment, auth)
+	mustHandle("/v1/payments", []string{http.MethodGet}, s.listPayments, auth)
 	mustHandle("/v1/payments/{id}", []string{http.MethodGet}, s.getPayment, auth)
 	mustHandle("/v1/payments/{id}/capture", []string{http.MethodPost}, s.capturePayment, auth)
 	mustHandle("/v1/payments/{id}/cancel", []string{http.MethodPost}, s.cancelPayment, auth)

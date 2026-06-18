@@ -286,7 +286,6 @@ export async function getOpenMatOccurrence(id: string, occurrenceDateParam?: str
     where: { id },
     include: {
       academy: { include: academyTrustInclude },
-      createdBy: { select: { role: true, academyId: true, academyMemberships: { select: { academyId: true, role: true } } } },
       activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
     },
   });

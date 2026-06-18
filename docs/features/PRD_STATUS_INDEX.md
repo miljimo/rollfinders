@@ -129,6 +129,7 @@ These have matching implementation in source and should be treated as done unles
 * `Users/Academies/APIs/PublicAcademyClaimsApi.md`
 * `Users/Academies/Components/AcademyCard.md`
 * `Users/Academies/Components/AcademyListingCard.md`
+* `Courses/Products/Reviewing/EventPermanentUriAndQrCodePrd.md`
 * `Users/Academies/Pages/AcademiesPage.md`
 * `Users/Academies/Pages/AcademyProfilePage.md`
 * `Users/Academies/Pages/AdminAcademiesPage.md`
@@ -143,6 +144,7 @@ These have matching implementation in source and should be treated as done unles
 * `Users/Platform/Pages/AdminDashboardPage.md`
 * `Users/Platform/Pages/AdminSettingsPage.md`
 * `Users/Platform/Products/AdminDashboardRestructureWithPagination.md`
+* `Users/Platform/Products/AdminPaymentsDashboardPrd.md`
 * `Users/Platform/Products/EnhanceAdminPage.md`
 * `Users/Platform/Products/PlatformAdminActivityTargetsAndRewards.md`
 * `Users/Platform/Products/PlatformAdminDashboardRoles.md`
@@ -194,6 +196,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 * `Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` - verification status exists; dedicated verification audit metadata is missing.
 * `Users/Academies/Products/Reviewing/PendingAcademiesPrd.md` - pending academy visibility exists; dashboard metric drilldown remains to verify or implement.
 * `Users/Profile/Products/Proposal/SelfProfileDashboardPrd.md` - standard dashboard profile/settings are implemented; broader proposal scope is not fully closed.
+* `services/users/docs/Products/Reviewing/GenericIdentityAccessManagementPrd.md` - Go user service now has generic IAM tables, procedure-backed writes, role/permission/user assignment storage, organization tables, and effective-permission evaluation; role/permission/organization REST endpoints and full auth lifecycle flows remain to complete.
 
 ## Not Done
 
@@ -214,6 +217,9 @@ These remain proposal/strategy work or have no implementation found.
 * `Users/Profile/Components/Proposal/UserProfile.md`
 * `Users/Profile/Products/Proposal/AdminUserProfileWorkflowPrd.md`
 * `Users/Profile/Products/Proposal/UserProfileExperienceStrategyPrd.md`
+* `services/users/docs/Products/Reviewing/UserAndAuthGoServicePortPrd.md`
+* `services/users/docs/Products/Reviewing/UserAuthGoServiceApiPrd.md`
+* `services/users/docs/Products/Reviewing/UserManagementGoServiceApiPrd.md`
 
 ## Docs / Reference
 

@@ -1,78 +1,25 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { Role, UserEmailStatus, UserStatus } from "@prisma/client";
-import { isProtectedSuperAdmin, requirePlatformAdminPage, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
+import { requirePlatformAdminPage, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { processEmailDeliveryJob } from "@/lib/reliable-email";
 
 export async function toggleUserDisabled(userId: string) {
-  const actor = await requireSuperAdminPage();
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) return;
-  if (isProtectedSuperAdmin(user)) return;
-
-  const disabled = user.status !== UserStatus.DISABLED;
-  await prisma.user.update({
-    where: { id: userId },
-    data: { disabled, status: disabled ? UserStatus.DISABLED : UserStatus.ACTIVE },
-  });
-  await writeAdminAuditLog({
-    actorUserId: actor.id,
-    targetUserId: userId,
-    action: disabled ? "USER_DISABLED" : "USER_ENABLED",
-    metadata: { email: user.email },
-  });
-
+  await requireSuperAdminPage();
+  console.warn(`toggleUserDisabled(${userId}) is managed by the users service.`);
   revalidatePath("/admin");
 }
 
 export async function createUser(formData: FormData) {
-  const actor = await requireSuperAdminPage();
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const roleValue = String(formData.get("role") ?? Role.STANDARD_USER);
-
-  if (!email || !email.includes("@")) return;
-  const role = roleValue === Role.PLATFORM_ADMIN ? Role.PLATFORM_ADMIN : Role.STANDARD_USER;
-  const passwordHash = await bcrypt.hash(String(formData.get("password") ?? "rollfinder-user"), 10);
-
-  const user = await prisma.user.create({
-    data: {
-      name: name || null,
-      email,
-      passwordHash,
-      role,
-      status: UserStatus.ACTIVE,
-    },
-  });
-
-  await writeAdminAuditLog({
-    actorUserId: actor.id,
-    targetUserId: user.id,
-    action: "USER_CREATED",
-    metadata: { email, role },
-  });
-
+  await requireSuperAdminPage();
+  console.warn(`createUser(${String(formData.get("email") ?? "")}) is managed by the users service.`);
   revalidatePath("/admin");
 }
 
 export async function updateUserRole(userId: string, formData: FormData) {
-  const actor = await requireSuperAdminPage();
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || isProtectedSuperAdmin(user)) return;
-
-  const roleValue = String(formData.get("role") ?? Role.STANDARD_USER);
-  const role = roleValue === Role.PLATFORM_ADMIN ? Role.PLATFORM_ADMIN : Role.STANDARD_USER;
-  await prisma.user.update({ where: { id: userId }, data: { role } });
-  await writeAdminAuditLog({
-    actorUserId: actor.id,
-    targetUserId: userId,
-    action: "USER_ROLE_UPDATED",
-    metadata: { email: user.email, role },
-  });
-
+  await requireSuperAdminPage();
+  console.warn(`updateUserRole(${userId}, ${String(formData.get("role") ?? "")}) is managed by the users service.`);
   revalidatePath("/admin");
 }
 
@@ -81,19 +28,7 @@ export async function deleteInvalidEmailRecord(invalidEmailId: string) {
   const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { id: invalidEmailId } });
   if (!invalidEmail) return;
 
-  await prisma.$transaction(async (tx) => {
-    await tx.invalidEmailAddress.delete({ where: { id: invalidEmailId } });
-    if (invalidEmail.userId) {
-      await tx.user.update({
-        where: { id: invalidEmail.userId },
-        data: {
-          emailStatus: UserEmailStatus.VALID,
-          emailInvalidReason: null,
-          emailInvalidAt: null,
-        },
-      });
-    }
-  });
+  await prisma.invalidEmailAddress.delete({ where: { id: invalidEmailId } });
 
   await writeAdminAuditLog({
     actorUserId: actor.id,
@@ -107,18 +42,14 @@ export async function deleteInvalidEmailRecord(invalidEmailId: string) {
 
 export async function deleteInvalidEmailUser(invalidEmailId: string) {
   const actor = await requireSuperAdminPage();
-  const invalidEmail = await prisma.invalidEmailAddress.findUnique({
-    where: { id: invalidEmailId },
-    include: { user: true },
-  });
-  if (!invalidEmail?.user || isProtectedSuperAdmin(invalidEmail.user)) return;
+  const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { id: invalidEmailId } });
+  if (!invalidEmail?.userId) return;
 
-  await prisma.user.delete({ where: { id: invalidEmail.user.id } });
   await writeAdminAuditLog({
     actorUserId: actor.id,
-    targetUserId: null,
+    targetUserId: invalidEmail.userId,
     action: "INVALID_EMAIL_USER_DELETED",
-    metadata: { email: invalidEmail.email, deletedUserId: invalidEmail.user.id },
+    metadata: { email: invalidEmail.email, deletedUserId: invalidEmail.userId, skipped: "managed_by_users_service" },
   });
 
   revalidatePath("/admin");

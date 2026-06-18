@@ -1,17 +1,20 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { EventPricingType } from "@prisma/client";
 import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { Button } from "@/components/Button";
 import { LinkedText } from "@/components/LinkedText";
 import { PageShell } from "@/components/PageShell";
-import { PublicListingWarning } from "@/components/PublicListingWarning";
+import { isPublicAcademyTrusted, PublicListingWarning } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { coursePriceLabel } from "@/lib/courses";
 import { getOpenMatOccurrence } from "@/lib/data";
-import { publicDetailReturnPath } from "@/lib/public-detail-return-path";
+import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
+import { publicDetailDashboardDialogPath, publicDetailReturnPath } from "@/lib/public-detail-return-path";
 import { directionsUrl, formatDate } from "@/lib/utils";
+import { CourseCheckoutForm } from "../../courses/[id]/CourseCheckoutForm";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +29,21 @@ export default async function EventPage({
   const { date, returnTo } = await searchParams;
   const event = await getOpenMatOccurrence(id, date);
   if (!event) notFound();
+  const dashboardDialogHref = publicDetailDashboardDialogPath(returnTo, event.id);
+  if (dashboardDialogHref) redirect(dashboardDialogHref);
   const closeHref = publicDetailReturnPath(returnTo, "/open-mats");
 
   const address = `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`;
   const country = analyticsCountryFromHeaders(await headers());
   const priceLabel = coursePriceLabel(event);
+  const payableAmount = Number(event.price);
+  const academyTrusted = isPublicAcademyTrusted(event.academy);
+  const canCheckout = academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
+  const checkoutMode = event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
+  const suggestedDonationAmount = Number.isFinite(payableAmount) && payableAmount > 0 ? payableAmount : undefined;
+  const permanentHref = eventPermanentPath(event.id);
+  const permanentUrl = eventPermanentUrl(event.id);
+  const qrCodeHref = eventQrCodePath(event.id);
 
   await recordAnalyticsEventBestEffort({
     eventName: "open_mat_viewed",
@@ -88,13 +101,33 @@ export default async function EventPage({
           </section>
         ) : null}
         <PublicListingWarning academy={event.academy} course={event} className="mt-4" />
+        <section className="mt-4 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 sm:grid-cols-[1fr_auto]">
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-stone-950">Integration Event URI</h2>
+            <p className="mt-2 break-all rounded-md bg-slate-50 p-3 text-sm font-semibold text-slate-700">{permanentUrl}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button href={qrCodeHref} target="_blank" rel="noreferrer" variant="neutral">Open QR Code</Button>
+            </div>
+          </div>
+          <a href={permanentHref} target="_blank" rel="noreferrer" className="inline-flex rounded-md border border-stone-200 bg-white p-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qrCodeHref} alt={`QR code for ${event.title}`} className="size-32" />
+          </a>
+        </section>
         <p className="mt-6 whitespace-pre-wrap text-lg leading-8 text-stone-700"><LinkedText text={event.description} /></p>
+        {canCheckout ? (
+          <section className="mt-6 rounded-lg border border-teal-200 bg-teal-50 p-4">
+            <h2 className="text-xl font-black text-stone-950">{checkoutMode === "donation" ? "Support this session" : "Secure your place"}</h2>
+            <p className="mt-2 text-sm text-stone-700">{checkoutMode === "donation" ? "Choose the amount you want to donate. Payments are handled securely by Stripe." : "Pay securely through the RollFinders payment service. Card details are handled by Stripe."}</p>
+            <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} suggestedAmount={suggestedDonationAmount} />
+          </section>
+        ) : null}
         <div className="mt-6 flex flex-wrap gap-2">
           <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "directions", academyId: event.academyId, external: true, openMatId: event.id, sourcePage: "open_mat_profile" }}>
             <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
           </AnalyticsClickTracker>
-          <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: event.academy.website ? "website" : "academy_details", academyId: event.academyId, external: Boolean(event.academy.website), openMatId: event.id, sourcePage: "open_mat_profile" }}>
-            <Button href={event.academy.website ?? `/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
+          <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "academy_details", academyId: event.academyId, external: false, openMatId: event.id, sourcePage: "open_mat_profile" }}>
+            <Button href={`/academies/${event.academy.slug}`} variant="secondary">Academy Details</Button>
           </AnalyticsClickTracker>
         </div>
       </section>

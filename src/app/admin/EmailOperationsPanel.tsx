@@ -48,29 +48,17 @@ export function EmailOperationsPanel({
     attention: queueItemsToRows(summary.attentionItems),
   };
   const invalidEmailRows = summary.invalidEmails.map((email) => {
-    const target = email.user
-      ? {
-          href: `/admin/users/${email.user.id}`,
-          label: email.user.name ?? email.user.email,
-          detail: email.user.academy ? `${email.user.role.replaceAll("_", " ")} · ${email.user.academy.name}` : email.user.role.replaceAll("_", " "),
-        }
-      : email.academy
+    const target = email.academy
         ? {
             href: `/academies/${email.academy.slug}`,
             label: email.academy.name,
             detail: "Academy claim contact",
           }
-        : email.latestOutboundEmail?.user
-          ? {
-              href: `/admin/users/${email.latestOutboundEmail.user.id}`,
-              label: email.latestOutboundEmail.user.name ?? email.latestOutboundEmail.user.email,
-              detail: email.latestOutboundEmail.user.role.replaceAll("_", " "),
-            }
-          : {
-              href: null,
-              label: "Unlinked recipient",
-              detail: email.latestOutboundEmail?.subject ?? "No target record found",
-            };
+        : {
+            href: email.userId ? `/admin/users/${email.userId}` : null,
+            label: email.userId ?? "Unlinked recipient",
+            detail: email.latestOutboundEmail?.subject ?? "No target record found",
+          };
 
     return {
       id: email.id,
@@ -353,21 +341,15 @@ function emailPageHref(baseHref: string, page: number) {
 
 function queueItemsToRows(items: EmailOperationsSummary["dueQueueItems"]) {
   return items.map((email) => {
-    const target = email.user
-      ? {
-          href: `/admin/users/${email.user.id}`,
-          label: email.user.name ?? email.user.email,
-          detail: email.user.academy ? `${email.user.role.replaceAll("_", " ")} · ${email.user.academy.name}` : email.user.role.replaceAll("_", " "),
-        }
-      : email.academy
+    const target = email.academy
         ? {
             href: `/academies/${email.academy.slug}`,
             label: email.academy.name,
             detail: "Academy claim contact",
           }
         : {
-            href: null,
-            label: "Unlinked recipient",
+            href: email.userId ? `/admin/users/${email.userId}` : null,
+            label: email.userId ?? "Unlinked recipient",
             detail: "No target record found",
           };
 

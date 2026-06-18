@@ -146,14 +146,13 @@ export async function getCourseOccurrence(id: string, occurrenceDateParam?: stri
     where: { id },
     include: {
       academy: { include: academyTrustInclude },
-      createdBy: { select: { role: true, academyId: true, academyMemberships: { select: { academyId: true, role: true } } } },
       activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
     },
   });
   if (!event || !event.active) return null;
 
   const now = new Date();
-  const from = occurrenceDateParam ? startOfDay(new Date(`${occurrenceDateParam}T00:00:00.000Z`)) : startOfDay(event.eventDate);
+  const from = occurrenceDateParam ? startOfDay(new Date(`${occurrenceDateParam}T00:00:00.000Z`)) : startOfDay(now);
   const to = occurrenceDateParam ? addDays(from, 1) : defaultOccurrenceWindowEnd(now);
   const occurrences = expandEventOccurrences(event, { from, to, now });
 

@@ -1,5 +1,5 @@
 import { SendEmailCommand, SESClient } from "@aws-sdk/client-ses";
-import { EmailDeliveryJobRunStatus, OutboundEmailStatus, UserEmailStatus, type Prisma } from "@prisma/client";
+import { EmailDeliveryJobRunStatus, OutboundEmailStatus, type Prisma } from "@prisma/client";
 import nodemailer from "nodemailer";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
@@ -162,25 +162,6 @@ async function markInvalidEmail({
       },
     });
 
-    if (userId) {
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          emailStatus: UserEmailStatus.INVALID,
-          emailInvalidReason: reason,
-          emailInvalidAt: now,
-        },
-      });
-    } else {
-      await tx.user.updateMany({
-        where: { email },
-        data: {
-          emailStatus: UserEmailStatus.INVALID,
-          emailInvalidReason: reason,
-          emailInvalidAt: now,
-        },
-      });
-    }
   });
 }
 
@@ -196,35 +177,13 @@ async function clearProviderConfigurationInvalidEmail({
     await prisma.invalidEmailAddress.delete({ where: { email } });
   }
 
-  if (!userId) return;
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { emailStatus: true, emailInvalidReason: true },
-  });
-  if (user?.emailStatus === UserEmailStatus.INVALID && user.emailInvalidReason && isProviderConfigurationFailure(user.emailInvalidReason)) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        emailStatus: UserEmailStatus.VALID,
-        emailInvalidReason: null,
-        emailInvalidAt: null,
-      },
-    });
-  }
 }
 
 export async function queueEmail(payload: EmailPayload) {
   const recipientEmail = normalizeEmail(payload.to);
   const invalidAddress = await prisma.invalidEmailAddress.findUnique({ where: { email: recipientEmail } });
-  const user = payload.userId
-    ? await prisma.user.findUnique({ where: { id: payload.userId }, select: { emailStatus: true, emailInvalidReason: true } })
-    : null;
   const invalidAddressIsProviderConfig = invalidAddress ? isProviderConfigurationFailure(invalidAddress.failureReason) : false;
-  const userInvalidIsProviderConfig = user?.emailInvalidReason ? isProviderConfigurationFailure(user.emailInvalidReason) : false;
-  const blocked = Boolean(
-    (invalidAddress && !invalidAddressIsProviderConfig) ||
-    (user?.emailStatus === UserEmailStatus.INVALID && !userInvalidIsProviderConfig),
-  );
+  const blocked = Boolean(invalidAddress && !invalidAddressIsProviderConfig);
   const failureReason = invalidAddress?.failureReason ?? (blocked ? "Recipient email is marked invalid." : null);
 
   const email = await prisma.outboundEmail.create({
@@ -353,6 +312,7 @@ const attentionStatuses: OutboundEmailStatus[] = [
 
 const outboundEmailQueueSelect = {
   id: true,
+  userId: true,
   recipientEmail: true,
   subject: true,
   status: true,
@@ -364,15 +324,6 @@ const outboundEmailQueueSelect = {
   failureReason: true,
   createdAt: true,
   updatedAt: true,
-  user: {
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      academy: { select: { id: true, name: true } },
-    },
-  },
 } satisfies Prisma.OutboundEmailSelect;
 
 export async function getEmailQueueOperationsSummary() {
@@ -410,17 +361,6 @@ export async function getEmailQueueOperationsSummary() {
     prisma.invalidEmailAddress.findMany({
       orderBy: { lastFailureAt: "desc" },
       take: 25,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true,
-            academy: { select: { id: true, name: true } },
-          },
-        },
-      },
     }),
     prisma.outboundEmail.findMany({
       where: {
@@ -467,18 +407,11 @@ export async function getEmailQueueOperationsSummary() {
           take: 100,
           select: {
             id: true,
+            userId: true,
             recipientEmail: true,
             subject: true,
             status: true,
             updatedAt: true,
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true,
-              },
-            },
           },
         }),
       ])
@@ -514,10 +447,10 @@ export async function getEmailQueueOperationsSummary() {
     invalidEmails: invalidEmailRecords.map((record) => ({
       id: record.id,
       email: record.email,
+      userId: record.userId,
       failureReason: record.failureReason,
       failureCount: record.failureCount,
       lastFailureAt: record.lastFailureAt,
-      user: record.user,
       academy: academyByEmail.get(record.email.toLowerCase()) ?? null,
       latestOutboundEmail: latestOutboundByEmail.get(record.email) ?? null,
     })),

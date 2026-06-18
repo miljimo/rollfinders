@@ -1,10 +1,9 @@
 "use server";
 
-import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
 import { queuePasswordChangedEmail } from "@/lib/password-reset";
-import { prisma } from "@/lib/prisma";
+import { changeUserPassword } from "@/lib/users-service";
 
 export type ChangeSuperAdminPasswordState = {
   message: string;
@@ -41,11 +40,7 @@ export async function changeSuperAdminPassword(
     return { success: false, message: "Passwords do not match." };
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.user.update({
-    where: { id: actor.id },
-    data: { passwordHash },
-  });
+  await changeUserPassword(actor.id, password);
 
   await writeAdminAuditLog({
     actorUserId: actor.id,

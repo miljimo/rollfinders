@@ -60,7 +60,7 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
             <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
               <Info label="Website" value={academy.website ? (
                 <AnalyticsClickTracker eventName="commercial_intent_clicked" metadata={{ actionType: "website", academyId: academy.id, external: true, sourcePage: "admin_academy_profile_summary" }}>
-                  <a className="text-teal-800" href={academy.website}>{academy.website}</a>
+                  <a className="text-teal-800" href={academy.website} target="_blank" rel="noreferrer">{academy.website}</a>
                 </AnalyticsClickTracker>
               ) : "Not listed"} />
               <Info label="Email" value={academy.email ? (

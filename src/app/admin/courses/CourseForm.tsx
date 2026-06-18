@@ -8,7 +8,7 @@ export type CourseFormEvent = Omit<Event, "price"> & { price: string };
 type CourseFormActivity = Pick<CourseActivity, "name" | "activityType" | "startTime" | "endTime" | "description"> & { id?: string };
 type CourseFormEventWithActivities = CourseFormEvent & { activities?: CourseFormActivity[] };
 
-export function CourseForm({ action, academies, cancelHref, course, instructorUsers = [], submitLabel }: { action: CourseAction; academies: Academy[]; cancelHref?: string; course?: CourseFormEventWithActivities; instructorUsers?: InstructorUserOption[]; submitLabel?: string }) {
+export function CourseForm({ action, academies, cancelHref, course, instructorUsers = [], returnTo, submitLabel }: { action: CourseAction; academies: Academy[]; cancelHref?: string; course?: CourseFormEventWithActivities; instructorUsers?: InstructorUserOption[]; returnTo?: string; submitLabel?: string }) {
   return (
     <OpenMatForm
       action={action}
@@ -17,6 +17,7 @@ export function CourseForm({ action, academies, cancelHref, course, instructorUs
       courseTypeMode="select"
       event={course}
       instructorUsers={instructorUsers}
+      returnTo={returnTo}
       submitLabel={submitLabel}
     />
   );

@@ -1,7 +1,6 @@
 import "dotenv/config";
-import { PrismaClient, GiType, Role, UserStatus } from "@prisma/client";
+import { PrismaClient, GiType } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
 import { readFile } from "fs/promises";
 import path from "path";
 import { Pool } from "pg";
@@ -130,37 +129,7 @@ async function seedReferenceCsv(fileName: string) {
 
 async function seedUsers() {
   const [rows, mapping] = await Promise.all([readCsv("users.csv"), readMapping("user.mapping.json")]);
-
-  for (const row of rows) {
-    const email = mappedValue(row, mapping, "email").toLowerCase();
-    if (!email) continue;
-
-    const role = enumValue(Role, mappedValue(row, mapping, "role"), Role.STANDARD_USER);
-    const status = enumValue(UserStatus, mappedValue(row, mapping, "status"), UserStatus.ACTIVE);
-    const isProtected = booleanValue(mappedValue(row, mapping, "isProtected"), false);
-    const password = mappedValue(row, mapping, "password") || "rollfinder-user";
-    const existing = await prisma.user.findUnique({ where: { email } });
-
-    await prisma.user.upsert({
-      where: { email },
-      update: {
-        name: optionalString(mappedValue(row, mapping, "name")) ?? existing?.name,
-        role,
-        status,
-        disabled: status === UserStatus.DISABLED,
-        isProtected,
-      },
-      create: {
-        name: optionalString(mappedValue(row, mapping, "name")),
-        email,
-        passwordHash: await bcrypt.hash(password, 10),
-        role,
-        status,
-        disabled: status === UserStatus.DISABLED,
-        isProtected,
-      },
-    });
-  }
+  console.log(`Skipped ${rows.length} ${mapping ? "mapped " : ""}users.csv rows; identities are managed by the users service.`);
 }
 
 async function seedAcademies() {
@@ -267,14 +236,7 @@ async function seedOpenMats() {
 async function assignStandardUsersToAcademy() {
   const academy = await prisma.academy.findFirst({ orderBy: { name: "asc" } });
   if (!academy) return;
-
-  await prisma.user.updateMany({
-    where: {
-      academyId: null,
-      role: { in: [Role.USER, Role.STANDARD_USER, Role.ACADEMY_OWNER] },
-    },
-    data: { academyId: academy.id },
-  });
+  console.log(`Default academy available for user service assignment: ${academy.name}`);
 }
 
 async function main() {

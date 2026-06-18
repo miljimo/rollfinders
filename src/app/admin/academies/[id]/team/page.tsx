@@ -15,8 +15,8 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
   const academy = await prisma.academy.findUnique({
     where: { id },
     include: {
-      members: { include: { user: true }, orderBy: [{ role: "desc" }, { createdAt: "asc" }] },
-      invitations: { where: { status: InvitationStatus.PENDING }, include: { invitedBy: true }, orderBy: { createdAt: "desc" } },
+      members: { orderBy: [{ role: "desc" }, { createdAt: "asc" }] },
+      invitations: { where: { status: InvitationStatus.PENDING }, orderBy: { createdAt: "desc" } },
     },
   });
 
@@ -47,8 +47,8 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
               {academy.members.map((member) => (
                 <div key={member.id} className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
                   <div>
-                    <p className="font-semibold text-stone-950">{member.user.name ?? member.user.email}</p>
-                    <p className="text-sm text-stone-600">{member.user.email} · {member.role}</p>
+                    <p className="font-semibold text-stone-950">{member.userId}</p>
+                    <p className="text-sm text-stone-600">{member.role}</p>
                   </div>
                   {canManageTeam ? (
                     <div className="flex flex-wrap justify-end gap-2">
@@ -77,7 +77,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
               {academy.invitations.map((invitation) => (
                 <div key={invitation.id} className="border-b border-stone-100 py-3">
                   <p className="font-semibold text-stone-950">{invitation.invitedEmail}</p>
-                  <p className="text-sm text-stone-600">Invited by {invitation.invitedBy.email} · expires {formatDate(invitation.expiresAt)}</p>
+                  <p className="text-sm text-stone-600">Invited by {invitation.invitedById} · expires {formatDate(invitation.expiresAt)}</p>
                   <p className="mt-1 break-all text-xs text-stone-500">Accept URL: /admin/invitations/{invitation.token}</p>
                   <div className="mt-2 flex gap-2">
                     <form action={resendAcademyInvitation.bind(null, academy.id, invitation.id)}>

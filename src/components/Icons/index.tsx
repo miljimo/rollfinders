@@ -2,13 +2,13 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { Building2, CalendarDays,
+import { Building2, CalendarDays, CreditCard,
      ClipboardCheck, HelpCircle, Home, LogOut, Map, Menu, Settings, Users, X } from "lucide-react";
 
 
 
 export type SidePanelIcon = "academies" | "claims"
-    | "dashboard" | "events" | "help" | "logout" | "map" | "settings" | "users";
+    | "dashboard" | "events" | "help" | "logout" | "map" | "payments" | "settings" | "users";
 
 
 
@@ -34,6 +34,7 @@ export const Icon = ({ name, size = 20, className = "shrink-0", ariaHidden = tru
         help: <HelpCircle {...iconProps} />,
         logout: <LogOut {...iconProps} />,
         map: <Map {...iconProps} />,
+        payments: <CreditCard {...iconProps} />,
         settings: <Settings {...iconProps} />,
         users: <Users {...iconProps} />,
     };

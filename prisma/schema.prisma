@@ -21,12 +21,6 @@ enum UserStatus {
   DISABLED
 }
 
-enum UserEmailStatus {
-  VALID
-  INVALID
-  PENDING_VERIFICATION
-}
-
 enum OutboundEmailStatus {
   PENDING
   SENDING
@@ -162,57 +156,6 @@ enum PlatformAdminExemptionType {
   PERMANENT
 }
 
-model User {
-  id                                     String                           @id @default(cuid())
-  name                                   String?
-  email                                  String                           @unique
-  passwordHash                           String                           @map("password_hash")
-  role                                   Role                             @default(STANDARD_USER)
-  academyId                              String?                          @map("academy_id")
-  status                                 UserStatus                       @default(ACTIVE)
-  disabled                               Boolean                          @default(false)
-  isProtected                            Boolean                          @default(false) @map("is_protected")
-  emailStatus                            UserEmailStatus                  @default(VALID) @map("email_status")
-  emailInvalidReason                     String?                          @map("email_invalid_reason")
-  emailInvalidAt                         DateTime?                        @map("email_invalid_at")
-  lastLoginAt                            DateTime?                        @map("last_login_at")
-  createdAt                              DateTime                         @default(now()) @map("created_at")
-  academyMemberships                     AcademyMember[]
-  academy                                Academy?                         @relation("AcademyUsers", fields: [academyId], references: [id], onDelete: SetNull)
-  academyInvitations                     AcademyInvitation[]              @relation("AcademyInvitationInviter")
-  adminAuditLogs                         AdminAuditLog[]                  @relation("AdminAuditLogActor")
-  targetedAdminAuditLogs                 AdminAuditLog[]                  @relation("AdminAuditLogTarget")
-  platformAdminProfile                   PlatformAdminProfile?
-  platformAdminActivityEvents            PlatformAdminActivityEvent[]     @relation("PlatformAdminActivityActor")
-  platformAdminActivityExemptions        PlatformAdminActivityExemption[] @relation("PlatformAdminActivityExemptUser")
-  createdPlatformAdminActivityExemptions PlatformAdminActivityExemption[] @relation("PlatformAdminActivityExemptCreator")
-  platformAdminWeeklyTarget              PlatformAdminWeeklyTarget?
-  reviewedClaimRequests                  ClaimRequest[]                   @relation("ClaimRequestReviewer")
-  linkedClaimRequests                    ClaimRequest[]                   @relation("ClaimRequestLinkedUser")
-  outboundEmails                         OutboundEmail[]
-  invalidEmailAddresses                  InvalidEmailAddress[]
-  passwordResetTokens                    PasswordResetToken[]
-  createdAcademies                       Academy[]                         @relation("AcademyCreator")
-  createdEvents                          Event[]                          @relation("EventCreator")
-
-  @@index([academyId])
-  @@map("users")
-}
-
-model PasswordResetToken {
-  id        String    @id @default(cuid())
-  userId    String    @map("user_id")
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at")
-  usedAt    DateTime? @map("used_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([expiresAt])
-  @@map("password_reset_tokens")
-}
-
 model Academy {
   id                 String                    @id @default(cuid())
   name               String
@@ -246,11 +189,9 @@ model Academy {
   createdAt          DateTime                  @default(now()) @map("created_at")
   updatedAt          DateTime                  @updatedAt @map("updated_at")
   createdById        String?                   @map("created_by_id")
-  createdBy          User?                     @relation("AcademyCreator", fields: [createdById], references: [id], onDelete: SetNull)
   events             Event[]
   claims             ClaimRequest[]
   members            AcademyMember[]
-  users              User[]                    @relation("AcademyUsers")
   invitations        AcademyInvitation[]
   claimReminders     AcademyClaimReminder[]
   socialLinks        AcademySocialLink[]
@@ -310,7 +251,6 @@ model Event {
   recurrenceLimit    Int?                   @map("recurrence_limit")
   createdAt          DateTime               @default(now()) @map("created_at")
   academy            Academy                @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  createdBy          User?                  @relation("EventCreator", fields: [createdById], references: [id], onDelete: SetNull)
   activities         CourseActivity[]
   analyticsEvents    AnalyticsEvent[]
   analyticsMetrics   AnalyticsDailyMetric[]
@@ -360,9 +300,6 @@ model ClaimRequest {
   linkedUserId         String?            @map("linked_user_id")
   createdAt            DateTime           @default(now()) @map("created_at")
   academy              Academy            @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  reviewedBy           User?              @relation("ClaimRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  linkedUser           User?              @relation("ClaimRequestLinkedUser", fields: [linkedUserId], references: [id], onDelete: SetNull)
-
   @@index([academyId])
   @@index([academyId, requesterEmail, status])
   @@index([status])
@@ -379,8 +316,6 @@ model AcademyMember {
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")
   academy   Academy           @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@unique([academyId, userId])
   @@index([userId])
   @@map("academy_members")
@@ -396,8 +331,6 @@ model AcademyInvitation {
   expiresAt    DateTime         @map("expires_at")
   createdAt    DateTime         @default(now()) @map("created_at")
   academy      Academy          @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  invitedBy    User             @relation("AcademyInvitationInviter", fields: [invitedById], references: [id], onDelete: Cascade)
-
   @@index([academyId])
   @@index([invitedEmail])
   @@map("academy_invitations")
@@ -430,9 +363,6 @@ model AdminAuditLog {
   action       String
   metadata     Json?
   createdAt    DateTime @default(now()) @map("created_at")
-  actor        User     @relation("AdminAuditLogActor", fields: [actorUserId], references: [id], onDelete: Cascade)
-  target       User?    @relation("AdminAuditLogTarget", fields: [targetUserId], references: [id], onDelete: SetNull)
-
   @@index([actorUserId])
   @@index([targetUserId])
   @@index([action])
@@ -445,8 +375,6 @@ model PlatformAdminProfile {
   contributionOptIn Boolean  @default(true) @map("contribution_opt_in")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@map("platform_admin_profiles")
 }
 
@@ -456,8 +384,6 @@ model PlatformAdminWeeklyTarget {
   targetCount Int      @map("target_count")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
   @@map("platform_admin_weekly_targets")
 }
 
@@ -470,9 +396,6 @@ model PlatformAdminActivityExemption {
   endsAt      DateTime?                  @map("ends_at")
   createdById String?                    @map("created_by_id")
   createdAt   DateTime                   @default(now()) @map("created_at")
-  user        User                       @relation("PlatformAdminActivityExemptUser", fields: [userId], references: [id], onDelete: Cascade)
-  createdBy   User?                      @relation("PlatformAdminActivityExemptCreator", fields: [createdById], references: [id], onDelete: SetNull)
-
   @@index([userId, type, startsAt, endsAt])
   @@index([createdById])
   @@map("platform_admin_activity_exemptions")
@@ -489,8 +412,6 @@ model PlatformAdminActivityEvent {
   createdAt   DateTime                    @default(now()) @map("created_at")
   dedupeKey   String                      @unique @map("dedupe_key")
   metadata    Json?
-  actor       User                        @relation("PlatformAdminActivityActor", fields: [actorUserId], references: [id], onDelete: Cascade)
-
   @@index([actorUserId, occurredAt])
   @@index([actionType, occurredAt])
   @@index([sourceType, sourceId])
@@ -514,7 +435,6 @@ model OutboundEmail {
   providerMessageId String?                      @map("provider_message_id")
   createdAt         DateTime                     @default(now()) @map("created_at")
   updatedAt         DateTime                     @updatedAt @map("updated_at")
-  user              User?                        @relation(fields: [userId], references: [id], onDelete: SetNull)
   statusHistory     OutboundEmailStatusHistory[]
 
   @@index([status, nextAttemptAt])
@@ -566,8 +486,6 @@ model InvalidEmailAddress {
   failureCount  Int      @default(1) @map("failure_count")
   lastFailureAt DateTime @default(now()) @map("last_failure_at")
   createdAt     DateTime @default(now()) @map("created_at")
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
   @@index([userId])
   @@map("invalid_email_addresses")
 }

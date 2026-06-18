@@ -1,12 +1,12 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Role, UserEmailStatus, UserStatus, type Prisma } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, KeyRound, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { TableRow } from "@/components/Table";
-import { canSendManagedUserPasswordReset, elevatedAdminPrivacyUserWhere, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
+import { canSendManagedUserPasswordReset, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { listManagedUsers } from "@/lib/users-service";
 import { formatDate } from "@/lib/utils";
 import {
   deleteManagedUser,
@@ -50,19 +50,14 @@ function selectedStatus(value: string | undefined) {
 
 function selectedEmailStatus(value: string | undefined) {
   if (!value || value === "all") return "all";
-  return Object.values(UserEmailStatus).includes(value as UserEmailStatus) ? value : "all";
+  return ["VALID", "INVALID", "PENDING_VERIFICATION"].includes(value) ? value : "all";
 }
 
-function selectedAcademy(value: string | undefined, academyIds: Set<string>) {
-  if (!value || value === "all") return "all";
-  return academyIds.has(value) ? value : "all";
-}
-
-function isSuperUserRole(role: Role) {
+function isSuperUserRole(role: string) {
   return role === Role.SUPER_ADMIN || role === Role.ADMIN;
 }
 
-function roleLabel(role: Role) {
+function roleLabel(role: string) {
   return role.replaceAll("_", " ");
 }
 
@@ -136,41 +131,20 @@ export default async function UserManagementPage({
   const role = selectedRole(firstParam(params.role));
   const status = selectedStatus(firstParam(params.status));
   const emailStatus = selectedEmailStatus(firstParam(params.emailStatus));
-  const academies = await prisma.academy.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-  const academy = selectedAcademy(firstParam(params.academy), new Set(academies.map((item) => item.id)));
-
-  const filterWhere: Prisma.UserWhereInput = {
-    ...(search
-      ? {
-          OR: [
-            { name: { contains: search, mode: "insensitive" } },
-            { email: { contains: search, mode: "insensitive" } },
-            { academy: { name: { contains: search, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
-    ...(role !== "all" ? { role: role as Role } : {}),
-    ...(status !== "all" ? { status: status as UserStatus } : {}),
-    ...(emailStatus !== "all" ? { emailStatus: emailStatus as UserEmailStatus } : {}),
-    ...(academy !== "all" ? { academyId: academy } : {}),
-  };
-  const where: Prisma.UserWhereInput = {
-    AND: [elevatedAdminPrivacyUserWhere({ role: currentUser?.role }), filterWhere],
-  };
-
-  const totalItems = await prisma.user.count({ where });
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const users = await prisma.user.findMany({
-    where,
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    orderBy: [{ createdAt: "desc" }, { email: "asc" }],
-  });
-  const academyNames = new Map(academies.map((item) => [item.id, item.name]));
+  const query = new URLSearchParams();
+  query.set("page", String(page));
+  query.set("pageSize", String(pageSize));
+  if (search) query.set("search", search);
+  if (role !== "all") query.set("role", role);
+  if (status !== "all") query.set("status", status);
+  if (emailStatus !== "all") query.set("emailStatus", emailStatus);
+  const result = currentUser
+    ? await listManagedUsers(currentUser, query.toString())
+    : { users: [], page: 1, pageSize, totalItems: 0, totalPages: 1 };
+  const users = result.users;
+  const totalItems = result.totalItems;
+  const totalPages = result.totalPages;
+  const currentPage = result.page;
   const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
   const allUsersHref = compactParams(params, { role: undefined, status: undefined, page: 1 });
@@ -195,7 +169,7 @@ export default async function UserManagementPage({
               <label className="relative block">
                 <span className="sr-only">Search users</span>
                 <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={22} aria-hidden="true" />
-                <input name="search" placeholder="Search users by name, email or academy..." defaultValue={search} className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-700 focus:ring-2 focus:ring-teal-100" />
+                <input name="search" placeholder="Search users by name or email..." defaultValue={search} className="min-h-12 w-full rounded-md border border-slate-200 bg-white px-12 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-teal-700 focus:ring-2 focus:ring-teal-100" />
               </label>
               <details className="group relative">
                 <summary className="inline-flex min-h-12 cursor-pointer list-none items-center justify-center gap-3 rounded-md border border-slate-200 bg-white px-6 text-base font-bold text-teal-700 shadow-sm transition hover:border-teal-600 hover:bg-teal-50 [&::-webkit-details-marker]:hidden">
@@ -225,16 +199,9 @@ export default async function UserManagementPage({
                     Email status
                     <select name="emailStatus" defaultValue={emailStatus} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
                       <option value="all">All</option>
-                      <option value={UserEmailStatus.VALID}>Valid</option>
-                      <option value={UserEmailStatus.INVALID}>Invalid</option>
-                      <option value={UserEmailStatus.PENDING_VERIFICATION}>Pending</option>
-                    </select>
-                  </label>
-                  <label className="grid gap-1 text-sm font-semibold text-slate-700">
-                    Academy
-                    <select name="academy" defaultValue={academy} className="min-h-11 rounded-md border border-slate-200 px-3 font-normal text-slate-800">
-                      <option value="all">All</option>
-                      {academies.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                      <option value="VALID">Valid</option>
+                      <option value="INVALID">Invalid</option>
+                      <option value="PENDING_VERIFICATION">Pending</option>
                     </select>
                   </label>
                   <label className="grid gap-1 text-sm font-semibold text-slate-700">
@@ -278,7 +245,7 @@ export default async function UserManagementPage({
                 {users.map((user) => {
                   const protectedUser = isProtectedSuperAdmin(user);
                   const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
-                  const canSendPasswordReset = currentUser ? canSendManagedUserPasswordReset(currentUser, user) : false;
+                  const canSendPasswordReset = currentUser ? canSendManagedUserPasswordReset(currentUser, { ...user, role: user.role as Role }) : false;
                   const superUserTarget = isSuperUserRole(user.role);
                   const canDelete = canManage && currentUser?.id !== user.id && !superUserTarget;
                   const disabled = user.status === UserStatus.DISABLED || user.disabled;
@@ -301,13 +268,13 @@ export default async function UserManagementPage({
                         <RoleBadge role={user.role} />
                       </td>
                       <td className="px-5 py-4 text-slate-700">
-                        {user.academyId ? academyNames.get(user.academyId) ?? "Unknown academy" : "None"}
+                        {user.academyId ?? "None"}
                       </td>
                       <td className="px-5 py-4">
                         <StatusBadge disabled={disabled} />
                       </td>
-                      <td className="px-5 py-4 text-slate-600">{user.lastLoginAt ? formatDate(user.lastLoginAt) : "Never"}</td>
-                      <td className="px-5 py-4 text-slate-600">{formatDate(user.createdAt)}</td>
+                      <td className="px-5 py-4 text-slate-600">{user.lastLoginAt ? formatDate(new Date(user.lastLoginAt)) : "Never"}</td>
+                      <td className="px-5 py-4 text-slate-600">{formatDate(new Date(user.createdAt))}</td>
                       <td className="px-5 py-4 text-right">
                         {canManage ? (
                           <details className="group relative inline-block text-left">
@@ -377,7 +344,6 @@ export default async function UserManagementPage({
                 <input type="hidden" name="role" value={role} />
                 <input type="hidden" name="status" value={status} />
                 <input type="hidden" name="emailStatus" value={emailStatus} />
-                <input type="hidden" name="academy" value={academy} />
               </form>
               <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })} iconOnly>
                 <ChevronLeft size={20} aria-hidden="true" />
@@ -408,7 +374,7 @@ function FilterPill({ href, active, icon, dotClassName, children }: { href: stri
   );
 }
 
-function RoleBadge({ role }: { role: Role }) {
+function RoleBadge({ role }: { role: string }) {
   const className =
     role === Role.PLATFORM_ADMIN || role === Role.SUPER_ADMIN || role === Role.ADMIN
       ? "border-violet-200 bg-violet-50 text-violet-700"

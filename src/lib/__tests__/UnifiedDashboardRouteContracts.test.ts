@@ -248,6 +248,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
     assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
     assert.match(source, /publicHref\s*=\s*`\$\{publicPath\}\?returnTo=\$\{encodeURIComponent\("\/dashboard\?panel=open-mats"\)\}`/);
+    assert.match(source, /adminReturnTo\s*=\s*"\/dashboard\?panel=open-mats"/);
+    assert.match(source, /adminHref\s*=\s*`\$\{openMat \? `\/admin\/open-mats\/\$\{event\.id\}` : `\/admin\/courses\/\$\{event\.id\}`\}\?returnTo=\$\{encodeURIComponent\(adminReturnTo\)\}`/);
     assert.match(source, /<QuickActionPanel[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
     assert.match(source, /collapseStorageKey="rollfinders\.dashboardQuickActionsCollapsed"/);
     assert.doesNotMatch(source, /title:\s*"Founder Analytics"/);

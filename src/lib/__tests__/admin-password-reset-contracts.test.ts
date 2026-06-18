@@ -13,9 +13,9 @@ describe("admin-triggered password reset contracts", () => {
     assert.match(routeSource, /const\s+returnTo\s*=\s*await\s+formReturnTo\(request\)/);
     assert.match(routeSource, /function\s+resultRedirect/);
     assert.match(routeSource, /const\s+\{\s*id\s*\}\s*=\s*await\s+params/);
-    assert.match(routeSource, /const\s+user\s*=\s*await\s+prisma\.user\.findUnique\(\{\s*where:\s*\{\s*id\s*\}\s*\}\)/);
+    assert.match(routeSource, /getManagedUser\(actor,\s*id\)/);
     assert.match(routeSource, /if\s*\(!user\)\s*return\s+NextResponse\.json\(\{\s*error:\s*"User not found"\s*\},\s*\{\s*status:\s*404\s*\}\)/);
-    assert.match(routeSource, /if\s*\(!canSendManagedUserPasswordReset\(actor,\s*user\)\)/);
+    assert.match(routeSource, /if\s*\(!canSendManagedUserPasswordReset\(actor,\s*\{\s*\.\.\.user,\s*role:\s*user\.role\s+as\s+Role\s*\}\)\)/);
     assert.match(routeSource, /try\s*\{\s*\(\{\s*expiresAt\s*\}\s*=\s*await\s+requestPasswordResetForEmail\(user\.email\)\);/);
     assert.match(routeSource, /catch\s*\{\s*if\s*\(wantsRedirect\)\s*return\s+resultRedirect\(request,\s*returnTo,\s*"password_reset_failed",\s*user\.email\);/);
     assert.match(routeSource, /return\s+NextResponse\.json\(\{\s*error:\s*"Password reset email could not be sent"\s*\},\s*\{\s*status:\s*500\s*\}\)/);
@@ -23,7 +23,7 @@ describe("admin-triggered password reset contracts", () => {
     assert.match(routeSource, /metadata:\s*\{\s*email:\s*user\.email,\s*expiresAt:\s*expiresAt\.toISOString\(\)\s*\}/);
 
     assert.ok(
-      routeSource.indexOf("await requestPasswordResetForEmail(user.email)") > routeSource.indexOf("!canSendManagedUserPasswordReset(actor, user)"),
+      routeSource.indexOf("await requestPasswordResetForEmail(user.email)") > routeSource.indexOf("!canSendManagedUserPasswordReset(actor, { ...user"),
       "password reset email must only be requested after permission checks",
     );
     assert.ok(

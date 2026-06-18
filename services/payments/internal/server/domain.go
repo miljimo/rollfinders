@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -8,6 +9,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"payments/internal/databases"
 )
 
 const (
@@ -50,25 +53,51 @@ type Payment struct {
 	UpdatedAt         time.Time         `json:"updated_at"`
 }
 
-type CourseOccurrenceCheckout struct {
-	CheckoutSessionID   string    `json:"checkout_session_id"`
-	ClientID            string    `json:"client_id"`
-	ClientState         string    `json:"client_state,omitempty"`
-	CheckoutURL         string    `json:"checkout_url"`
-	PaymentID           string    `json:"payment_id"`
-	CourseID            string    `json:"course_id"`
-	AcademyID           string    `json:"academy_id"`
-	OccurrenceDate      string    `json:"occurrence_date"`
-	OccurrenceStartTime string    `json:"occurrence_start_time"`
-	OccurrenceEndTime   string    `json:"occurrence_end_time"`
-	Amount              int64     `json:"amount"`
-	Currency            string    `json:"currency"`
-	PayerUserID         string    `json:"payer_user_id,omitempty"`
-	PayerEmail          string    `json:"payer_email,omitempty"`
-	SuccessURL          string    `json:"success_url,omitempty"`
-	CancelURL           string    `json:"cancel_url,omitempty"`
-	ExpiresAt           time.Time `json:"expires_at"`
-	CreatedAt           time.Time `json:"created_at"`
+type PaymentRecord struct {
+	Payment
+	CheckoutSessionID string `json:"checkout_session_id,omitempty"`
+	ClientID          string `json:"client_id,omitempty"`
+	ClientState       string `json:"client_state,omitempty"`
+	ResourceType      string `json:"resource_type,omitempty"`
+	ResourceID        string `json:"resource_id,omitempty"`
+	ResourceLabel     string `json:"resource_label,omitempty"`
+	PayerUserID       string `json:"payer_user_id,omitempty"`
+	PayerEmail        string `json:"payer_email,omitempty"`
+}
+
+type paymentHistoryFilter struct {
+	ClientID     string
+	ResourceType string
+	ResourceID   string
+	PayerUserID  string
+	PayerEmail   string
+	Status       string
+	Limit        int
+}
+
+type PaymentHistoryResponse struct {
+	Payments []PaymentRecord `json:"payments"`
+	Count    int             `json:"count"`
+}
+
+type Checkout struct {
+	CheckoutSessionID string            `json:"checkout_session_id"`
+	ClientID          string            `json:"client_id"`
+	ClientState       string            `json:"client_state,omitempty"`
+	CheckoutURL       string            `json:"checkout_url"`
+	PaymentID         string            `json:"payment_id"`
+	ResourceType      string            `json:"resource_type"`
+	ResourceID        string            `json:"resource_id"`
+	ResourceLabel     string            `json:"resource_label,omitempty"`
+	Amount            int64             `json:"amount"`
+	Currency          string            `json:"currency"`
+	PayerUserID       string            `json:"payer_user_id,omitempty"`
+	PayerEmail        string            `json:"payer_email,omitempty"`
+	Metadata          map[string]string `json:"metadata,omitempty"`
+	SuccessURL        string            `json:"success_url,omitempty"`
+	CancelURL         string            `json:"cancel_url,omitempty"`
+	ExpiresAt         time.Time         `json:"expires_at"`
+	CreatedAt         time.Time         `json:"created_at"`
 }
 
 type PaymentClient struct {
@@ -114,10 +143,11 @@ type providerEvent struct {
 }
 
 type store struct {
+	db        databases.DataContext
 	mu        sync.Mutex
 	next      int64
 	payments  map[string]*Payment
-	checkouts map[string]*CourseOccurrenceCheckout
+	checkouts map[string]*Checkout
 	clients   map[string]*PaymentClient
 	refunds   map[string][]*Refund
 	idem      map[string]idempotencyRecord
@@ -127,10 +157,17 @@ type store struct {
 	metrics   metrics
 }
 
-func newStore() *store {
+func newStore(databaseURL ...string) *store {
+	var db databases.DataContext
+	if len(databaseURL) > 0 && databaseURL[0] != "" {
+		if opened, err := databases.WithCredential(context.Background(), databaseURL[0]); err == nil {
+			db = opened
+		}
+	}
 	return &store{
+		db:        db,
 		payments:  map[string]*Payment{},
-		checkouts: map[string]*CourseOccurrenceCheckout{},
+		checkouts: map[string]*Checkout{},
 		clients:   map[string]*PaymentClient{},
 		refunds:   map[string][]*Refund{},
 		idem:      map[string]idempotencyRecord{},
@@ -140,6 +177,12 @@ func newStore() *store {
 }
 
 func (s *store) createPaymentClient(req createPaymentClientRequest) PaymentClient {
+	if s.db != nil {
+		client, err := s.createPaymentClientDB(req)
+		if err == nil {
+			return client
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now().UTC()
@@ -158,6 +201,10 @@ func (s *store) createPaymentClient(req createPaymentClientRequest) PaymentClien
 }
 
 func (s *store) getPaymentClient(id string) (PaymentClient, bool) {
+	if s.db != nil {
+		client, err := s.getPaymentClientDB(id)
+		return client, err == nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	client, ok := s.clients[id]
@@ -167,12 +214,27 @@ func (s *store) getPaymentClient(id string) (PaymentClient, bool) {
 	return *clonePaymentClient(client), true
 }
 
+func (s *store) allocateID(prefix string) string {
+	if s.db != nil {
+		return randomID(prefix)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.newID(prefix)
+}
+
 func (s *store) newID(prefix string) string {
 	s.next++
 	return fmt.Sprintf("%s_%06d", prefix, s.next)
 }
 
 func (s *store) createPayment(req createPaymentRequest, provider providerResult) Payment {
+	if s.db != nil {
+		payment, err := s.createPaymentDB(req, provider)
+		if err == nil {
+			return payment
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now().UTC()
@@ -197,60 +259,69 @@ func (s *store) createPayment(req createPaymentRequest, provider providerResult)
 	return *clonePayment(p)
 }
 
-func (s *store) createCourseOccurrenceCheckout(req createCourseOccurrenceCheckoutRequest, payment Payment, serviceBaseURL string) CourseOccurrenceCheckout {
+func (s *store) createCheckout(req createCheckoutRequest, payment Payment, checkoutID string, successURL string, cancelURL string) Checkout {
+	if s.db != nil {
+		checkout, err := s.createCheckoutDB(req, payment, checkoutID, successURL, cancelURL)
+		if err == nil {
+			return checkout
+		}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now().UTC()
-	checkoutID := s.newID("checkout")
-	successURL := courseOccurrenceCallbackURL(serviceBaseURL, checkoutID, "success")
-	cancelURL := courseOccurrenceCallbackURL(serviceBaseURL, checkoutID, "cancelled")
-	checkout := &CourseOccurrenceCheckout{
-		CheckoutSessionID:   checkoutID,
-		ClientID:            req.ClientID,
-		ClientState:         req.ClientState,
-		CheckoutURL:         checkoutURLForPayment(payment, successURL),
-		PaymentID:           payment.ID,
-		CourseID:            req.CourseID,
-		AcademyID:           req.AcademyID,
-		OccurrenceDate:      req.OccurrenceDate,
-		OccurrenceStartTime: req.OccurrenceStartTime,
-		OccurrenceEndTime:   req.OccurrenceEndTime,
-		Amount:              req.Amount,
-		Currency:            req.Currency,
-		PayerUserID:         req.PayerUserID,
-		PayerEmail:          req.PayerEmail,
-		SuccessURL:          successURL,
-		CancelURL:           cancelURL,
-		ExpiresAt:           now.Add(30 * time.Minute),
-		CreatedAt:           now,
+	checkout := &Checkout{
+		CheckoutSessionID: checkoutID,
+		ClientID:          req.ClientID,
+		ClientState:       req.ClientState,
+		CheckoutURL:       checkoutURLForPayment(payment, successURL),
+		PaymentID:         payment.ID,
+		ResourceType:      req.ResourceType,
+		ResourceID:        req.ResourceID,
+		ResourceLabel:     req.ResourceLabel,
+		Amount:            req.Amount,
+		Currency:          req.Currency,
+		PayerUserID:       req.PayerUserID,
+		PayerEmail:        req.PayerEmail,
+		Metadata:          cloneMap(req.Metadata),
+		SuccessURL:        successURL,
+		CancelURL:         cancelURL,
+		ExpiresAt:         now.Add(30 * time.Minute),
+		CreatedAt:         now,
 	}
 	s.checkouts[checkout.CheckoutSessionID] = checkout
-	s.addOutboxLocked("course_occurrence.checkout_created", checkout.CheckoutSessionID, map[string]any{
+	s.addOutboxLocked("checkout.created", checkout.CheckoutSessionID, map[string]any{
 		"checkout_session_id": checkout.CheckoutSessionID,
 		"client_id":           checkout.ClientID,
 		"payment_id":          checkout.PaymentID,
-		"course_id":           checkout.CourseID,
-		"academy_id":          checkout.AcademyID,
-		"occurrence_date":     checkout.OccurrenceDate,
+		"resource_type":       checkout.ResourceType,
+		"resource_id":         checkout.ResourceID,
 		"amount":              checkout.Amount,
 		"currency":            checkout.Currency,
 		"payer_email":         checkout.PayerEmail,
 		"created_at":          checkout.CreatedAt,
 	})
-	return *cloneCourseOccurrenceCheckout(checkout)
+	return *cloneCheckout(checkout)
 }
 
-func (s *store) getCourseOccurrenceCheckout(id string) (CourseOccurrenceCheckout, bool) {
+func (s *store) getCheckout(id string) (Checkout, bool) {
+	if s.db != nil {
+		checkout, err := s.getCheckoutDB(id)
+		return checkout, err == nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	checkout, ok := s.checkouts[id]
 	if !ok {
-		return CourseOccurrenceCheckout{}, false
+		return Checkout{}, false
 	}
-	return *cloneCourseOccurrenceCheckout(checkout), true
+	return *cloneCheckout(checkout), true
 }
 
 func (s *store) getPayment(id string) (Payment, bool) {
+	if s.db != nil {
+		payment, err := s.getPaymentDB(id)
+		return payment, err == nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.payments[id]
@@ -260,7 +331,74 @@ func (s *store) getPayment(id string) (Payment, bool) {
 	return *clonePayment(p), true
 }
 
+func (s *store) listPayments(filter paymentHistoryFilter) []PaymentRecord {
+	if s.db != nil {
+		payments, err := s.listPaymentsDB(filter)
+		if err == nil {
+			return payments
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	limit := filter.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	records := make([]PaymentRecord, 0, len(s.payments))
+	for _, payment := range s.payments {
+		record := PaymentRecord{Payment: *clonePayment(payment)}
+		for _, checkout := range s.checkouts {
+			if checkout.PaymentID != payment.ID {
+				continue
+			}
+			record.CheckoutSessionID = checkout.CheckoutSessionID
+			record.ClientID = checkout.ClientID
+			record.ClientState = checkout.ClientState
+			record.ResourceType = checkout.ResourceType
+			record.ResourceID = checkout.ResourceID
+			record.ResourceLabel = checkout.ResourceLabel
+			record.PayerUserID = checkout.PayerUserID
+			record.PayerEmail = checkout.PayerEmail
+			break
+		}
+		if !paymentRecordMatches(record, filter) {
+			continue
+		}
+		records = append(records, record)
+	}
+	sort.Slice(records, func(i, j int) bool { return records[i].CreatedAt.After(records[j].CreatedAt) })
+	if len(records) > limit {
+		records = records[:limit]
+	}
+	return records
+}
+
+func paymentRecordMatches(record PaymentRecord, filter paymentHistoryFilter) bool {
+	if filter.ClientID != "" && record.ClientID != filter.ClientID {
+		return false
+	}
+	if filter.ResourceType != "" && record.ResourceType != filter.ResourceType {
+		return false
+	}
+	if filter.ResourceID != "" && record.ResourceID != filter.ResourceID {
+		return false
+	}
+	if filter.PayerUserID != "" && record.PayerUserID != filter.PayerUserID && record.Metadata["payer_user_id"] != filter.PayerUserID {
+		return false
+	}
+	if filter.PayerEmail != "" && record.PayerEmail != filter.PayerEmail && record.Metadata["payer_email"] != filter.PayerEmail {
+		return false
+	}
+	if filter.Status != "" && record.Status != filter.Status {
+		return false
+	}
+	return true
+}
+
 func (s *store) transitionPayment(id, nextStatus string) (Payment, error) {
+	if s.db != nil {
+		return s.transitionPaymentDB(id, nextStatus)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.payments[id]
@@ -277,6 +415,9 @@ func (s *store) transitionPayment(id, nextStatus string) (Payment, error) {
 }
 
 func (s *store) createRefund(paymentID string, req refundRequest, result providerResult) (Refund, Payment, error) {
+	if s.db != nil {
+		return s.createRefundDB(paymentID, req, result)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	p, ok := s.payments[paymentID]
@@ -324,6 +465,10 @@ func (s *store) createRefund(paymentID string, req refundRequest, result provide
 }
 
 func (s *store) listRefunds(paymentID string) ([]Refund, bool) {
+	if s.db != nil {
+		refunds, err := s.listRefundsDB(paymentID)
+		return refunds, err == nil
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.payments[paymentID]; !ok {
@@ -338,6 +483,10 @@ func (s *store) listRefunds(paymentID string) ([]Refund, bool) {
 }
 
 func (s *store) recordProviderEvent(provider, id string) bool {
+	if s.db != nil {
+		recorded, err := s.recordProviderEventDB(provider, id)
+		return err == nil && recorded
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	key := providerEvent{Provider: provider, ID: id}
@@ -378,6 +527,9 @@ func (s *store) dispatchOutbox(limit int) int {
 }
 
 func (s *store) withIdempotency(scope, key, fingerprint string, execute func() (int, any)) (int, any, bool, error) {
+	if s.db != nil {
+		return s.withIdempotencyDB(scope, key, fingerprint, execute)
+	}
 	idemKey := scope + ":" + key
 	for {
 		s.mu.Lock()
@@ -456,8 +608,9 @@ func cloneRefund(r *Refund) *Refund {
 	return &cp
 }
 
-func cloneCourseOccurrenceCheckout(c *CourseOccurrenceCheckout) *CourseOccurrenceCheckout {
+func cloneCheckout(c *Checkout) *Checkout {
 	cp := *c
+	cp.Metadata = cloneMap(c.Metadata)
 	return &cp
 }
 

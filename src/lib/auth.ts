@@ -1,42 +1,6 @@
-import bcrypt from "bcryptjs";
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { InvitationStatus, Role } from "@prisma/client";
-import { recordAcademyAdminActivatedActivity } from "./platform-admin-activity";
-import { prisma } from "./prisma";
-
-async function platformAdminActivationAttribution(user: { id: string; email: string }) {
-  const invitation = await prisma.academyInvitation.findFirst({
-    where: {
-      invitedEmail: user.email,
-      status: InvitationStatus.ACCEPTED,
-      invitedBy: { role: Role.PLATFORM_ADMIN },
-    },
-    select: { invitedById: true },
-    orderBy: { createdAt: "asc" },
-  });
-  if (invitation) return invitation.invitedById;
-
-  const userAction = await prisma.adminAuditLog.findFirst({
-    where: {
-      targetUserId: user.id,
-      action: { in: ["USER_CREATED", "USER_EDITED"] },
-      actor: { role: Role.PLATFORM_ADMIN },
-    },
-    select: { actorUserId: true },
-    orderBy: { createdAt: "asc" },
-  });
-  return userAction?.actorUserId ?? null;
-}
-
-async function recordAcademyAdminActivation(user: { id: string; email: string; role: Role; lastLoginAt: Date | null }) {
-  if (user.lastLoginAt || user.role !== Role.ACADEMY_ADMIN) return;
-
-  const actorUserId = await platformAdminActivationAttribution(user);
-  if (!actorUserId) return;
-
-  await recordAcademyAdminActivatedActivity(actorUserId, user.id);
-}
+import { authenticateUserCredentials, logoutUserSession, UserServiceError } from "./users-service";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -49,25 +13,43 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials.password) throw new Error("MissingCredentials");
-        const user = await prisma.user.findUnique({ where: { email: credentials.email.toLowerCase() } });
-        if (!user) throw new Error("InvalidCredentials");
-        if (user.disabled || user.status === "DISABLED") throw new Error("AccountDisabled");
-        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!valid) throw new Error("InvalidCredentials");
-        if ((user.role === Role.STANDARD_USER || user.role === Role.USER) && !user.academyId) {
-          const membership = await prisma.academyMember.findFirst({ where: { userId: user.id } });
-          if (!membership) throw new Error("AcademyRequired");
+        try {
+          const result = await authenticateUserCredentials(credentials.email, credentials.password);
+          const { user } = result;
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            accessToken: result.access_token,
+            refreshToken: result.refresh_token,
+            accessTokenExpiresIn: result.expires_in,
+          };
+        } catch (error) {
+          if (error instanceof UserServiceError) {
+            if (error.message === "Account disabled.") throw new Error("AccountDisabled");
+            if (error.message === "Academy membership is required.") throw new Error("AcademyRequired");
+          }
+          throw new Error("InvalidCredentials");
         }
-        await recordAcademyAdminActivation(user);
-        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-        return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),
   ],
   pages: { signIn: "/login" },
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.role = (user as { role?: string }).role;
+      if (user) {
+        const authUser = user as {
+          role?: string;
+          accessToken?: string;
+          refreshToken?: string;
+          accessTokenExpiresIn?: number;
+        };
+        token.role = authUser.role;
+        token.accessToken = authUser.accessToken;
+        token.refreshToken = authUser.refreshToken;
+        token.accessTokenExpiresIn = authUser.accessTokenExpiresIn;
+      }
       return token;
     },
     async session({ session, token }) {
@@ -75,7 +57,16 @@ export const authOptions: NextAuthOptions = {
         (session.user as { id?: unknown }).id = token.sub;
         (session.user as { role?: unknown }).role = token.role;
       }
+      (session as { accessToken?: unknown }).accessToken = token.accessToken;
+      (session as { accessTokenExpiresIn?: unknown }).accessTokenExpiresIn = token.accessTokenExpiresIn;
       return session;
+    },
+  },
+  events: {
+    async signOut(message) {
+      const token = "token" in message ? message.token : null;
+      const refreshToken = typeof token?.refreshToken === "string" ? token.refreshToken : null;
+      await logoutUserSession(refreshToken);
     },
   },
 };

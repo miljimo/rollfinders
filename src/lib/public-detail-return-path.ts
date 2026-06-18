@@ -22,3 +22,16 @@ export function publicDetailReturnPath(returnTo: string | undefined, fallback: s
     return fallback;
   }
 }
+
+export function publicDetailDashboardDialogPath(returnTo: string | undefined, eventId: string) {
+  const target = publicDetailReturnPath(returnTo, "");
+  if (!target) return null;
+
+  const url = new URL(target, "http://rollfinders.local");
+  if (url.pathname !== "/dashboard" || url.searchParams.get("panel") !== "open-mats") return null;
+
+  url.searchParams.set("panel", "open-mats");
+  url.searchParams.set("dialog", "view-event");
+  url.searchParams.set("eventId", eventId);
+  return `${url.pathname}${url.search}`;
+}

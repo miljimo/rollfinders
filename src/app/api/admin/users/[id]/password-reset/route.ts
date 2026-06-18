@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { canSendManagedUserPasswordReset, getCurrentUser, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
 import { requestPasswordResetForEmail } from "@/lib/password-reset";
-import { prisma } from "@/lib/prisma";
+import { getManagedUser } from "@/lib/users-service";
+import { Role } from "@prisma/client";
 
 async function formReturnTo(request: Request) {
   const url = new URL(request.url);
@@ -38,10 +39,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (!actor) return NextResponse.json({ error: "Admin access required" }, { status: 403 });
 
   const { id } = await params;
-  const user = await prisma.user.findUnique({ where: { id } });
+  const { user } = await getManagedUser(actor, id).catch(() => ({ user: null }));
   if (!user && wantsRedirect) return resultRedirect(request, returnTo, "password_reset_failed");
   if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!canSendManagedUserPasswordReset(actor, user)) {
+  if (!canSendManagedUserPasswordReset(actor, { ...user, role: user.role as Role })) {
     if (wantsRedirect) return resultRedirect(request, returnTo, "password_reset_failed", user.email);
     return NextResponse.json({ error: "Password reset is not allowed for this account" }, { status: 403 });
   }

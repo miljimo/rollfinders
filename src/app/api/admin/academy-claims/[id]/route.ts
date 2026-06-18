@@ -24,6 +24,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
       publicProofLink: true,
       status: true,
       reviewedAt: true,
+      reviewedById: true,
       rejectionReason: true,
       linkedUserId: true,
       createdAt: true,
@@ -42,8 +43,6 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           verified: true,
         },
       },
-      reviewedBy: { select: { id: true, email: true, role: true } },
-      linkedUser: { select: { id: true, name: true, email: true, role: true, academyId: true } },
     },
   });
 
@@ -52,6 +51,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({
     claim: {
       ...claim,
+      reviewedBy: claim.reviewedById ? { id: claim.reviewedById, email: claim.reviewedById } : null,
+      linkedUser: claim.linkedUserId ? { id: claim.linkedUserId } : null,
       createdAt: claim.createdAt.toISOString(),
       reviewedAt: claim.reviewedAt?.toISOString() ?? null,
     },

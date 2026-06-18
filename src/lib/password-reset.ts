@@ -1,25 +1,12 @@
-import { createHash, randomBytes } from "crypto";
-import bcrypt from "bcryptjs";
 import { OutboundEmailStatus } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
 import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
+import { confirmPasswordResetToken, requestPasswordResetToken, validatePasswordResetToken } from "@/lib/users-service";
 
-const tokenBytes = 32;
 const resetExpiryHours = 24;
-
-function hashToken(token: string) {
-  return createHash("sha256").update(token).digest("hex");
-}
 
 function resetUrl(token: string) {
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
   return `${baseUrl}/reset-password?token=${token}`;
-}
-
-function expiryDate() {
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + resetExpiryHours);
-  return expiresAt;
 }
 
 function escapeHtml(value: string) {
@@ -179,21 +166,13 @@ function passwordChangedEmailHtml({ email, name, resetLink, year }: { email: str
 </html>`;
 }
 
-async function createPasswordResetLink(userId: string) {
-  const token = randomBytes(tokenBytes).toString("hex");
-  const tokenHash = hashToken(token);
-  const expiresAt = expiryDate();
+async function createPasswordResetLink(email: string) {
+  const result = await requestPasswordResetToken(email);
+  if (!result.token || !result.expiresAt) return null;
+  const token = result.token;
+  const expiresAt = new Date(result.expiresAt);
   const url = resetUrl(token);
-
-  await prisma.passwordResetToken.create({
-    data: {
-      userId,
-      tokenHash,
-      expiresAt,
-    },
-  });
-
-  return { expiresAt, url };
+  return { expiresAt, url, user: result.user };
 }
 
 async function sendQueuedPasswordEmail(outboundEmailId: string) {
@@ -204,11 +183,13 @@ async function sendQueuedPasswordEmail(outboundEmailId: string) {
 }
 
 export async function queuePasswordResetEmail(user: { id: string; email: string; name?: string | null }) {
-  const { expiresAt, url } = await createPasswordResetLink(user.id);
+  const reset = await createPasswordResetLink(user.email);
+  if (!reset) return {};
+  const { expiresAt, url } = reset;
   const recipientName = user.name?.trim() || "there";
 
   const outboundEmail = await queueEmail({
-    userId: user.id,
+    userId: null,
     to: user.email,
     subject: "Reset your RollFinders password",
     text: `Hi ${recipientName},\n\nWe received a request to reset your RollFinders password. Use this link to create a new password. The link expires in ${resetExpiryHours} hours.\n\n${url}\n\nIf you did not request this password reset, you can safely ignore this email. Your password will remain unchanged.`,
@@ -224,11 +205,13 @@ export async function queuePasswordResetEmail(user: { id: string; email: string;
 }
 
 export async function queuePasswordChangedEmail(user: { id: string; email: string; name?: string | null }) {
-  const { expiresAt, url } = await createPasswordResetLink(user.id);
+  const reset = await createPasswordResetLink(user.email);
+  if (!reset) return {};
+  const { expiresAt, url } = reset;
   const recipientName = user.name?.trim() || "there";
 
   const outboundEmail = await queueEmail({
-    userId: user.id,
+    userId: null,
     to: user.email,
     subject: "Your RollFinders password was changed",
     text: `Hi ${recipientName},\n\nYour RollFinders password was changed.\n\nUsername: ${user.email}\nPassword: Not sent by email\n\nFor your security, we do not send passwords by email. If you forget your password or did not make this change, reset it here. This link expires in ${resetExpiryHours} hours.\n\n${url}`,
@@ -247,44 +230,36 @@ export async function queuePasswordChangedEmail(user: { id: string; email: strin
 export async function requestPasswordResetForEmail(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || !normalizedEmail.includes("@")) return { success: true };
-
-  const user = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-    select: { id: true, email: true, name: true, status: true, disabled: true },
+  const reset = await requestPasswordResetToken(normalizedEmail);
+  if (!reset.token || !reset.expiresAt || !reset.user) return { success: true };
+  const url = resetUrl(reset.token);
+  const recipientName = reset.user.name?.trim() || "there";
+  const outboundEmail = await queueEmail({
+    userId: null,
+    to: reset.user.email,
+    subject: "Reset your RollFinders password",
+    text: `Hi ${recipientName},\n\nWe received a request to reset your RollFinders password. Use this link to create a new password. The link expires in ${resetExpiryHours} hours.\n\n${url}\n\nIf you did not request this password reset, you can safely ignore this email. Your password will remain unchanged.`,
+    html: passwordResetEmailHtml({
+      name: recipientName,
+      resetLink: url,
+      year: new Date().getFullYear(),
+    }),
   });
-  if (!user || user.status === "DISABLED" || user.disabled) return { success: true };
-
-  const { expiresAt } = await queuePasswordResetEmail(user);
-  return { success: true, expiresAt };
+  await sendQueuedPasswordEmail(outboundEmail.id);
+  return { success: true, expiresAt: new Date(reset.expiresAt) };
 }
 
 export async function getValidPasswordResetToken(token: string) {
-  return prisma.passwordResetToken.findFirst({
-    where: {
-      tokenHash: hashToken(token),
-      usedAt: null,
-      expiresAt: { gt: new Date() },
-    },
-    include: { user: true },
-  });
+  const result = await validatePasswordResetToken(token);
+  return result.valid ? { token } : null;
 }
 
 export async function resetPasswordWithToken(token: string, password: string) {
-  const resetToken = await getValidPasswordResetToken(token);
-  if (!resetToken) return { ok: false, message: "This password reset link is invalid or expired." };
-
-  const passwordHash = await bcrypt.hash(password, 10);
-  await prisma.$transaction(async (tx) => {
-    await tx.user.update({
-      where: { id: resetToken.userId },
-      data: { passwordHash },
-    });
-    await tx.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { usedAt: new Date() },
-    });
-  });
-  await queuePasswordChangedEmail(resetToken.user);
-
-  return { ok: true, email: resetToken.user.email };
+  try {
+    const result = await confirmPasswordResetToken(token, password);
+    await queuePasswordChangedEmail(result.user);
+    return { ok: true, email: result.user.email };
+  } catch {
+    return { ok: false, message: "This password reset link is invalid or expired." };
+  }
 }
