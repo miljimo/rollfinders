@@ -35,7 +35,7 @@ ARG NEXT_PUBLIC_POSTHOG_HOST="https://eu.i.posthog.com"
 ENV GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
 ENV NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
 ENV NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
-RUN apk add --no-cache curl \
+RUN apk add --no-cache curl postgresql-client \
   && addgroup -S nodejs \
   && adduser -S nextjs -G nodejs
 COPY --from=builder /app/public ./public
@@ -45,6 +45,9 @@ COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
 COPY --chown=nextjs:nodejs seed ./seed
+COPY --chown=nextjs:nodejs services/users/migrations ./services/users/migrations
+COPY --chown=nextjs:nodejs services/payments/migrations ./services/payments/migrations
+COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
 COPY --chown=nextjs:nodejs prisma.config.ts ./
 USER nextjs

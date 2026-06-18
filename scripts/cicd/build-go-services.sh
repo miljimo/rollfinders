@@ -71,17 +71,28 @@ build_service() {
   echo "Built ${service}: ${image_uri}:${IMAGE_TAG}"
 }
 
+emit_existing_service_image() {
+  local service="$1"
+  local env_var="$2"
+  local repository="rollfinder/${ENVIRONMENT_NAME}/${service}"
+  local registry="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+  local image_uri="${registry}/${repository}:${ENVIRONMENT_NAME}"
+
+  printf '%s=%s\n' "${env_var}" "${image_uri}" >> "${IMAGE_ENV_FILE}"
+  echo "Reusing ${service}: ${image_uri}"
+}
+
 aws ecr get-login-password --region "${AWS_REGION}" \
   | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
 if target_matches "users" && service_changed "services/users"; then
   build_service "users" "services/users" "USER_SERVICE_IMAGE_URI"
 else
-  echo "Skipping users image build; no service changes detected."
+  emit_existing_service_image "users" "USER_SERVICE_IMAGE_URI"
 fi
 
 if target_matches "payments" && service_changed "services/payments"; then
   build_service "payments" "services/payments" "PAYMENT_SERVICE_IMAGE_URI"
 else
-  echo "Skipping payments image build; no service changes detected."
+  emit_existing_service_image "payments" "PAYMENT_SERVICE_IMAGE_URI"
 fi

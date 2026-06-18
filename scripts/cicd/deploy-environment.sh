@@ -52,6 +52,8 @@ terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 terraform plan \
   -var-file="${TFVARS}" \
   -var="image_uri=${IMAGE_URI}" \
+  -var="user_service_image_uri=${USER_SERVICE_IMAGE_URI:-}" \
+  -var="payment_service_image_uri=${PAYMENT_SERVICE_IMAGE_URI:-}" \
   -out=deploy.tfplan
 
 terraform apply \

@@ -37,6 +37,18 @@ variable "image_uri" {
   description = "Immutable ECR image URI pushed by the deployment pipeline."
 }
 
+variable "user_service_image_uri" {
+  type        = string
+  description = "Immutable users/auth service image URI. Empty omits the sidecar."
+  default     = ""
+}
+
+variable "payment_service_image_uri" {
+  type        = string
+  description = "Immutable payments service image URI. Empty omits the sidecar."
+  default     = ""
+}
+
 variable "desired_count" {
   type        = number
   description = "Desired ECS task count."
@@ -152,4 +164,11 @@ variable "smtp_port" {
   type        = string
   description = "SMTP port for fallback mailbox delivery."
   default     = "587"
+}
+
+variable "payment_gateway_api_key" {
+  type        = string
+  description = "Payment provider API key used by the payments service."
+  sensitive   = true
+  default     = ""
 }

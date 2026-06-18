@@ -71,17 +71,23 @@ TASK_DEFINITION_PAYLOAD="$(
     --query 'taskDefinition'
 )"
 
-TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" TASK_DEFINITION_FILE="${TASK_DEFINITION_FILE}" python3 - <<'PY'
+TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" TASK_DEFINITION_FILE="${TASK_DEFINITION_FILE}" python3 - <<'PY'
 import json
 import os
 
 task_definition = json.loads(os.environ["TASK_DEFINITION_PAYLOAD"])
-image_uri = os.environ["IMAGE_URI"]
 task_definition_file = os.environ["TASK_DEFINITION_FILE"]
+image_by_container = {
+    "web": os.environ["IMAGE_URI"],
+}
+if os.environ.get("USER_SERVICE_IMAGE_URI"):
+    image_by_container["users"] = os.environ["USER_SERVICE_IMAGE_URI"]
+if os.environ.get("PAYMENT_SERVICE_IMAGE_URI"):
+    image_by_container["payments"] = os.environ["PAYMENT_SERVICE_IMAGE_URI"]
 
 for container in task_definition["containerDefinitions"]:
-    if container["name"] == "web":
-        container["image"] = image_uri
+    if container["name"] in image_by_container:
+        container["image"] = image_by_container[container["name"]]
 
 payload = {
     key: task_definition[key]

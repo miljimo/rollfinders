@@ -76,7 +76,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardPage, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
     assert.match(dashboardPage, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
     assert.match(dashboardPage, /take:\s*standardRollsPageSize/);
-    assert.match(dashboardPage, /getRowHref=\{\(row\) => `\/open-mats\/\$\{row\.id\}`\}/);
+    assert.match(dashboardPage, /getRowHref=\{\(row\) => dashboardCourseHref\(row,\s*returnTo\)\}/);
     assert.doesNotMatch(dashboardPage, /dialog=new-open-mat|dialog=edit-user|deleteManagedUser|createOpenMat|updateOpenMat/);
 
     assert.match(rollsRoute, /isStandardUserRole\(user\.role\)/);
@@ -111,7 +111,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(editProfileForm, /<ReadOnlyField label="Academy" value=\{academyName\} \/>/);
     assert.match(dashboardActions, /isStandardUserRole\(user\.role\)/);
     assert.match(dashboardActions, /isAnyAdminRole\(user\.role\)/);
-    assert.match(dashboardActions, /data:\s*\{\s*name:\s*name\s*\|\|\s*null\s*\}/);
+    assert.match(dashboardActions, /Profile display name update for \$\{user\.id\} is managed by the users service/);
+    assert.match(dashboardActions, /Profile updates are managed by the users service/);
     assert.doesNotMatch(dashboardActions, /data:[\s\S]*\b(role|status|academyId|disabled|isProtected)\b/);
   });
 
@@ -247,7 +248,8 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
     assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
-    assert.match(source, /publicHref\s*=\s*`\$\{publicPath\}\?returnTo=\$\{encodeURIComponent\("\/dashboard\?panel=open-mats"\)\}`/);
+    assert.match(source, /detailHref\s*=\s*`\/dashboard\?panel=open-mats&dialog=view-event&eventId=\$\{event\.id\}`/);
+    assert.match(source, /permanentHref\s*=\s*eventPermanentPath\(event\.id\)/);
     assert.match(source, /adminReturnTo\s*=\s*"\/dashboard\?panel=open-mats"/);
     assert.match(source, /adminHref\s*=\s*`\$\{openMat \? `\/admin\/open-mats\/\$\{event\.id\}` : `\/admin\/courses\/\$\{event\.id\}`\}\?returnTo=\$\{encodeURIComponent\(adminReturnTo\)\}`/);
     assert.match(source, /<QuickActionPanel[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
@@ -292,7 +294,7 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(dashboardSource, /<PlatformAdminActivitySummaryPanel summary=\{platformAdminActivitySummary\}/);
 
     assert.match(passwordActionSource, /changeDashboardUserPassword/);
-    assert.match(passwordActionSource, /where:\s*\{\s*id:\s*user\.id\s*\}/);
+    assert.match(passwordActionSource, /changeUserPassword\(user\.id,\s*password\)/);
     assert.match(passwordActionSource, /action:\s*"DASHBOARD_PASSWORD_CHANGED"/);
     assert.match(passwordActionSource, /metadata:\s*\{\s*role:\s*user\.role\s*\}/);
     const metadataLine = passwordActionSource.match(/metadata:\s*\{[^\n]+\}/)?.[0] ?? "";
@@ -305,6 +307,6 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /const\s+canViewRoleColumn\s*=\s*isPlatformAdminRole\(actorRole\)/);
     assert.match(source, /canViewRoleColumn\s*\?\s*<th className="px-5 py-4">Role<\/th>\s*:\s*null/);
     assert.match(source, /canViewRoleColumn\s*\?\s*<LinkedTableCell href=\{userHref\}><RolePill role=\{user\.role\} \/><\/LinkedTableCell>\s*:\s*null/);
-    assert.match(source, /const\s+emptyColSpan\s*=\s*canViewRoleColumn\s*\?\s*7\s*:\s*6/);
+    assert.match(source, /const\s+emptyColSpan\s*=\s*canViewRoleColumn\s*\?\s*6\s*:\s*5/);
   });
 });

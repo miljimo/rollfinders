@@ -67,8 +67,7 @@ describe("SuperAdminPlatformAcademiesPanel", () => {
     assert.match(markup, /Platform Admin-Created Academies/);
     assert.match(markup, /Northside Grappling/);
     assert.match(markup, /Camden, NW1 1AA/);
-    assert.match(markup, /Pat Platform/);
-    assert.match(markup, /platform@example.com/);
+    assert.match(markup, /usr_platform_admin/);
     assert.match(markup, /name="platformAcademiesSearch"/);
     assert.match(markup, /Search academy, location, postcode, or Platform Admin/);
     assert.match(markup, /href="\/admin\/academies\/academy-1"/);

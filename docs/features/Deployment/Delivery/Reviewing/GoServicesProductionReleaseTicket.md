@@ -2,7 +2,7 @@
 
 ## Status
 
-Reviewing. Do not deploy until the blockers in this ticket are resolved.
+Reviewing. Implementation blockers have been addressed in source. Do not deploy until the remaining release validation gates and production approval steps in this ticket are completed.
 
 ## Scope
 
@@ -67,18 +67,27 @@ USER_SERVICE_IMAGE_URI=...
 PAYMENT_SERVICE_IMAGE_URI=...
 ```
 
-However, production Terraform currently only consumes `image_uri` for the `web` service. No production Terraform resources were found for users or payments ECS services, target groups, service discovery records, or Go service secrets.
+Production Terraform now consumes image variables for the `web`, `users`, and `payments` containers in one private ECS task. The public ALB still targets only `web` on port `3000`; `users` and `payments` are task-local sidecars reached by RollFinders through `127.0.0.1`.
 
 ## Production Blockers
 
-* Terraform does not yet define production ECS services for `users` or `payments`.
-* Terraform does not consume `USER_SERVICE_IMAGE_URI` or `PAYMENT_SERVICE_IMAGE_URI`.
-* The production pipeline does not run `scripts/cicd/build-go-services.sh` on `main`; only dev and feature/develop build paths currently call it.
-* The production migration task only runs Prisma migrations. It does not run `services/users/migrations/001_core_schema.sql` or `services/payments/migrations/001_core_schema.sql`.
-* There is no production migration runner for Go service SQL orchestrators. The orchestrators use `\ir`, so they must be executed by `psql` from their service migration directories or replaced with a purpose-built runner.
-* The shared app secret does not currently include required Go service runtime values such as `API_KEY`, `JWT_SECRET`, payment provider secrets, `PAYMENT_PUBLIC_BASE_URL`, and payment callback defaults.
-* The current ECS security group only allows ALB traffic to port `3000`; private service-to-service access to Go services on `8080` is not defined.
-* Production smoke checks do not validate `/healthz` or `/readyz` for either Go service.
+Resolved in source:
+
+* Terraform can add private `users` and `payments` sidecar containers when image URIs are supplied.
+* Terraform consumes `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI` through `user_service_image_uri` and `payment_service_image_uri`.
+* The production pipeline builds Go service images on `main` before manual production deployment.
+* The production migration task runs Prisma migrations and then Go service SQL migration orchestrators through `scripts/cicd/run-service-sql-migrations.sh`.
+* The web runtime image includes `psql` and the service migration directories needed by the production migration task.
+* App secrets include internal service URLs, service API keys, users JWT secret, and payment gateway/client defaults.
+* The public security boundary remains ALB-to-web only. Go services are reached through task-local loopback URLs and do not get public listeners, DNS records, target groups, or security group ingress.
+* Smoke checks include a private one-off ECS task path for `users` and `payments` `/healthz` and `/readyz`.
+
+Remaining release gates:
+
+* Production image digests must be recorded for `web`, `users`, and `payments`.
+* Service SQL migrations must be validated idempotently against a production-like database.
+* Production Terraform plan must be reviewed before apply.
+* Production smoke and rollback evidence must be recorded after deployment.
 
 ## Required Production Pipeline Steps
 
@@ -179,12 +188,12 @@ scripts/cicd/deploy-environment.sh
 
 Required implementation before this is valid:
 
-* Terraform must pass `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI` into private ECS services.
-* The deployment script must update all intended ECS services atomically enough to prevent app/service version skew.
-* Go service migrations must run before Go task rollout or before any web release that calls the Go APIs.
+* Terraform must pass `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI` into private ECS task sidecars.
+* The deployment script must update the monolithic task definition with all intended container images atomically enough to prevent app/service version skew.
+* Go service migrations must run before the new task definition is used by production traffic.
 * Go services must be deployed in private subnets with `assignPublicIp=DISABLED`.
 * Go services must not be attached to the public ALB.
-* Internal callers must use private service discovery or another private-only routing mechanism.
+* Internal callers must use task-local loopback URLs or another private-only routing mechanism.
 
 ### 5. Post-Deployment Smoke Checks
 
@@ -198,11 +207,10 @@ curl -fsS https://rollfinders.com/api/health?deep=1
 Go service smoke checks must run from inside the VPC, for example via ECS exec or a one-off private Fargate task:
 
 ```bash
-curl -fsS http://users:8080/healthz
-curl -fsS http://users:8080/readyz
-curl -fsS http://payments:8080/healthz
-curl -fsS http://payments:8080/readyz
-curl -fsS http://payments:8080/metrics
+curl -fsS http://127.0.0.1:8081/healthz
+curl -fsS http://127.0.0.1:8081/readyz
+curl -fsS http://127.0.0.1:8082/healthz
+curl -fsS http://127.0.0.1:8082/readyz
 ```
 
 Gate: public internet checks for the Go services must fail. There must be no public DNS name, no public ALB route, and no public IP assigned to users or payments tasks.
@@ -211,10 +219,9 @@ Gate: public internet checks for the Go services must fail. There must be no pub
 
 Application rollback:
 
-* Capture current and previous task definitions for `web`, `users`, and `payments` before deployment.
-* If service rollout fails before migrations are used by production traffic, update failed ECS services back to the previous task definitions and wait for stability.
-* If only the web service fails, roll back `web` independently only if the previous web image remains compatible with already-run Go service migrations.
-* If users or payments fail readiness after rollout, roll those services back first, then roll back web if web has started depending on the new service contract.
+* Capture current and previous monolithic ECS task definitions before deployment.
+* If rollout fails before migrations are used by production traffic, update the ECS service back to the previous task definition and wait for stability.
+* If only one container image is faulty, create a reviewed replacement task definition that reuses the known-good image for that container while preserving migration compatibility.
 
 Migration rollback:
 
@@ -232,29 +239,28 @@ aws ecs wait services-stable --region eu-west-2 --cluster <cluster> --services <
 
 ## Risks
 
-* High: current production pipeline does not deploy Go services despite building Go images in non-production paths.
-* High: current production migrations do not apply service-owned `users` or `payments` schemas.
+* High: production pipeline and migration paths now include Go services, but first production rollout still needs careful image, plan, migration, and smoke evidence.
 * High: users/auth migration can affect login, password reset, admin user management, roles, protected super admin behavior, and sessions.
 * High: payments migration can affect checkout, capture, cancel, refund, webhook idempotency, outbox dispatch, and provider reconciliation.
 * Medium: shared database schemas require strict ownership boundaries; Prisma and Go routines must not compete for the same tables.
-* Medium: no public Go service deployment requires private DNS, security group, and health-check coverage that does not currently exist.
+* Medium: no public Go service deployment requires private health-check coverage and rollback evidence during first production rollout.
 * Medium: payment provider credentials and callback URLs must be production-correct before rollout.
 
 ## Release Checklist
 
-* [ ] Terraform defines private ECS services for users and payments.
-* [ ] Terraform consumes `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI`.
-* [ ] Production pipeline builds or promotes immutable users and payments images.
-* [ ] Go service runtime secrets are defined and injected.
-* [ ] Users and payments tasks run in private subnets with `assignPublicIp=DISABLED`.
-* [ ] Users and payments services have no public ALB listener or public DNS route.
-* [ ] Private service discovery or equivalent private routing is configured.
-* [ ] Go SQL migrations have a production runner.
+* [x] Terraform defines private ECS task sidecars for users and payments.
+* [x] Terraform consumes `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI`.
+* [x] Production pipeline builds or promotes immutable users and payments images.
+* [x] Go service runtime secrets are defined and injected.
+* [x] Users and payments tasks run in private subnets with `assignPublicIp=DISABLED` through the shared ECS service network configuration.
+* [x] Users and payments services have no public ALB listener or public DNS route.
+* [x] Task-local private routing is configured.
+* [x] Go SQL migrations have a production runner.
 * [ ] Users migration validates cleanly and idempotently.
 * [ ] Payments migration validates cleanly and idempotently.
 * [ ] Production backup/PITR marker is recorded before migrations.
-* [ ] `npm run users:test` passes.
-* [ ] `npm run payments:test` passes.
+* [x] `go test ./... && go vet ./...` passes in `services/users`.
+* [x] `go test ./... && go vet ./...` passes in `services/payments`.
 * [ ] Web production health passes before deployment.
 * [ ] Production deployment lock is acquired by `scripts/cicd/deploy-environment.sh`.
 * [ ] Prisma migrations complete successfully.

@@ -127,6 +127,21 @@ resource "random_password" "cron" {
   special = false
 }
 
+resource "random_password" "user_service_api_key" {
+  length  = 48
+  special = false
+}
+
+resource "random_password" "user_service_jwt" {
+  length  = 48
+  special = false
+}
+
+resource "random_password" "payment_service_api_key" {
+  length  = 48
+  special = false
+}
+
 module "database" {
   source             = "./modules/rds_postgres"
   name_prefix        = local.name_prefix
@@ -172,6 +187,12 @@ module "app_secrets" {
     SMTP_PASSWORD           = var.smtp_password
     MAILBOX_LINK            = "https://${module.email.mail_from_domain}"
     CRON_SECRET             = random_password.cron.result
+    USER_SERVICE_URL        = "http://127.0.0.1:8081"
+    USER_SERVICE_API_KEY    = random_password.user_service_api_key.result
+    USER_SERVICE_JWT_SECRET = random_password.user_service_jwt.result
+    PAYMENT_SERVICE_URL     = "http://127.0.0.1:8082"
+    PAYMENT_SERVICE_API_KEY = random_password.payment_service_api_key.result
+    PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key
   }
 }
 
@@ -245,12 +266,12 @@ module "app_service" {
     container_port   = 3000
   }
 
-  task_definitions = [
+  task_definitions = concat([
     {
       name       = "web"
       image      = var.image_uri
-      cpu        = var.container_cpu
-      memory     = var.container_memory
+      cpu        = max(var.container_cpu - ((var.user_service_image_uri != "" ? 128 : 0) + (var.payment_service_image_uri != "" ? 128 : 0)), 256)
+      memory     = max(var.container_memory - ((var.user_service_image_uri != "" ? 128 : 0) + (var.payment_service_image_uri != "" ? 128 : 0)), 512)
       essential  = true
       log_region = var.aws_region
       environments = [
@@ -265,6 +286,10 @@ module "app_service" {
         { name = "NEXTAUTH_SECRET", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_SECRET::" },
         { name = "NEXTAUTH_URL", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_URL::" },
         { name = "EMAIL_DELIVERY_PROVIDER", valueFrom = "${module.app_secrets.arn}:EMAIL_DELIVERY_PROVIDER::" },
+        { name = "USER_SERVICE_URL", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_URL::" },
+        { name = "USER_SERVICE_API_KEY", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_API_KEY::" },
+        { name = "PAYMENT_SERVICE_URL", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_URL::" },
+        { name = "PAYMENT_SERVICE_API_KEY", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_API_KEY::" },
         { name = "EMAIL_FROM", valueFrom = "${module.app_secrets.arn}:EMAIL_FROM::" },
         { name = "EMAIL_REPLY_TO", valueFrom = "${module.app_secrets.arn}:EMAIL_REPLY_TO::" },
         { name = "SMTP_HOST", valueFrom = "${module.app_secrets.arn}:SMTP_HOST::" },
@@ -292,7 +317,84 @@ module "app_service" {
         startPeriod = 30
       }
     }
-  ]
+    ], var.user_service_image_uri != "" ? [
+    {
+      name       = "users"
+      image      = var.user_service_image_uri
+      cpu        = 128
+      memory     = 128
+      essential  = true
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8081" },
+        { name = "DEFAULT_USER_ROLE", value = "STANDARD_USER" },
+        { name = "READ_TIMEOUT", value = "5s" },
+        { name = "WRITE_TIMEOUT", value = "10s" },
+        { name = "SHUTDOWN_TIMEOUT", value = "10s" }
+      ]
+      secrets = [
+        { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
+        { name = "API_KEY", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_API_KEY::" },
+        { name = "JWT_SECRET", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_JWT_SECRET::" },
+        { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
+        { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
+        { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
+      ]
+      ports = [
+        {
+          container_port = 8081
+          host_port      = 8081
+          protocol       = "tcp"
+        }
+      ]
+      healthCheck = {
+        command     = ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/healthz || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 30
+      }
+    }
+    ] : [], var.payment_service_image_uri != "" ? [
+    {
+      name       = "payments"
+      image      = var.payment_service_image_uri
+      cpu        = 128
+      memory     = 128
+      essential  = true
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8082" },
+        { name = "PAYMENT_PUBLIC_BASE_URL", value = "https://${local.canonical_domain}" },
+        { name = "PAYMENT_DEFAULT_CLIENT_ID", value = "rollfinders" },
+        { name = "PAYMENT_DEFAULT_CLIENT_NAME", value = "RollFinders" },
+        { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "https://${local.canonical_domain}/payments/status" },
+        { name = "METRICS_ENABLED", value = "true" },
+        { name = "READ_TIMEOUT", value = "5s" },
+        { name = "WRITE_TIMEOUT", value = "10s" },
+        { name = "SHUTDOWN_TIMEOUT", value = "10s" }
+      ]
+      secrets = [
+        { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
+        { name = "API_KEY", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_API_KEY::" },
+        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = "${module.app_secrets.arn}:PAYMENT_GATEWAY_API_KEY::" }
+      ]
+      ports = [
+        {
+          container_port = 8082
+          host_port      = 8082
+          protocol       = "tcp"
+        }
+      ]
+      healthCheck = {
+        command     = ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/healthz || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 30
+      }
+    }
+  ] : [])
 
   depends_on = [
     module.alb

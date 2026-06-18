@@ -31,7 +31,7 @@ TASK_ARN="$(aws ecs run-task \
   --launch-type FARGATE \
   --task-definition "${TASK_DEFINITION}" \
   --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SECURITY_GROUP}],assignPublicIp=DISABLED}" \
-  --overrides '{"containerOverrides":[{"name":"web","command":["npx","prisma","migrate","deploy"]}]}' \
+  --overrides '{"containerOverrides":[{"name":"web","command":["sh","-lc","npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"]}]}' \
   --query 'tasks[0].taskArn' \
   --output text)"
 
