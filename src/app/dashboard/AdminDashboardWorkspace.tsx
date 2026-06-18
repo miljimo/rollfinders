@@ -407,7 +407,7 @@ export default async function AdminDashboardWorkspace({
     page: String(userPage),
     pageSize: String(usersPageSize),
   });
-  if (search) userQueryParams.set("q", search);
+  if (search) userQueryParams.set("search", search);
   if (roleSearch) userQueryParams.set("role", roleSearch);
   if (userStatusSearch) userQueryParams.set("status", userStatusSearch);
   const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString());
