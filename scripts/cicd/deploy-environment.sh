@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
+ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-production}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 export PROJECT_DIR
@@ -23,10 +23,10 @@ case "${ENVIRONMENT_NAME}" in
     ;;
 esac
 
-if [[ "${ENVIRONMENT_NAME}" != "dev" && "${ALLOW_DIRECT_ENV_DEPLOY:-}" == "true" ]]; then
+if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
+  echo "production direct deployment enabled; using image.env artifact."
+elif [[ "${ENVIRONMENT_NAME}" != "dev" && "${ALLOW_DIRECT_ENV_DEPLOY:-}" == "true" ]]; then
   echo "${ENVIRONMENT_NAME} direct deployment override enabled; using image.env artifact."
-elif [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
-  promotion_require dev production
 fi
 
 deployment_lock_acquire

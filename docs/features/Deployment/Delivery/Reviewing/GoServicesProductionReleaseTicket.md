@@ -173,6 +173,29 @@ This is an environment blocker, not an application assertion failure. Production
 
 After the blockers are resolved, production release SHALL use this order.
 
+### 0. Production Availability Guard
+
+Production deployments SHALL NOT intentionally put `rollfinders.com` offline.
+
+Required behavior:
+
+* The current healthy production task definition must keep serving traffic until the replacement task definition is healthy and has passed smoke checks.
+* ECS deployment settings must keep enough healthy tasks online during rollout; production must not use a deployment configuration that drops desired healthy capacity to zero.
+* Database migrations must be backward compatible with the currently running application until the new application is serving successfully.
+* Operators must not change DNS, ALB listeners, target groups, or public certificates in a way that removes the active production route before the replacement route is validated.
+* The production release must include a pre-deployment `https://rollfinders.com/api/health` check and a post-deployment `https://rollfinders.com/api/health` check.
+* If public DNS is unhealthy before deployment, the release must be blocked unless the work is explicitly a DNS recovery and an ALB-bypassed smoke check is recorded.
+
+If a planned operation cannot guarantee uninterrupted service, the release must use a controlled deployment admin or maintenance page instead of a browser/network failure.
+
+Maintenance/admin page requirements:
+
+* It must be served by stable infrastructure outside the changing application task, such as an ALB fixed response, S3/CloudFront static page, or a known-good previous ECS task.
+* It must say the service is temporarily unavailable for planned maintenance and give an expected return window.
+* It must avoid exposing internal error details, stack traces, database errors, migration output, secrets, or AWS resource names.
+* It must be enabled only after approval and disabled immediately after the production service is healthy.
+* The release ticket must record the start time, expected end time, reason, operator, and final removal confirmation.
+
 ### 1. Preflight Validation
 
 Run before approving production:
@@ -275,6 +298,7 @@ Required implementation before this is valid:
 * Terraform must pass `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI` into private ECS task sidecars.
 * The deployment script must update the monolithic task definition with all intended container images atomically enough to prevent app/service version skew.
 * Go service migrations must run before the new task definition is used by production traffic.
+* The deployment must preserve the existing production route until the replacement service is healthy; do not detach the old task set, lower desired capacity to zero, remove DNS, or disable the ALB listener as part of a normal deploy.
 * Go services must be deployed in private subnets with `assignPublicIp=DISABLED`.
 * Go services must not be attached to the public ALB.
 * Internal callers must use task-local loopback URLs or another private-only routing mechanism.
@@ -332,6 +356,11 @@ aws ecs wait services-stable --region eu-west-2 --cluster <cluster> --services <
 
 ## Release Checklist
 
+* [ ] Production availability guard reviewed before deployment.
+* [ ] Pre-deployment `https://rollfinders.com/api/health` passes, or a DNS recovery exception with ALB-bypassed smoke evidence is recorded.
+* [ ] ECS deployment configuration preserves healthy production capacity during rollout.
+* [ ] Migration compatibility with the currently running production app is confirmed.
+* [ ] Maintenance/admin page fallback is ready and approved if uninterrupted service cannot be guaranteed.
 * [x] Terraform defines private ECS task sidecars for users and payments.
 * [x] Terraform consumes `USER_SERVICE_IMAGE_URI` and `PAYMENT_SERVICE_IMAGE_URI`.
 * [x] Production pipeline builds or promotes immutable users and payments images.
@@ -364,6 +393,7 @@ aws ecs wait services-stable --region eu-west-2 --cluster <cluster> --services <
 * [ ] Users ECS service stabilizes.
 * [ ] Payments ECS service stabilizes.
 * [ ] Web `/api/health` and `/api/health?deep=1` pass.
+* [ ] `rollfinders.com` remains reachable throughout deployment, or the approved maintenance/admin page is visible during the interruption window.
 * [ ] Users `/healthz` and `/readyz` pass from inside the VPC.
 * [ ] Payments `/healthz`, `/readyz`, and `/metrics` pass from inside the VPC.
 * [ ] Public access to users and payments services is confirmed absent.

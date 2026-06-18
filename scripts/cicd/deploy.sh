@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
+ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-production}"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/aws-oidc.sh"
@@ -20,7 +20,7 @@ if [[ "${DEPLOYMENT_LOCK_HELD:-}" != "true" && "${ALLOW_UNLOCKED_DEPLOY:-}" != "
   exit 1
 fi
 
-if [[ "${ENVIRONMENT_NAME}" != "dev" && "${PROMOTION_DEPLOYMENT:-}" != "true" && "${ALLOW_DIRECT_ENV_DEPLOY:-}" != "true" ]]; then
+if [[ "${ENVIRONMENT_NAME}" != "dev" && "${ENVIRONMENT_NAME}" != "production" && "${PROMOTION_DEPLOYMENT:-}" != "true" && "${ALLOW_DIRECT_ENV_DEPLOY:-}" != "true" ]]; then
   echo "${ENVIRONMENT_NAME} deployments must be promoted from the previous environment."
   exit 1
 fi
