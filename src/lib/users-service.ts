@@ -1,4 +1,10 @@
 import { getEnvVariable } from "./environments";
+import {
+  enrichManagedUserWithRollfinderProfile,
+  enrichManagedUsersWithRollfinderProfiles,
+  removeRollfinderUserProfile,
+  syncRollfinderUserProfile,
+} from "./rollfinder-user-profiles";
 
 type ActorContext = {
   id: string;
@@ -64,6 +70,18 @@ async function parseResponse(response: Response) {
   return body;
 }
 
+function splitRollfinderAcademyInput(input: unknown) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return { serviceInput: input, academyId: undefined as string | null | undefined };
+  }
+
+  const { academyId, ...serviceInput } = input as Record<string, unknown>;
+  return {
+    serviceInput,
+    academyId: typeof academyId === "string" ? academyId.trim() || null : academyId === null ? null : undefined,
+  };
+}
+
 export async function authenticateUserCredentials(email: string, password: string) {
   const response = await fetch(`${userServiceUrl()}/auth/login`, {
     method: "POST",
@@ -82,7 +100,8 @@ export async function getUserAccount(id: string) {
     cache: "no-store",
     headers: headers(),
   });
-  return parseResponse(response) as Promise<{ user: { id: string; email: string; role: string; academyId: string | null; privileges: string[] } }>;
+  const result = await parseResponse(response) as { user: { id: string; email: string; role: string; academyId: string | null; privileges: string[] } };
+  return { user: await enrichManagedUserWithRollfinderProfile(result.user) };
 }
 
 export async function logoutUserSession(refreshToken?: string | null) {
@@ -147,17 +166,21 @@ export async function listManagedUsers(actor: ActorContext, query: string) {
     cache: "no-store",
     headers: headers(actor),
   });
-  return parseResponse(response) as Promise<{ users: ManagedUser[]; page: number; pageSize: number; totalItems: number; totalPages: number }>;
+  const result = await parseResponse(response) as { users: ManagedUser[]; page: number; pageSize: number; totalItems: number; totalPages: number };
+  return { ...result, users: await enrichManagedUsersWithRollfinderProfiles(result.users) };
 }
 
 export async function createManagedUser(actor: ActorContext, input: unknown) {
+  const { serviceInput, academyId } = splitRollfinderAcademyInput(input);
   const response = await fetch(`${userServiceUrl()}/v1/users`, {
     method: "POST",
     cache: "no-store",
     headers: headers(actor),
-    body: JSON.stringify(input),
+    body: JSON.stringify(serviceInput),
   });
-  return parseResponse(response) as Promise<{ user: ManagedUser }>;
+  const result = await parseResponse(response) as { user: ManagedUser };
+  const user = await syncRollfinderUserProfile(result.user, academyId);
+  return { user: await enrichManagedUserWithRollfinderProfile(user) as ManagedUser };
 }
 
 export async function getManagedUser(actor: ActorContext, id: string) {
@@ -166,17 +189,21 @@ export async function getManagedUser(actor: ActorContext, id: string) {
     cache: "no-store",
     headers: headers(actor),
   });
-  return parseResponse(response) as Promise<{ user: ManagedUser }>;
+  const result = await parseResponse(response) as { user: ManagedUser };
+  return { user: await enrichManagedUserWithRollfinderProfile(result.user) as ManagedUser };
 }
 
 export async function updateManagedUser(actor: ActorContext, id: string, input: unknown) {
+  const { serviceInput, academyId } = splitRollfinderAcademyInput(input);
   const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}`, {
     method: "PUT",
     cache: "no-store",
     headers: headers(actor),
-    body: JSON.stringify(input),
+    body: JSON.stringify(serviceInput),
   });
-  return parseResponse(response) as Promise<{ user: ManagedUser }>;
+  const result = await parseResponse(response) as { user: ManagedUser };
+  const user = await syncRollfinderUserProfile(result.user, academyId);
+  return { user: await enrichManagedUserWithRollfinderProfile(user) as ManagedUser };
 }
 
 export async function deleteManagedUser(actor: ActorContext, id: string) {
@@ -185,7 +212,9 @@ export async function deleteManagedUser(actor: ActorContext, id: string) {
     cache: "no-store",
     headers: headers(actor),
   });
-  return parseResponse(response);
+  const result = await parseResponse(response);
+  await removeRollfinderUserProfile(id);
+  return result;
 }
 
 export async function mutateManagedUser(actor: ActorContext, id: string, mutation: "disable" | "enable" | "promote" | "demote", role?: string) {
@@ -195,5 +224,7 @@ export async function mutateManagedUser(actor: ActorContext, id: string, mutatio
     cache: "no-store",
     headers: headers(actor),
   });
-  return parseResponse(response) as Promise<{ user: ManagedUser }>;
+  const result = await parseResponse(response) as { user: ManagedUser };
+  await syncRollfinderUserProfile(result.user);
+  return { user: await enrichManagedUserWithRollfinderProfile(result.user) as ManagedUser };
 }

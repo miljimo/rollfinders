@@ -217,23 +217,20 @@ describe("unified dashboard route contracts", () => {
     assert.equal(managedUsersReturnPath("/admin.evil/users"), "/admin/users");
   });
 
-  it("managed user create and edit forward academy assignment to the users service", () => {
+  it("managed user create and edit keep academy assignment in RollFinders public users", () => {
     const actionsSource = readSource("src/app/admin/users/actions.ts");
     const userServiceSource = readSource("src/lib/users-service.ts");
-    const userInsertProcedure = readSource("services/users/migrations/procedures/002_userInsert.sql");
-    const userUpdateProcedure = readSource("services/users/migrations/procedures/003_userUpdate.sql");
-    const userGetFunction = readSource("services/users/migrations/functions/001_user_get.sql");
-    const usersListFunction = readSource("services/users/migrations/functions/005_users_list.sql");
+    const profileSource = readSource("src/lib/rollfinder-user-profiles.ts");
+    const schemaSource = readSource("prisma/schema.prisma");
 
     assert.match(actionsSource, /const\s+academyId\s*=\s*String\(formData\.get\("academyId"\)/);
     assert.match(actionsSource, /createUserInService\(actor,\s*\{[\s\S]*academyId[\s\S]*\}\)/);
     assert.match(actionsSource, /updateUserInService\(actor,\s*userId,\s*\{[\s\S]*academyId[\s\S]*\}\)/);
-    assert.match(userServiceSource, /academyId:\s*string\s*\|\s*null/);
-    assert.match(userInsertProcedure, /INSERT INTO organisation_users \(organisation_id, user_id, status\)/);
-    assert.match(userUpdateProcedure, /p_academy_id text DEFAULT NULL/);
-    assert.match(userUpdateProcedure, /DELETE FROM organisation_users\s+WHERE user_id = p_id/);
-    assert.match(userGetFunction, /SELECT ou\.organisation_id[\s\S]*AS academy_id/);
-    assert.match(usersListFunction, /SELECT ou\.organisation_id[\s\S]*AS academy_id/);
+    assert.match(userServiceSource, /const\s+\{\s*academyId,\s*\.\.\.serviceInput\s*\}\s*=\s*input as Record<string, unknown>/);
+    assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId\)/);
+    assert.match(profileSource, /tx\.user\.upsert/);
+    assert.match(profileSource, /academyMember\.create/);
+    assert.match(schemaSource, /model User \{[\s\S]*academyId\s+String\?\s+@map\("academy_id"\)[\s\S]*@@map\("users"\)/);
   });
 
   it("managed user tables request exactly ten users per page", () => {
