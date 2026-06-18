@@ -109,11 +109,13 @@ describe("deployment safety contracts", () => {
     const seed = readSource("prisma/seed.ts");
     const superAdmin = readSource("prisma/ensure-super-admin.ts");
     const pool = readSource("src/lib/prisma-pg-pool.ts");
+    const dockerfile = readSource("Dockerfile");
 
     for (const source of [prisma, seed, superAdmin]) {
       assert.match(source, /createPrismaPgPool\(connectionString\)/);
     }
     assert.match(pool, /url\.searchParams\.delete\("sslmode"\)/);
     assert.match(pool, /sslMode === "require" \? \(\{ rejectUnauthorized: false \}/);
+    assert.match(dockerfile, /COPY --chown=nextjs:nodejs src\/lib\/prisma-pg-pool\.ts \.\/src\/lib\/prisma-pg-pool\.ts/);
   });
 });

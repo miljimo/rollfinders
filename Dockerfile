@@ -49,6 +49,7 @@ COPY --chown=nextjs:nodejs services/users/migrations ./services/users/migrations
 COPY --chown=nextjs:nodejs services/payments/migrations ./services/payments/migrations
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
+COPY --chown=nextjs:nodejs src/lib/prisma-pg-pool.ts ./src/lib/prisma-pg-pool.ts
 COPY --chown=nextjs:nodejs prisma.config.ts ./
 USER nextjs
 EXPOSE 3000
