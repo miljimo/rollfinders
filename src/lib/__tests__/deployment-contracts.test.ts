@@ -1,0 +1,60 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const root = process.cwd();
+
+function readSource(path: string) {
+  return readFileSync(resolve(root, path), "utf8");
+}
+
+describe("deployment safety contracts", () => {
+  it("runs users service SQL before Prisma can remove legacy public user password hashes", () => {
+    const migrate = readSource("scripts/cicd/migrate.sh");
+    const command = /sh scripts\/cicd\/run-service-sql-migrations\.sh && npx prisma migrate deploy && sh scripts\/cicd\/run-service-sql-migrations\.sh/;
+
+    assert.match(migrate, command);
+  });
+
+  it("blocks environment deploys when app, users, or payments images are missing", () => {
+    const deployEnvironment = readSource("scripts/cicd/deploy-environment.sh");
+
+    assert.match(deployEnvironment, /image\.env is missing IMAGE_URI/);
+    assert.match(deployEnvironment, /USER_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /PAYMENT_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /build-go-services\.sh/);
+  });
+
+  it("runs migrations before rolling the ECS service to the new task definition", () => {
+    const deployEnvironment = readSource("scripts/cicd/deploy-environment.sh");
+
+    assert.ok(
+      deployEnvironment.indexOf('"${SCRIPT_DIR}/migrate.sh"') < deployEnvironment.indexOf('"${SCRIPT_DIR}/deploy.sh"'),
+      "deployment must migrate before updating the ECS service",
+    );
+  });
+
+  it("backfills legacy public user password hashes into service credentials before marking the users schema migrated", () => {
+    const coreSchema = readSource("services/users/migrations/001_core_schema.sql");
+    const credentialBackfill = readSource("services/users/migrations/backfills/001_rollfinders_public_user_credentials.sql");
+
+    assert.ok(
+      coreSchema.indexOf("\\ir backfills/001_rollfinders_public_user_credentials.sql") <
+        coreSchema.indexOf("\\ir backfills/002_rollfinders_public_academy_memberships.sql"),
+      "credential backfill must run before academy membership backfill",
+    );
+    assert.match(credentialBackfill, /information_schema\.columns[\s\S]*column_name = 'password_hash'/);
+    assert.match(credentialBackfill, /INSERT INTO users\.credentials/);
+    assert.match(credentialBackfill, /INSERT INTO users\.credential_secrets/);
+    assert.match(credentialBackfill, /pu\.password_hash/);
+    assert.match(credentialBackfill, /001_rollfinders_public_user_credentials/);
+  });
+
+  it("lets one-shot migration tasks finish even before service schemas are ready", () => {
+    const terraform = readSource("terraform/main.tf");
+
+    assert.match(terraform, /name\s+=\s+"users"[\s\S]*?essential\s+=\s+false/);
+    assert.match(terraform, /name\s+=\s+"payments"[\s\S]*?essential\s+=\s+false/);
+  });
+});

@@ -305,7 +305,7 @@ module "app_service" {
       image      = var.user_service_image_uri
       cpu        = 128
       memory     = 128
-      essential  = true
+      essential  = false
       log_region = var.aws_region
       environments = [
         { name = "PORT", value = "8081" },
@@ -343,7 +343,7 @@ module "app_service" {
       image      = var.payment_service_image_uri
       cpu        = 128
       memory     = 128
-      essential  = true
+      essential  = false
       log_region = var.aws_region
       environments = [
         { name = "PORT", value = "8082" },

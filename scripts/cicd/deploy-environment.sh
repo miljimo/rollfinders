@@ -44,6 +44,17 @@ fi
 
 source "${PROJECT_DIR}/image.env"
 
+if [[ -z "${IMAGE_URI:-}" ]]; then
+  echo "image.env is missing IMAGE_URI. Run scripts/cicd/build.sh before environment deploy."
+  exit 1
+fi
+
+if [[ -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" ]]; then
+  echo "image.env must include USER_SERVICE_IMAGE_URI and PAYMENT_SERVICE_IMAGE_URI for this release."
+  echo "Run scripts/cicd/build-go-services.sh after scripts/cicd/build.sh, or set FORCE_SERVICE_REDEPLOY=true SERVICE_REDEPLOY_TARGET=all."
+  exit 1
+fi
+
 "${SCRIPT_DIR}/bootstrap-state.sh"
 
 cd "${TERRAFORM_DIR}"
@@ -60,8 +71,8 @@ terraform apply \
   -auto-approve \
   deploy.tfplan
 
-"${SCRIPT_DIR}/deploy.sh"
 "${SCRIPT_DIR}/migrate.sh"
+"${SCRIPT_DIR}/deploy.sh"
 "${SCRIPT_DIR}/ensure-super-admin.sh"
 
 if [[ "${ENVIRONMENT_NAME}" == "dev" ]]; then
