@@ -87,7 +87,8 @@ BEGIN
       "is_protected" = service_projection.is_protected,
       "updated_at" = service_projection.updated_at
     FROM service_projection
-    WHERE existing_users."email" = service_projection.email;
+    WHERE existing_users."id" = service_projection.id
+       OR existing_users."email" = service_projection.email;
 
     WITH service_projection AS (
       SELECT
@@ -153,25 +154,8 @@ BEGIN
     WHERE NOT EXISTS (
       SELECT 1
       FROM public."users" existing_users
-      WHERE existing_users."email" = service_projection.email
-        AND existing_users."id" <> service_projection.id
-    )
-    ON CONFLICT ("id") DO UPDATE SET
-      "email" = CASE
-        WHEN NOT EXISTS (
-          SELECT 1
-          FROM public."users" existing_users
-          WHERE existing_users."email" = EXCLUDED."email"
-            AND existing_users."id" <> public."users"."id"
-        ) THEN EXCLUDED."email"
-        ELSE public."users"."email"
-      END,
-      "name" = EXCLUDED."name",
-      "role" = EXCLUDED."role",
-      "academy_id" = COALESCE(public."users"."academy_id", EXCLUDED."academy_id"),
-      "status" = EXCLUDED."status",
-      "disabled" = EXCLUDED."disabled",
-      "is_protected" = EXCLUDED."is_protected",
-      "updated_at" = EXCLUDED."updated_at";
+      WHERE existing_users."id" = service_projection.id
+         OR existing_users."email" = service_projection.email
+    );
   END IF;
 END $$;
