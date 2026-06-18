@@ -88,6 +88,77 @@ test("event description rejects unsafe URI schemes", () => {
   ]);
 });
 
+test("event description accepts prose labels with colons", () => {
+  const parsed = eventSchema.safeParse({
+    ...validEvent,
+    description: "Schedule: warm up, rounds, and feedback. Bring: water and a gumshield.",
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.success, true);
+});
+
+test("course description accepts prose labels with colons", () => {
+  const parsed = courseSchema.safeParse({
+    ...validEvent,
+    title: "Competition Class",
+    courseType: CourseType.COMPETITION,
+    description: "Format: drills, rounds, and coaching. Note: suitable for visitors.",
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.success, true);
+});
+
+test("course description accepts formatted event copy with times, labels, emojis, hashtags, and safe links", () => {
+  const parsed = courseSchema.safeParse({
+    ...validEvent,
+    title: "Forge Friday",
+    courseType: CourseType.TRAINING,
+    description: `1) Discussion on current applied roles.
+2) Work colleagues and support requirements.
+
+Talk 2 A Brother: Forge Friday: Men's Only Night.
+
+Every other Friday (Fortnightly)
+
+PT.1 7pm to 8.30pm: Jiu-Jitsu Open Mat: NoGi & Gi : All levels
+From 7pm to 8:30pm, participants can engage in our all levels NoGi & Gi Jiu-Jitsu open mat forging strength and camaraderie through shared effort.
+
+PT.2 8.30pm to 10pm: ManCave: +21 Meaningful Conversations & Refreshments
+As the clock strikes 8:30pm, the atmosphere shifts to our ManCave, a safe haven to unwind, connect and engage in meaningful conversations over light refreshments.
+
+Online via our ManCave Whatsapp group Zoom Link
+
+#FridayNights #MartialArts #MensTalk #SafeSpace #GreatVibes #Oss
+
+Wear Comfortable Clothing;
+
+1. Dri-fit or comfortable t-shirt, shorts, leggings.
+2. Barefoot on training mats.
+3. Bring along a towel.
+
+Checkout our previous events!!
+@ https://www.instagram.com/holisticwellbeinghub?igsh=MXB4bHJzNnU4MDMzbA==`,
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.success, true);
+});
+
+test("event description rejects unsupported scheme links", () => {
+  const parsed = eventSchema.safeParse({
+    ...validEvent,
+    description: "Open mat details at ftp://example.com/open-mat",
+    recurrenceType: RecurrenceType.NONE,
+  });
+
+  assert.equal(parsed.success, false);
+  assert.deepEqual(parsed.error.flatten().fieldErrors.description, [
+    "Description links may only use http, https, mailto, or tel.",
+  ]);
+});
+
 test("open mat event validation defaults course type to OPEN_MAT", () => {
   const parsed = eventSchema.parse({
     ...validEvent,

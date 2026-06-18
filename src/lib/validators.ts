@@ -20,6 +20,7 @@ const optionalTrimmedString = z.preprocess(
 );
 
 const allowedDescriptionUriSchemes = new Set(["http", "https", "mailto", "tel"]);
+const blockedDescriptionUriSchemes = new Set(["javascript", "data", "vbscript", "file"]);
 const courseTypeValues = [
   "OPEN_MAT",
   "TRAINING",
@@ -30,8 +31,11 @@ const courseTypeValues = [
 ] as const;
 
 function hasUnsafeUriScheme(value: string) {
-  for (const match of value.matchAll(/\b([a-z][a-z0-9+.-]*):/gi)) {
-    if (!allowedDescriptionUriSchemes.has(match[1].toLowerCase())) return true;
+  for (const match of value.matchAll(/\b([a-z][a-z0-9+.-]*):(?=\S)/gi)) {
+    const scheme = match[1].toLowerCase();
+    if (allowedDescriptionUriSchemes.has(scheme)) continue;
+    if (blockedDescriptionUriSchemes.has(scheme)) return true;
+    if (value.slice((match.index ?? 0) + match[0].length).startsWith("//")) return true;
   }
   return false;
 }
