@@ -297,7 +297,15 @@ export async function getOpenMatOccurrence(id: string, occurrenceDateParam?: str
   const occurrences = expandEventOccurrences(event, { from, to, now });
 
   if (occurrenceDateParam) {
-    return occurrences.find((occurrence) => occurrence.occurrenceDateParam === occurrenceDateParam) ?? null;
+    const exactOccurrence = occurrences.find((occurrence) => occurrence.occurrenceDateParam === occurrenceDateParam);
+    if (exactOccurrence) return exactOccurrence;
+
+    const upcomingOccurrences = expandEventOccurrences(event, {
+      from: startOfDay(now),
+      to: defaultOccurrenceWindowEnd(now),
+      now,
+    });
+    return upcomingOccurrences[0] ?? buildOccurrence(event, event.eventDate, now);
   }
 
   return occurrences[0] ?? buildOccurrence(event, event.eventDate, now);

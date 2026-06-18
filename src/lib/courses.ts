@@ -157,7 +157,15 @@ export async function getCourseOccurrence(id: string, occurrenceDateParam?: stri
   const occurrences = expandEventOccurrences(event, { from, to, now });
 
   if (occurrenceDateParam) {
-    return occurrences.find((occurrence) => occurrence.occurrenceDateParam === occurrenceDateParam) ?? null;
+    const exactOccurrence = occurrences.find((occurrence) => occurrence.occurrenceDateParam === occurrenceDateParam);
+    if (exactOccurrence) return exactOccurrence;
+
+    const upcomingOccurrences = expandEventOccurrences(event, {
+      from: startOfDay(now),
+      to: defaultOccurrenceWindowEnd(now),
+      now,
+    });
+    return upcomingOccurrences[0] ?? event;
   }
 
   return occurrences[0] ?? event;

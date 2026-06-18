@@ -93,4 +93,14 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /formatMinorCurrency\(payment\.amount, payment\.currency\)/);
     assert.match(dashboardSource, /\/courses\/\$\{courseId\}/);
   });
+
+  it("keeps paid event links usable when stored occurrence dates are stale", () => {
+    const courseSource = readSource("src/lib/courses.ts");
+    const openMatSource = readSource("src/lib/data.ts");
+
+    assert.match(courseSource, /const exactOccurrence = occurrences\.find/);
+    assert.match(courseSource, /upcomingOccurrences\[0\]\s*\?\?\s*event/);
+    assert.match(openMatSource, /const exactOccurrence = occurrences\.find/);
+    assert.match(openMatSource, /upcomingOccurrences\[0\]\s*\?\?\s*buildOccurrence\(event,\s*event\.eventDate,\s*now\)/);
+  });
 });
