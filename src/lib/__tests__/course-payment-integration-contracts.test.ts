@@ -103,4 +103,13 @@ describe("course payment service integration", () => {
     assert.match(openMatSource, /const exactOccurrence = occurrences\.find/);
     assert.match(openMatSource, /upcomingOccurrences\[0\]\s*\?\?\s*buildOccurrence\(event,\s*event\.eventDate,\s*now\)/);
   });
+
+  it("proxies public checkout callbacks to the private payment service", () => {
+    const routeSource = readSource("src/app/v1/checkouts/[id]/callbacks/[result]/route.ts");
+
+    assert.match(routeSource, /PAYMENT_SERVICE_URL/);
+    assert.match(routeSource, /\/v1\/checkouts\/\$\{encodeURIComponent\(id\)\}\/callbacks\/\$\{encodeURIComponent\(result\)\}/);
+    assert.match(routeSource, /redirect:\s*"manual"/);
+    assert.match(routeSource, /NextResponse\.redirect\(location,\s*response\.status\)/);
+  });
 });
