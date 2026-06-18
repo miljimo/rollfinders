@@ -34,7 +34,7 @@ rds="$("${TERRAFORM_BIN}" output -raw rds_instance_identifier 2>/dev/null || tru
 alb="$("${TERRAFORM_BIN}" output -raw alb_dns_name 2>/dev/null || true)"
 zone="$("${TERRAFORM_BIN}" output -raw hosted_zone_id 2>/dev/null || true)"
 cloudfront="$("${TERRAFORM_BIN}" output -raw cloudfront_distribution_id 2>/dev/null || true)"
-secret="$("${TERRAFORM_BIN}" output -raw secrets_manager_secret_arn 2>/dev/null || true)"
+app_parameters="$("${TERRAFORM_BIN}" output -json app_ssm_parameter_arns 2>/dev/null || true)"
 
 cat <<EOF
 ECS Cluster
@@ -63,6 +63,6 @@ ${cloudfront}
 S3 Buckets
 ${BACKEND_BUCKET}
 
-Secrets
-${secret}
+SSM Parameters
+${app_parameters}
 EOF

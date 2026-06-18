@@ -144,16 +144,6 @@ moved {
 }
 
 moved {
-  from = aws_secretsmanager_secret.app
-  to   = module.app_secrets.aws_secretsmanager_secret.app
-}
-
-moved {
-  from = aws_secretsmanager_secret_version.app
-  to   = module.app_secrets.aws_secretsmanager_secret_version.app
-}
-
-moved {
   from = aws_appautoscaling_target.ecs
   to   = module.ecs_autoscaling.aws_appautoscaling_target.ecs
 }

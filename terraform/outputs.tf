@@ -83,9 +83,9 @@ output "private_subnet_ids" {
   value       = module.networking.private_subnet_ids
 }
 
-output "secrets_manager_secret_arn" {
-  description = "Secrets Manager secret ARN used by the ECS task."
-  value       = module.app_secrets.arn
+output "app_ssm_parameter_arns" {
+  description = "SSM parameter ARNs used by the ECS task."
+  value       = module.app_secrets.arns
 }
 
 output "email_sending_domain" {

@@ -191,6 +191,19 @@ module "app_secrets" {
     PAYMENT_SERVICE_API_KEY = random_password.payment_service_api_key.result
     PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key
   }
+
+  secure_value_keys = [
+    "NEXTAUTH_SECRET",
+    "DATABASE_URL",
+    "DB_PASSWORD",
+    "SMTP_USERNAME",
+    "SMTP_PASSWORD",
+    "CRON_SECRET",
+    "USER_SERVICE_API_KEY",
+    "USER_SERVICE_JWT_SECRET",
+    "PAYMENT_SERVICE_API_KEY",
+    "PAYMENT_GATEWAY_API_KEY"
+  ]
 }
 
 resource "aws_ssm_parameter" "super_admin" {
@@ -236,13 +249,12 @@ module "app_service" {
   security_groups       = [module.ecs_security_group.id]
   task_role_arn         = module.task_role.arn
 
-  execution_role_secret_arns = [
-    module.app_secrets.arn
-  ]
+  execution_role_secret_arns = []
 
-  execution_role_parameter_arns = [
-    for parameter in aws_ssm_parameter.super_admin : parameter.arn
-  ]
+  execution_role_parameter_arns = concat(
+    module.app_secrets.arns,
+    [for parameter in aws_ssm_parameter.super_admin : parameter.arn]
+  )
 
   load_balancer = {
     target_group_arn = module.alb.target_group_arn
@@ -265,21 +277,21 @@ module "app_service" {
         { name = "EMAIL_DOMAIN", value = module.email.sending_domain }
       ]
       secrets = [
-        { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
-        { name = "NEXTAUTH_SECRET", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_SECRET::" },
-        { name = "NEXTAUTH_URL", valueFrom = "${module.app_secrets.arn}:NEXTAUTH_URL::" },
-        { name = "USER_SERVICE_URL", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_URL::" },
-        { name = "USER_SERVICE_API_KEY", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_API_KEY::" },
-        { name = "PAYMENT_SERVICE_URL", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_URL::" },
-        { name = "PAYMENT_SERVICE_API_KEY", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_API_KEY::" },
-        { name = "EMAIL_FROM", valueFrom = "${module.app_secrets.arn}:EMAIL_FROM::" },
-        { name = "EMAIL_REPLY_TO", valueFrom = "${module.app_secrets.arn}:EMAIL_REPLY_TO::" },
-        { name = "SMTP_HOST", valueFrom = "${module.app_secrets.arn}:SMTP_HOST::" },
-        { name = "SMTP_PORT", valueFrom = "${module.app_secrets.arn}:SMTP_PORT::" },
-        { name = "SMTP_USERNAME", valueFrom = "${module.app_secrets.arn}:SMTP_USERNAME::" },
-        { name = "SMTP_PASSWORD", valueFrom = "${module.app_secrets.arn}:SMTP_PASSWORD::" },
-        { name = "MAILBOX_LINK", valueFrom = "${module.app_secrets.arn}:MAILBOX_LINK::" },
-        { name = "CRON_SECRET", valueFrom = "${module.app_secrets.arn}:CRON_SECRET::" },
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
+        { name = "NEXTAUTH_SECRET", valueFrom = module.app_secrets.arn_by_key["NEXTAUTH_SECRET"] },
+        { name = "NEXTAUTH_URL", valueFrom = module.app_secrets.arn_by_key["NEXTAUTH_URL"] },
+        { name = "USER_SERVICE_URL", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_URL"] },
+        { name = "USER_SERVICE_API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] },
+        { name = "PAYMENT_SERVICE_URL", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_URL"] },
+        { name = "PAYMENT_SERVICE_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_API_KEY"] },
+        { name = "EMAIL_FROM", valueFrom = module.app_secrets.arn_by_key["EMAIL_FROM"] },
+        { name = "EMAIL_REPLY_TO", valueFrom = module.app_secrets.arn_by_key["EMAIL_REPLY_TO"] },
+        { name = "SMTP_HOST", valueFrom = module.app_secrets.arn_by_key["SMTP_HOST"] },
+        { name = "SMTP_PORT", valueFrom = module.app_secrets.arn_by_key["SMTP_PORT"] },
+        { name = "SMTP_USERNAME", valueFrom = module.app_secrets.arn_by_key["SMTP_USERNAME"] },
+        { name = "SMTP_PASSWORD", valueFrom = module.app_secrets.arn_by_key["SMTP_PASSWORD"] },
+        { name = "MAILBOX_LINK", valueFrom = module.app_secrets.arn_by_key["MAILBOX_LINK"] },
+        { name = "CRON_SECRET", valueFrom = module.app_secrets.arn_by_key["CRON_SECRET"] },
         { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
         { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
         { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
@@ -315,9 +327,9 @@ module "app_service" {
         { name = "SHUTDOWN_TIMEOUT", value = "10s" }
       ]
       secrets = [
-        { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
-        { name = "API_KEY", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_API_KEY::" },
-        { name = "JWT_SECRET", valueFrom = "${module.app_secrets.arn}:USER_SERVICE_JWT_SECRET::" },
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
+        { name = "API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] },
+        { name = "JWT_SECRET", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_JWT_SECRET"] },
         { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
         { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
         { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
@@ -357,9 +369,9 @@ module "app_service" {
         { name = "SHUTDOWN_TIMEOUT", value = "10s" }
       ]
       secrets = [
-        { name = "DATABASE_URL", valueFrom = "${module.app_secrets.arn}:DATABASE_URL::" },
-        { name = "API_KEY", valueFrom = "${module.app_secrets.arn}:PAYMENT_SERVICE_API_KEY::" },
-        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = "${module.app_secrets.arn}:PAYMENT_GATEWAY_API_KEY::" }
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
+        { name = "API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_API_KEY"] },
+        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_GATEWAY_API_KEY"] }
       ]
       ports = [
         {

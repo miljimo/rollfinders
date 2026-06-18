@@ -57,4 +57,20 @@ describe("deployment safety contracts", () => {
     assert.match(terraform, /name\s+=\s+"users"[\s\S]*?essential\s+=\s+false/);
     assert.match(terraform, /name\s+=\s+"payments"[\s\S]*?essential\s+=\s+false/);
   });
+
+  it("stores application runtime configuration in SSM parameters instead of one Secrets Manager JSON blob", () => {
+    const appSecretsModule = readSource("terraform/modules/app_secrets/main.tf");
+    const appSecretsOutputs = readSource("terraform/modules/app_secrets/outputs.tf");
+    const terraform = readSource("terraform/main.tf");
+
+    assert.match(appSecretsModule, /resource\s+"aws_ssm_parameter"\s+"app"/);
+    assert.match(appSecretsModule, /for_each\s+=\s+nonsensitive\(toset\(keys\(var\.secret_values\)\)\)/);
+    assert.match(appSecretsModule, /type\s+=\s+contains\(var\.secure_value_keys,\s*each\.value\)\s*\?\s*"SecureString"\s*:\s*"String"/);
+    assert.doesNotMatch(appSecretsModule, /aws_secretsmanager_secret|aws_secretsmanager_secret_version/);
+    assert.match(appSecretsOutputs, /output\s+"arn_by_key"/);
+    assert.match(terraform, /execution_role_secret_arns\s+=\s+\[\]/);
+    assert.match(terraform, /execution_role_parameter_arns\s+=\s+concat\(/);
+    assert.match(terraform, /valueFrom\s+=\s+module\.app_secrets\.arn_by_key\["DATABASE_URL"\]/);
+    assert.doesNotMatch(terraform, /module\.app_secrets\.arn\}:/);
+  });
 });
