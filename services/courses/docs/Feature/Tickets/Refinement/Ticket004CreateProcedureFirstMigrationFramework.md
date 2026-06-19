@@ -9,7 +9,7 @@ Create the SQL migration skeleton for the service-owned `courses` schema.
 Add:
 
 ```text
-services/courses/migrations/001_core_schema.sql
+services/courses/migrations/001_coreSchema.sql
 services/courses/migrations/schema/
 services/courses/migrations/types/
 services/courses/migrations/tables/
@@ -20,7 +20,7 @@ services/courses/migrations/backfills/
 
 ## Acceptance Criteria
 
-* `001_core_schema.sql` follows the users/payments include style.
+* `001_coreSchema.sql` follows the users/payments include style and the Courses service camelCase filename convention.
 * A `courses.schema_migrations` table exists.
 * The migration can be run repeatedly without failing.
 * `scripts/cicd/run-service-sql-migrations.sh` can include Courses migrations once the schema exists.

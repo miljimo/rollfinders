@@ -1,11 +1,13 @@
 include:
   - path: ./services/payments/compose.yml
   - path: ./services/users/compose.yml
+  - path: ./services/courses/compose.yml
 
 services:
   db:
     image: postgres:16-alpine
     profiles:
+      - courses
       - db
       - app
       - seed
@@ -29,6 +31,7 @@ services:
       context: .
       target: migrator
     profiles:
+      - courses
       - app
       - seed
     environment:

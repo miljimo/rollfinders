@@ -112,7 +112,7 @@ The service should expose:
 Mirror the payment and user service SQL pattern:
 
 ```text
-services/courses/migrations/001_core_schema.sql
+services/courses/migrations/001_coreSchema.sql
 services/courses/migrations/schema/
 services/courses/migrations/types/
 services/courses/migrations/tables/
