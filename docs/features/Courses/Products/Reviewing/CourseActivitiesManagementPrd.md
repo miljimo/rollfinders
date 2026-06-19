@@ -108,7 +108,7 @@ Validation SHALL prevent:
 * Overlapping Activities.
 * Activities outside the Course start/end time.
 
-The Course Details page SHALL display `Course Schedule` when Activities exist.
+The Course Details page SHALL display `Event Outline` when Activities exist.
 
 The Course form SHALL include `Add Activity`.
 

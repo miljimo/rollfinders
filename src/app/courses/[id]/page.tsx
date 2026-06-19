@@ -102,7 +102,7 @@ export default async function CoursePage({
         </dl>
         {event.activities.length ? (
           <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
-            <h3 className="text-lg font-black text-stone-950">Course Schedule</h3>
+            <h3 className="text-lg font-black text-stone-950">Event Outline</h3>
             <ol className="mt-3 grid gap-3">
               {event.activities.map((activity) => (
                 <li key={activity.id} className="grid gap-1 rounded-md bg-stone-50 p-3 text-sm text-stone-700 sm:grid-cols-[9rem_1fr]">

@@ -221,7 +221,7 @@ export function OpenMatForm({
           </StepSection>
         </StepPanel>
         <StepPanel active={currentStep === "activities"}>
-          <StepSection title="Course Schedule" description="Add the activities that happen inside this course. They will be shown chronologically.">
+          <StepSection title="Event Outline" description="Add the activities that happen inside this course. They will be shown chronologically.">
             <CourseActivitiesField activities={activities} errors={state.fieldErrors.activities} setActivities={setActivities} />
           </StepSection>
         </StepPanel>
