@@ -1,0 +1,491 @@
+openapi: 3.0.3
+info:
+  title: RollFinders Booking Service API
+  version: 0.1.0
+  description: Generic booking API for bookable resources.
+servers:
+  - url: /v1
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+paths:
+  /bookings:
+    post:
+      operationId: createBooking
+      summary: Create a booking
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+            examples:
+              courseOccurrence:
+                value:
+                  bookable_type: course_occurrence
+                  bookable_id: course_123
+                  bookable_instance_id: course_123:2026-06-08:19:00
+                  customer_id: user_123
+                  organisation_id: academy_123
+                  participant_count: 1
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: Duplicate active booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+    get:
+      operationId: listBookings
+      summary: List bookings
+      parameters:
+        - name: customer_id
+          in: query
+          schema:
+            type: string
+        - name: organisation_id
+          in: query
+          schema:
+            type: string
+        - name: bookable_type
+          in: query
+          schema:
+            type: string
+        - name: bookable_id
+          in: query
+          schema:
+            type: string
+        - name: bookable_instance_id
+          in: query
+          schema:
+            type: string
+        - name: payment_id
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/BookingStatus"
+        - $ref: "#/components/parameters/PageToken"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Bookings page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /bookings/{booking_id}:
+    get:
+      operationId: getBooking
+      summary: Get a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Booking found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /bookings/{booking_id}/cancel:
+    post:
+      operationId: cancelBooking
+      summary: Cancel a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusTransitionRequest"
+      responses:
+        "200":
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "409":
+          $ref: "#/components/responses/InvalidStatusTransition"
+  /bookings/{booking_id}/complete:
+    post:
+      operationId: completeBooking
+      summary: Complete a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StatusTransitionRequest"
+      responses:
+        "200":
+          description: Booking completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "409":
+          $ref: "#/components/responses/InvalidStatusTransition"
+  /bookings/{booking_id}/confirm:
+    post:
+      operationId: confirmBooking
+      summary: Confirm a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Booking confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "409":
+          $ref: "#/components/responses/InvalidStatusTransition"
+  /bookings/{booking_id}/payment-link:
+    post:
+      operationId: linkBookingPayment
+      summary: Link a payment to a booking
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentLinkRequest"
+      responses:
+        "200":
+          description: Payment linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+        "422":
+          description: Invalid payment link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+  /bookings/{booking_id}/participants:
+    post:
+      operationId: addBookingParticipant
+      summary: Add a participant
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantRequest"
+      responses:
+        "201":
+          description: Participant added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingParticipant"
+    get:
+      operationId: listBookingParticipants
+      summary: List participants
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Participants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/BookingParticipant"
+  /bookings/{booking_id}/participants/{participant_id}/attendance:
+    post:
+      operationId: recordParticipantAttendance
+      summary: Record participant attendance
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - name: participant_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttendanceRequest"
+      responses:
+        "200":
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingParticipant"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    BookingId:
+      name: booking_id
+      in: path
+      required: true
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Required for mutation endpoints. Replays return the first successful response for the same key and request fingerprint.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+    PageToken:
+      name: page_token
+      in: query
+      schema:
+        type: string
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    Unauthorized:
+      description: Unauthorized request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    InvalidStatusTransition:
+      description: Invalid status transition
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    BookingStatus:
+      type: string
+      enum: [pending, payment_pending, confirmed, cancelled, completed]
+    ParticipantStatus:
+      type: string
+      enum: [active, cancelled]
+    AttendanceStatus:
+      type: string
+      enum: [unknown, present, absent]
+    CreateBookingRequest:
+      type: object
+      required: [bookable_type, bookable_id, bookable_instance_id, organisation_id]
+      properties:
+        bookable_type:
+          type: string
+          example: course_occurrence
+        bookable_id:
+          type: string
+          example: course_123
+        bookable_instance_id:
+          type: string
+          example: course_123:2026-06-08:19:00
+        customer_id:
+          type: string
+        guest_reference:
+          type: string
+        organisation_id:
+          type: string
+        participant_count:
+          type: integer
+          minimum: 1
+          default: 1
+        payment_required:
+          type: boolean
+          default: false
+        metadata:
+          type: object
+          additionalProperties:
+            nullable: true
+    Booking:
+      type: object
+      required: [id, bookable_type, bookable_id, bookable_instance_id, organisation_id, status, participant_count, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        reference:
+          type: string
+        bookable_type:
+          type: string
+        bookable_id:
+          type: string
+        bookable_instance_id:
+          type: string
+        customer_id:
+          type: string
+        guest_reference:
+          type: string
+        organisation_id:
+          type: string
+        payment_id:
+          type: string
+        status:
+          $ref: "#/components/schemas/BookingStatus"
+        participant_count:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    BookingList:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Booking"
+        count:
+          type: integer
+    StatusTransitionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+    PaymentLinkRequest:
+      type: object
+      required: [payment_id]
+      properties:
+        payment_id:
+          type: string
+    ParticipantRequest:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        guest_reference:
+          type: string
+        display_name:
+          type: string
+        metadata:
+          type: object
+          additionalProperties:
+            nullable: true
+    AttendanceRequest:
+      type: object
+      required: [attendance_status]
+      properties:
+        attendance_status:
+          $ref: "#/components/schemas/AttendanceStatus"
+        metadata:
+          type: object
+          additionalProperties:
+            nullable: true
+    BookingParticipant:
+      type: object
+      required: [id, booking_id, participant_status, attendance_status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+        booking_id:
+          type: string
+        customer_id:
+          type: string
+        guest_reference:
+          type: string
+        display_name:
+          type: string
+        participant_status:
+          $ref: "#/components/schemas/ParticipantStatus"
+        attendance_status:
+          $ref: "#/components/schemas/AttendanceStatus"
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+              enum:
+                - duplicate_booking
+                - invalid_status_transition
+                - invalid_payment_link
+                - unauthorized
+                - unavailable_dependency
+                - validation_failed
+                - not_found
+            message:
+              type: string
+            request_id:
+              type: string
+            details:
+              type: object
+              additionalProperties:
+                type: string

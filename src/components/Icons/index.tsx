@@ -8,7 +8,7 @@ import { Building2, CalendarDays, CreditCard,
 
 
 export type SidePanelIcon = "academies" | "claims"
-    | "dashboard" | "events" | "help" | "logout" | "map" | "payments" | "settings" | "users";
+    | "bookings" | "dashboard" | "events" | "help" | "logout" | "map" | "payments" | "settings" | "users";
 
 
 
@@ -28,6 +28,7 @@ export const Icon = ({ name, size = 20, className = "shrink-0", ariaHidden = tru
 
     const icons: Record<SidePanelIcon, ReactNode> = {
         academies: <Building2 {...iconProps} />,
+        bookings: <ClipboardCheck {...iconProps} />,
         claims: <ClipboardCheck {...iconProps} />,
         dashboard: <Home {...iconProps} />,
         events: <CalendarDays {...iconProps} />,

@@ -2,11 +2,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
-import { Ban, BarChart3, Building2, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Edit3, Eye, Filter, Globe2, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users } from "lucide-react";
+import { clsx } from "clsx";
+import { Ban, BarChart3, Building2, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, Filter, Globe2, Info, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { BookingServiceError, listBookings, type BookingRecord } from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
 import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, recurrenceLabel as courseRecurrenceLabel } from "@/lib/courses";
@@ -93,7 +95,7 @@ function platformAdminCreatedAcademyWhere(extra: Prisma.AcademyWhereInput = {}):
 }
 
 function selectedPanel(value: string | undefined) {
-  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics") return value;
+  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "bookings" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics") return value;
   return "academies";
 }
 
@@ -284,6 +286,11 @@ type DashboardPaymentsResult = {
   payments: PaymentRecord[];
 };
 
+type DashboardBookingsResult = {
+  bookings: BookingRecord[];
+  error?: string;
+};
+
 async function getDashboardPayments(academyId?: string | null): Promise<DashboardPaymentsResult> {
   try {
     const payments = await listCourseOccurrencePayments({ limit: 100 });
@@ -295,6 +302,18 @@ async function getDashboardPayments(academyId?: string | null): Promise<Dashboar
       return { error: error.status === 0 ? error.message : `Payment service returned status ${error.status}.`, payments: [] };
     }
     return { error: "Payment service is unavailable.", payments: [] };
+  }
+}
+
+async function getDashboardBookings(academyId?: string | null): Promise<DashboardBookingsResult> {
+  try {
+    const bookings = await listBookings({ limit: 100, organisationId: academyId });
+    return { bookings };
+  } catch (error) {
+    if (error instanceof BookingServiceError) {
+      return { bookings: [], error: error.status === 0 ? error.message : `Booking service returned status ${error.status}.` };
+    }
+    return { bookings: [], error: "Booking service is unavailable." };
   }
 }
 
@@ -327,6 +346,7 @@ export default async function AdminDashboardWorkspace({
   const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
   const search = (firstParam(params.search) ?? "").trim();
   const paymentsSearch = (firstParam(params.paymentsSearch) ?? "").trim();
+  const bookingsSearch = (firstParam(params.bookingsSearch) ?? "").trim();
   const platformAcademiesSearch = (firstParam(params.platformAcademiesSearch) ?? "").trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
@@ -477,6 +497,7 @@ export default async function AdminDashboardWorkspace({
     platformAdminActivitySummary,
     assignedAcademyProfile,
     paymentResult,
+    bookingResult,
   ] = await Promise.all([
     prisma.academy.findMany({
       where: academyWhere,
@@ -528,6 +549,7 @@ export default async function AdminDashboardWorkspace({
         })
       : Promise.resolve(null),
     panel === "payments" ? getDashboardPayments(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ payments: [] }),
+    panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
   const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
@@ -583,6 +605,7 @@ export default async function AdminDashboardWorkspace({
       label: academyAdmin ? "Academy Profile" : "Manage Academies",
     },
     { active: panel === "open-mats", href: "/dashboard?panel=open-mats", icon: "events", label: openMatSessionsLabel },
+    { active: panel === "bookings", href: "/dashboard?panel=bookings", icon: "bookings", label: "Bookings" },
     { active: panel === "payments", href: "/dashboard?panel=payments", icon: "payments", label: "Payments" },
     { active: panel === "users", href: "/dashboard?panel=users", icon: "users", label: "Manage Users" },
     ...(superAdmin
@@ -757,6 +780,14 @@ export default async function AdminDashboardWorkspace({
       title: openMatSessionsLabel,
     },
     {
+      active: panel === "bookings",
+      description: academyAdmin ? "Review bookings for your academy courses/events" : "Review course and event bookings",
+      href: "/dashboard?panel=bookings",
+      icon: <ClipboardCheck size={24} aria-hidden />,
+      id: "bookings",
+      title: "Bookings",
+    },
+    {
       active: panel === "payments",
       description: academyAdmin ? "Review payments made to your academy courses/events" : "Review course and event payments",
       href: "/dashboard?panel=payments",
@@ -919,12 +950,23 @@ export default async function AdminDashboardWorkspace({
           ) : null}
           {panel === "payments" ? (
             <AdminPanel
-              description={academyAdmin ? "Payments made to your academy courses and events." : "Payments made to RollFinders courses and events."}
+              action={<PaymentsDashboardActions />}
+              description={academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
               search={<PaymentsPanelSearch search={paymentsSearch} />}
-              title="Payments"
+              title="Payments Dashboard"
             >
               <PaymentsPanel academyAdmin={academyAdmin} result={paymentResult} search={paymentsSearch} />
+            </AdminPanel>
+          ) : null}
+          {panel === "bookings" ? (
+            <AdminPanel
+              description={academyAdmin ? "Bookings made for your academy courses and events." : "Bookings made across RollFinders courses and events."}
+              id="bookings"
+              search={<BookingsPanelSearch search={bookingsSearch} />}
+              title="Bookings"
+            >
+              <BookingsPanel academyAdmin={academyAdmin} result={bookingResult} search={bookingsSearch} />
             </AdminPanel>
           ) : null}
           {panel === "academy-claims" ? (
@@ -1499,6 +1541,39 @@ function PaymentsPanelSearch({ search }: { search: string }) {
   );
 }
 
+function BookingsPanelSearch({ search }: { search: string }) {
+  return (
+    <form action="/dashboard" className="flex min-w-0 gap-2">
+      <input type="hidden" name="panel" value="bookings" />
+      <input
+        name="bookingsSearch"
+        defaultValue={search}
+        placeholder="Search bookings by reference, event, customer, status, or payment"
+        className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
+      />
+      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label="Search bookings">
+        <Search size={20} aria-hidden />
+      </Button>
+    </form>
+  );
+}
+
+function PaymentsDashboardActions() {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[auto_auto]">
+      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm">
+        <CalendarDays size={17} aria-hidden />
+        Jun 14 - Jun 20, 2026
+        <ChevronDown size={16} aria-hidden />
+      </button>
+      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm">
+        <Download size={17} aria-hidden />
+        Export
+      </button>
+    </div>
+  );
+}
+
 function ClaimsPanelSearch({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
   return (
     <form action="/dashboard" className="flex min-w-0 gap-2">
@@ -1984,16 +2059,6 @@ function paymentStatusTone(status: string) {
   return "bg-slate-50 text-slate-700 ring-slate-100";
 }
 
-function paymentEventHref(payment: PaymentRecord) {
-  const courseId = payment.metadata?.course_id;
-  if (!courseId) return null;
-  const params = new URLSearchParams();
-  const occurrenceDate = payment.metadata?.occurrence_date;
-  if (occurrenceDate) params.set("date", occurrenceDate);
-  const query = params.toString();
-  return `/courses/${courseId}${query ? `?${query}` : ""}`;
-}
-
 function paymentSearchText(payment: PaymentRecord) {
   const metadata = payment.metadata ?? {};
   return [
@@ -2030,27 +2095,304 @@ function paymentMatchesSearch(payment: PaymentRecord, search: string) {
   return normalizedSearch.split(/\s+/).every((term) => paymentSearchText(payment).includes(term));
 }
 
-function PaymentCell({
-  children,
-  href,
-  className = "",
-}: {
-  children: ReactNode;
-  href: string | null;
-  className?: string;
-}) {
-  const contentClassName = `block h-full px-5 py-4 ${className}`.trim();
+function metadataText(metadata: Record<string, unknown> | undefined, key: string) {
+  const value = metadata?.[key];
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return undefined;
+}
+
+function bookingStatusTone(status: string) {
+  if (status === "confirmed" || status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "cancelled" || status === "expired") return "bg-red-50 text-red-700 ring-red-100";
+  if (status === "pending_payment") return "bg-amber-50 text-amber-800 ring-amber-100";
+  return "bg-slate-50 text-slate-700 ring-slate-100";
+}
+
+function bookingSearchText(booking: BookingRecord) {
+  const metadata = booking.metadata;
+  return [
+    booking.id,
+    booking.reference,
+    booking.bookableType,
+    booking.bookableId,
+    booking.bookableInstanceId,
+    booking.customerId,
+    booking.guestReference,
+    booking.organisationId,
+    booking.paymentId,
+    booking.status,
+    String(booking.participantCount),
+    metadataText(metadata, "course_id"),
+    metadataText(metadata, "course_title"),
+    metadataText(metadata, "event_title"),
+    metadataText(metadata, "academy_id"),
+    metadataText(metadata, "academy_name"),
+    metadataText(metadata, "occurrence_date"),
+    metadataText(metadata, "occurrence_start_time"),
+    metadataText(metadata, "payer_email"),
+    metadataText(metadata, "payer_phone"),
+    metadataText(metadata, "phone"),
+    metadataText(metadata, "phone_number"),
+    metadataText(metadata, "contact_phone"),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function bookingMatchesSearch(booking: BookingRecord, search: string) {
+  const normalizedSearch = search.trim().toLowerCase();
+  if (!normalizedSearch) return true;
+  return normalizedSearch.split(/\s+/).every((term) => bookingSearchText(booking).includes(term));
+}
+
+function bookingEventHref(booking: BookingRecord) {
+  const courseId = metadataText(booking.metadata, "course_id") ?? booking.bookableId;
+  if (!courseId) return undefined;
+  const params = new URLSearchParams();
+  const occurrenceDate = metadataText(booking.metadata, "occurrence_date");
+  if (occurrenceDate) params.set("date", occurrenceDate);
+  const query = params.toString();
+  return `/courses/${courseId}${query ? `?${query}` : ""}`;
+}
+
+function bookingTitle(booking: BookingRecord) {
+  return metadataText(booking.metadata, "course_title") ?? metadataText(booking.metadata, "event_title") ?? booking.bookableId;
+}
+
+function bookingAcademyLabel(booking: BookingRecord) {
+  return metadataText(booking.metadata, "academy_name") ?? metadataText(booking.metadata, "academy_id") ?? booking.organisationId;
+}
+
+function bookingCustomerLabel(booking: BookingRecord) {
+  return metadataText(booking.metadata, "payer_email") ?? booking.customerId ?? booking.guestReference ?? "Guest";
+}
+
+function BookingsPanel({ academyAdmin, result, search }: { academyAdmin: boolean; result: DashboardBookingsResult; search: string }) {
+  const visibleBookings = result.bookings.filter((booking) => bookingMatchesSearch(booking, search));
+  const confirmedBookings = visibleBookings.filter((booking) => booking.status === "confirmed" || booking.status === "completed");
+  const pendingPaymentBookings = visibleBookings.filter((booking) => booking.status === "pending_payment");
+  const participantTotal = visibleBookings.reduce((sum, booking) => sum + booking.participantCount, 0);
+  const recentBookings = visibleBookings.slice(0, 10);
+  const summaryCards: PaymentSummaryCard[] = [
+    { changeLabel: "All matching records", icon: <ClipboardCheck size={27} aria-hidden />, id: "total-bookings", label: "Total Bookings", value: visibleBookings.length.toLocaleString() },
+    { changeLabel: "Confirmed or completed", icon: <CheckCircle2 size={28} aria-hidden />, id: "confirmed-bookings", label: "Confirmed", value: confirmedBookings.length.toLocaleString() },
+    { changeLabel: "Waiting for payment", icon: <CreditCard size={28} aria-hidden />, id: "pending-payment-bookings", label: "Pending Payment", value: pendingPaymentBookings.length.toLocaleString() },
+    { changeLabel: "Booked participant count", icon: <Users size={27} aria-hidden />, id: "participants", label: "Participants", value: participantTotal.toLocaleString() },
+  ];
+
   return (
-    <td className="p-0 align-top">
-      {href ? (
-        <Link href={href} className={`${contentClassName} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-teal-700`}>
-          {children}
-        </Link>
-      ) : (
-        <div className={contentClassName}>{children}</div>
-      )}
-    </td>
+    <div className="grid gap-5">
+      <PaymentMetricCards cards={summaryCards} />
+      {search ? (
+        <p className="text-sm font-semibold text-slate-600">
+          Showing {visibleBookings.length} of {result.bookings.length} bookings matching &quot;{search}&quot;.
+        </p>
+      ) : null}
+      {result.error ? (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900">
+          {result.error}
+        </section>
+      ) : null}
+      <PaymentDashboardTable
+        columns={[
+          {
+            key: "booking",
+            title: "Booking / Event",
+            render: (booking) => {
+              const href = bookingEventHref(booking);
+              const title = bookingTitle(booking);
+              const subtitle = metadataText(booking.metadata, "occurrence_date") ?? booking.bookableInstanceId;
+              return (
+                <div className="grid gap-1">
+                  {href ? (
+                    <Link href={href} className="font-bold text-slate-950 hover:text-teal-800">
+                      {title}
+                    </Link>
+                  ) : (
+                    <span className="font-bold text-slate-950">{title}</span>
+                  )}
+                  <span className="text-xs font-semibold text-slate-500">{booking.reference || subtitle}</span>
+                </div>
+              );
+            },
+          },
+          ...(!academyAdmin ? [{ key: "academy", title: "Academy", render: (booking: BookingRecord) => bookingAcademyLabel(booking) }] : []),
+          { key: "customer", title: "Customer", render: (booking) => bookingCustomerLabel(booking) },
+          { key: "participants", title: "Participants", render: (booking) => <span className="font-bold text-slate-950">{booking.participantCount.toLocaleString()}</span> },
+          { key: "payment", title: "Payment", render: (booking) => booking.paymentId ? <span className="font-mono text-xs">{booking.paymentId}</span> : <span className="text-slate-400">None</span> },
+          { key: "status", title: "Status", render: (booking) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${bookingStatusTone(booking.status)}`}>{booking.status.replace("_", " ")}</span> },
+          { key: "created", title: "Created", render: (booking) => formatPaymentDate(booking.createdAt) },
+        ]}
+        data={recentBookings}
+        emptyIcon={<ClipboardCheck size={28} aria-hidden />}
+        emptyMessage={result.bookings.length ? "No bookings match that search." : "No bookings have been recorded yet."}
+        getRowId={(booking) => booking.id}
+        title="Recent Bookings"
+        viewAllLabel={`${visibleBookings.length.toLocaleString()} shown`}
+      />
+    </div>
   );
+}
+
+type PaymentSummaryCard = {
+  changeLabel: string;
+  icon: ReactNode;
+  id: string;
+  label: string;
+  value: string;
+};
+
+function PaymentMetricCards({ cards }: { cards: PaymentSummaryCard[] }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {cards.map((card) => (
+        <section key={card.id} className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="grid grid-cols-[auto_1fr] gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100">
+              {card.icon}
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-black text-slate-600">{card.label}</p>
+                <Info size={15} className="shrink-0 text-slate-400" aria-hidden />
+              </div>
+              <p className="mt-1 text-2xl font-black text-slate-950">{card.value}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{card.changeLabel}</p>
+            </div>
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function PaymentServiceStatusPanel({ error }: { error?: string }) {
+  const connected = !error;
+  const statusLabel = connected ? "Available" : "Unavailable";
+  const statusClassName = connected ? "text-teal-800" : "text-orange-600";
+
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="payment-service-status-title">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 id="payment-service-status-title" className="truncate text-lg font-black text-slate-950">Payment Service Status</h3>
+          <Info size={17} className="shrink-0 text-slate-400" aria-hidden />
+        </div>
+        <span className={clsx("inline-flex rounded-md border px-3 py-1 text-sm font-bold", connected ? "border-teal-200 bg-teal-50 text-teal-900" : "border-amber-200 bg-amber-50 text-amber-900")}>
+          {connected ? "Connected" : "Unavailable"}
+        </span>
+      </div>
+      <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-4">
+        <div className="flex items-center gap-3">
+          <span className={clsx("flex h-5 w-5 items-center justify-center rounded-full text-white", connected ? "bg-teal-700" : "bg-amber-500")} aria-hidden>
+            <Check size={14} strokeWidth={3} />
+          </span>
+          <p className="text-sm font-bold text-slate-700">{error ?? "Payment service is connected."}</p>
+        </div>
+        <span className="text-sm font-black text-teal-800">View status</span>
+      </div>
+      <dl className="mt-5 grid gap-4">
+        {["Payment Gateway", "Payouts", "Webhooks", "Fraud Protection"].map((item) => (
+          <div key={item} className="flex items-center justify-between gap-4">
+            <dt className="text-sm font-bold text-slate-600">{item}</dt>
+            <dd className={clsx("text-sm font-black", statusClassName)}>{statusLabel}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-6 flex min-h-14 items-center justify-between rounded-lg border border-stone-200 px-4 text-sm font-black text-teal-800">
+        View system status
+        <ChevronRight size={18} aria-hidden />
+      </div>
+    </section>
+  );
+}
+
+type DashboardTableColumn<T> = {
+  key: string;
+  render?: (row: T) => ReactNode;
+  title: string;
+};
+
+function PaymentDashboardTable<T>({
+  columns,
+  data,
+  emptyIcon,
+  emptyMessage,
+  getRowId,
+  title,
+  viewAllLabel = "View all",
+}: {
+  columns: DashboardTableColumn<T>[];
+  data: T[];
+  emptyIcon: ReactNode;
+  emptyMessage: string;
+  getRowId: (row: T, index: number) => string;
+  title: string;
+  viewAllLabel?: string;
+}) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="truncate text-lg font-black text-slate-950">{title}</h3>
+          <Info size={17} className="shrink-0 text-slate-400" aria-hidden />
+        </div>
+        <span className="text-sm font-black text-teal-800">{viewAllLabel}</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
+            <tr>
+              {columns.map((column) => (
+                <th key={column.key} className="px-4 py-3">{column.title}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, index) => (
+              <tr key={getRowId(row, index)} className="border-b border-stone-100 last:border-b-0">
+                {columns.map((column) => (
+                  <td key={column.key} className="px-4 py-4 text-slate-700">{column.render?.(row) ?? ""}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!data.length ? (
+        <div className="flex min-h-36 flex-col items-center justify-center px-4 py-8 text-center">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-700 ring-1 ring-teal-100">
+            {emptyIcon}
+          </div>
+          <p className="mt-4 text-sm font-semibold text-slate-500">{emptyMessage}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+type AcademyRevenueRow = {
+  academy: string;
+  grossPaid: number;
+  id: string;
+  payments: number;
+  refunds: number;
+};
+
+function topAcademyRevenueRows(payments: PaymentRecord[]): AcademyRevenueRow[] {
+  const rows = new Map<string, AcademyRevenueRow>();
+  payments.forEach((payment) => {
+    const academy = payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy";
+    const id = payment.metadata?.academy_id ?? academy;
+    const row = rows.get(id) ?? { academy, grossPaid: 0, id, payments: 0, refunds: 0 };
+    if (payment.status === "succeeded") row.grossPaid += payment.amount;
+    row.payments += 1;
+    row.refunds += payment.refundedAmount;
+    rows.set(id, row);
+  });
+  return Array.from(rows.values()).sort((left, right) => right.grossPaid - left.grossPaid).slice(0, 5);
 }
 
 function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean; result: DashboardPaymentsResult; search: string }) {
@@ -2059,65 +2401,82 @@ function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
   const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
   const refundedAmount = visiblePayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
   const currency = visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
+  const recentPayments = visiblePayments.slice(0, 6);
+  const recentRefunds = visiblePayments.filter((payment) => payment.refundedAmount > 0).slice(0, 6);
+  const academyRevenueRows = topAcademyRevenueRows(visiblePayments);
   const paymentOverviewMetrics: PaymentOverviewMetric[] = [
     { colorClassName: "bg-teal-700", id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
     { colorClassName: "bg-teal-700", id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
     { colorClassName: "bg-orange-500", id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(0, currency) },
     { colorClassName: "bg-emerald-400", id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
   ];
+  const summaryCards: PaymentSummaryCard[] = [
+    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
+    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
+    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(0, currency) },
+    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
+  ];
 
   return (
-    <div className="grid gap-4">
-      {result.error ? (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">{result.error}</div>
-      ) : null}
-      <PaymentOverview chartPoints={paymentOverviewChartPoints(visiblePayments)} currency={currency} metrics={paymentOverviewMetrics} />
+    <div className="grid gap-5">
+      <PaymentMetricCards cards={summaryCards} />
       {search ? (
         <p className="text-sm font-semibold text-slate-600">
           Showing {visiblePayments.length} of {result.payments.length} payments matching &quot;{search}&quot;.
         </p>
       ) : null}
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-          <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
-            <tr>
-              <th className="px-5 py-4">Course/Event</th>
-              {!academyAdmin ? <th className="px-5 py-4">Academy</th> : null}
-              <th className="px-5 py-4">Payer</th>
-              <th className="px-5 py-4">Amount</th>
-              <th className="px-5 py-4">Method</th>
-              <th className="px-5 py-4">Status</th>
-              <th className="px-5 py-4">Paid</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visiblePayments.map((payment) => {
-              const eventHref = paymentEventHref(payment);
-              return (
-                <tr key={payment.id} className="group border-b border-stone-100 last:border-b-0 hover:bg-teal-50/40">
-                  <PaymentCell href={eventHref}>
-                    <p className="font-bold text-slate-950 group-hover:text-teal-800">{payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment"}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{payment.metadata?.occurrence_date ?? "Occurrence date unavailable"}</p>
-                  </PaymentCell>
-                  {!academyAdmin ? <PaymentCell href={eventHref} className="text-slate-700">{payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy"}</PaymentCell> : null}
-                  <PaymentCell href={eventHref} className="text-slate-700">{payment.payerEmail ?? payment.payerUserId ?? "Guest"}</PaymentCell>
-                  <PaymentCell href={eventHref} className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</PaymentCell>
-                  <PaymentCell href={eventHref}><Badge>{payment.paymentMethodType.replace("_", " ")}</Badge></PaymentCell>
-                  <PaymentCell href={eventHref}><span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status.replace("_", " ")}</span></PaymentCell>
-                  <PaymentCell href={eventHref} className="text-slate-700">{formatPaymentDate(payment.createdAt)}</PaymentCell>
-                </tr>
-              );
-            })}
-            {!visiblePayments.length ? (
-              <tr>
-                <td colSpan={academyAdmin ? 6 : 7} className="px-5 py-10 text-center text-stone-600">
-                  {result.payments.length ? "No payments match that search." : "No course or event payments have been recorded yet."}
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)]">
+        <PaymentOverview chartPoints={paymentOverviewChartPoints(visiblePayments)} currency={currency} metrics={paymentOverviewMetrics} />
+        <PaymentServiceStatusPanel error={result.error} />
       </div>
+      <div className="grid gap-5 xl:grid-cols-2">
+        <PaymentDashboardTable
+          columns={[
+            { key: "course", title: "Course / Event", render: (payment) => <span className="font-bold text-slate-950">{payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment"}</span> },
+            ...(!academyAdmin ? [{ key: "academy", title: "Academy", render: (payment: PaymentRecord) => payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy" }] : []),
+            { key: "payer", title: "Payer", render: (payment) => payment.payerEmail ?? payment.payerUserId ?? "Guest" },
+            { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</span> },
+            { key: "method", title: "Method", render: (payment) => <Badge>{payment.paymentMethodType.replace("_", " ")}</Badge> },
+            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status.replace("_", " ")}</span> },
+            { key: "date", title: "Date", render: (payment) => formatPaymentDate(payment.createdAt) },
+          ]}
+          data={recentPayments}
+          emptyIcon={<ClipboardCheck size={28} aria-hidden />}
+          emptyMessage={result.payments.length ? "No payments match that search." : "No course or event payments have been recorded yet."}
+          getRowId={(payment) => payment.id}
+          title="Recent Payments"
+        />
+        <PaymentDashboardTable
+          columns={[
+            { key: "refundId", title: "Refund ID", render: (payment) => payment.id },
+            { key: "order", title: "Order / Payment", render: (payment) => payment.checkoutSessionId ?? payment.providerPaymentId ?? payment.id },
+            { key: "academy", title: "Academy", render: (payment) => payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy" },
+            { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.refundedAmount, payment.currency)}</span> },
+            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status.replace("_", " ")}</span> },
+            { key: "date", title: "Date", render: (payment) => formatPaymentDate(payment.updatedAt) },
+          ]}
+          data={recentRefunds}
+          emptyIcon={<RefreshCw size={28} aria-hidden />}
+          emptyMessage="No refunds have been recorded yet."
+          getRowId={(payment) => payment.id}
+          title="Recent Refunds"
+        />
+      </div>
+      <PaymentDashboardTable
+        columns={[
+          { key: "academy", title: "Academy", render: (row) => <span className="font-bold text-slate-950">{row.academy}</span> },
+          { key: "grossPaid", title: "Gross Paid", render: (row) => formatMinorCurrency(row.grossPaid, currency) },
+          { key: "platformRevenue", title: "Platform Revenue", render: () => formatMinorCurrency(0, currency) },
+          { key: "refunds", title: "Refunds", render: (row) => formatMinorCurrency(row.refunds, currency) },
+          { key: "netRevenue", title: "Net Revenue", render: (row) => formatMinorCurrency(row.grossPaid - row.refunds, currency) },
+          { key: "payments", title: "Payments", render: (row) => row.payments.toLocaleString() },
+        ]}
+        data={academyRevenueRows}
+        emptyIcon={<Building2 size={28} aria-hidden />}
+        emptyMessage="No revenue data available for the selected period."
+        getRowId={(row) => row.id}
+        title="Top Academies by Revenue"
+      />
     </div>
   );
 }

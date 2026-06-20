@@ -1,5 +1,6 @@
 include:
   - path: ./services/payments/compose.yml
+  - path: ./services/booking/compose.yml
   - path: ./services/users/compose.yml
   - path: ./services/courses/compose.yml
 
@@ -7,6 +8,7 @@ services:
   db:
     image: postgres:16-alpine
     profiles:
+      - booking
       - courses
       - db
       - app
@@ -31,6 +33,7 @@ services:
       context: .
       target: migrator
     profiles:
+      - booking
       - courses
       - app
       - seed
@@ -90,6 +93,8 @@ services:
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
       PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payments:8080}
       PAYMENT_SERVICE_API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
+      BOOKING_SERVICE_URL: ${BOOKING_SERVICE_URL:-http://booking:8080}
+      BOOKING_SERVICE_API_KEY: ${BOOKING_SERVICE_API_KEY:-local-booking-dev-key}
       USER_SERVICE_URL: ${USER_SERVICE_URL:-http://users:8080}
       USER_SERVICE_API_KEY: ${USER_SERVICE_API_KEY:-local-user-dev-key}
       COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://courses:8080}
@@ -107,6 +112,8 @@ services:
       courses:
         condition: service_healthy
       payments:
+        condition: service_healthy
+      booking:
         condition: service_healthy
 
 volumes:

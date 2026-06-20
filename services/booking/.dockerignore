@@ -1,0 +1,6 @@
+.git
+Dockerfile
+compose.yml
+docs
+migrations
+**/*_test.go

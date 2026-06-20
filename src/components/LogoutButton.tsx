@@ -18,7 +18,7 @@ export function LogoutButton({ children = "Logout",
     <Button
       aria-label={ariaLabel}
       type="button"
-      onClick={() => signOut({ callbackUrl: "/logout" })}
+      onClick={() => signOut({ callbackUrl: "/login" })}
       variant="subtle"
       className={className}
     >
