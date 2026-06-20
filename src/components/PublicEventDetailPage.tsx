@@ -15,6 +15,7 @@ import { AnalyticsClickTracker } from "@/components/AnalyticsClickTracker";
 import { BookEventButton, type BookEventKind } from "@/components/BookEventButton";
 import { Button } from "@/components/Button";
 import { EventTimeline } from "@/components/EventTimeline";
+import { FreeEventBookingButton } from "@/components/FreeEventBookingButton";
 import { LinkedText } from "@/components/LinkedText";
 import { MapWithDirection } from "@/components/MapWithDirection";
 import { PageShell } from "@/components/PageShell";
@@ -121,11 +122,14 @@ function BookingAction({
   const eventKind: BookEventKind = isDonation ? "donation" : isFree ? "free" : "paid";
   const closed = !event.active;
   const bookable = trusted && !closed && canCheckout;
+  const freeBookable = trusted && !closed && isFree;
 
   return (
     <section aria-label="Booking action">
       {bookable ? (
         <div className="max-w-[300px]">{checkoutForm}</div>
+      ) : freeBookable ? (
+        <FreeEventBookingButton priceLabel={priceLabel} className="w-full max-w-[300px]" />
       ) : (
         <BookEventButton
           disabled

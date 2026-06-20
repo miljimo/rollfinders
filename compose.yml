@@ -106,6 +106,8 @@ services:
         condition: service_healthy
       courses:
         condition: service_healthy
+      payments:
+        condition: service_healthy
 
 volumes:
   postgres_data:

@@ -34,6 +34,12 @@ function checkoutIdempotencyKey(parts: string[]) {
   return `course-checkout-${digest}`;
 }
 
+function isPaymentServiceUnavailable(error: unknown) {
+  if (!(error instanceof TypeError)) return false;
+  const cause = (error as { cause?: { code?: string } }).cause;
+  return error.message === "fetch failed" || ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT"].includes(cause?.code ?? "");
+}
+
 export async function startCourseCheckout(_state: CourseCheckoutState, formData: FormData): Promise<CourseCheckoutState> {
   const courseId = String(formData.get("courseId") ?? "");
   const occurrenceDate = String(formData.get("occurrenceDate") ?? "");
@@ -90,6 +96,9 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
     });
     return { checkoutUrl: checkout.checkoutUrl };
   } catch (error) {
+    if (isPaymentServiceUnavailable(error)) {
+      return checkoutError("Payment service is not available. Your card has not been charged. Please try again later.");
+    }
     if (error instanceof PaymentServiceError) {
       return checkoutError(`Could not start payment. Payment service returned status ${error.status}. Your card has not been charged.`);
     }

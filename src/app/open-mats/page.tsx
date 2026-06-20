@@ -11,7 +11,7 @@ import { getOpenMatRadar } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "RollFinders | Open Mats/Sessions - Find training today",
+  title: "RollFinders | Events - Find training today",
   description: "Find today's, tomorrow's, and weekend BJJ open mats and sessions in London with course type, gi type, drop-in cost, location, and directions.",
 };
 
@@ -86,7 +86,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
   return (
     <PageShell>
       <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <h1 className="text-3xl font-black text-stone-950">Open Mats/Sessions</h1>
+        <h1 className="text-3xl font-black text-stone-950">Events</h1>
         <p className="mt-2 max-w-3xl text-stone-700">Open Mat Radar defaults to visitor-friendly open mats, with the option to search any academy session by course type, date, location, gi type, and cost.</p>
         <div className="mt-5">
           <OpenMatLocationFilterForm q={q} when={when} gi={gi} courseType={courseType} />

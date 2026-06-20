@@ -8,7 +8,7 @@ import { NavLink } from "./NavLink";
 const navItems = [
   ["Home", "/"],
   ["Academies", "/academies"],
-  ["Open Mats/Sessions", "/open-mats"],
+  ["Events", "/open-mats"],
   ["Map", "/map"],
 ];
 

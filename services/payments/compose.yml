@@ -4,6 +4,7 @@ services:
       context: .
     profiles:
       - payments
+      - app
     environment:
       PORT: "8080"
       DB_NAME: ${DB_NAME:-rollfinder}

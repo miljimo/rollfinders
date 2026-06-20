@@ -27,6 +27,7 @@ import { DialogShell } from "@/components/DialogShell";
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LinkedText } from "@/components/LinkedText";
 import { LogoutButton } from "@/components/LogoutButton";
+import { PaymentOverview, type PaymentOverviewMetric } from "@/components/PaymentOverview";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
@@ -1938,6 +1939,44 @@ function formatPaymentDate(value: string) {
   return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function paymentOverviewDateLabel(date: Date) {
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+}
+
+function paymentOverviewDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function paymentOverviewChartPoints(payments: PaymentRecord[]) {
+  const dailyGrossPaid = new Map<string, number>();
+  const parsedDates = payments
+    .map((payment) => new Date(payment.createdAt))
+    .filter((date) => !Number.isNaN(date.getTime()));
+  const latestDate = parsedDates.length
+    ? new Date(Math.max(...parsedDates.map((date) => date.getTime())))
+    : new Date();
+  const startDate = new Date(Date.UTC(latestDate.getUTCFullYear(), latestDate.getUTCMonth(), latestDate.getUTCDate(), 0, 0, 0, 0));
+  startDate.setUTCDate(startDate.getUTCDate() - 6);
+
+  payments.forEach((payment) => {
+    if (payment.status !== "succeeded") return;
+    const createdAt = new Date(payment.createdAt);
+    if (Number.isNaN(createdAt.getTime()) || createdAt < startDate) return;
+    const key = paymentOverviewDateKey(createdAt);
+    dailyGrossPaid.set(key, (dailyGrossPaid.get(key) ?? 0) + payment.amount);
+  });
+
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(startDate);
+    date.setUTCDate(startDate.getUTCDate() + index);
+    const key = paymentOverviewDateKey(date);
+    return {
+      label: paymentOverviewDateLabel(date),
+      value: dailyGrossPaid.get(key) ?? 0,
+    };
+  });
+}
+
 function paymentStatusTone(status: string) {
   if (status === "succeeded") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   if (status === "failed" || status === "cancelled") return "bg-red-50 text-red-700 ring-red-100";
@@ -2018,27 +2057,21 @@ function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
   const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded");
   const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const refundedAmount = visiblePayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
   const currency = visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
+  const paymentOverviewMetrics: PaymentOverviewMetric[] = [
+    { colorClassName: "bg-teal-700", id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
+    { colorClassName: "bg-teal-700", id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
+    { colorClassName: "bg-orange-500", id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(0, currency) },
+    { colorClassName: "bg-emerald-400", id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
+  ];
 
   return (
     <div className="grid gap-4">
       {result.error ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">{result.error}</div>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="rounded-lg border border-stone-200 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase text-slate-500">Gross paid</p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{formatMinorCurrency(grossAmount, currency)}</p>
-        </div>
-        <div className="rounded-lg border border-stone-200 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase text-slate-500">Successful payments</p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{succeededPayments.length}</p>
-        </div>
-        <div className="rounded-lg border border-stone-200 bg-slate-50 p-4">
-          <p className="text-xs font-black uppercase text-slate-500">{academyAdmin ? "Academy scope" : "Platform scope"}</p>
-          <p className="mt-1 text-2xl font-black text-slate-950">{visiblePayments.length}</p>
-        </div>
-      </div>
+      <PaymentOverview chartPoints={paymentOverviewChartPoints(visiblePayments)} currency={currency} metrics={paymentOverviewMetrics} />
       {search ? (
         <p className="text-sm font-semibold text-slate-600">
           Showing {visiblePayments.length} of {result.payments.length} payments matching &quot;{search}&quot;.

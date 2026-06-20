@@ -63,6 +63,7 @@ export default async function CoursePage({
   const payableAmount = Number(event.price);
   const academyTrusted = isPublicAcademyTrusted(event.academy);
   const canCheckout = event.active && academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
+  const canBookFree = event.active && academyTrusted && event.pricingType === EventPricingType.FREE;
   const checkoutMode = event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
   const suggestedDonationAmount = Number.isFinite(payableAmount) && payableAmount > 0 ? payableAmount : undefined;
   const permanentHref = eventPermanentPath(event.id);
@@ -91,7 +92,7 @@ export default async function CoursePage({
       analyticsMetadata={{ academyId: event.academyId, courseId: event.id, sourcePage: "course_profile" }}
       backHref={closeHref}
       backLabel="Back to courses"
-      checkoutForm={canCheckout ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
+      checkoutForm={canCheckout && !canBookFree ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
       event={event}
       permanentHref={permanentHref}
       qrCodeHref={qrCodeHref}

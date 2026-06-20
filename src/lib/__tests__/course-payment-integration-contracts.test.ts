@@ -48,6 +48,19 @@ describe("course payment service integration", () => {
     assert.doesNotMatch(`${pageSource}\n${formSource}`, /stripe\.com|Stripe\(/);
   });
 
+  it("keeps verified free events bookable without starting checkout", () => {
+    const publicDetailSource = readSource("src/components/PublicEventDetailPage.tsx");
+    const freeButtonSource = readSource("src/components/FreeEventBookingButton.tsx");
+    const openMatPageSource = readSource("src/app/open-mats/[id]/page.tsx");
+    const coursePageSource = readSource("src/app/courses/[id]/page.tsx");
+
+    assert.match(publicDetailSource, /freeBookable/);
+    assert.match(publicDetailSource, /FreeEventBookingButton/);
+    assert.match(freeButtonSource, /No payment needed/);
+    assert.match(openMatPageSource, /EventPricingType\.FREE/);
+    assert.match(coursePageSource, /EventPricingType\.FREE/);
+  });
+
   it("supports donation checkout with a caller-specified amount", () => {
     const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
     assert.match(actionSource, /EventPricingType\.DONATION/);
@@ -55,6 +68,7 @@ describe("course payment service integration", () => {
     assert.match(actionSource, /checkoutIdempotencyKey/);
     assert.match(actionSource, /clientState:\s*`\$\{courseId\}:\$\{event\.occurrenceDateParam\}:\$\{attemptId\}`/);
     assert.match(actionSource, /Enter a donation amount greater than zero/);
+    assert.match(actionSource, /Payment service is not available/);
 
     const formSource = readSource("src/app/courses/[id]/CourseCheckoutForm.tsx");
     assert.match(formSource, /Donation amount/);

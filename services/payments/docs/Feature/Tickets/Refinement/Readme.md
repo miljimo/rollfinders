@@ -91,3 +91,18 @@ Tickets are ordered by dependency and MVP priority.
 ## Documentation
 
 - [032 - Write Quickstart And Configuration Docs](Ticket032WriteQuickstartAndConfigurationDocs.md) - P1 - Developer docs
+
+## Generic Allocation And Settlement
+
+- [033 - Define Generic Payment Allocation OpenAPI Contract](Ticket033GenericPaymentServiceOpenApiContract.md) - P0 - OpenAPI
+- [034 - Create Generic Payee And Payee Account Schema](Ticket034GenericPayeeAndAccountSchema.md) - P0 - Database schema
+- [035 - Implement Generic Payee Account API Endpoints](Ticket035PayeeAccountApiEndpoints.md) - P0 - Payee APIs
+- [036 - Create Commission Policy And Allocation Schema](Ticket036CommissionPolicyAndAllocationSchema.md) - P0 - Allocation schema
+- [037 - Extend Payment Creation With Generic Allocations](Ticket037PaymentAllocationCreateFlow.md) - P0 - Payment creation
+- [038 - Implement Stripe Connect Provider Adapter](Ticket038StripeConnectProviderAdapter.md) - P0 - Stripe Connect
+- [039 - Implement Generic Settlement And Ledger APIs](Ticket039GenericSettlementAndLedgerApis.md) - P1 - Settlement APIs
+- [040 - Implement Refund Allocation Awareness](Ticket040RefundAllocationAwareness.md) - P0 - Refund allocation
+- [041 - Expand Provider Webhooks For Generic Allocation Events](Ticket041GenericProviderWebhookExpansion.md) - P0 - Webhooks
+- [042 - Integrate RollFinders With Generic Payment Service Model](Ticket042RollFindersGenericPaymentIntegration.md) - P0 - RollFinders integration
+- [043 - Build Generic Payment Service Regression Suite](Ticket043GenericPaymentServiceRegressionSuite.md) - P0 - Regression testing
+- [044 - Update Migration, Configuration, And Developer Docs](Ticket044GenericPaymentServiceMigrationAndDocs.md) - P1 - Developer docs
