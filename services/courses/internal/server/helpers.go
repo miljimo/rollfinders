@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"courses/internal/handlers"
@@ -28,6 +29,17 @@ func (s *server) requireAuth(next handlers.HttpHandler) handlers.HttpHandler {
 			return
 		}
 		next(w, r)
+	}
+}
+
+func (s *server) requirePlatformCourseTypeAdmin(next handlers.HttpHandler) handlers.HttpHandler {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch strings.ToUpper(strings.TrimSpace(firstNonEmpty(r.Header.Get("X-Actor-Role"), r.Header.Get("X-User-Role")))) {
+		case "PLATFORM_ADMIN", "SUPER_ADMIN", "ADMIN":
+			next(w, r)
+		default:
+			handlers.WriteError(w, http.StatusForbidden, "forbidden", "Only platform admins and super admins can create or manage course types.")
+		}
 	}
 }
 

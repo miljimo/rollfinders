@@ -7,7 +7,7 @@ import (
 )
 
 func UpsertActivity(ctx context.Context, db databases.DataContext, activity Activity) error {
-	_, err := db.Procedure(ctx, `courses."courseActivityUpsert"`, activity.ID, activity.CourseID, activity.Title, "GENERAL", activity.Description, activity.StartOffsetMinutes, activity.DurationMinutes, activity.SortOrder, "")
+	_, err := db.Procedure(ctx, `courses."courseActivityUpsert"`, activity.ID, activity.CourseID, activity.Title, activity.ActivityType, activity.Description, activity.StartOffsetMinutes, activity.DurationMinutes, activity.SortOrder, "")
 	return err
 }
 

@@ -16,6 +16,7 @@ test("events expose integration URI and QR code routes", () => {
   const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
   const courseDetailSource = readSource("src/app/courses/[id]/page.tsx");
   const openMatDetailSource = readSource("src/app/open-mats/[id]/page.tsx");
+  const publicDetailSource = readSource("src/components/PublicEventDetailPage.tsx");
   const inlineDirectionsSource = readSource("src/components/InlineDirectionsButton.tsx");
   const coursesSource = readSource("src/lib/courses.ts");
 
@@ -32,16 +33,18 @@ test("events expose integration URI and QR code routes", () => {
   assert.match(dashboardSource, /QR Code/);
   assert.match(dashboardSource, /eventQrCodePath\(event\.id\)/);
   assert.match(dashboardSource, /InlineDirectionsButton/);
-  assert.match(courseDetailSource, /Integration Event URI/);
   assert.match(courseDetailSource, /eventPermanentUrl\(event\.id\)/);
   assert.match(courseDetailSource, /eventQrCodePath\(event\.id\)/);
-  assert.match(courseDetailSource, /InlineDirectionsButton/);
+  assert.match(courseDetailSource, /PublicEventDetailPage/);
   assert.doesNotMatch(courseDetailSource, />Open URI</);
-  assert.match(openMatDetailSource, /Integration Event URI/);
   assert.match(openMatDetailSource, /eventPermanentUrl\(event\.id\)/);
   assert.match(openMatDetailSource, /eventQrCodePath\(event\.id\)/);
-  assert.match(openMatDetailSource, /InlineDirectionsButton/);
+  assert.match(openMatDetailSource, /PublicEventDetailPage/);
   assert.doesNotMatch(openMatDetailSource, />Open URI</);
+  assert.match(publicDetailSource, /Share Event/);
+  assert.match(publicDetailSource, /permanentUrl/);
+  assert.match(publicDetailSource, /qrCodeHref/);
+  assert.match(publicDetailSource, /InlineDirectionsButton/);
   assert.match(inlineDirectionsSource, /directionsUrl\(trimmedAddress\)/);
   assert.match(inlineDirectionsSource, /target="_blank"/);
   assert.match(inlineDirectionsSource, /rel="noreferrer"/);

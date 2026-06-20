@@ -70,13 +70,14 @@ describe("CourseCreationAndManagement rollout contracts", () => {
       return;
     }
 
-    assert.match(dataSource, /getOpenMatRadar[\s\S]*selectedCourseType[\s\S]*(?:CourseType\.)?OPEN_MAT/);
-    assert.match(dataSource, /filters\.courseType\s*===\s*["']ANY["']/);
+    assert.match(dataSource, /getOpenMatRadar[\s\S]*getCourseDiscovery/);
+    assert.match(dataSource, /courseType:\s*filters\.courseType\s*\?\?\s*(?:CourseType\.)?OPEN_MAT/);
     matchAny(dataSource, [
       /getOpenMatOccurrence[\s\S]*courseType:\s*(?:CourseType\.)?OPEN_MAT/,
       /getOpenMatOccurrence[\s\S]*event\.courseType\s*!==\s*(?:CourseType\.)?OPEN_MAT[\s\S]*return\s+null/,
+      /getOpenMatOccurrence[\s\S]*event\?\.courseType\s*===\s*(?:CourseType\.)?OPEN_MAT/,
     ], "Open Mat detail lookup must exclude non-OPEN_MAT Courses");
-    assert.match(dataSource, /expandEventOccurrences/);
+    assert.match(dataSource, /getCourseOccurrence/);
     assert.match(openMatsPageSource, /getOpenMatRadar/);
     assert.match(openMatsPageSource, /courseType/);
     assert.match(openMatsPageSource, /open_mat_search_submitted/);
@@ -120,8 +121,8 @@ describe("CourseCreationAndManagement rollout contracts", () => {
     assert.notEqual(courseDetailSource.trim(), "", "Expected a public /courses/[id] route implementation");
 
     matchAny(dataSource, [/getCourseRadar/, /searchCourses/, /getCourses/], "public Course discovery should use a Course data helper");
-    assert.match(dataSource, /courseType:\s*\{\s*not:\s*(?:CourseType\.)?OPEN_MAT\s*\}|courseType:\s*\{\s*in:\s*\[[\s\S]*(?:TRAINING|SEMINAR|WORKSHOP|SPARRING|COMPETITION|PRIVATE_LESSON)/);
-    assert.match(dataSource, /expandEventOccurrences/);
+    assert.match(dataSource, /publicCourseDiscoveryWhere[\s\S]*(?:TRAINING|SEMINAR|WORKSHOP|SPARRING|COMPETITION|PRIVATE_LESSON)/);
+    assert.match(readSource("src/lib/courses.ts"), /listRollfindersCoursesFromCourseService[\s\S]*expandEventOccurrences/);
     assert.match(coursesPageSource, /course_search_submitted/);
     assert.match(courseDetailSource, /course_viewed/);
     assert.match(courseDetailSource, /\/open-mats\/\$\{[^}]+\.id\}|redirect\([^)]*\/open-mats\//);

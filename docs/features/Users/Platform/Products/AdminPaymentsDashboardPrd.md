@@ -8,7 +8,7 @@ Last updated: 2026-06-17
 
 RollFinders needs an administrative payments dashboard so Academy Admins, Platform Admins, and Super Admins can review payments made to courses and events without calling Stripe directly.
 
-This PRD complements `docs/features/Courses/Products/Reviewing/CourseOccurrencePaymentsPrd.md`, especially Requirement 10, Academy Admin Visibility, and Requirement 11, Platform Admin Operations. The payment service remains the transaction system of record; RollFinders reads recorded payment history from the payment service.
+This PRD complements `services/courses/docs/Products/Reviewing/CourseOccurrencePaymentsPrd.md`, especially Requirement 10, Academy Admin Visibility, and Requirement 11, Platform Admin Operations. The payment service remains the transaction system of record; RollFinders reads recorded payment history from the payment service.
 
 ## Goals
 

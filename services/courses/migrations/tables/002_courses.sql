@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS courses (
     currency varchar(10),
     status course_status NOT NULL DEFAULT 'ACTIVE',
     external_reference text,
+    integration_metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
     created_by_user_id text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
@@ -23,3 +24,6 @@ CREATE INDEX IF NOT EXISTS courses_status_idx ON courses(status);
 CREATE UNIQUE INDEX IF NOT EXISTS courses_external_reference_unique
     ON courses(organisation_id, external_reference)
     WHERE external_reference IS NOT NULL;
+
+ALTER TABLE courses
+    ADD COLUMN IF NOT EXISTS integration_metadata jsonb NOT NULL DEFAULT '{}'::jsonb;

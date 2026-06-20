@@ -2,6 +2,8 @@
 
 Source PRD: [`CourseCreationAndManagementPrd.md`](../Products/Reviewing/CourseCreationAndManagementPrd.md)
 
+Expanded public detail page PRD: `docs/features/PublicSite/Pages/PublicEventDetailsPagePrd.md`
+
 Type: Full Stack / Public Detail
 
 Primary agent: AI full-stack agent

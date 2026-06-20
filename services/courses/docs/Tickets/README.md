@@ -1,6 +1,9 @@
 # Course Creation And Management Tickets
 
-Source PRD: [`docs/features/Courses/Products/Reviewing/CourseCreationAndManagementPrd.md`](../Products/Reviewing/CourseCreationAndManagementPrd.md)
+Source PRDs:
+
+* [`services/courses/docs/Products/Reviewing/CourseCreationAndManagementPrd.md`](../Products/Reviewing/CourseCreationAndManagementPrd.md)
+* [`services/courses/docs/Products/Reviewing/GenericCourseServiceDataOwnershipPrd.md`](../Products/Reviewing/GenericCourseServiceDataOwnershipPrd.md)
 
 Status: Ready For Review
 
@@ -15,6 +18,13 @@ feature/course_creation_management
 # Architectural Direction
 
 Use an additive, compatibility-first migration.
+
+The final architecture is defined by the Generic Course Service Data Ownership PRD:
+
+* Courses service owns all course/event information.
+* RollFinders stores only course/session/occurrence IDs and RollFinders-specific relationships.
+* `public.events` and `public.course_activities` may exist only as temporary compatibility views, not physical source-of-truth tables.
+* RollFinders must move reads and writes to Courses service APIs before compatibility views are removed.
 
 The first implementation SHALL keep the existing physical `events` table and existing event IDs. Course semantics SHALL be added onto the current Event/Open Mat persistence model before any broad rename is attempted.
 

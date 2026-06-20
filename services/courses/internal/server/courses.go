@@ -8,15 +8,18 @@ import (
 )
 
 type courseRequest struct {
-	ID              string `json:"id,omitempty"`
-	OrganisationID  string `json:"organisation_id"`
-	CourseTypeID    string `json:"course_type_id"`
-	Title           string `json:"title"`
-	Description     string `json:"description,omitempty"`
-	Level           string `json:"level,omitempty"`
-	Capacity        int    `json:"capacity,omitempty"`
-	Status          string `json:"status,omitempty"`
-	CreatedByUserID string `json:"created_by_user_id,omitempty"`
+	ID                  string                 `json:"id,omitempty"`
+	OrganisationID      string                 `json:"organisation_id"`
+	CourseTypeID        string                 `json:"course_type_id"`
+	Title               string                 `json:"title"`
+	Description         string                 `json:"description,omitempty"`
+	Level               string                 `json:"level,omitempty"`
+	Capacity            int                    `json:"capacity,omitempty"`
+	PriceAmount         float64                `json:"price_amount,omitempty"`
+	Currency            string                 `json:"currency,omitempty"`
+	Status              string                 `json:"status,omitempty"`
+	CreatedByUserID     string                 `json:"created_by_user_id,omitempty"`
+	IntegrationMetadata map[string]interface{} `json:"integration_metadata,omitempty"`
 }
 
 func (s *server) createCourse(w http.ResponseWriter, r *http.Request) {
@@ -42,15 +45,18 @@ func (s *server) saveCourse(w http.ResponseWriter, r *http.Request, pathID strin
 	}
 	id := firstNonEmpty(pathID, req.ID, newUUID())
 	course := dataaccess.Course{
-		ID:              id,
-		OrganisationID:  req.OrganisationID,
-		CourseTypeID:    req.CourseTypeID,
-		Title:           req.Title,
-		Description:     req.Description,
-		Level:           req.Level,
-		Capacity:        req.Capacity,
-		Status:          firstNonEmpty(req.Status, "ACTIVE"),
-		CreatedByUserID: req.CreatedByUserID,
+		ID:                  id,
+		OrganisationID:      req.OrganisationID,
+		CourseTypeID:        req.CourseTypeID,
+		Title:               req.Title,
+		Description:         req.Description,
+		Level:               req.Level,
+		Capacity:            req.Capacity,
+		PriceAmount:         req.PriceAmount,
+		Currency:            req.Currency,
+		Status:              firstNonEmpty(req.Status, "ACTIVE"),
+		CreatedByUserID:     req.CreatedByUserID,
+		IntegrationMetadata: req.IntegrationMetadata,
 	}
 	if err := dataaccess.UpsertCourse(r.Context(), s.db, course); err != nil {
 		handlers.WriteError(w, http.StatusInternalServerError, "course_save_failed", err.Error())
@@ -93,10 +99,6 @@ func (s *server) listCourses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	organisationID := handlers.Query(r, "organisation_id")
-	if organisationID == "" {
-		handlers.WriteError(w, http.StatusBadRequest, "invalid_request", "organisation_id query parameter is required.")
-		return
-	}
 	items, err := dataaccess.ListCourses(r.Context(), s.db, organisationID)
 	if err != nil {
 		handlers.WriteError(w, http.StatusInternalServerError, "course_list_failed", err.Error())

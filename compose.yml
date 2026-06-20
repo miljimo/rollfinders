@@ -92,6 +92,9 @@ services:
       PAYMENT_SERVICE_API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
       USER_SERVICE_URL: ${USER_SERVICE_URL:-http://users:8080}
       USER_SERVICE_API_KEY: ${USER_SERVICE_API_KEY:-local-user-dev-key}
+      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://courses:8080}
+      COURSE_SERVICE_API_KEY: ${COURSE_SERVICE_API_KEY:-local-course-dev-key}
+      COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
     ports:
       - "3000:3000"
     depends_on:
@@ -100,6 +103,8 @@ services:
       migrate:
         condition: service_completed_successfully
       users:
+        condition: service_healthy
+      courses:
         condition: service_healthy
 
 volumes:

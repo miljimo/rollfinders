@@ -24,6 +24,7 @@ SET search_path TO courses, public;
 \ir procedures/004_courseDelete.sql
 \ir procedures/005_courseActivityUpsert.sql
 \ir procedures/006_courseActivityDelete.sql
+\ir rollfinders/001_publicCourseCompatibilityViews.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_coreSchema')
 ON CONFLICT (version) DO NOTHING;

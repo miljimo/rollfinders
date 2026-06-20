@@ -19,8 +19,8 @@
 * `services/users/compose.yml`
 * `compose.yml`
 * `scripts/cicd/run-service-sql-migrations.sh`
-* `docs/features/Courses/Products/Reviewing/CourseCreationAndManagementPrd.md`
-* `docs/features/Courses/Tickets/README.md`
+* `services/courses/docs/Products/Reviewing/CourseCreationAndManagementPrd.md`
+* `services/courses/docs/Tickets/README.md`
 * `prisma/schema.prisma`
 * `src/lib/courses.ts`
 

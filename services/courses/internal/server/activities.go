@@ -10,6 +10,7 @@ import (
 type activityRequest struct {
 	ID                 string `json:"id,omitempty"`
 	Title              string `json:"title"`
+	ActivityType       string `json:"activity_type,omitempty"`
 	Description        string `json:"description,omitempty"`
 	StartOffsetMinutes int    `json:"start_offset_minutes"`
 	DurationMinutes    int    `json:"duration_minutes"`
@@ -37,6 +38,7 @@ func (s *server) createActivity(w http.ResponseWriter, r *http.Request) {
 		ID:                 firstNonEmpty(req.ID, newUUID()),
 		CourseID:           handlers.Param(r, "id"),
 		Title:              req.Title,
+		ActivityType:       firstNonEmpty(req.ActivityType, "GENERAL"),
 		Description:        req.Description,
 		StartOffsetMinutes: req.StartOffsetMinutes,
 		DurationMinutes:    req.DurationMinutes,
@@ -73,6 +75,7 @@ func (s *server) updateActivity(w http.ResponseWriter, r *http.Request) {
 		ID:                 handlers.Param(r, "id"),
 		CourseID:           req.CourseID,
 		Title:              req.Title,
+		ActivityType:       firstNonEmpty(req.ActivityType, "GENERAL"),
 		Description:        req.Description,
 		StartOffsetMinutes: req.StartOffsetMinutes,
 		DurationMinutes:    req.DurationMinutes,

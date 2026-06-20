@@ -105,8 +105,8 @@ describe("course payment service integration", () => {
 
     assert.match(courseSource, /const exactOccurrence = occurrences\.find/);
     assert.match(courseSource, /upcomingOccurrences\[0\]\s*\?\?\s*event/);
-    assert.match(openMatSource, /const exactOccurrence = occurrences\.find/);
-    assert.match(openMatSource, /upcomingOccurrences\[0\]\s*\?\?\s*buildOccurrence\(event,\s*event\.eventDate,\s*now\)/);
+    assert.match(openMatSource, /getOpenMatOccurrence[\s\S]*getCourseOccurrence/);
+    assert.match(openMatSource, /event\?\.courseType\s*===\s*CourseType\.OPEN_MAT/);
   });
 
   it("proxies public checkout callbacks to the private payment service", () => {

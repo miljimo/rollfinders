@@ -1,17 +1,9 @@
-import { AcademyVerificationStatus, ClaimStatus, CourseActivityType, CourseType, Prisma, RecurrenceType } from "@prisma/client";
-import { courseActivityTypeLabels } from "./course-activities";
-import {
-  addDays,
-  buildOccurrence,
-  combineDateAndTime,
-  dedupeOccurrences,
-  defaultOccurrenceWindowEnd,
-  expandEventOccurrences,
-  startOfDay,
-} from "./open-mat-occurrences";
+import { AcademyVerificationStatus, ClaimStatus, CourseType, Prisma } from "@prisma/client";
+import { combineDateAndTime } from "./open-mat-occurrences";
 import { prisma } from "./prisma";
 import { distanceMiles } from "./utils";
 export { getCourseDiscovery, getCourseOccurrence, getCourses, searchCourses } from "./courses";
+import { getCourseDiscovery, getCourseOccurrence } from "./courses";
 
 // Compatibility marker for Course discovery contracts. Implementation lives in `src/lib/courses.ts`.
 export const publicCourseDiscoveryWhere: Prisma.EventWhereInput = {
@@ -101,22 +93,6 @@ function addAcademyDistances<T extends { latitude: number; longitude: number; ve
     .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || academyTrustRank(b) - academyTrustRank(a) || (a.name ?? "").localeCompare(b.name ?? ""));
 }
 
-function addEventDistances<T extends { eventDate: Date; startTime: string; title?: string; academy: { latitude: number; longitude: number; verified?: boolean; verificationStatus?: AcademyVerificationStatus; members?: unknown[]; claims?: { status: ClaimStatus }[]; name?: string } }>(items: T[], location?: LocationInput) {
-  const origin = searchLocation(location);
-  return items
-    .map((item) => ({
-      ...item,
-      distanceMiles: distanceMiles(origin, { latitude: item.academy.latitude, longitude: item.academy.longitude }),
-    }))
-    .sort((a, b) => (
-      (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER)
-      || eventCandidatePriority(b) - eventCandidatePriority(a)
-      || a.eventDate.getTime() - b.eventDate.getTime()
-      || a.startTime.localeCompare(b.startTime)
-      || (a.academy.name ?? a.title ?? "").localeCompare(b.academy.name ?? b.title ?? "")
-    ));
-}
-
 export async function getFeaturedData(location?: LocationInput) {
   const events = await getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude });
   const featuredEvents = sortByDistance(selectTopCandidates(events, 6, eventCandidatePriority));
@@ -133,23 +109,23 @@ export async function searchAcademies(query = "", location?: LocationInput) {
   const lower = q.toLowerCase();
   const [academies, events] = await Promise.all([
     prisma.academy.findMany({
-    where: q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" } },
-            { city: { contains: q, mode: "insensitive" } },
-            { borough: { contains: q, mode: "insensitive" } },
-            { postcode: { contains: q, mode: "insensitive" } },
-            { affiliation: { contains: q, mode: "insensitive" } },
-            ...(lower.includes("no-gi") || lower.includes("nogi") ? [{ nogiAvailable: true }] : []),
-            ...(lower.includes("gi") && !lower.includes("no-gi") && !lower.includes("nogi") ? [{ giAvailable: true }] : []),
-            ...(lower.includes("beginner") ? [{ beginnerFriendly: true }] : []),
-            ...(lower.includes("competition") ? [{ competitionFocused: true }] : []),
-          ],
-        }
-      : undefined,
-    include: academyTrustInclude,
-    orderBy: { name: "asc" },
+      where: q
+        ? {
+            OR: [
+              { name: { contains: q, mode: "insensitive" } },
+              { city: { contains: q, mode: "insensitive" } },
+              { borough: { contains: q, mode: "insensitive" } },
+              { postcode: { contains: q, mode: "insensitive" } },
+              { affiliation: { contains: q, mode: "insensitive" } },
+              ...(lower.includes("no-gi") || lower.includes("nogi") ? [{ nogiAvailable: true }] : []),
+              ...(lower.includes("gi") && !lower.includes("no-gi") && !lower.includes("nogi") ? [{ giAvailable: true }] : []),
+              ...(lower.includes("beginner") ? [{ beginnerFriendly: true }] : []),
+              ...(lower.includes("competition") ? [{ competitionFocused: true }] : []),
+            ],
+          }
+        : undefined,
+      include: academyTrustInclude,
+      orderBy: { name: "asc" },
     }),
     getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude }),
   ]);
@@ -181,85 +157,11 @@ export type OpenMatFilters = {
   longitude?: number;
 };
 
-function getWeekendRange(now = new Date()) {
-  const today = startOfDay(now);
-  const day = today.getDay();
-  const daysUntilSaturday = (6 - day + 7) % 7;
-  const saturday = addDays(today, daysUntilSaturday);
-  return { gte: saturday, lt: addDays(saturday, 2) };
-}
-
 export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
-  const q = filters.q?.trim() ?? "";
-  const lower = q.toLowerCase();
-  const matchingActivityTypes = Object.entries(courseActivityTypeLabels)
-    .filter(([type, label]) => type.toLowerCase().includes(lower) || label.toLowerCase().includes(lower))
-    .map(([type]) => type as CourseActivityType);
-  const selectedCourseType = Object.values(CourseType).includes(filters.courseType as CourseType) ? filters.courseType as CourseType : CourseType.OPEN_MAT;
-  const courseTypeWhere: Prisma.EventWhereInput = filters.courseType === "ANY" ? {} : { courseType: selectedCourseType };
-  const now = new Date();
-  const today = startOfDay(now);
-  const tomorrow = addDays(today, 1);
-  const dayAfterTomorrow = addDays(today, 2);
-  const weekend = getWeekendRange(today);
-  const explicitGi = filters.gi || (lower.includes("no-gi") || lower.includes("nogi") ? "NO_GI" : lower.includes("gi") ? "GI" : "");
-  const occurrenceRange =
-    filters.when === "today"
-      ? { gte: today, lt: tomorrow }
-      : filters.when === "tomorrow"
-        ? { gte: tomorrow, lt: dayAfterTomorrow }
-        : filters.when === "weekend"
-          ? weekend
-          : { gte: today, lt: defaultOccurrenceWindowEnd(now) };
-
-  const recurrenceWhere: Prisma.EventWhereInput = {
-    OR: [
-      { recurrenceType: RecurrenceType.NONE, eventDate: occurrenceRange },
-      {
-        recurrenceType: { not: RecurrenceType.NONE },
-        eventDate: { lt: occurrenceRange.lt },
-        OR: [{ recurrenceEndDate: null }, { recurrenceEndDate: { gte: occurrenceRange.gte } }],
-      },
-    ],
-  };
-  const searchWhere: Prisma.EventWhereInput = q
-    ? {
-        OR: [
-          { title: { contains: q, mode: "insensitive" } },
-          { description: { contains: q, mode: "insensitive" } },
-          { academy: { name: { contains: q, mode: "insensitive" } } },
-          { academy: { city: { contains: q, mode: "insensitive" } } },
-          { academy: { borough: { contains: q, mode: "insensitive" } } },
-          { academy: { postcode: { contains: q, mode: "insensitive" } } },
-          { academy: { affiliation: { contains: q, mode: "insensitive" } } },
-          { activities: { some: { name: { contains: q, mode: "insensitive" } } } },
-          { activities: { some: { description: { contains: q, mode: "insensitive" } } } },
-          ...(matchingActivityTypes.length ? [{ activities: { some: { activityType: { in: matchingActivityTypes } } } }] : []),
-          ...(lower.includes("competition") ? [{ academy: { competitionFocused: true } }] : []),
-        ],
-      }
-    : {};
-
-  const events = await prisma.event.findMany({
-    where: {
-      active: true,
-      ...courseTypeWhere,
-      AND: [recurrenceWhere, searchWhere],
-      ...(explicitGi === "GI" ? { giType: { in: ["GI", "BOTH"] } } : {}),
-      ...(explicitGi === "NO_GI" ? { giType: { in: ["NO_GI", "BOTH"] } } : {}),
-    },
-    include: { academy: { include: academyTrustInclude }, activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } },
-    orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
+  return getCourseDiscovery({
+    ...filters,
+    courseType: filters.courseType ?? CourseType.OPEN_MAT,
   });
-  const location = { latitude: filters.latitude, longitude: filters.longitude };
-  const origin = searchLocation(location);
-  const occurrences = dedupeOccurrences(events.flatMap((event) => expandEventOccurrences(event, {
-    from: occurrenceRange.gte,
-    to: occurrenceRange.lt,
-    now,
-  })));
-
-  return addEventDistances(occurrences, origin);
 }
 
 export async function getMapItems() {
@@ -282,33 +184,8 @@ export async function getMapItems() {
 }
 
 export async function getOpenMatOccurrence(id: string, occurrenceDateParam?: string) {
-  const event = await prisma.event.findUnique({
-    where: { id },
-    include: {
-      academy: { include: academyTrustInclude },
-      activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
-    },
-  });
-  if (!event || !event.active || event.courseType !== CourseType.OPEN_MAT) return null;
-
-  const now = new Date();
-  const from = occurrenceDateParam ? startOfDay(new Date(`${occurrenceDateParam}T00:00:00.000Z`)) : startOfDay(now);
-  const to = occurrenceDateParam ? addDays(from, 1) : defaultOccurrenceWindowEnd(now);
-  const occurrences = expandEventOccurrences(event, { from, to, now });
-
-  if (occurrenceDateParam) {
-    const exactOccurrence = occurrences.find((occurrence) => occurrence.occurrenceDateParam === occurrenceDateParam);
-    if (exactOccurrence) return exactOccurrence;
-
-    const upcomingOccurrences = expandEventOccurrences(event, {
-      from: startOfDay(now),
-      to: defaultOccurrenceWindowEnd(now),
-      now,
-    });
-    return upcomingOccurrences[0] ?? buildOccurrence(event, event.eventDate, now);
-  }
-
-  return occurrences[0] ?? buildOccurrence(event, event.eventDate, now);
+  const event = await getCourseOccurrence(id, occurrenceDateParam);
+  return event?.courseType === CourseType.OPEN_MAT ? event : null;
 }
 
 export type AcademyWithEvents = Prisma.PromiseReturnType<typeof searchAcademies>[number];

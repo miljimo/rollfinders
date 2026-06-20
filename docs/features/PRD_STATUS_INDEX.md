@@ -130,6 +130,7 @@ These have matching implementation in source and should be treated as done unles
 * `Users/Academies/Components/AcademyCard.md`
 * `Users/Academies/Components/AcademyListingCard.md`
 * `Courses/Products/Reviewing/EventPermanentUriAndQrCodePrd.md`
+* `PublicSite/Pages/PublicEventDetailsPagePrd.md`
 * `Users/Academies/Pages/AcademiesPage.md`
 * `Users/Academies/Pages/AcademyProfilePage.md`
 * `Users/Academies/Pages/AdminAcademiesPage.md`

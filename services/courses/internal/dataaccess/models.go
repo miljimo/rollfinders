@@ -13,23 +13,27 @@ type CourseType struct {
 }
 
 type Course struct {
-	ID              string    `json:"id"`
-	OrganisationID  string    `json:"organisation_id"`
-	CourseTypeID    string    `json:"course_type_id"`
-	Title           string    `json:"title"`
-	Description     string    `json:"description,omitempty"`
-	Level           string    `json:"level,omitempty"`
-	Capacity        int       `json:"capacity,omitempty"`
-	Status          string    `json:"status"`
-	CreatedByUserID string    `json:"created_by_user_id,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID                  string                 `json:"id"`
+	OrganisationID      string                 `json:"organisation_id"`
+	CourseTypeID        string                 `json:"course_type_id"`
+	Title               string                 `json:"title"`
+	Description         string                 `json:"description,omitempty"`
+	Level               string                 `json:"level,omitempty"`
+	Capacity            int                    `json:"capacity,omitempty"`
+	PriceAmount         float64                `json:"price_amount,omitempty"`
+	Currency            string                 `json:"currency,omitempty"`
+	Status              string                 `json:"status"`
+	CreatedByUserID     string                 `json:"created_by_user_id,omitempty"`
+	IntegrationMetadata map[string]interface{} `json:"integration_metadata,omitempty"`
+	CreatedAt           time.Time              `json:"created_at"`
+	UpdatedAt           time.Time              `json:"updated_at"`
 }
 
 type Activity struct {
 	ID                 string `json:"id"`
 	CourseID           string `json:"course_id"`
 	Title              string `json:"title"`
+	ActivityType       string `json:"activity_type"`
 	Description        string `json:"description,omitempty"`
 	StartOffsetMinutes int    `json:"start_offset_minutes"`
 	DurationMinutes    int    `json:"duration_minutes"`

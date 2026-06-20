@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"strings"
+	"unicode"
 
 	"courses/internal/dataaccess"
 	"courses/internal/handlers"
@@ -32,11 +34,11 @@ func (s *server) saveCourseType(w http.ResponseWriter, r *http.Request, pathID s
 		handlers.WriteError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	if err := validateRequired(map[string]string{"organisation_id": req.OrganisationID, "name": req.Name}); err != nil {
+	if err := validateRequired(map[string]string{"name": req.Name}); err != nil {
 		handlers.WriteError(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
 	}
-	id := firstNonEmpty(pathID, req.ID, newUUID())
+	id := firstNonEmpty(pathID, platformCourseTypeID(req.Name), req.ID, newUUID())
 	if err := dataaccess.CreateCourseType(r.Context(), s.db, id, req.OrganisationID, req.Name, req.Description, req.IsDefault); err != nil {
 		handlers.WriteError(w, http.StatusInternalServerError, "course_type_save_failed", err.Error())
 		return
@@ -55,6 +57,27 @@ func (s *server) saveCourseType(w http.ResponseWriter, r *http.Request, pathID s
 		return
 	}
 	handlers.WriteOK(w, item)
+}
+
+func platformCourseTypeID(name string) string {
+	var builder strings.Builder
+	lastUnderscore := false
+	for _, char := range strings.ToLower(strings.TrimSpace(name)) {
+		if unicode.IsLetter(char) || unicode.IsDigit(char) {
+			builder.WriteRune(char)
+			lastUnderscore = false
+			continue
+		}
+		if !lastUnderscore {
+			builder.WriteByte('_')
+			lastUnderscore = true
+		}
+	}
+	value := strings.Trim(builder.String(), "_")
+	if value == "" {
+		return ""
+	}
+	return "platform_" + value
 }
 
 func (s *server) getCourseType(w http.ResponseWriter, r *http.Request) {
@@ -78,10 +101,6 @@ func (s *server) listCourseTypes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	organisationID := handlers.Query(r, "organisation_id")
-	if organisationID == "" {
-		handlers.WriteError(w, http.StatusBadRequest, "invalid_request", "organisation_id query parameter is required.")
-		return
-	}
 	items, err := dataaccess.ListCourseTypes(r.Context(), s.db, organisationID)
 	if err != nil {
 		handlers.WriteError(w, http.StatusInternalServerError, "course_type_list_failed", err.Error())

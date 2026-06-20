@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS "coursesList"(text, text, text, integer, integer);
+
 CREATE OR REPLACE FUNCTION "coursesList"(
     p_organisation_id text,
     p_course_type_id text DEFAULT '',
@@ -18,6 +20,7 @@ RETURNS TABLE(
     currency varchar,
     status course_status,
     created_by_user_id text,
+    integration_metadata jsonb,
     created_at timestamptz,
     updated_at timestamptz
 )
@@ -25,10 +28,10 @@ LANGUAGE sql
 STABLE
 SET search_path = courses, public
 AS $$
-    SELECT c.id, c.organisation_id, c.course_type_id, ct.name, c.title, c.description, c.level, c.capacity, c.price_amount, c.currency, c.status, c.created_by_user_id, c.created_at, c.updated_at
+    SELECT c.id, c.organisation_id, c.course_type_id, ct.name, c.title, c.description, c.level, c.capacity, c.price_amount, c.currency, c.status, c.created_by_user_id, c.integration_metadata, c.created_at, c.updated_at
     FROM courses c
     JOIN course_types ct ON ct.id = c.course_type_id
-    WHERE c.organisation_id = p_organisation_id
+    WHERE (coalesce(p_organisation_id, '') = '' OR c.organisation_id = p_organisation_id)
       AND c.status <> 'DELETED'
       AND (coalesce(p_course_type_id, '') = '' OR c.course_type_id = p_course_type_id)
       AND (coalesce(p_status, '') = '' OR c.status::text = upper(p_status))

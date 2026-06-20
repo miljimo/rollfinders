@@ -4,6 +4,10 @@ Route: `/open-mats/[id]`
 
 Source: `src/app/open-mats/[id]/page.tsx`
 
+Expanded product requirement:
+
+* `docs/features/PublicSite/Pages/PublicEventDetailsPagePrd.md`
+
 ## Purpose
 
 Show complete details for one open mat session.

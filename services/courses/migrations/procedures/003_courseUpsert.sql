@@ -1,3 +1,6 @@
+DROP PROCEDURE IF EXISTS "courseUpsert"(text, text, text, text, text, text, integer, numeric, text, text, text);
+DROP PROCEDURE IF EXISTS "courseUpsert"(text, text, text, text, text, text, integer, numeric, text, text, text, jsonb);
+
 CREATE OR REPLACE PROCEDURE "courseUpsert"(
     p_id text,
     p_organisation_id text,
@@ -9,7 +12,8 @@ CREATE OR REPLACE PROCEDURE "courseUpsert"(
     p_price_amount numeric,
     p_currency text,
     p_status text,
-    p_created_by_user_id text
+    p_created_by_user_id text,
+    p_integration_metadata jsonb DEFAULT '{}'::jsonb
 )
 LANGUAGE plpgsql
 SET search_path = courses, public
@@ -24,13 +28,12 @@ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM course_types
         WHERE id = p_course_type_id
-          AND organisation_id = p_organisation_id
           AND status <> 'DELETED'
     ) THEN
-        RAISE EXCEPTION 'course type does not exist for organisation';
+        RAISE EXCEPTION 'course type does not exist';
     END IF;
 
-    INSERT INTO courses(id, organisation_id, course_type_id, title, description, level, capacity, price_amount, currency, status, created_by_user_id)
+    INSERT INTO courses(id, organisation_id, course_type_id, title, description, level, capacity, price_amount, currency, status, created_by_user_id, integration_metadata)
     VALUES (
         p_id,
         p_organisation_id,
@@ -42,7 +45,8 @@ BEGIN
         p_price_amount,
         nullif(upper(trim(coalesce(p_currency, ''))), ''),
         v_status,
-        nullif(trim(coalesce(p_created_by_user_id, '')), '')
+        nullif(trim(coalesce(p_created_by_user_id, '')), ''),
+        coalesce(p_integration_metadata, '{}'::jsonb)
     )
     ON CONFLICT (id) DO UPDATE SET
         course_type_id = excluded.course_type_id,
@@ -53,6 +57,7 @@ BEGIN
         price_amount = excluded.price_amount,
         currency = excluded.currency,
         status = excluded.status,
+        integration_metadata = excluded.integration_metadata,
         updated_at = now()
     WHERE courses.organisation_id = excluded.organisation_id;
 END;

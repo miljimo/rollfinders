@@ -2,12 +2,17 @@ package dataaccess
 
 import (
 	"context"
+	"encoding/json"
 
 	"courses/internal/databases"
 )
 
 func UpsertCourse(ctx context.Context, db databases.DataContext, course Course) error {
-	_, err := db.Procedure(ctx, `courses."courseUpsert"`, course.ID, course.OrganisationID, course.CourseTypeID, course.Title, course.Description, course.Level, course.Capacity, nil, "", course.Status, course.CreatedByUserID)
+	metadata, err := json.Marshal(course.IntegrationMetadata)
+	if err != nil {
+		return err
+	}
+	_, err = db.Procedure(ctx, `courses."courseUpsert"`, course.ID, course.OrganisationID, course.CourseTypeID, course.Title, course.Description, course.Level, course.Capacity, course.PriceAmount, course.Currency, course.Status, course.CreatedByUserID, string(metadata))
 	return err
 }
 

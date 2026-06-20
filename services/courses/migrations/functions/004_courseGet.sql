@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS "courseGet"(text);
+
 CREATE OR REPLACE FUNCTION "courseGet"(p_id text)
 RETURNS TABLE(
     id text,
@@ -12,6 +14,7 @@ RETURNS TABLE(
     currency varchar,
     status course_status,
     created_by_user_id text,
+    integration_metadata jsonb,
     created_at timestamptz,
     updated_at timestamptz
 )
@@ -19,7 +22,7 @@ LANGUAGE sql
 STABLE
 SET search_path = courses, public
 AS $$
-    SELECT c.id, c.organisation_id, c.course_type_id, ct.name, c.title, c.description, c.level, c.capacity, c.price_amount, c.currency, c.status, c.created_by_user_id, c.created_at, c.updated_at
+    SELECT c.id, c.organisation_id, c.course_type_id, ct.name, c.title, c.description, c.level, c.capacity, c.price_amount, c.currency, c.status, c.created_by_user_id, c.integration_metadata, c.created_at, c.updated_at
     FROM courses c
     JOIN course_types ct ON ct.id = c.course_type_id
     WHERE c.id = p_id;

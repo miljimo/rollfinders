@@ -51,13 +51,14 @@ func New(opts Options) http.Handler {
 	}
 
 	auth := s.requireAuth
+	courseTypeAdmin := s.requirePlatformCourseTypeAdmin
 	mustHandle("/healthz", []string{http.MethodGet}, s.health)
 	mustHandle("/readyz", []string{http.MethodGet}, s.ready)
 	mustHandle("/v1/course-types", []string{http.MethodGet}, s.listCourseTypes, auth)
-	mustHandle("/v1/course-types", []string{http.MethodPost}, s.createCourseType, auth)
+	mustHandle("/v1/course-types", []string{http.MethodPost}, s.createCourseType, auth, courseTypeAdmin)
 	mustHandle("/v1/course-types/{id}", []string{http.MethodGet}, s.getCourseType, auth)
-	mustHandle("/v1/course-types/{id}", []string{http.MethodPut}, s.updateCourseType, auth)
-	mustHandle("/v1/course-types/{id}", []string{http.MethodDelete}, s.deleteCourseType, auth)
+	mustHandle("/v1/course-types/{id}", []string{http.MethodPut}, s.updateCourseType, auth, courseTypeAdmin)
+	mustHandle("/v1/course-types/{id}", []string{http.MethodDelete}, s.deleteCourseType, auth, courseTypeAdmin)
 	mustHandle("/v1/courses", []string{http.MethodGet}, s.listCourses, auth)
 	mustHandle("/v1/courses", []string{http.MethodPost}, s.createCourse, auth)
 	mustHandle("/v1/courses/{id}", []string{http.MethodGet}, s.getCourse, auth)
