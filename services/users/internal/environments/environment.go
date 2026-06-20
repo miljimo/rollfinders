@@ -138,8 +138,6 @@ func (environ *impEnvironment) Presents(keys []string) error {
 	return nil
 }
 
-/*************************************
-**************************************/
 var instance *impEnvironment = nil
 
 func New() Environment {

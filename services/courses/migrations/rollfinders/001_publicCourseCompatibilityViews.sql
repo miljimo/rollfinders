@@ -5,7 +5,7 @@ RETURNS text
 LANGUAGE sql
 IMMUTABLE
 AS $$
-  SELECT regexp_replace('rollfinders_' || p_course_type, '[^a-zA-Z0-9_-]', '_', 'g');
+  SELECT 'platform_' || trim(both '_' from regexp_replace(lower(trim(p_course_type)), '[^a-z0-9]+', '_', 'g'));
 $$;
 
 DO $$

@@ -8,7 +8,6 @@ import { requireAcademyOpenMatCreator, requireOpenMatAccess } from "@/lib/academ
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { parseCourseActivities, validateActivitiesWithinCourse } from "@/lib/course-activities";
 import { recordCourseActivityAnalytics, replaceCourseActivities } from "@/lib/course-activities-server";
-import { deleteRollfindersCourseFromCourseService, syncRollfindersCourseToCourseService } from "@/lib/courseService";
 import { addDays, dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
 import { prisma } from "@/lib/prisma";
 import { courseSchema } from "@/lib/validators";
@@ -190,8 +189,6 @@ export async function createCourse(_state: CourseFormState, formData: FormData):
   if (await findDuplicateCourse(undefined, data)) return duplicateError(formData);
   const event = await prisma.event.create({ data: { ...data, createdById: access.userId } });
   const activityChanges = await replaceCourseActivities(event.id, parsed.activities);
-  const activities = await prisma.courseActivity.findMany({ where: { courseId: event.id }, orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] });
-  await syncRollfindersCourseToCourseService({ ...event, activities });
   await recordCourseActivityAnalytics({
     academyId: event.academyId,
     courseId: event.id,
@@ -228,8 +225,6 @@ export async function updateCourse(id: string, _state: CourseFormState, formData
   if (await findDuplicateCourse(id, data)) return duplicateError(formData);
   const event = await prisma.event.update({ where: { id }, data });
   const activityChanges = await replaceCourseActivities(id, parsed.activities, existing.activities);
-  const activities = await prisma.courseActivity.findMany({ where: { courseId: id }, orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] });
-  await syncRollfindersCourseToCourseService({ ...event, activities });
   await recordCourseActivityAnalytics({
     academyId: data.academyId,
     courseId: id,
@@ -252,7 +247,6 @@ export async function deleteCourse(id: string, formData?: FormData) {
   if (!event) redirect(returnTo);
   await requireOpenMatAccess(event, "delete");
   await prisma.event.delete({ where: { id } });
-  await deleteRollfindersCourseFromCourseService(id);
   revalidatePath("/admin/courses");
   revalidatePath("/dashboard");
   revalidatePath("/courses");

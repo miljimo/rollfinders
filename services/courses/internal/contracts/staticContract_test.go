@@ -56,6 +56,19 @@ func TestMigrationsDoNotModifyPublicRollfindersTables(t *testing.T) {
 	}
 }
 
+func TestRollfindersCompatibilityUsesPlatformCourseTypeIds(t *testing.T) {
+	source := read(t, "../../migrations/rollfinders/001_publicCourseCompatibilityViews.sql")
+	if !strings.Contains(source, `CREATE OR REPLACE FUNCTION public."rollfindersCourseTypeId"`) {
+		t.Fatal("expected RollFinders compatibility course type id function")
+	}
+	if !strings.Contains(source, `SELECT 'platform_' || trim`) {
+		t.Fatal("RollFinders compatibility course type ids must use canonical platform ids")
+	}
+	if strings.Contains(source, `SELECT regexp_replace('rollfinders_' || p_course_type`) {
+		t.Fatal("RollFinders compatibility course type ids must not use legacy organisation-scoped ids")
+	}
+}
+
 func TestFunctionsDoNotPerformBusinessWrites(t *testing.T) {
 	err := filepath.WalkDir("../../migrations/functions", func(path string, entry os.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".sql") {

@@ -1,4 +1,5 @@
 import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
+import { WarningPanel } from "@/components/WarningPanel";
 
 type PublicAcademyTrust = {
   id?: string;
@@ -37,21 +38,15 @@ export function PublicListingWarning({ academy, className = "", course }: { acad
 		}
 
 		return (
-      <div className={`rounded-md border border-stone-200 bg-stone-50 p-3 text-sm leading-6 text-stone-800 ${className}`}>
-        <p className="font-bold text-stone-950">Confirm before visiting</p>
-        <p className="mt-1 font-semibold text-stone-700">
-          Session details can change. Confirm the time, price, capacity, and visitor policy with the academy before travelling.
-        </p>
-      </div>
+      <WarningPanel className={className} title="Confirm before visiting" tone="neutral">
+        Session details can change. Confirm the time, price, capacity, and visitor policy with the academy before travelling.
+      </WarningPanel>
     );
   }
 
   return (
-    <div className={`rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-950 ${className}`}>
-      <p className="font-bold">Check before you go</p>
-      <p className="mt-1 font-semibold text-amber-900">
-        This academy listing is not yet claimed and verified by the academy. Prices and session details may change, so confirm with the academy before visiting.
-      </p>
-    </div>
+    <WarningPanel className={className} title="Check before you go">
+      This academy listing is not yet claimed and verified by the academy. Prices and session details may change, so confirm with the academy before visiting.
+    </WarningPanel>
   );
 }

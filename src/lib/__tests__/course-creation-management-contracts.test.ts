@@ -25,8 +25,10 @@ function routeSource(...paths: string[]) {
 }
 
 describe("CourseCreationAndManagement rollout contracts", () => {
-  it("keeps Course persistence additive on the existing events table", () => {
+  it("keeps RollFinders course data sourced from the courses service schema", () => {
     const schemaSource = readSource("prisma/schema.prisma");
+    const compatibilitySource = readSource("services/courses/migrations/rollfinders/001_publicCourseCompatibilityViews.sql");
+    const courseActionsSource = readSource("src/app/admin/courses/actions.ts");
 
     assert.match(schemaSource, /enum\s+CourseType\s*\{[\s\S]*OPEN_MAT[\s\S]*TRAINING[\s\S]*SPARRING[\s\S]*SEMINAR[\s\S]*WORKSHOP[\s\S]*COMPETITION[\s\S]*PRIVATE_LESSON[\s\S]*\}/);
     assert.match(schemaSource, /model\s+Event\s+\{[\s\S]*courseType\s+CourseType\s+@default\(OPEN_MAT\)[\s\S]*\}/);
@@ -37,6 +39,13 @@ describe("CourseCreationAndManagement rollout contracts", () => {
 
     assert.match(schemaSource, /@@map\("events"\)|model\s+Event\s+\{/);
     assert.doesNotMatch(schemaSource, /model\s+Course\s+\{/);
+    assert.match(compatibilitySource, /DROP TABLE public\.events CASCADE/);
+    assert.match(compatibilitySource, /DROP TABLE public\.course_activities CASCADE/);
+    assert.match(compatibilitySource, /CREATE OR REPLACE VIEW public\.events AS[\s\S]*FROM courses\.courses/);
+    assert.match(compatibilitySource, /CREATE OR REPLACE VIEW public\.course_activities AS[\s\S]*FROM courses\.course_activities/);
+    assert.match(compatibilitySource, /INSTEAD OF INSERT ON public\.events/);
+    assert.match(compatibilitySource, /CALL courses\."courseUpsert"/);
+    assert.doesNotMatch(courseActionsSource, /syncRollfindersCourseToCourseService|deleteRollfindersCourseFromCourseService/);
   });
 
   it("validates Course submissions without weakening Open Mat validation", (t) => {
@@ -80,6 +89,7 @@ describe("CourseCreationAndManagement rollout contracts", () => {
     assert.match(dataSource, /getCourseOccurrence/);
     assert.match(openMatsPageSource, /getOpenMatRadar/);
     assert.match(openMatsPageSource, /courseType/);
+    assert.match(openMatsPageSource, /const\s+pageSize\s*=\s*9/);
     assert.match(openMatsPageSource, /open_mat_search_submitted/);
     assert.match(openMatDetailSource, /open_mat_viewed/);
     assert.doesNotMatch(openMatsPageSource, /getCourses|getCourseRadar|course_search_submitted/);

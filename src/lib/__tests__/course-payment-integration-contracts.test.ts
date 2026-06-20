@@ -41,7 +41,8 @@ describe("course payment service integration", () => {
     assert.match(formSource, /checkoutAttemptId/);
     assert.match(formSource, /startCourseCheckout/);
     assert.match(formSource, /window\.location\.href\s*=\s*state\.checkoutUrl/);
-    assert.match(formSource, /Continue to Secure Payment/);
+    assert.match(formSource, /BookEventButton/);
+    assert.match(formSource, /eventKind=\{mode === "donation" \? "donation" : "paid"\}/);
     assert.match(formSource, /Creating checkout/);
     assert.match(formSource, /Receipt email/);
     assert.doesNotMatch(`${pageSource}\n${formSource}`, /stripe\.com|Stripe\(/);
@@ -58,7 +59,7 @@ describe("course payment service integration", () => {
     const formSource = readSource("src/app/courses/[id]/CourseCheckoutForm.tsx");
     assert.match(formSource, /Donation amount/);
     assert.match(formSource, /name="donationAmount"/);
-    assert.match(formSource, /Donate/);
+    assert.match(formSource, /BookEventButton/);
 
     const pageSource = readSource("src/app/courses/[id]/page.tsx");
     assert.match(pageSource, /EventPricingType\.DONATION/);
@@ -71,9 +72,9 @@ describe("course payment service integration", () => {
     const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
 
     assert.match(coursePageSource, /isPublicAcademyTrusted/);
-    assert.match(coursePageSource, /academyTrusted\s*&&/);
+    assert.match(coursePageSource, /event\.active\s*&&\s*academyTrusted\s*&&/);
     assert.match(openMatPageSource, /isPublicAcademyTrusted/);
-    assert.match(openMatPageSource, /academyTrusted\s*&&/);
+    assert.match(openMatPageSource, /event\.active\s*&&\s*academyTrusted\s*&&/);
     assert.match(actionSource, /isPublicAcademyTrusted\(event\.academy\)/);
     assert.match(actionSource, /not verified for online payments/);
   });

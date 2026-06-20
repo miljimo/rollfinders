@@ -6,8 +6,8 @@ import { PublicEventDetailPage } from "@/components/PublicEventDetailPage";
 import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
-import { getCourseOccurrence } from "@/lib/courses";
-import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
+import { coursePriceLabel, getCourseOccurrence } from "@/lib/courses";
+import { eventPermanentPath, eventQrCodePath } from "@/lib/event-share-links";
 import { publicDetailDashboardDialogPath, publicDetailReturnPath } from "@/lib/public-detail-return-path";
 import { CourseCheckoutForm } from "./CourseCheckoutForm";
 
@@ -62,11 +62,10 @@ export default async function CoursePage({
 
   const payableAmount = Number(event.price);
   const academyTrusted = isPublicAcademyTrusted(event.academy);
-  const canCheckout = academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
+  const canCheckout = event.active && academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
   const checkoutMode = event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
   const suggestedDonationAmount = Number.isFinite(payableAmount) && payableAmount > 0 ? payableAmount : undefined;
   const permanentHref = eventPermanentPath(event.id);
-  const permanentUrl = eventPermanentUrl(event.id);
   const qrCodeHref = eventQrCodePath(event.id);
   const country = analyticsCountryFromHeaders(await headers());
   await recordAnalyticsEventBestEffort({
@@ -92,13 +91,11 @@ export default async function CoursePage({
       analyticsMetadata={{ academyId: event.academyId, courseId: event.id, sourcePage: "course_profile" }}
       backHref={closeHref}
       backLabel="Back to courses"
-      checkoutForm={canCheckout ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} suggestedAmount={suggestedDonationAmount} /> : undefined}
+      checkoutForm={canCheckout ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
       event={event}
       permanentHref={permanentHref}
-      permanentUrl={permanentUrl}
       qrCodeHref={qrCodeHref}
       sourcePage="course_profile"
-      variant="course"
     />
   );
 }

@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   description: "Find today's, tomorrow's, and weekend BJJ open mats and sessions in London with course type, gi type, drop-in cost, location, and directions.",
 };
 
-const pageSize = 12;
+const pageSize = 9;
 
 type OpenMatSearchParams = { analyticsIntent?: string; q?: string; when?: string; gi?: string; courseType?: string; lat?: string; lng?: string; page?: string };
 

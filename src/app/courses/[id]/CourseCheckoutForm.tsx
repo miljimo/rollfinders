@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { Button } from "@/components/Button";
+import { BookEventButton } from "@/components/BookEventButton";
 import { startCourseCheckout, type CourseCheckoutState } from "./payment-actions";
 
 const courseCheckoutInitialState: CourseCheckoutState = {};
@@ -10,11 +10,13 @@ export function CourseCheckoutForm({
   courseId,
   occurrenceDate,
   mode = "fixed",
+  priceLabel,
   suggestedAmount,
 }: {
   courseId: string;
   occurrenceDate: string;
   mode?: "fixed" | "donation";
+  priceLabel?: string;
   suggestedAmount?: number;
 }) {
   const [state, formAction, pending] = useActionState(startCourseCheckout, courseCheckoutInitialState);
@@ -25,7 +27,7 @@ export function CourseCheckoutForm({
     return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   });
   const defaultDonationAmount = suggestedAmount && suggestedAmount > 0 ? suggestedAmount.toFixed(2) : "";
-  const formClassName = mode === "donation" ? "mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]" : "mt-4 grid gap-3 sm:grid-cols-[1fr_auto]";
+  const formClassName = "grid gap-3";
 
   useEffect(() => {
     if (!state.checkoutUrl) return;
@@ -67,10 +69,15 @@ export function CourseCheckoutForm({
         Receipt email <span className="text-xs font-semibold text-stone-500">Optional</span>
         <input name="payerEmail" type="email" placeholder="you@example.com" className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-sm font-normal" />
       </label>
-      <div className="flex items-end">
-        <Button type="submit" variant="primary" disabled={pending || Boolean(state.checkoutUrl)}>
-          {pending || state.checkoutUrl ? "Creating checkout..." : mode === "donation" ? "Donate" : "Continue to Secure Payment"}
-        </Button>
+      <div>
+        <BookEventButton
+          type="submit"
+          eventKind={mode === "donation" ? "donation" : "paid"}
+          loading={pending || Boolean(state.checkoutUrl)}
+          loadingLabel="Creating checkout..."
+          priceLabel={priceLabel}
+          className="w-full"
+        />
       </div>
     </form>
   );

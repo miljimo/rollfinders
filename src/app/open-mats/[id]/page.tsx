@@ -6,8 +6,9 @@ import { PublicEventDetailPage } from "@/components/PublicEventDetailPage";
 import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
+import { coursePriceLabel } from "@/lib/courses";
 import { getOpenMatOccurrence } from "@/lib/data";
-import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
+import { eventPermanentPath, eventQrCodePath } from "@/lib/event-share-links";
 import { publicDetailDashboardDialogPath, publicDetailReturnPath } from "@/lib/public-detail-return-path";
 import { CourseCheckoutForm } from "../../courses/[id]/CourseCheckoutForm";
 
@@ -57,11 +58,10 @@ export default async function EventPage({
   const country = analyticsCountryFromHeaders(await headers());
   const payableAmount = Number(event.price);
   const academyTrusted = isPublicAcademyTrusted(event.academy);
-  const canCheckout = academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
+  const canCheckout = event.active && academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
   const checkoutMode = event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
   const suggestedDonationAmount = Number.isFinite(payableAmount) && payableAmount > 0 ? payableAmount : undefined;
   const permanentHref = eventPermanentPath(event.id);
-  const permanentUrl = eventPermanentUrl(event.id);
   const qrCodeHref = eventQrCodePath(event.id);
 
   await recordAnalyticsEventBestEffort({
@@ -87,13 +87,11 @@ export default async function EventPage({
       analyticsMetadata={{ academyId: event.academyId, openMatId: event.id, sourcePage: "open_mat_profile" }}
       backHref={closeHref}
       backLabel="Back to sessions"
-      checkoutForm={canCheckout ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} suggestedAmount={suggestedDonationAmount} /> : undefined}
+      checkoutForm={canCheckout ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
       event={event}
       permanentHref={permanentHref}
-      permanentUrl={permanentUrl}
       qrCodeHref={qrCodeHref}
       sourcePage="open_mat_profile"
-      variant="open-mat"
     />
   );
 }
