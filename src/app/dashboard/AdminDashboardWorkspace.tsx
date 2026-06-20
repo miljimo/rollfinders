@@ -950,7 +950,7 @@ export default async function AdminDashboardWorkspace({
           ) : null}
           {panel === "payments" ? (
             <AdminPanel
-              action={<PaymentsDashboardActions />}
+              action={<PaymentsDashboardActions payments={paymentResult.payments} />}
               description={academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
               search={<PaymentsPanelSearch search={paymentsSearch} />}
@@ -1558,12 +1558,19 @@ function BookingsPanelSearch({ search }: { search: string }) {
   );
 }
 
-function PaymentsDashboardActions() {
+function paymentDashboardRangeLabel(payments: PaymentRecord[]) {
+  const points = paymentOverviewChartPoints(payments);
+  const first = points[0]?.label ?? "";
+  const last = points[points.length - 1]?.label ?? "";
+  return first && last ? `${first} - ${last}` : "Last 7 days";
+}
+
+function PaymentsDashboardActions({ payments }: { payments: PaymentRecord[] }) {
   return (
     <div className="grid gap-2 sm:grid-cols-[auto_auto]">
       <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm">
         <CalendarDays size={17} aria-hidden />
-        Jun 14 - Jun 20, 2026
+        {paymentDashboardRangeLabel(payments)}
         <ChevronDown size={16} aria-hidden />
       </button>
       <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm">
