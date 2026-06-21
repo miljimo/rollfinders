@@ -155,7 +155,8 @@ describe("course payment service integration", () => {
     const settingsSource = dashboardSource.match(/function PaymentsSettingsView[\s\S]*?function PaymentsPanel/)?.[0] ?? "";
     assert.notEqual(settingsSource, "", "Expected PaymentsSettingsView source to be present");
     assert.match(settingsSource, /\/api\/payments\/stripe-connect\?owner=\$\{ownerQuery\}/);
-    assert.match(settingsSource, /\/api\/payments\/stripe-connect\/disconnect\?owner=\$\{ownerQuery\}/);
+    assert.match(settingsSource, /<form action=\{`\/api\/payments\/stripe-connect\/disconnect\?owner=\$\{ownerQuery\}`\} method="post">/);
+    assert.doesNotMatch(settingsSource, /<Button href=\{`\/api\/payments\/stripe-connect\/disconnect/);
     assert.doesNotMatch(settingsSource, /<input[\s\S]*(api|secret|key|publishable)/i);
     assert.doesNotMatch(settingsSource, /textarea[\s\S]*(api|secret|key|publishable)/i);
   });
@@ -187,6 +188,9 @@ describe("course payment service integration", () => {
     }
     assert.match(disconnectRouteSource, /ownerId:\s*owner\.ownerId/);
     assert.match(disconnectRouteSource, /ownerType:\s*owner\.ownerType/);
+    assert.match(disconnectRouteSource, /export async function POST/);
+    assert.doesNotMatch(disconnectRouteSource, /export async function GET/);
+    assert.match(stripeConnectSource, /account\.details_submitted && chargesEnabled && payoutsEnabled \? "verified" : "verification_required"/);
     assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);
   });
 

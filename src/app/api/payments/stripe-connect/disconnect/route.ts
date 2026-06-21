@@ -3,7 +3,7 @@ import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/a
 import { prisma } from "@/lib/prisma";
 import { browserUrl, getPaymentAccountOwner, paymentSettingsHref } from "@/lib/stripe-connect";
 
-export async function GET(request: Request) {
+export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user || (!isPlatformAdminRole(user.role) && !isAcademyAdminRole(user.role))) {
     return NextResponse.redirect(browserUrl(request, "/login"));

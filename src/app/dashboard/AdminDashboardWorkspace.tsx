@@ -3331,9 +3331,11 @@ function PaymentsSettingsView({
             <h3 className="text-lg font-black text-slate-950">Danger Zone</h3>
             <p className="mt-1 text-sm font-semibold text-slate-600">Permanently disconnect your payment account. This action cannot be undone.</p>
           </div>
-          <Button href={`/api/payments/stripe-connect/disconnect?owner=${ownerQuery}`} variant="danger">
-            Disconnect Payment Account
-          </Button>
+          <form action={`/api/payments/stripe-connect/disconnect?owner=${ownerQuery}`} method="post">
+            <Button type="submit" variant="danger">
+              Disconnect Payment Account
+            </Button>
+          </form>
         </div>
       </section>
     </div>

@@ -57,23 +57,25 @@ export async function getPaymentAccountOwner(user: { academyId?: string | null; 
 }
 
 export async function upsertPaymentAccountFromStripe(owner: PaymentAccountOwner, account: StripeAccount) {
-  const status = account.details_submitted ? "verified" : "verification_required";
+  const chargesEnabled = Boolean(account.charges_enabled);
+  const payoutsEnabled = Boolean(account.payouts_enabled);
+  const status = account.details_submitted && chargesEnabled && payoutsEnabled ? "verified" : "verification_required";
 
   return prisma.paymentAccountSetting.upsert({
     create: {
       academyId: owner.ownerType === "academy" ? owner.ownerId : null,
-      chargesEnabled: Boolean(account.charges_enabled),
+      chargesEnabled,
       ownerId: owner.ownerId,
       ownerType: owner.ownerType,
-      payoutsEnabled: Boolean(account.payouts_enabled),
+      payoutsEnabled,
       provider: "stripe",
       providerAccountId: account.id,
       status,
     },
     update: {
       academyId: owner.ownerType === "academy" ? owner.ownerId : null,
-      chargesEnabled: Boolean(account.charges_enabled),
-      payoutsEnabled: Boolean(account.payouts_enabled),
+      chargesEnabled,
+      payoutsEnabled,
       providerAccountId: account.id,
       status,
     },
