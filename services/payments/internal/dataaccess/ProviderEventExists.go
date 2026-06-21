@@ -7,7 +7,7 @@ import (
 )
 
 func ProviderEventExists(ctx context.Context, db databases.DataContext, provider string, id string) (bool, error) {
-	rows, err := db.Function(ctx, "payments.provider_event_exists", provider, id)
+	rows, err := db.Function(ctx, `payments."providerEventExists"`, provider, id)
 	if err != nil {
 		return false, err
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 func ListRefunds(ctx context.Context, db databases.DataContext, paymentID string) ([]Refund, error) {
-	rows, err := db.Function(ctx, "payments.refund_list", paymentID)
+	rows, err := db.Function(ctx, `payments."refundList"`, paymentID)
 	if err != nil {
 		return nil, err
 	}

@@ -9,7 +9,7 @@
 - Developer owner: Technical Writer / Payments Developer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket033GenericPaymentServiceOpenApiContract, Ticket042RollFindersGenericPaymentIntegration
-- Source PRD: `services/payments/docs/PaymentService.md`
+- Source PRD: `services/payments/docs/paymentService.md`
 
 ## Task
 

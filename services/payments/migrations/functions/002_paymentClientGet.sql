@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION payment_client_get(p_client_id text)
+CREATE OR REPLACE FUNCTION "paymentClientGet"(p_client_id text)
 RETURNS SETOF payment_clients
 LANGUAGE sql
 STABLE

@@ -9,7 +9,7 @@
 - Developer owner: Test Automation Developer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket037PaymentAllocationCreateFlow, Ticket040RefundAllocationAwareness, Ticket041GenericProviderWebhookExpansion, Ticket042RollFindersGenericPaymentIntegration
-- Source PRD: `services/payments/docs/PaymentService.md`
+- Source PRD: `services/payments/docs/paymentService.md`
 
 ## Task
 

@@ -1,6 +1,6 @@
 # PRD Status Index
 
-Last reviewed: 2026-06-14
+Last reviewed: 2026-06-21
 
 This index tracks PRD implementation state after comparing the current source code, tests, Prisma schema, and feature docs against the MVP PRD.
 
@@ -30,6 +30,15 @@ Status meanings:
 | Email Delivery | Done | Reliable outbound email queue, job route, password reset, academy claim invitation, claim approval/reset, and rejection emails exist. | User onboarding credential content/delivery PRDs remain under review unless their exact copy/delivery requirements are accepted as covered by password reset flow. |
 | Deployment / AWS | Done with operations follow-ups | Terraform modules, environment configs, bootstrap/deploy/promotion/locking scripts, health route, deployment docs, and resource inventory exist. | Validation, seed/migration, destruction, cost, and state-layer PRDs remain under review where operational acceptance is not fully proven. |
 | Reusable UI Components | Mostly done | Button, Table, StatIndicator, StatsPanel, QuickActionPanel, SidePanelControl, shared dashboard/public components, and tests exist. | Badge, form field system, filter form, page header, panel surface, metric card, list panel, domain cards, and dashboard top header remain docs/reference or reusable-system follow-ups unless adopted as canonical shared primitives. |
+
+## Service PRD Status
+
+| Service area | Current status | Current implementation | Left to implement |
+| --- | --- | --- | --- |
+| Payment Service MVP | Partial | `services/payments` runs as its own Go service/container, uses the shared RollFinders database server, has database-first migrations, API auth, checkout creation, callbacks, payment history, refunds, idempotency, health/readiness, local compose support, and RollFinders dashboard integration. | Complete generic payee/payee-account APIs, connected-account payment creation, commission/allocation ledger, settlement/payout ledger, webhook reconciliation, and generic non-RollFinders integration tests. |
+| RollFinders Payment UI | Partial | Admin/academy payment dashboard panels exist for overview, transactions, earnings, refunds, payouts, and settings. Stripe Connect setup UI exists for platform/academy accounts. Dashboard-managed Stripe API key storage has been removed. | Complete provider-backed payout/settlement data, production refund/payout actions, and live provider webhook status reconciliation. |
+| Academy Direct Payments | Partial | RollFinders stores connected Stripe account details against platform or academy ownership. Paid/donation checkout is hidden and server-rejected unless the academy account is connected, verified, charges-enabled, and payouts-enabled. | Move connected account ownership into generic Payment Service payee/payee-account APIs and route eligible course/event payments directly to academy connected accounts with platform fees. |
+| Booking Service MVP | Partial | `services/booking` has Go service skeleton, health/readiness, database-first migrations, core booking tables, camelCase functions/procedures, package-level data access functions, lifecycle endpoints, participant/attendance endpoints, and admin dashboard navigation. | Wire RollFinders public free booking and paid booking-first checkout to Booking Service, add trusted payment confirmation, admin booking dashboard workflows, live database integration tests, and refund-aware state transitions. |
 
 ## Done
 
@@ -193,6 +202,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 * `Product/Products/RollFinderMvpUiTaskRequirements.md` - most UI tasks are implemented; map marker detail/open-mat map state and direct open mat contact display remain.
 * `SharedComponents/Reviewing/ReusableUiComponentPrd.md` - many reusable components exist; not all proposed primitives are centralized as canonical components.
 * `Users/Academies/Products/MultiAdminAcademyManagement.md` - team management exists; team-action audit logging and owner notifications are still missing.
+* `Users/Academies/Products/Reviewing/academyManagementUiPrd.md` - guided academy edit UI exists in parts; pricing audience/member drop-in semantics still need implementation verification.
 * `Users/Academies/Products/Reviewing/AcademyManagementGuidedUpdateAndDropInPricingPrd.md` - guided academy management exists, but pricing audience semantics, free member drop-in behavior, and internal/external roll visibility still need implementation verification.
 * `Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` - verification status exists; dedicated verification audit metadata is missing.
 * `Users/Academies/Products/Reviewing/PendingAcademiesPrd.md` - pending academy visibility exists; dashboard metric drilldown remains to verify or implement.

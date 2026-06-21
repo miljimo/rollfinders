@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION idempotency_get(p_scope text, p_key text)
+CREATE OR REPLACE FUNCTION "idempotencyGet"(p_scope text, p_key text)
 RETURNS SETOF idempotency_keys
 LANGUAGE sql
 STABLE

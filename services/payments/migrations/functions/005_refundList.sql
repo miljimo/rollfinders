@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION refund_list(p_payment_id text)
+CREATE OR REPLACE FUNCTION "refundList"(p_payment_id text)
 RETURNS SETOF refunds
 LANGUAGE sql
 STABLE

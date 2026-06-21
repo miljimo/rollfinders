@@ -9,7 +9,7 @@
 - Developer owner: RollFinders Full Stack Developer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket037PaymentAllocationCreateFlow, Ticket038StripeConnectProviderAdapter
-- Source PRD: `services/payments/docs/PaymentService.md`
+- Source PRD: `services/payments/docs/paymentService.md`
 
 ## Task
 

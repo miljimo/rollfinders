@@ -19,7 +19,7 @@ func ListPaymentHistory(
 ) ([]PaymentRecord, error) {
 	rows, err := db.Function(
 		ctx,
-		"payments.payment_history_list",
+		`payments."paymentHistoryList"`,
 		clientID,
 		resourceType,
 		resourceID,

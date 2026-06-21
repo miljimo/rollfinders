@@ -93,8 +93,8 @@ Examples:
 
 ```text
 tables/001_payments.sql
-functions/001_payment_get.sql
-functions/004_payment_history_list.sql
+functions/001_paymentGet.sql
+functions/004_paymentHistoryList.sql
 procedures/002_paymentInsert.sql
 procedures/004_paymentTransition.sql
 ```

@@ -69,4 +69,50 @@ describe("SidePanelControl", () => {
     assert.match(markup, /Help &amp; Support/);
     assert.match(markup, /Logout/);
   });
+
+  it("renders configured footer navigation with support controls", () => {
+    const markup = renderToStaticMarkup(
+      <SidePanelControl
+        footerNavigationItems={[{ href: "/dashboard?panel=settings", icon: "settings", label: "Settings" }]}
+        navigationItems={[{ href: "/dashboard?panel=payments", icon: "payments", label: "Payments" }]}
+      />,
+    );
+
+    assert.match(markup, /Payments/);
+    assert.match(markup, /Settings/);
+    assert.match(markup, /Help &amp; Support/);
+    assert.match(markup, /Settings[\s\S]*Help &amp; Support[\s\S]*Logout/);
+  });
+
+  it("renders active nested navigation under the selected section", () => {
+    const markup = renderToStaticMarkup(
+      <SidePanelControl
+        navigationItems={[
+          {
+            active: true,
+            href: "/dashboard?panel=payments",
+            icon: "payments",
+            label: "Payments",
+            children: [
+              { href: "/dashboard?panel=payments&paymentsView=overview", label: "Overview" },
+              { active: true, href: "/dashboard?panel=payments&paymentsView=transactions", label: "Transactions" },
+              { href: "/dashboard?panel=payments&paymentsView=earnings", label: "Earnings" },
+              { href: "/dashboard?panel=payments&paymentsView=refunds", label: "Refunds" },
+              { href: "/dashboard?panel=payments&paymentsView=payouts", label: "Payouts" },
+              { href: "/dashboard?panel=payments&paymentsView=settings", label: "Payment Settings" },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    assert.match(markup, /Payments/);
+    assert.match(markup, /Overview/);
+    assert.match(markup, /Transactions/);
+    assert.match(markup, /Earnings/);
+    assert.match(markup, /Refunds/);
+    assert.match(markup, /Payouts/);
+    assert.match(markup, /Payment Settings/);
+    assert.match(markup, /aria-current="page"[\s\S]*href="\/dashboard\?panel=payments&amp;paymentsView=transactions"/);
+  });
 });

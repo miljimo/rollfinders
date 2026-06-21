@@ -6,7 +6,7 @@ Service: Booking Service
 
 Status: Reviewing
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 ---
 
@@ -178,6 +178,50 @@ Required future behavior:
 * Multi-participant group bookings.
 * Waitlists.
 * Capacity reservation protocol with Course Service.
+
+---
+
+## Implementation Status
+
+### Done
+
+The current codebase has implemented:
+
+* Standalone `services/booking` Go API service.
+* Local compose integration and service health/readiness endpoints.
+* Database-first migration structure with `schema`, `types`, `tables`, `functions`, and `procedures`.
+* Core booking schema for bookings, participants, status history, idempotency keys, and outbox events.
+* CamelCase booking SQL function/procedure names and matching routine filenames.
+* Go `dataaccess` package using package-level functions rather than a struct store.
+* Stored-function/stored-procedure data access for create, get, list, cancel, confirm, complete, payment link, participant creation/listing, and attendance record flows.
+* HTTP endpoints for core booking lifecycle and participant attendance.
+* Booking dashboard entry in the RollFinders admin service navigator.
+* Static contract tests for Booking Service schema and service API structure.
+
+### Partial
+
+The current implementation is not yet a full RollFinders booking replacement:
+
+* Booking Service endpoints exist, but the public free-booking UI is not fully switched from client-side booking state to durable Booking Service records.
+* Paid course/open-mat checkout still starts primarily from the payment checkout flow; booking-first checkout linkage remains a planned integration step.
+* Admin booking dashboard navigation exists, but production-ready search/filter/detail workflows need further integration.
+* Payment confirmation can be linked conceptually, but trusted payment-status-to-booking confirmation is not fully wired through callbacks/webhooks.
+* Participant and attendance endpoints exist, but public/admin UI coverage is still incomplete.
+
+### Not Done
+
+The following requirements remain to be implemented:
+
+* RollFinders Next.js Booking Service client functions for all booking endpoints.
+* Free event booking persistence through Booking Service from public detail pages.
+* Paid booking creation before checkout and payment ID linkage before redirect.
+* Trusted callback/webhook flow that confirms bookings after successful payment.
+* Capacity reservation and duplicate active booking enforcement validated against live PostgreSQL.
+* Academy admin and platform admin booking dashboard tables with search/filter/detail actions.
+* Refund-aware booking state transitions.
+* Outbox event consumers or delivery jobs.
+* Booking service metrics and operational dashboards.
+* Full API integration tests against a running Booking Service.
 
 ---
 

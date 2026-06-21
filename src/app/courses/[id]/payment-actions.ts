@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "crypto";
 import { getServerSession } from "next-auth";
 import { EventPricingType } from "@prisma/client";
 import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
+import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { authOptions } from "@/lib/auth";
 import { getCourseOccurrence } from "@/lib/courses";
 import { createCourseOccurrenceCheckout, PaymentServiceError } from "@/lib/payments";
@@ -51,6 +52,8 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
   const event = await getCourseOccurrence(courseId, occurrenceDate || undefined);
   if (!event) return checkoutError("This event is no longer available for payment.");
   if (!isPublicAcademyTrusted(event.academy)) return checkoutError("This academy is not verified for online payments.");
+  const paymentAccount = await academyPaymentAccountReadiness(event.academyId);
+  if (!paymentAccount.ready) return checkoutError("This academy has not finished Stripe Connect setup for online payments.");
   if (event.pricingType !== EventPricingType.FIXED && event.pricingType !== EventPricingType.DONATION) {
     return checkoutError("This event is not configured for online payment.");
   }

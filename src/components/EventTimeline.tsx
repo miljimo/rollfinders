@@ -51,15 +51,13 @@ function activityState(activity: EventTimelineActivity, now: Date, eventDate: Da
 }
 
 export function EventTimeline({ activities, className, eventDate, endLabel = "Session End", now }: EventTimelineProps) {
-  const [currentTime, setCurrentTime] = useState(() => now ?? new Date());
+  const [liveTime, setLiveTime] = useState(() => new Date());
   const timelineActivities = useMemo(() => activities.filter((activity) => activity.startTime && activity.endTime), [activities]);
+  const currentTime = now ?? liveTime;
 
   useEffect(() => {
-    if (now) {
-      setCurrentTime(now);
-      return;
-    }
-    const timer = window.setInterval(() => setCurrentTime(new Date()), 30_000);
+    if (now) return;
+    const timer = window.setInterval(() => setLiveTime(new Date()), 30_000);
     return () => window.clearInterval(timer);
   }, [now]);
 

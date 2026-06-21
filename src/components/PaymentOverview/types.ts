@@ -1,4 +1,5 @@
 import type { LineOverviewChartPoint } from "@/components/LineOverviewChart";
+import type { PaymentPeriodOption } from "./PaymentPeriodSelect";
 
 export type PaymentOverviewMetric = {
   colorClassName?: string;
@@ -13,5 +14,7 @@ export type PaymentOverviewProps = {
   currency?: string;
   metrics: PaymentOverviewMetric[];
   periodLabel?: string;
+  periodOptions?: PaymentPeriodOption[];
+  periodValue?: string;
   title?: string;
 };

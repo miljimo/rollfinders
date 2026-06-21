@@ -86,11 +86,30 @@ describe("course payment service integration", () => {
     const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
 
     assert.match(coursePageSource, /isPublicAcademyTrusted/);
-    assert.match(coursePageSource, /event\.active\s*&&\s*academyTrusted\s*&&/);
+    assert.match(coursePageSource, /event\.active\s*&&\s*academyTrusted\s*&&\s*paymentAccount\.ready\s*&&/);
     assert.match(openMatPageSource, /isPublicAcademyTrusted/);
-    assert.match(openMatPageSource, /event\.active\s*&&\s*academyTrusted\s*&&/);
+    assert.match(openMatPageSource, /event\.active\s*&&\s*academyTrusted\s*&&\s*paymentAccount\.ready\s*&&/);
     assert.match(actionSource, /isPublicAcademyTrusted\(event\.academy\)/);
     assert.match(actionSource, /not verified for online payments/);
+  });
+
+  it("requires a ready academy Stripe Connect account before collecting paid event payments", () => {
+    const helperSource = readSource("src/lib/academy-payment-account.ts");
+    const coursePageSource = readSource("src/app/courses/[id]/page.tsx");
+    const openMatPageSource = readSource("src/app/open-mats/[id]/page.tsx");
+    const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
+
+    assert.match(helperSource, /import\s+["']server-only["']/);
+    assert.match(helperSource, /prisma\.paymentAccountSetting\.findFirst/);
+    assert.match(helperSource, /ownerType:\s*"academy"/);
+    assert.match(helperSource, /provider:\s*"stripe"/);
+    assert.match(helperSource, /connected && chargesEnabled && payoutsEnabled && status === "verified"/);
+
+    for (const source of [coursePageSource, openMatPageSource, actionSource]) {
+      assert.match(source, /academyPaymentAccountReadiness\(event\.academyId\)/);
+      assert.match(source, /paymentAccount\.ready/);
+    }
+    assert.match(actionSource, /has not finished Stripe Connect setup for online payments/);
   });
 
   it("exposes a scoped payments dashboard for academy and elevated admins", () => {
@@ -112,6 +131,63 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /metadata\.payer_phone/);
     assert.match(dashboardSource, /formatMinorCurrency\(payment\.amount, payment\.currency\)/);
     assert.match(dashboardSource, /\/courses\/\$\{courseId\}/);
+  });
+
+  it("keeps Stripe Connect API keys out of dashboard-managed payment settings", () => {
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const setupSource = readSource("src/components/PaymentAccountSetup/PaymentAccountSetup.tsx");
+    const setupTypesSource = readSource("src/components/PaymentAccountSetup/types.ts");
+    const stripeConnectSource = readSource("src/lib/stripe-connect.ts");
+    const schemaSource = readSource("prisma/schema.prisma");
+    const removeKeysMigration = readSource("prisma/migrations/20260621161500_remove_dashboard_stripe_api_keys/migration.sql");
+
+    assert.match(stripeConnectSource, /process\.env\.STRIPE_SECRET_KEY/);
+    assert.match(stripeConnectSource, /process\.env\.PAYMENT_GATEWAY_API_KEY/);
+    assert.match(stripeConnectSource, /Authorization:\s*`Bearer \$\{key\}`/);
+
+    for (const source of [dashboardSource, setupSource, setupTypesSource, schemaSource]) {
+      assert.doesNotMatch(source, /apiKey|secretKey|publishableKey|clientSecret|STRIPE_SECRET_KEY|PAYMENT_GATEWAY_API_KEY/i);
+    }
+    assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_ciphertext"/);
+    assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_last4"/);
+    assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_mode"/);
+
+    const settingsSource = dashboardSource.match(/function PaymentsSettingsView[\s\S]*?function PaymentsPanel/)?.[0] ?? "";
+    assert.notEqual(settingsSource, "", "Expected PaymentsSettingsView source to be present");
+    assert.match(settingsSource, /\/api\/payments\/stripe-connect\?owner=\$\{ownerQuery\}/);
+    assert.match(settingsSource, /\/api\/payments\/stripe-connect\/disconnect\?owner=\$\{ownerQuery\}/);
+    assert.doesNotMatch(settingsSource, /<input[\s\S]*(api|secret|key|publishable)/i);
+    assert.doesNotMatch(settingsSource, /textarea[\s\S]*(api|secret|key|publishable)/i);
+  });
+
+  it("stores Stripe Connect accounts against academy or platform ownership", () => {
+    const stripeConnectSource = readSource("src/lib/stripe-connect.ts");
+    const connectRouteSource = readSource("src/app/api/payments/stripe-connect/route.ts");
+    const refreshRouteSource = readSource("src/app/api/payments/stripe-connect/refresh/route.ts");
+    const disconnectRouteSource = readSource("src/app/api/payments/stripe-connect/disconnect/route.ts");
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const schemaSource = readSource("prisma/schema.prisma");
+
+    assert.match(schemaSource, /model PaymentAccountSetting \{[\s\S]*academyId\s+String\?/);
+    assert.match(schemaSource, /academy\s+Academy\?\s+@relation\(fields:\s*\[academyId\]/);
+    assert.match(schemaSource, /@@unique\(\[ownerType,\s*ownerId,\s*provider\]\)/);
+
+    assert.match(stripeConnectSource, /ownerType:\s*"academy"\s*\|\s*"platform"/);
+    assert.match(stripeConnectSource, /requestedOwner === "academy"/);
+    assert.match(stripeConnectSource, /requestedOwner !== "platform" && Boolean\(user\.academyId\)/);
+    assert.match(stripeConnectSource, /ownerId:\s*"rollfinders",\s*ownerType:\s*"platform"/);
+    assert.match(stripeConnectSource, /academyId:\s*owner\.ownerType === "academy" \? owner\.ownerId : null/);
+    assert.match(stripeConnectSource, /ownerType_ownerId_provider:\s*\{\s*\n\s*ownerId:\s*owner\.ownerId,\s*\n\s*ownerType:\s*owner\.ownerType,\s*\n\s*provider:\s*"stripe"/);
+    assert.match(stripeConnectSource, /"metadata\[owner_id\]":\s*owner\.ownerId/);
+    assert.match(stripeConnectSource, /"metadata\[owner_type\]":\s*owner\.ownerType/);
+
+    for (const source of [connectRouteSource, refreshRouteSource, dashboardSource]) {
+      assert.match(source, /ownerType_ownerId_provider:\s*\{\s*\n\s*ownerId:\s*owner\.ownerId|ownerId:\s*paymentAccountOwner\.ownerId/);
+      assert.match(source, /provider:\s*"stripe"/);
+    }
+    assert.match(disconnectRouteSource, /ownerId:\s*owner\.ownerId/);
+    assert.match(disconnectRouteSource, /ownerType:\s*owner\.ownerType/);
+    assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);
   });
 
   it("keeps paid event links usable when stored occurrence dates are stale", () => {

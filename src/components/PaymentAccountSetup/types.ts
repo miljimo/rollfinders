@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
 
-export type AccountSetupStatus = "active" | "pending" | "disabled";
+export type PaymentAccountSetupStatus = "active" | "pending" | "disabled";
 
-export type AccountSetupItem = {
+export type PaymentAccountSetupItem = {
   id: string;
   label: string;
   statusLabel: string;
   complete?: boolean;
 };
 
-export type AccountSetupProps = {
+export type PaymentAccountSetupProps = {
   accountLabel?: string;
   accountStatusLabel?: string;
   actionHref?: string;
@@ -18,8 +18,9 @@ export type AccountSetupProps = {
   detailsHref?: string;
   detailsLabel?: string;
   icon?: ReactNode;
-  items: AccountSetupItem[];
+  items: PaymentAccountSetupItem[];
   providerName: string;
-  status?: AccountSetupStatus;
+  status?: PaymentAccountSetupStatus;
   title?: string;
+  variant?: "default" | "compact";
 };

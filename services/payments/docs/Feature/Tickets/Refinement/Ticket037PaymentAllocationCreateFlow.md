@@ -9,7 +9,7 @@
 - Developer owner: Payments Backend Developer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket016ImplementCreatePaymentEndpoint, Ticket036CommissionPolicyAndAllocationSchema
-- Source PRD: `services/payments/docs/PaymentService.md`
+- Source PRD: `services/payments/docs/paymentService.md`
 
 ## Task
 

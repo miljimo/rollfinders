@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION checkout_get(p_checkout_id text)
+CREATE OR REPLACE FUNCTION "checkoutGet"(p_checkout_id text)
 RETURNS SETOF checkouts
 LANGUAGE sql
 STABLE

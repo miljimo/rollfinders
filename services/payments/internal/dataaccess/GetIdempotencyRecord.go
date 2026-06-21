@@ -7,7 +7,7 @@ import (
 )
 
 func GetIdempotencyRecord(ctx context.Context, db databases.DataContext, scope string, key string) (IdempotencyRecord, error) {
-	row, err := firstRow(db.Function(ctx, "payments.idempotency_get", scope, key))
+	row, err := firstRow(db.Function(ctx, `payments."idempotencyGet"`, scope, key))
 	if err != nil {
 		return IdempotencyRecord{}, err
 	}

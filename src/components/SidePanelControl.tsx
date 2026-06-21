@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { Building2, CalendarDays, ChevronLeft, ChevronRight, ClipboardCheck, HelpCircle, Home, LogOut, Map, Menu, Settings, Users, X } from "lucide-react";
+import { Building2, CalendarDays, ChevronLeft, ChevronRight, ChevronUp, ClipboardCheck, HelpCircle, Home, LogOut, Map, Menu, Settings, Users, X } from "lucide-react";
 import { LogoutButton } from "./LogoutButton";
 import {Icon , SidePanelIcon } from "@/components/Icons"
 
@@ -13,10 +13,18 @@ export type SidePanelItem = {
   icon: SidePanelIcon;
   label: string;
   active?: boolean;
+  children?: SidePanelChildItem[];
+};
+
+export type SidePanelChildItem = {
+  href: string;
+  label: string;
+  active?: boolean;
 };
 
 type SidePanelControlProps = {
   accountLabel?: string | null;
+  footerNavigationItems?: SidePanelItem[];
   navigationItems: SidePanelItem[];
   roleLabel?: string | null;
   supportHref?: string;
@@ -28,6 +36,7 @@ const railWidth = "4.5rem";
 
 export function SidePanelControl({
   accountLabel,
+  footerNavigationItems = [],
   navigationItems,
   roleLabel,
   supportHref = "/contact",
@@ -127,6 +136,7 @@ export function SidePanelControl({
               accountLabel={accountLabel}
               collapsed={false}
               drawerTitleId={drawerTitleId}
+              footerNavigationItems={footerNavigationItems}
               navigationItems={navigationItems}
               onClose={() => setMobileOpen(false)}
               roleLabel={roleLabel}
@@ -141,6 +151,7 @@ export function SidePanelControl({
         <PanelContent
           accountLabel={accountLabel}
           collapsed={collapsed}
+          footerNavigationItems={footerNavigationItems}
           navigationItems={navigationItems}
           onToggleCollapsed={() => setCollapsed((value) => !value)}
           roleLabel={roleLabel}
@@ -155,6 +166,7 @@ function PanelContent({
   accountLabel,
   collapsed,
   drawerTitleId,
+  footerNavigationItems,
   navigationItems,
   onClose,
   onToggleCollapsed,
@@ -165,6 +177,7 @@ function PanelContent({
   accountLabel?: string | null;
   collapsed: boolean;
   drawerTitleId?: string;
+  footerNavigationItems: SidePanelItem[];
   navigationItems: SidePanelItem[];
   onClose?: () => void;
   onToggleCollapsed?: () => void;
@@ -207,11 +220,14 @@ function PanelContent({
 
       <nav className={`flex flex-1 flex-col gap-2 py-6 text-sm font-bold text-slate-600 ${collapsed ? "px-3" : "px-4"}`} aria-label="Dashboard navigation">
         {navigationItems.map((item) => (
-          <SidePanelNavItem key={item.href} item={item} collapsed={collapsed} onNavigate={onClose} />
+          <SidePanelNavGroup key={item.href} item={item} collapsed={collapsed} onNavigate={onClose} />
         ))}
       </nav>
 
       <div className={`grid gap-2 border-t border-stone-200 py-5 text-sm font-bold text-slate-600 ${collapsed ? "px-3" : "px-4"}`}>
+        {footerNavigationItems.map((item) => (
+          <SidePanelNavItem key={item.href} item={item} collapsed={collapsed} onNavigate={onClose} />
+        ))}
         <SidePanelNavItem item={{ href: supportHref, icon: "help", label: "Help & Support" }} collapsed={collapsed} onNavigate={onClose} />
         <div className={`group relative flex min-h-12 items-center rounded-md ${collapsed ? "justify-center px-0" : "gap-3"}`}>
           {collapsed ? (
@@ -233,7 +249,32 @@ function PanelContent({
   );
 }
 
-function SidePanelNavItem({ collapsed, item, onNavigate }: { collapsed: boolean; item: SidePanelItem; onNavigate?: () => void }) {
+function SidePanelNavGroup({ collapsed, item, onNavigate }: { collapsed: boolean; item: SidePanelItem; onNavigate?: () => void }) {
+  const expanded = Boolean(item.children?.length && item.active && !collapsed);
+
+  return (
+    <div className="grid gap-2">
+      <SidePanelNavItem item={item} collapsed={collapsed} onNavigate={onNavigate} showExpandedIndicator={expanded} />
+      {expanded ? (
+        <div className="grid gap-2 pl-8 pr-2" aria-label={`${item.label} sections`}>
+          {item.children?.map((child) => (
+            <Link
+              key={child.href}
+              href={child.href}
+              aria-current={child.active ? "page" : undefined}
+              className={`flex min-h-11 items-center rounded-md px-4 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2 ${child.active ? "bg-teal-50 text-teal-800 font-bold" : "font-medium text-slate-700 hover:bg-stone-50 hover:text-stone-950"}`}
+              onClick={onNavigate}
+            >
+              {child.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SidePanelNavItem({ collapsed, item, onNavigate, showExpandedIndicator = false }: { collapsed: boolean; item: SidePanelItem; onNavigate?: () => void; showExpandedIndicator?: boolean }) {
   return (
     <Link
       href={item.href}
@@ -244,6 +285,7 @@ function SidePanelNavItem({ collapsed, item, onNavigate }: { collapsed: boolean;
     >
       <Icon name={item.icon} />
       <span className={collapsed ? "sr-only" : ""}>{item.label}</span>
+      {showExpandedIndicator ? <ChevronUp size={16} aria-hidden className="ml-auto shrink-0" /> : null}
       {collapsed ? (
         <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 hidden -translate-y-1/2 whitespace-nowrap rounded-md bg-slate-950 px-2 py-1 text-xs font-bold text-white shadow-lg group-focus-visible:block group-hover:block">
           {item.label}
@@ -252,5 +294,3 @@ function SidePanelNavItem({ collapsed, item, onNavigate }: { collapsed: boolean;
     </Link>
   );
 }
-
-

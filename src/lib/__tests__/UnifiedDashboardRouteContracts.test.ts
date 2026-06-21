@@ -264,11 +264,13 @@ describe("unified dashboard route contracts", () => {
     assert.match(profileHelper, /prisma\.user\.findMany\(\{[\s\S]*email:[\s\S]*contains:\s*search/);
   });
 
-  it("admin side panel keeps Settings as the final primary navigation item", () => {
+  it("admin top service menu keeps footer-only Map and Settings out of primary navigation", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
     const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
+    const serviceMenuSource = source.match(/function DashboardServiceMenu[\s\S]*?\n}\n\nfunction NewUserDialog/)?.[0] ?? "";
 
     assert.notEqual(navigationSource, "", "Expected admin navigation source to be present");
+    assert.notEqual(serviceMenuSource, "", "Expected dashboard service menu source to be present");
     for (const label of ["Dashboard", "Manage Users", "Analytics", "Academy Review", "Academy Claims", "Map", "Settings"]) {
       assert.match(navigationSource, new RegExp(`label:\\s*"${label}"`));
     }
@@ -281,6 +283,35 @@ describe("unified dashboard route contracts", () => {
     assert.match(navigationSource, /href:\s*"\/dashboard\?panel=platform-admin-academies"/);
     assert.match(navigationSource, /active:\s*!firstParam\(params\.panel\)/);
     assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    assert.match(
+      source,
+      /\.filter\(\(item\) => item\.href !== "\/dashboard" && item\.href !== "\/dashboard\?panel=maps" && item\.href !== "\/dashboard\?panel=settings"\)/,
+    );
+    assert.match(source, /\.map\(\(item\) => item\.href === "\/dashboard\?panel=academies" \? \{ \.\.\.item, label: "Academies" \} : item\)/);
+    assert.match(source, /<DashboardServiceMenu items=\{dashboardServiceNavigationItems\} \/>/);
+    assert.match(source, /navigationItems=\{serviceNavigationItems\}/);
+    assert.match(source, /footerNavigationItems=\{sidePanelFooterNavigationItems\}/);
+    assert.match(source, /const\s+mapNavigationItem\s*=\s*adminNavigationItems\.find\(\(item\) => item\.href === "\/dashboard\?panel=maps"\)/);
+    assert.match(source, /\.\.\.\(mapNavigationItem \? \[mapNavigationItem\] : \[\]\)[\s\S]*\.\.\.\(settingsNavigationItem \? \[settingsNavigationItem\] : \[\]\)/);
+    assert.match(source, /const paymentNavigationSections = \[/);
+    assert.match(source, /label:\s*"Overview"/);
+    assert.match(source, /label:\s*"Transactions"/);
+    assert.match(source, /label:\s*"Earnings"/);
+    assert.match(source, /label:\s*"Refunds"/);
+    assert.match(source, /label:\s*"Payouts"/);
+    assert.match(source, /label:\s*"Payment Settings"/);
+    assert.match(source, /children:\s*paymentNavigationSections/);
+    assert.match(source, /selectedPaymentOverviewPeriod\(firstParam\(params\.paymentsPeriod\)\)/);
+    for (const period of ["Daily", "Weekly", "Monthly", "Yearly"]) {
+      assert.match(source, new RegExp(`label:\\s*"${period}"`));
+    }
+    assert.match(serviceMenuSource, /aria-label="Service dashboards"/);
+    assert.match(serviceMenuSource, /text-sm transition-colors/);
+    assert.match(serviceMenuSource, /<Icon name=\{item\.icon\}/);
+    assert.match(serviceMenuSource, /item\.active \? "font-bold text-stone-950"/);
+    assert.doesNotMatch(serviceMenuSource, /bg-teal-700 text-white shadow-sm/);
+    assert.doesNotMatch(serviceMenuSource, /bg-sky-50/);
+    assert.doesNotMatch(source, /const dashboardServiceNavigationItems[\s\S]*label:\s*"Map"[\s\S]*<DashboardServiceMenu/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Academies"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Courses\/Sessions"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Users"/);
@@ -305,9 +336,22 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(source, /title:\s*"Platform Admin Academy Review"/);
   });
 
+  it("platform admin academy review links use table actions instead of nested mobile-card links", () => {
+    const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const columnsSource = source.match(/const platformAdminAcademyColumns[\s\S]*?\n\];/)?.[0] ?? "";
+    const panelSource = source.match(/export function SuperAdminPlatformAcademiesPanel[\s\S]*?\n}\n\nexport function AcademiesTable/)?.[0] ?? "";
+
+    assert.notEqual(columnsSource, "", "Expected Platform Admin academy columns source to be present");
+    assert.notEqual(panelSource, "", "Expected Platform Admin academy panel source to be present");
+    assert.doesNotMatch(columnsSource, /<Button href=\{String\(value\)\}/);
+    assert.match(panelSource, /actions=\{\[\s*\{\s*label:\s*"Review"[\s\S]*href:\s*\(row\) => String\(row\.reviewHref\)/);
+    assert.match(panelSource, /getRowHref=\{\(row\) => String\(row\.reviewHref\)\}/);
+  });
+
   it("admin dashboard stats board is collapsible and collapsed by default", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
+    assert.match(source, /\{panel !== "payments" \? \(/);
     assert.match(source, /<StatsPanel[\s\S]*title="Stats Board"[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
     assert.match(source, /collapseStorageKey="rollfinders\.dashboardStatsCollapsed"/);
   });

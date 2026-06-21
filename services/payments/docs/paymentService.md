@@ -8,7 +8,7 @@ Version: 1.0
 
 Status: Reviewing
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 ---
 
@@ -775,3 +775,57 @@ AND reverse allocation ledger entries according to refund amount.
 IF a non-academy product uses the service
 WHEN it creates payees, resources, payments, and allocations
 THEN the API SHALL not require academy, course, event, or RollFinders-specific fields.
+
+---
+
+## Implementation Status
+
+### Done
+
+The current codebase has implemented:
+
+* Standalone `services/payments` Go API container running from the shared compose stack.
+* Shared PostgreSQL database server and RollFinders database configuration.
+* Payment Service health/readiness endpoints.
+* API key authentication for service-to-service calls.
+* Database-first payment schema for core payments, checkouts, refunds, provider events, idempotency, status history, and outbox.
+* One SQL file per table, function, and procedure in the payment service migration structure.
+* CamelCase SQL function/procedure names and camelCase routine filenames for payment stored routines.
+* Go data access through stored procedures for writes and SQL functions for reads.
+* Hosted checkout creation for RollFinders course/open-mat occurrences.
+* Generic payment history records so RollFinders can show payment history without calling Stripe directly.
+* Checkout callback proxying through the Payment Service.
+* Payment dashboard overview, transactions, earnings, refunds, payouts, and settings surfaces in RollFinders.
+* Stripe sandbox checkout support through the configured server-side Stripe key.
+* RollFinders dashboard Stripe Connect setup flow for platform and academy account records.
+* RollFinders-side storage of connected account details against platform or academy ownership.
+* Removal of dashboard-managed Stripe API key storage.
+* RollFinders paid/donation checkout guard that prevents collection unless the academy Stripe Connect account is connected, verified, charges-enabled, and payouts-enabled.
+* Regression tests covering payment dashboard contracts, no dashboard-managed Stripe keys, connected account ownership, and academy payment readiness gating.
+
+### Partial
+
+The current implementation is intentionally partial for the generic allocation roadmap:
+
+* Connected account setup exists in RollFinders, but the generic Payment Service payee/payee-account APIs are not fully implemented.
+* RollFinders stores connected account details in its Prisma model today; the generic `payees` and `payee_accounts` payment-service tables remain a planned migration.
+* Course/open-mat checkout integration exists, but payment creation does not yet route direct connected-account settlement with platform commission through the Payment Service.
+* Refund records and refund listing exist, but provider-dashboard refund webhook reconciliation and allocation reversal are not complete.
+* Payout dashboard UI exists, but provider payout/settlement ledger APIs are not complete.
+* Webhook endpoint scaffolding exists, but full Stripe Connect account, payout, transfer, application-fee, dispute, and refund event handling remains to be completed.
+
+### Not Done
+
+The following requirements remain to be implemented:
+
+* Generic client registration and client callback URI management.
+* Generic payee and payee account APIs in the Payment Service.
+* Stripe Connect adapter support for creating/retrieving connected accounts inside the Payment Service boundary.
+* Connected-account checkout/payment creation with platform application fees.
+* Commission policy tables, versioning, and allocation calculation.
+* Payment allocation ledger and settlement ledger APIs.
+* Provider payout, transfer, application fee, and balance transaction tracking.
+* Refund allocation reversal, including provider-dashboard refund detection.
+* Reconciliation jobs for provider/payment mismatches.
+* Generic non-RollFinders integration contract tests.
+* Production-grade webhook signature verification and retry processing.

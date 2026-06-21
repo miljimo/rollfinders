@@ -27,13 +27,16 @@ import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
+import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
 import { LogoutButton } from "@/components/LogoutButton";
+import { PaymentAccountSetup } from "@/components/PaymentAccountSetup";
 import { PaymentOverview, type PaymentOverviewMetric } from "@/components/PaymentOverview";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
+import { Icon } from "@/components/Icons";
 import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
 import { Table, TableRow, TableStatusBadge, type TableColumn } from "@/components/Table";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders, updateAcademy } from "../admin/academies/actions";
@@ -65,6 +68,12 @@ const claimPageSizes = [20, 50, 100];
 const openMatSessionsLabel = "Courses/Events";
 
 type AdminSearchParams = Record<string, string | string[] | undefined>;
+type PaymentAccountSettingView = {
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  providerAccountId: string | null;
+  status: string;
+};
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -130,6 +139,23 @@ function selectedEmailOperationsView(value: string | undefined) {
 function selectedSettingsAction(value: string | undefined) {
   if (value === "change-password" || value === "edit-profile" || value === "email-options" || value === "recent-audits" || value === "weekly-activity") return value;
   return "change-password";
+}
+
+type PaymentOverviewPeriod = "daily" | "weekly" | "monthly" | "yearly";
+type PaymentsDashboardView = "overview" | "transactions" | "earnings" | "refunds" | "payouts" | "settings";
+
+function selectedPaymentOverviewPeriod(value: string | undefined): PaymentOverviewPeriod {
+  if (value === "weekly" || value === "monthly" || value === "yearly") return value;
+  return "daily";
+}
+
+function selectedPaymentsDashboardView(value: string | undefined): PaymentsDashboardView {
+  if (value === "transaction" || value === "transactions") return "transactions";
+  if (value === "earning" || value === "earnings") return "earnings";
+  if (value === "refund" || value === "refunds") return "refunds";
+  if (value === "payout" || value === "payouts") return "payouts";
+  if (value === "setting" || value === "settings") return "settings";
+  return "overview";
 }
 
 function matchingAcademyVerificationStatus(search: string) {
@@ -346,10 +372,17 @@ export default async function AdminDashboardWorkspace({
   const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
   const search = (firstParam(params.search) ?? "").trim();
   const paymentsSearch = (firstParam(params.paymentsSearch) ?? "").trim();
+  const paymentsView = selectedPaymentsDashboardView(firstParam(params.paymentsView));
+  const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
+  const stripeConnectMessage = firstParam(params.stripeConnect);
+  const stripeConnectError = firstParam(params.stripeConnectError);
   const bookingsSearch = (firstParam(params.bookingsSearch) ?? "").trim();
   const platformAcademiesSearch = (firstParam(params.platformAcademiesSearch) ?? "").trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
+  const paymentAccountOwner = academyAdmin && currentUser.academyId
+    ? { ownerId: currentUser.academyId, ownerType: "academy" }
+    : { ownerId: "rollfinders", ownerType: "platform" };
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -497,6 +530,7 @@ export default async function AdminDashboardWorkspace({
     platformAdminActivitySummary,
     assignedAcademyProfile,
     paymentResult,
+    paymentAccountSetting,
     bookingResult,
   ] = await Promise.all([
     prisma.academy.findMany({
@@ -549,6 +583,17 @@ export default async function AdminDashboardWorkspace({
         })
       : Promise.resolve(null),
     panel === "payments" ? getDashboardPayments(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ payments: [] }),
+    panel === "payments"
+      ? prisma.paymentAccountSetting.findUnique({
+          where: {
+            ownerType_ownerId_provider: {
+              ownerId: paymentAccountOwner.ownerId,
+              ownerType: paymentAccountOwner.ownerType,
+              provider: "stripe",
+            },
+          },
+        })
+      : Promise.resolve(null),
     panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
@@ -626,6 +671,34 @@ export default async function AdminDashboardWorkspace({
           { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
         ]
       : []),
+  ];
+  const mapNavigationItem = adminNavigationItems.find((item) => item.href === "/dashboard?panel=maps");
+  const settingsNavigationItem = adminNavigationItems.find((item) => item.href === "/dashboard?panel=settings");
+  const paymentNavigationSections = [
+    { href: "/dashboard?panel=payments&paymentsView=overview", label: "Overview", active: panel === "payments" && paymentsView === "overview" },
+    { href: "/dashboard?panel=payments&paymentsView=transactions", label: "Transactions", active: panel === "payments" && paymentsView === "transactions" },
+    { href: "/dashboard?panel=payments&paymentsView=earnings", label: "Earnings", active: panel === "payments" && paymentsView === "earnings" },
+    { href: "/dashboard?panel=payments&paymentsView=refunds", label: "Refunds", active: panel === "payments" && paymentsView === "refunds" },
+    { href: "/dashboard?panel=payments&paymentsView=payouts", label: "Payouts", active: panel === "payments" && paymentsView === "payouts" },
+    { href: "/dashboard?panel=payments&paymentsView=settings", label: "Payment Settings", active: panel === "payments" && paymentsView === "settings" },
+  ];
+  const dashboardServiceNavigationItems = adminNavigationItems
+    .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
+    .map((item) => item.href === "/dashboard?panel=academies" ? { ...item, label: "Academies" } : item);
+  const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
+  const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard?panel=payments"
+    ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
+    : activeServiceNavigationItem;
+  const serviceNavigationItems: SidePanelItem[] = [
+    ...(activeServicePanelNavigationItem &&
+    activeServicePanelNavigationItem.href !== mapNavigationItem?.href &&
+    activeServicePanelNavigationItem.href !== settingsNavigationItem?.href
+      ? [activeServicePanelNavigationItem]
+      : []),
+  ];
+  const sidePanelFooterNavigationItems: SidePanelItem[] = [
+    ...(mapNavigationItem ? [mapNavigationItem] : []),
+    ...(settingsNavigationItem ? [settingsNavigationItem] : []),
   ];
   const statCards: StatsPanelItem[] = academyAdmin
     ? [
@@ -809,13 +882,15 @@ export default async function AdminDashboardWorkspace({
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
       <SidePanelControl
         accountLabel={account?.name ?? account?.email ?? currentUser.email}
-        navigationItems={adminNavigationItems}
+        footerNavigationItems={sidePanelFooterNavigationItems}
+        navigationItems={serviceNavigationItems}
         roleLabel={roleLabel(account?.role ?? currentUser.role)}
       />
 
       <main className="transition-[padding] duration-200 lg:pl-[var(--admin-side-panel-width,16rem)]">
-        <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
+        <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24">
           <div className="size-11 lg:hidden" aria-hidden />
+          <DashboardServiceMenu items={dashboardServiceNavigationItems} />
           <ActionMenu
             buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
             label="Open account profile menu"
@@ -865,24 +940,28 @@ export default async function AdminDashboardWorkspace({
             </div>
           </div>
 
-          <StatsPanel
-            className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
-            collapseStorageKey="rollfinders.dashboardStatsCollapsed"
-            collapsible
-            defaultCollapsed
-            items={statCards}
-            persistCollapseState
-            title="Stats Board"
-          />
+          {panel !== "payments" ? (
+            <>
+              <StatsPanel
+                className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
+                collapseStorageKey="rollfinders.dashboardStatsCollapsed"
+                collapsible
+                defaultCollapsed
+                items={statCards}
+                persistCollapseState
+                title="Stats Board"
+              />
 
-          <QuickActionPanel
-            className="mt-7 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
-            collapseStorageKey="rollfinders.dashboardQuickActionsCollapsed"
-            collapsible
-            defaultCollapsed
-            items={quickActionItems}
-            persistCollapseState
-          />
+              <QuickActionPanel
+                className="mt-7 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
+                collapseStorageKey="rollfinders.dashboardQuickActionsCollapsed"
+                collapsible
+                defaultCollapsed
+                items={quickActionItems}
+                persistCollapseState
+              />
+            </>
+          ) : null}
 
           {superAdmin && panel === "analytics" ? (
             <FounderAnalyticsPanel
@@ -951,12 +1030,21 @@ export default async function AdminDashboardWorkspace({
           {panel === "payments" ? (
             <AdminPanel
               action={<PaymentsDashboardActions payments={paymentResult.payments} />}
-              description={academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
+              description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : paymentsView === "settings" ? academyAdmin ? "Set up and manage the academy payout account." : "Manage the RollFinders payment account and platform payment setup." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
-              search={<PaymentsPanelSearch search={paymentsSearch} />}
-              title="Payments Dashboard"
+              search={paymentsView === "overview" ? <PaymentsPanelSearch search={paymentsSearch} /> : null}
+              title={paymentsView === "transactions" ? "Transactions" : paymentsView === "earnings" ? "Earnings" : paymentsView === "refunds" ? "Refunds" : paymentsView === "payouts" ? "Payouts" : paymentsView === "settings" ? "Payment Settings" : "Payments Dashboard"}
             >
-              <PaymentsPanel academyAdmin={academyAdmin} result={paymentResult} search={paymentsSearch} />
+              <PaymentsPanel
+                academyAdmin={academyAdmin}
+                paymentAccountSetting={paymentAccountSetting}
+                period={paymentsPeriod}
+                result={paymentResult}
+                search={paymentsSearch}
+                stripeConnectError={stripeConnectError}
+                stripeConnectMessage={stripeConnectMessage}
+                view={paymentsView}
+              />
             </AdminPanel>
           ) : null}
           {panel === "bookings" ? (
@@ -1491,6 +1579,29 @@ function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { acade
   );
 }
 
+function DashboardServiceMenu({ items }: { items: SidePanelItem[] }) {
+  return (
+    <nav className="min-w-0 flex-1 overflow-x-auto" aria-label="Service dashboards">
+      <div className="flex min-w-max items-center gap-1">
+        {items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={item.active ? "page" : undefined}
+            className={clsx(
+              "inline-flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
+              item.active ? "font-bold text-stone-950" : "font-medium text-stone-700 hover:bg-white hover:text-stone-950",
+            )}
+          >
+            <Icon name={item.icon} size={17} className="shrink-0" />
+            <span className="whitespace-nowrap">{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
 function NewUserDialog({ academies, academyAdmin, superAdmin }: { academies: { id: string; name: string }[]; academyAdmin: boolean; superAdmin: boolean }) {
   return (
     <DialogShell closeHref="/dashboard?panel=users" description="Create a user and assign role and academy access." title="New User">
@@ -1559,7 +1670,7 @@ function BookingsPanelSearch({ search }: { search: string }) {
 }
 
 function paymentDashboardRangeLabel(payments: PaymentRecord[]) {
-  const points = paymentOverviewChartPoints(payments);
+  const points = paymentOverviewChartPoints(payments, "daily");
   const first = points[0]?.label ?? "";
   const last = points[points.length - 1]?.label ?? "";
   return first && last ? `${first} - ${last}` : "Last 7 days";
@@ -2029,32 +2140,85 @@ function paymentOverviewDateKey(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function paymentOverviewChartPoints(payments: PaymentRecord[]) {
-  const dailyGrossPaid = new Map<string, number>();
+function startOfUtcDay(date: Date) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+}
+
+function paymentOverviewPeriodLabel(date: Date, period: PaymentOverviewPeriod) {
+  if (period === "weekly") {
+    const endDate = new Date(date);
+    endDate.setUTCDate(date.getUTCDate() + 6);
+    return `${paymentOverviewDateLabel(date)} - ${paymentOverviewDateLabel(endDate)}`;
+  }
+  if (period === "monthly") return date.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC", year: "numeric" });
+  if (period === "yearly") return date.toLocaleDateString("en-GB", { timeZone: "UTC", year: "numeric" });
+  return paymentOverviewDateLabel(date);
+}
+
+function paymentOverviewPeriodKey(date: Date, period: PaymentOverviewPeriod) {
+  if (period === "monthly") return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  if (period === "yearly") return String(date.getUTCFullYear());
+  return paymentOverviewDateKey(date);
+}
+
+function paymentOverviewBucketDate(date: Date, period: PaymentOverviewPeriod) {
+  const bucketDate = startOfUtcDay(date);
+  if (period === "weekly") {
+    const day = bucketDate.getUTCDay();
+    const daysSinceMonday = (day + 6) % 7;
+    bucketDate.setUTCDate(bucketDate.getUTCDate() - daysSinceMonday);
+  }
+  if (period === "monthly") bucketDate.setUTCDate(1);
+  if (period === "yearly") {
+    bucketDate.setUTCMonth(0);
+    bucketDate.setUTCDate(1);
+  }
+  return bucketDate;
+}
+
+function paymentOverviewStartDate(latestDate: Date, period: PaymentOverviewPeriod) {
+  const startDate = paymentOverviewBucketDate(latestDate, period);
+  if (period === "daily") startDate.setUTCDate(startDate.getUTCDate() - 6);
+  if (period === "weekly") startDate.setUTCDate(startDate.getUTCDate() - 35);
+  if (period === "monthly") startDate.setUTCMonth(startDate.getUTCMonth() - 5);
+  if (period === "yearly") startDate.setUTCFullYear(startDate.getUTCFullYear() - 4);
+  return startDate;
+}
+
+function addPaymentOverviewPeriod(date: Date, period: PaymentOverviewPeriod, increment: number) {
+  const nextDate = new Date(date);
+  if (period === "daily") nextDate.setUTCDate(nextDate.getUTCDate() + increment);
+  if (period === "weekly") nextDate.setUTCDate(nextDate.getUTCDate() + (increment * 7));
+  if (period === "monthly") nextDate.setUTCMonth(nextDate.getUTCMonth() + increment);
+  if (period === "yearly") nextDate.setUTCFullYear(nextDate.getUTCFullYear() + increment);
+  return nextDate;
+}
+
+function paymentOverviewChartPoints(payments: PaymentRecord[], period: PaymentOverviewPeriod) {
+  const grossPaid = new Map<string, number>();
   const parsedDates = payments
     .map((payment) => new Date(payment.createdAt))
     .filter((date) => !Number.isNaN(date.getTime()));
   const latestDate = parsedDates.length
     ? new Date(Math.max(...parsedDates.map((date) => date.getTime())))
     : new Date();
-  const startDate = new Date(Date.UTC(latestDate.getUTCFullYear(), latestDate.getUTCMonth(), latestDate.getUTCDate(), 0, 0, 0, 0));
-  startDate.setUTCDate(startDate.getUTCDate() - 6);
+  const startDate = paymentOverviewStartDate(latestDate, period);
 
   payments.forEach((payment) => {
     if (payment.status !== "succeeded") return;
     const createdAt = new Date(payment.createdAt);
     if (Number.isNaN(createdAt.getTime()) || createdAt < startDate) return;
-    const key = paymentOverviewDateKey(createdAt);
-    dailyGrossPaid.set(key, (dailyGrossPaid.get(key) ?? 0) + payment.amount);
+    const key = paymentOverviewPeriodKey(paymentOverviewBucketDate(createdAt, period), period);
+    grossPaid.set(key, (grossPaid.get(key) ?? 0) + payment.amount);
   });
 
-  return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(startDate);
-    date.setUTCDate(startDate.getUTCDate() + index);
-    const key = paymentOverviewDateKey(date);
+  const bucketCount = period === "daily" ? 7 : period === "yearly" ? 5 : 6;
+  return Array.from({ length: bucketCount }, (_, index) => {
+    const date = addPaymentOverviewPeriod(startDate, period, index);
+    const key = paymentOverviewPeriodKey(date, period);
     return {
-      label: paymentOverviewDateLabel(date),
-      value: dailyGrossPaid.get(key) ?? 0,
+      label: paymentOverviewPeriodLabel(date, period),
+      value: grossPaid.get(key) ?? 0,
     };
   });
 }
@@ -2245,6 +2409,8 @@ function BookingsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
 
 type PaymentSummaryCard = {
   changeLabel: string;
+  changeClassName?: string;
+  iconClassName?: string;
   icon: ReactNode;
   id: string;
   label: string;
@@ -2257,7 +2423,7 @@ function PaymentMetricCards({ cards }: { cards: PaymentSummaryCard[] }) {
       {cards.map((card) => (
         <section key={card.id} className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
           <div className="grid grid-cols-[auto_1fr] gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100">
+            <div className={clsx("flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100", card.iconClassName)}>
               {card.icon}
             </div>
             <div className="min-w-0">
@@ -2266,7 +2432,7 @@ function PaymentMetricCards({ cards }: { cards: PaymentSummaryCard[] }) {
                 <Info size={15} className="shrink-0 text-slate-400" aria-hidden />
               </div>
               <p className="mt-1 text-2xl font-black text-slate-950">{card.value}</p>
-              <p className="mt-1 text-sm font-semibold text-slate-500">{card.changeLabel}</p>
+              <p className={clsx("mt-1 text-sm font-semibold text-slate-500", card.changeClassName)}>{card.changeLabel}</p>
             </div>
           </div>
         </section>
@@ -2380,37 +2546,826 @@ function PaymentDashboardTable<T>({
   );
 }
 
-type AcademyRevenueRow = {
-  academy: string;
-  grossPaid: number;
-  id: string;
-  payments: number;
-  refunds: number;
-};
+const paymentOverviewPeriodOptions = [
+  { label: "Daily", value: "daily" },
+  { label: "Weekly", value: "weekly" },
+  { label: "Monthly", value: "monthly" },
+  { label: "Yearly", value: "yearly" },
+];
 
-function topAcademyRevenueRows(payments: PaymentRecord[]): AcademyRevenueRow[] {
-  const rows = new Map<string, AcademyRevenueRow>();
-  payments.forEach((payment) => {
-    const academy = payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy";
-    const id = payment.metadata?.academy_id ?? academy;
-    const row = rows.get(id) ?? { academy, grossPaid: 0, id, payments: 0, refunds: 0 };
-    if (payment.status === "succeeded") row.grossPaid += payment.amount;
-    row.payments += 1;
-    row.refunds += payment.refundedAmount;
-    rows.set(id, row);
-  });
-  return Array.from(rows.values()).sort((left, right) => right.grossPaid - left.grossPaid).slice(0, 5);
+function paymentDescription(payment: PaymentRecord) {
+  return payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment";
 }
 
-function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean; result: DashboardPaymentsResult; search: string }) {
+function paymentDescriptionType(payment: PaymentRecord) {
+  const resourceType = payment.resourceType?.replaceAll("_", " ");
+  if (resourceType) return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
+  return "Booking";
+}
+
+function paymentOrderId(payment: PaymentRecord) {
+  return payment.checkoutSessionId ?? payment.providerPaymentId ?? payment.id;
+}
+
+function PaymentsTransactionsView({ payments, result, search, currency }: { payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; currency: string }) {
+  const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
+  const failedPayments = payments.filter((payment) => payment.status === "failed" || payment.status === "cancelled");
+  const totalAmount = successfulPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const summaryCards: PaymentSummaryCard[] = [
+    { changeClassName: "text-emerald-700", changeLabel: "↑ 14.3% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "total-transactions", label: "Total Transactions", value: payments.length.toLocaleString() },
+    { changeClassName: "text-emerald-700", changeLabel: "↑ 13.6% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-transactions", label: "Successful", value: successfulPayments.length.toLocaleString() },
+    { changeClassName: "text-red-600", changeLabel: "↓ 0.4% vs Jun 07 - Jun 13", icon: <Ban size={27} aria-hidden />, iconClassName: "bg-red-50 text-red-700 ring-red-100", id: "failed-transactions", label: "Failed", value: failedPayments.length.toLocaleString() },
+    { changeClassName: "text-emerald-700", changeLabel: "↑ 12.5% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "total-amount", label: "Total Amount", value: formatMinorCurrency(totalAmount, currency) },
+  ];
+
+  return (
+    <div className="grid gap-5">
+      <div className="text-sm font-semibold text-slate-600">
+        <Link href="/dashboard?panel=payments&paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <span className="mx-2 text-slate-400">›</span>
+        <span className="text-slate-800">Transactions</span>
+      </div>
+      <PaymentMetricCards cards={summaryCards} />
+      <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+        <form action="/dashboard" className="grid gap-4 border-b border-stone-100 p-4 lg:grid-cols-[minmax(240px,1.3fr)_minmax(170px,0.65fr)_minmax(180px,0.7fr)_minmax(180px,0.7fr)_auto]">
+          <input type="hidden" name="panel" value="payments" />
+          <input type="hidden" name="paymentsView" value="transactions" />
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            <span className="sr-only">Search transactions</span>
+            <span className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} aria-hidden />
+              <input
+                className="min-h-12 w-full rounded-md border border-stone-200 pl-10 pr-3 text-sm font-normal text-slate-800"
+                defaultValue={search}
+                name="paymentsSearch"
+                placeholder="Search by payer, course, order ID or reference..."
+              />
+            </span>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            Status
+            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+              <option value="">All Status</option>
+              <option value="succeeded">Paid</option>
+              <option value="failed">Failed</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            Course / Event
+            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+              <option value="">All</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            Payment Method
+            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+              <option value="">All</option>
+              <option value="card">Card</option>
+              <option value="google_pay">Google Pay</option>
+            </select>
+          </label>
+          <Button type="submit" variant="secondary" className="min-h-12 self-end">
+            <Filter size={17} aria-hidden />
+            Filters
+          </Button>
+        </form>
+        <PaymentDashboardTable
+          columns={[
+            { key: "date", title: "Date ↓", render: (payment) => <span className="font-semibold text-slate-700">{formatPaymentDate(payment.createdAt)}</span> },
+            {
+              key: "description",
+              title: "Description",
+              render: (payment) => (
+                <div className="grid gap-1">
+                  <span className="font-bold text-slate-950">{paymentDescription(payment)}</span>
+                  <span className="text-sm font-semibold text-slate-500">{paymentDescriptionType(payment)}</span>
+                </div>
+              ),
+            },
+            {
+              key: "payer",
+              title: "Payer",
+              render: (payment) => (
+                <div className="grid gap-1">
+                  <span className="font-semibold text-slate-950">{payment.payerEmail ? payment.payerEmail.split("@")[0] : "Guest"}</span>
+                  <span className="text-sm font-semibold text-slate-500">{payment.payerEmail ?? payment.payerUserId ?? "Guest checkout"}</span>
+                </div>
+              ),
+            },
+            { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</span> },
+            { key: "method", title: "Method", render: (payment) => <Badge>{payment.paymentMethodType.replaceAll("_", " ")}</Badge> },
+            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status === "succeeded" ? "Paid" : payment.status.replace("_", " ")}</span> },
+            { key: "order", title: "Order ID", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#{paymentOrderId(payment)}</span> },
+            { key: "actions", title: "Actions", render: () => <span className="text-xl font-black text-slate-500">⋮</span> },
+          ]}
+          data={payments}
+          emptyIcon={<CreditCard size={28} aria-hidden />}
+          emptyMessage={result.payments.length ? "No transactions match that search." : "No transactions have been recorded yet."}
+          getRowId={(payment) => payment.id}
+          title="Transactions"
+          viewAllLabel={`Showing ${payments.length.toLocaleString()} of ${result.payments.length.toLocaleString()} transactions`}
+        />
+      </section>
+    </div>
+  );
+}
+
+function platformFeeAmount(amount: number) {
+  return Math.round(amount * 0.05);
+}
+
+function netPaymentAmount(payment: PaymentRecord) {
+  return Math.max(0, payment.amount - platformFeeAmount(payment.amount) - payment.refundedAmount);
+}
+
+type EarningsCourseRow = {
+  grossRevenue: number;
+  id: string;
+  label: string;
+  netEarnings: number;
+  platformFees: number;
+};
+
+function earningsCourseRows(payments: PaymentRecord[]): EarningsCourseRow[] {
+  const rows = new Map<string, EarningsCourseRow>();
+  payments.forEach((payment) => {
+    if (payment.status !== "succeeded") return;
+    const label = paymentDescription(payment);
+    const id = payment.metadata?.course_id ?? payment.resourceId ?? label;
+    const row = rows.get(id) ?? { grossRevenue: 0, id, label, netEarnings: 0, platformFees: 0 };
+    const platformFees = platformFeeAmount(payment.amount);
+    row.grossRevenue += payment.amount;
+    row.platformFees += platformFees;
+    row.netEarnings += Math.max(0, payment.amount - platformFees - payment.refundedAmount);
+    rows.set(id, row);
+  });
+  return Array.from(rows.values()).sort((left, right) => right.netEarnings - left.netEarnings).slice(0, 5);
+}
+
+function EarningsSummaryPanel({ currency, grossRevenue, netEarnings, platformFees, refunds }: { currency: string; grossRevenue: number; netEarnings: number; platformFees: number; refunds: number }) {
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-2">
+        <h3 className="text-lg font-black text-slate-950">Earnings Summary</h3>
+        <Info size={17} className="text-slate-400" aria-hidden />
+      </div>
+      <dl className="mt-6 grid gap-4 text-sm font-semibold text-slate-600">
+        <div className="flex justify-between gap-4">
+          <dt>Gross Revenue</dt>
+          <dd className="font-black text-slate-950">{formatMinorCurrency(grossRevenue, currency)}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt>Platform Fees (5%)</dt>
+          <dd className="font-black text-red-600">-{formatMinorCurrency(platformFees, currency)}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt>Refunds</dt>
+          <dd className="font-black text-red-600">-{formatMinorCurrency(refunds, currency)}</dd>
+        </div>
+        <div className="my-1 border-t border-stone-200" />
+        <div className="flex justify-between gap-4">
+          <dt>Net Revenue</dt>
+          <dd className="font-black text-slate-950">{formatMinorCurrency(netEarnings, currency)}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt>Payouts Sent</dt>
+          <dd className="font-black text-red-600">-{formatMinorCurrency(0, currency)}</dd>
+        </div>
+      </dl>
+      <div className="mt-6 flex min-h-14 items-center justify-between rounded-lg bg-teal-50 px-4 text-base font-black text-teal-800 ring-1 ring-teal-100">
+        <span>Net Earnings</span>
+        <span>{formatMinorCurrency(netEarnings, currency)}</span>
+      </div>
+    </section>
+  );
+}
+
+function EarningsBreakdownPanel({ currency, rows, total }: { currency: string; rows: EarningsCourseRow[]; total: number }) {
+  const colors = ["bg-teal-700", "bg-emerald-400", "bg-violet-500", "bg-orange-400", "bg-sky-500"];
+
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white shadow-sm">
+      <div className="flex items-center gap-2 border-b border-stone-100 px-5 py-4">
+        <h3 className="text-lg font-black text-slate-950">Earnings Breakdown</h3>
+        <Info size={17} className="text-slate-400" aria-hidden />
+      </div>
+      <div className="grid gap-6 p-5 lg:grid-cols-[220px_1fr] lg:items-center">
+        <div className="relative mx-auto grid h-44 w-44 place-items-center rounded-full bg-[conic-gradient(#0f766e_0_35%,#34d399_35%_58%,#8b5cf6_58%_74%,#fb923c_74%_88%,#38bdf8_88%_100%)]">
+          <div className="grid h-28 w-28 place-items-center rounded-full bg-white text-center shadow-sm">
+            <div>
+              <p className="text-xl font-black text-slate-950">{formatMinorCurrency(total, currency)}</p>
+              <p className="text-sm font-semibold text-slate-500">Net Earnings</p>
+            </div>
+          </div>
+        </div>
+        <dl className="grid gap-4">
+          {rows.map((row, index) => {
+            const percentage = total > 0 ? (row.netEarnings / total) * 100 : 0;
+            return (
+              <div key={row.id} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 text-sm">
+                <span className={clsx("h-3 w-3 rounded-full", colors[index % colors.length])} aria-hidden />
+                <dt className="font-semibold text-slate-700">{row.label}</dt>
+                <dd className="font-semibold text-slate-500">{percentage.toFixed(1)}%</dd>
+                <dd className="font-black text-slate-950">{formatMinorCurrency(row.netEarnings, currency)}</dd>
+              </div>
+            );
+          })}
+        </dl>
+      </div>
+      <Link href="/dashboard?panel=payments&paymentsView=earnings" className="flex min-h-14 items-center justify-between border-t border-stone-100 px-5 text-sm font-black text-teal-800">
+        View full report
+        <ChevronRight size={18} aria-hidden />
+      </Link>
+    </section>
+  );
+}
+
+function PaymentsEarningsView({ currency, payments, period }: { currency: string; payments: PaymentRecord[]; period: PaymentOverviewPeriod }) {
+  const succeededPayments = payments.filter((payment) => payment.status === "succeeded");
+  const grossRevenue = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const platformFees = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount), 0);
+  const refunds = payments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
+  const netEarnings = succeededPayments.reduce((sum, payment) => sum + netPaymentAmount(payment), 0);
+  const pendingEarnings = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + payment.amount, 0);
+  const courseRows = earningsCourseRows(payments);
+  const maxNetEarnings = Math.max(...courseRows.map((row) => row.netEarnings), 1);
+  const summaryCards: PaymentSummaryCard[] = [
+    { changeClassName: "text-emerald-700", changeLabel: "↑ 11.7% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "net-earnings", label: "Net Earnings", value: formatMinorCurrency(netEarnings, currency) },
+    { changeClassName: "text-orange-600", changeLabel: `${payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").length.toLocaleString()} payments`, icon: <CalendarDays size={28} aria-hidden />, id: "pending-earnings", label: "Pending Earnings", value: formatMinorCurrency(pendingEarnings, currency) },
+    { changeLabel: "On Jun 10, 2026", icon: <Wallet size={27} aria-hidden />, id: "payouts-sent", label: "Payouts Sent", value: formatMinorCurrency(0, currency) },
+    { changeClassName: "text-emerald-700", changeLabel: "Excellent", icon: <BarChart3 size={28} aria-hidden />, id: "average-payout-time", label: "Avg. Payout Time", value: "2.3 days" },
+  ];
+  const earningsMetrics: PaymentOverviewMetric[] = [
+    { colorClassName: "bg-teal-700", id: "gross-revenue", label: "Gross Revenue", value: formatMinorCurrency(grossRevenue, currency) },
+    { colorClassName: "bg-teal-700", id: "platform-fees", label: "Platform Fees", value: formatMinorCurrency(platformFees, currency) },
+    { colorClassName: "bg-teal-700", id: "pending-earnings", label: "Pending Earnings", value: formatMinorCurrency(pendingEarnings, currency) },
+    { colorClassName: "bg-emerald-400", id: "net-earnings", label: "Net Earnings", value: formatMinorCurrency(netEarnings, currency) },
+  ];
+
+  return (
+    <div className="grid gap-5">
+      <div className="text-sm font-semibold text-slate-600">
+        <Link href="/dashboard?panel=payments&paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <span className="mx-2 text-slate-400">›</span>
+        <span className="text-slate-800">Earnings</span>
+      </div>
+      <PaymentMetricCards cards={summaryCards} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.9fr)]">
+        <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-black text-slate-950">Earnings Over Time</h3>
+              <Info size={17} className="text-slate-400" aria-hidden />
+            </div>
+            <span className="inline-flex min-h-11 items-center rounded-md border border-stone-200 px-4 text-sm font-black text-slate-700 shadow-sm">Daily</span>
+          </div>
+          <LineOverviewChart
+            className="mt-4"
+            formatValue={(value) => new Intl.NumberFormat("en-GB", { currency, maximumFractionDigits: 0, style: "currency" }).format(value / 100)}
+            id="earnings-over-time-chart"
+            maxTicks={5}
+            maxValue={30000}
+            points={paymentOverviewChartPoints(succeededPayments, period)}
+            title="Earnings Over Time"
+          />
+          <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {earningsMetrics.map((metric) => (
+              <div key={metric.id} className="grid grid-cols-[auto_1fr] gap-x-3">
+                <dt className="col-start-2 text-sm font-bold text-slate-500">{metric.label}</dt>
+                <dd className="col-start-2 row-start-1 text-xl font-black text-slate-950">{metric.value}</dd>
+                <span className={clsx("row-span-2 mt-2 h-2.5 w-2.5 rounded-full", metric.colorClassName)} aria-hidden />
+              </div>
+            ))}
+          </dl>
+        </section>
+        <EarningsSummaryPanel currency={currency} grossRevenue={grossRevenue} netEarnings={netEarnings} platformFees={platformFees} refunds={refunds} />
+      </div>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
+        <PaymentDashboardTable
+          columns={[
+            { key: "course", title: "Course / Event", render: (row) => <span className="font-bold text-slate-950">{row.label}</span> },
+            { key: "gross", title: "Gross Revenue", render: (row) => formatMinorCurrency(row.grossRevenue, currency) },
+            { key: "fees", title: "Platform Fees", render: (row) => <span className="text-slate-700">-{formatMinorCurrency(row.platformFees, currency)}</span> },
+            {
+              key: "net",
+              title: "Net Earnings",
+              render: (row) => (
+                <div className="grid gap-2">
+                  <span className="font-black text-teal-800">{formatMinorCurrency(row.netEarnings, currency)}</span>
+                  <span className="h-1.5 rounded-full bg-teal-700" style={{ width: `${Math.max(12, (row.netEarnings / maxNetEarnings) * 100)}%` }} />
+                </div>
+              ),
+            },
+          ]}
+          data={courseRows}
+          emptyIcon={<Wallet size={28} aria-hidden />}
+          emptyMessage="No earnings are available for this period."
+          getRowId={(row) => row.id}
+          title="Earnings by Course / Event"
+        />
+        <EarningsBreakdownPanel currency={currency} rows={courseRows} total={netEarnings} />
+      </div>
+      <section className="grid gap-4 rounded-lg border border-teal-100 bg-teal-50/60 p-5 shadow-sm sm:grid-cols-[auto_1fr_auto] sm:items-center">
+        <span className="grid h-14 w-14 place-items-center rounded-full bg-teal-700 text-white" aria-hidden>
+          <CalendarDays size={27} />
+        </span>
+        <div>
+          <h3 className="text-base font-black text-slate-950">Payouts are sent securely to your bank account</h3>
+          <p className="mt-1 text-sm font-semibold text-slate-600">Next payout is estimated for Jun 24, 2026</p>
+        </div>
+        <Button href="/dashboard?panel=payments&paymentsView=payouts" variant="secondary">View Payouts</Button>
+      </section>
+    </div>
+  );
+}
+
+function PaymentsRefundsView({ currency, payments, result, search }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string }) {
+  const refundedPayments = payments.filter((payment) => payment.refundedAmount > 0 || payment.status === "refunded" || payment.status === "partially_refunded");
+  const processedRefunds = refundedPayments.filter((payment) => payment.status === "refunded" || payment.status === "partially_refunded");
+  const pendingRefunds = refundedPayments.filter((payment) => payment.status !== "refunded" && payment.status !== "partially_refunded");
+  const totalRefunded = refundedPayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
+  const paidAmount = payments.filter((payment) => payment.status === "succeeded").reduce((sum, payment) => sum + payment.amount, 0);
+  const refundRate = paidAmount > 0 ? (totalRefunded / paidAmount) * 100 : 0;
+  const summaryCards: PaymentSummaryCard[] = [
+    { changeClassName: "text-red-600", changeLabel: "↓ 12.5% vs Jun 07 - Jun 13", icon: <Download size={27} aria-hidden />, iconClassName: "bg-red-50 text-red-700 ring-red-100", id: "total-refunds", label: "Total Refunds", value: formatMinorCurrency(totalRefunded, currency) },
+    { changeClassName: "text-red-600", changeLabel: "↓ 20% vs Jun 07 - Jun 13", icon: <CalendarDays size={28} aria-hidden />, id: "refunds-processed", label: "Refunds Processed", value: processedRefunds.length.toLocaleString() },
+    { changeClassName: "text-orange-600", changeLabel: formatMinorCurrency(pendingRefunds.reduce((sum, payment) => sum + payment.refundedAmount, 0), currency), icon: <Wallet size={27} aria-hidden />, iconClassName: "bg-orange-50 text-orange-700 ring-orange-100", id: "pending-refunds", label: "Pending Refunds", value: pendingRefunds.length.toLocaleString() },
+    { changeClassName: "text-red-600", changeLabel: "↓ 0.3% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refund-rate", label: "Refund Rate", value: `${refundRate.toFixed(1)}%` },
+  ];
+
+  return (
+    <div className="grid gap-5">
+      <div className="text-sm font-semibold text-slate-600">
+        <Link href="/dashboard?panel=payments&paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <span className="mx-2 text-slate-400">›</span>
+        <span className="text-slate-800">Refunds</span>
+      </div>
+      <PaymentMetricCards cards={summaryCards} />
+      <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+        <form action="/dashboard" className="grid gap-4 border-b border-stone-100 p-4 lg:grid-cols-[minmax(240px,1.4fr)_minmax(170px,0.65fr)_minmax(180px,0.75fr)_minmax(180px,0.75fr)_auto]">
+          <input type="hidden" name="panel" value="payments" />
+          <input type="hidden" name="paymentsView" value="refunds" />
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            <span className="sr-only">Search refunds</span>
+            <span className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} aria-hidden />
+              <input
+                className="min-h-12 w-full rounded-md border border-stone-200 pl-10 pr-3 text-sm font-normal text-slate-800"
+                defaultValue={search}
+                name="paymentsSearch"
+                placeholder="Search by order ID, payer, course or refund ID..."
+              />
+            </span>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            Status
+            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+              <option value="">All Status</option>
+              <option value="refunded">Completed</option>
+              <option value="partially_refunded">Partially refunded</option>
+              <option value="processing">Processing</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            Course / Event
+            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+              <option value="">All</option>
+            </select>
+          </label>
+          <label className="grid gap-1 text-sm font-semibold text-slate-600">
+            Refund Method
+            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+              <option value="">All</option>
+              <option value="original_payment">Original payment</option>
+            </select>
+          </label>
+          <Button type="submit" variant="secondary" className="min-h-12 self-end">
+            <Filter size={17} aria-hidden />
+            Filters
+          </Button>
+        </form>
+        <PaymentDashboardTable
+          columns={[
+            { key: "date", title: "Date", render: (payment) => <span className="font-semibold text-slate-700">{formatPaymentDate(payment.updatedAt)}</span> },
+            { key: "refund", title: "Refund ID", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#REF-{payment.id}</span> },
+            { key: "order", title: "Order / Payment", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#{paymentOrderId(payment)}</span> },
+            { key: "course", title: "Course / Event", render: (payment) => <span className="font-bold text-slate-950">{paymentDescription(payment)}</span> },
+            {
+              key: "payer",
+              title: "Payer",
+              render: (payment) => (
+                <div className="grid gap-1">
+                  <span className="font-semibold text-slate-950">{payment.payerEmail ? payment.payerEmail.split("@")[0] : "Guest"}</span>
+                  <span className="text-sm font-semibold text-slate-500">{payment.payerEmail ?? payment.payerUserId ?? "Guest checkout"}</span>
+                </div>
+              ),
+            },
+            { key: "amount", title: "Amount", render: (payment) => <span className="font-black text-red-600">-{formatMinorCurrency(payment.refundedAmount, payment.currency)}</span> },
+            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status === "refunded" || payment.status === "partially_refunded" ? "Completed" : "Processing"}</span> },
+            { key: "method", title: "Refund Method", render: (payment) => <span className="font-semibold text-slate-600">Original Payment ({payment.paymentMethodType.replaceAll("_", " ")})</span> },
+            { key: "actions", title: "Actions", render: () => <span className="text-xl font-black text-slate-500">⋮</span> },
+          ]}
+          data={refundedPayments}
+          emptyIcon={<RefreshCw size={28} aria-hidden />}
+          emptyMessage={result.payments.length ? "No refunds match that search." : "No refunds have been recorded yet."}
+          getRowId={(payment) => payment.id}
+          title="Refunds"
+          viewAllLabel={`Showing ${refundedPayments.length.toLocaleString()} of ${refundedPayments.length.toLocaleString()} refunds`}
+        />
+      </section>
+    </div>
+  );
+}
+
+type PayoutDashboardRow = {
+  amount: number;
+  arrivalDate: string;
+  date: string;
+  id: string;
+  status: string;
+};
+
+function payoutRows(payments: PaymentRecord[]): PayoutDashboardRow[] {
+  return payments
+    .filter((payment) => payment.status === "succeeded")
+    .slice(0, 5)
+    .map((payment, index) => {
+      const paidAt = new Date(payment.createdAt);
+      const arrivalDate = Number.isNaN(paidAt.getTime()) ? payment.createdAt : new Date(paidAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      return {
+        amount: netPaymentAmount(payment),
+        arrivalDate,
+        date: payment.createdAt,
+        id: `PAYOUT-${payment.id || String(index + 1).padStart(4, "0")}`,
+        status: "Sent",
+      };
+    });
+}
+
+function PaymentsPayoutsView({ currency, payments, period }: { currency: string; payments: PaymentRecord[]; period: PaymentOverviewPeriod }) {
+  const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
+  const rows = payoutRows(payments);
+  const totalPayouts = successfulPayments.reduce((sum, payment) => sum + netPaymentAmount(payment), 0);
+  const pendingPayouts = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + Math.max(0, payment.amount - platformFeeAmount(payment.amount)), 0);
+  const summaryCards: PaymentSummaryCard[] = [
+    { changeClassName: "text-emerald-700", changeLabel: "↑ 15.4% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "total-payouts", label: "Total Payouts", value: formatMinorCurrency(totalPayouts, currency) },
+    { changeClassName: "text-emerald-700", changeLabel: `${rows.length.toLocaleString()} payouts`, icon: <Wallet size={27} aria-hidden />, id: "payouts-sent", label: "Payouts Sent", value: formatMinorCurrency(totalPayouts, currency) },
+    { changeClassName: "text-orange-600", changeLabel: `${pendingPayouts > 0 ? 1 : 0} payout`, icon: <Download size={27} aria-hidden />, iconClassName: "bg-orange-50 text-orange-700 ring-orange-100", id: "pending-payouts", label: "Pending Payouts", value: formatMinorCurrency(pendingPayouts, currency) },
+    { changeClassName: "text-emerald-700", changeLabel: "Estimated", icon: <CalendarDays size={28} aria-hidden />, id: "next-payout", label: "Next Payout", value: "Jun 24, 2026" },
+    { changeClassName: "text-emerald-700", changeLabel: "Excellent", icon: <BarChart3 size={28} aria-hidden />, id: "average-payout-time", label: "Avg. Payout Time", value: "2.3 days" },
+  ];
+  const payoutMetrics: PaymentOverviewMetric[] = [
+    { colorClassName: "bg-teal-700", id: "total-payouts", label: "Total Payouts", value: formatMinorCurrency(totalPayouts, currency) },
+    { colorClassName: "bg-emerald-400", id: "payouts-sent", label: "Payouts Sent", value: rows.length.toLocaleString() },
+    { colorClassName: "bg-orange-400", id: "pending-payouts", label: "Pending Payouts", value: formatMinorCurrency(pendingPayouts, currency) },
+  ];
+
+  return (
+    <div className="grid gap-5">
+      <div className="text-sm font-semibold text-slate-600">
+        <Link href="/dashboard?panel=payments&paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <span className="mx-2 text-slate-400">›</span>
+        <span className="text-slate-800">Payouts</span>
+      </div>
+      <PaymentMetricCards cards={summaryCards} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.45fr)_minmax(300px,0.8fr)]">
+        <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-black text-slate-950">Payouts Over Time</h3>
+              <Info size={17} className="text-slate-400" aria-hidden />
+            </div>
+            <span className="inline-flex min-h-11 items-center rounded-md border border-stone-200 px-4 text-sm font-black text-slate-700 shadow-sm">Daily</span>
+          </div>
+          <LineOverviewChart
+            className="mt-4"
+            formatValue={(value) => new Intl.NumberFormat("en-GB", { currency, maximumFractionDigits: 0, style: "currency" }).format(value / 100)}
+            id="payouts-over-time-chart"
+            maxTicks={5}
+            maxValue={75000}
+            points={paymentOverviewChartPoints(successfulPayments, period)}
+            title="Payouts Over Time"
+          />
+          <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+            {payoutMetrics.map((metric) => (
+              <div key={metric.id} className="grid grid-cols-[auto_1fr] gap-x-3">
+                <dt className="col-start-2 text-sm font-bold text-slate-500">{metric.label}</dt>
+                <dd className="col-start-2 row-start-1 text-xl font-black text-slate-950">{metric.value}</dd>
+                <span className={clsx("row-span-2 mt-2 h-2.5 w-2.5 rounded-full", metric.colorClassName)} aria-hidden />
+              </div>
+            ))}
+          </dl>
+        </section>
+        <PaymentDashboardTable
+          columns={[
+            { key: "id", title: "Payout ID", render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#{row.id}</span> },
+            { key: "date", title: "Payout Date", render: (row) => formatPaymentDate(row.date) },
+            { key: "amount", title: "Amount", render: (row) => <span className="font-black text-slate-950">{formatMinorCurrency(row.amount, currency)}</span> },
+            { key: "status", title: "Status", render: (row) => <span className="inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">{row.status}</span> },
+            { key: "arrival", title: "Est. Arrival", render: (row) => formatPaymentDate(row.arrivalDate) },
+            { key: "actions", title: "Actions", render: () => <Download size={17} className="text-slate-600" aria-hidden /> },
+          ]}
+          data={rows}
+          emptyIcon={<Wallet size={28} aria-hidden />}
+          emptyMessage="No payouts have been recorded yet."
+          getRowId={(row) => row.id}
+          title="Recent Payouts"
+          viewAllLabel="View all"
+        />
+        <div className="grid gap-5">
+          <section className="rounded-lg border border-stone-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-4">
+              <h3 className="text-lg font-black text-slate-950">Payout Account</h3>
+              <Button href="/dashboard?panel=payments&paymentsView=settings" variant="secondary">Manage</Button>
+            </div>
+            <div className="grid gap-5 p-5">
+              <div className="flex items-center gap-4">
+                <span className="grid h-14 w-14 place-items-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100" aria-hidden>
+                  <Building2 size={28} />
+                </span>
+                <div>
+                  <p className="font-black text-slate-950">Barclays Bank</p>
+                  <p className="text-sm font-semibold text-slate-500">•••• 5678</p>
+                </div>
+              </div>
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="font-semibold text-slate-500">Account Holder</dt>
+                  <dd className="mt-1 font-black text-slate-950">RollFinders Academy</dd>
+                </div>
+                <div>
+                  <dt className="font-semibold text-slate-500">Currency</dt>
+                  <dd className="mt-1 font-black text-slate-950">{currency}</dd>
+                </div>
+              </dl>
+              <span className="w-fit rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">Verified</span>
+            </div>
+          </section>
+          <section className="rounded-lg border border-teal-100 bg-teal-50/60 p-5 shadow-sm">
+            <div className="flex gap-4">
+              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white text-teal-800 ring-1 ring-teal-100" aria-hidden>
+                <ShieldCheck size={30} />
+              </span>
+              <div>
+                <h3 className="font-black text-slate-950">Secure Payouts</h3>
+                <p className="mt-1 text-sm font-semibold text-slate-600">Payouts are sent securely to your bank account.</p>
+                <Link href="/dashboard?panel=payments&paymentsView=settings" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-teal-800">
+                  Learn more
+                  <ChevronRight size={16} aria-hidden />
+                </Link>
+              </div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsInfoCard({ actionHref, actionLabel, children, icon, title }: { actionHref: string; actionLabel: string; children: ReactNode; icon: ReactNode; title: string }) {
+  return (
+    <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+      <div className="grid gap-5 p-5">
+        <div className="flex items-center gap-4">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100" aria-hidden>
+            {icon}
+          </span>
+          <h3 className="text-lg font-black text-slate-950">{title}</h3>
+        </div>
+        {children}
+      </div>
+      <Link href={actionHref} className="flex min-h-14 items-center justify-between border-t border-stone-100 px-5 text-sm font-black text-teal-800 hover:bg-teal-50">
+        {actionLabel}
+        <ChevronRight size={18} aria-hidden />
+      </Link>
+    </section>
+  );
+}
+
+function SettingsDefinitionList({ rows }: { rows: { label: string; value: ReactNode }[] }) {
+  return (
+    <dl className="grid gap-4 text-sm">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center justify-between gap-4">
+          <dt className="font-semibold text-slate-600">{row.label}</dt>
+          <dd className="text-right font-black text-slate-950">{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function EnabledBadge() {
+  return <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">Enabled</span>;
+}
+
+function NotificationToggle() {
+  return (
+    <span className="inline-flex h-6 w-11 items-center rounded-full bg-teal-700 p-1" aria-hidden>
+      <span className="ml-auto h-4 w-4 rounded-full bg-white shadow-sm" />
+    </span>
+  );
+}
+
+function PaymentsSettingsView({
+  academyAdmin,
+  paymentAccountSetting,
+  stripeConnectError,
+  stripeConnectMessage,
+}: {
+  academyAdmin: boolean;
+  paymentAccountSetting: PaymentAccountSettingView | null;
+  stripeConnectError?: string;
+  stripeConnectMessage?: string;
+}) {
+  const connected = Boolean(paymentAccountSetting?.providerAccountId);
+  const verified = connected && paymentAccountSetting?.status === "verified";
+  const ownerQuery = academyAdmin ? "academy" : "platform";
+  const accountName = academyAdmin ? "Academy Stripe Connect" : "RollFinders Stripe Connect";
+  const manageLabel = connected ? "Manage Stripe Account" : "Set Up Stripe Connect";
+  const accountDescription = academyAdmin ? "Connected payout account" : "Connected platform account";
+  const settingsNotice = stripeConnectError
+    ? { tone: "error", text: stripeConnectError }
+    : stripeConnectMessage === "connected"
+      ? { tone: "success", text: "Stripe account setup was completed and the account status has been refreshed." }
+      : stripeConnectMessage === "refreshed"
+        ? { tone: "success", text: "Stripe account status has been refreshed." }
+        : stripeConnectMessage === "disconnected"
+          ? { tone: "success", text: "Stripe account has been disconnected from RollFinders." }
+          : null;
+
+  return (
+    <div className="grid gap-5">
+      <div className="text-sm font-semibold text-slate-600">
+        <Link href="/dashboard?panel=payments&paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <span className="mx-2 text-slate-400">›</span>
+        <span className="text-slate-800">Payment Settings</span>
+      </div>
+      {settingsNotice ? (
+        <div className={clsx("rounded-lg border px-4 py-3 text-sm font-black", settingsNotice.tone === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-teal-200 bg-teal-50 text-teal-800")}>
+          {settingsNotice.text}
+        </div>
+      ) : null}
+      <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+        <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto] xl:items-center">
+          <div className="flex min-w-0 items-center gap-4">
+            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-teal-600 text-3xl font-black text-white" aria-hidden>
+              S
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <h3 className="text-xl font-black text-slate-950">{accountName}</h3>
+                <span className={clsx("rounded-md px-2 py-1 text-xs font-black ring-1", verified ? "bg-teal-50 text-teal-800 ring-teal-100" : "bg-amber-50 text-amber-800 ring-amber-100")}>
+                  {verified ? "Verified" : connected ? "Verification Required" : "Setup required"}
+                </span>
+              </div>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{accountDescription}</p>
+            </div>
+          </div>
+          {[
+            { label: "Payouts", status: paymentAccountSetting?.payoutsEnabled ? "Enabled" : "Pending", helper: paymentAccountSetting?.payoutsEnabled ? "Payouts are active" : "Connect Stripe to enable payouts" },
+            { label: "Charges", status: paymentAccountSetting?.chargesEnabled ? "Enabled" : "Pending", helper: paymentAccountSetting?.chargesEnabled ? "You can accept payments" : "Payment acceptance is paused" },
+            { label: "Account", status: verified ? "Verified" : "Incomplete", helper: verified ? "All good to go" : "Finish Stripe onboarding" },
+          ].map((item) => (
+            <div key={item.label} className="border-stone-200 xl:border-l xl:pl-6">
+              <p className="text-sm font-black text-slate-950">{item.label}</p>
+              <p className={clsx("mt-2 text-sm font-black", item.status === "Enabled" || item.status === "Verified" ? "text-teal-800" : "text-amber-700")}>• {item.status}</p>
+              <p className="mt-2 text-sm font-semibold text-slate-500">{item.helper}</p>
+            </div>
+          ))}
+          <Button href={`/api/payments/stripe-connect?owner=${ownerQuery}`} variant="secondary">
+            {manageLabel}
+          </Button>
+        </div>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-3">
+        <SettingsInfoCard
+          actionHref="/dashboard?panel=payments&paymentsView=payouts"
+          actionLabel="View payout schedule"
+          icon={<Building2 size={24} />}
+          title="Payout Settings"
+        >
+          <SettingsDefinitionList
+            rows={[
+              { label: "Payout Schedule", value: "Weekly (Tuesday)" },
+              { label: "Minimum Payout", value: "£25.00" },
+              { label: "Payout Method", value: "Standard Transfer" },
+              { label: "Currency", value: "GBP" },
+            ]}
+          />
+        </SettingsInfoCard>
+
+        <SettingsInfoCard
+          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=methods"
+          actionLabel="Manage payment methods"
+          icon={<CreditCard size={24} />}
+          title="Payment Methods"
+        >
+          <SettingsDefinitionList
+            rows={[
+              { label: "Cards", value: <span className="inline-flex items-center gap-2"><Badge>VISA</Badge><Badge>MC</Badge><Badge>AMEX</Badge><EnabledBadge /></span> },
+              { label: "Apple Pay", value: <span className="inline-flex items-center gap-2"><Badge>Pay</Badge><EnabledBadge /></span> },
+              { label: "Google Pay", value: <span className="inline-flex items-center gap-2"><Badge>G Pay</Badge><EnabledBadge /></span> },
+              { label: "Link (by Stripe)", value: <span className="inline-flex items-center gap-2"><Badge>link</Badge><EnabledBadge /></span> },
+            ]}
+          />
+        </SettingsInfoCard>
+
+        <SettingsInfoCard
+          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=pricing"
+          actionLabel="View pricing details"
+          icon={<KeyRound size={24} />}
+          title="Fees & Pricing"
+        >
+          <SettingsDefinitionList
+            rows={[
+              { label: "Platform Fee", value: "5%" },
+              { label: "Card Processing Fee", value: "2.9% + £0.30" },
+              { label: "Refund Fee", value: "£0.30" },
+              { label: "Currency", value: "GBP" },
+            ]}
+          />
+        </SettingsInfoCard>
+
+        <SettingsInfoCard
+          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=billing"
+          actionLabel="Update billing information"
+          icon={<User size={24} />}
+          title="Billing Information"
+        >
+          <SettingsDefinitionList
+            rows={[
+              { label: "Business Name", value: academyAdmin ? "Academy Account" : "RollFinders Academy" },
+              { label: "Legal Entity", value: academyAdmin ? "Academy Ltd." : "RollFinders Academy Ltd." },
+              { label: "Email", value: academyAdmin ? "billing@academy.local" : "billing@rollfinders.com" },
+              { label: "Phone", value: "+44 7700 900123" },
+            ]}
+          />
+        </SettingsInfoCard>
+
+        <SettingsInfoCard
+          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=notifications"
+          actionLabel="Manage notifications"
+          icon={<Mail size={24} />}
+          title="Payment Notifications"
+        >
+          <SettingsDefinitionList
+            rows={[
+              { label: "Payment Received", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
+              { label: "Payouts Sent", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
+              { label: "Refunds Processed", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
+              { label: "Failed Payments", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
+            ]}
+          />
+        </SettingsInfoCard>
+      </div>
+
+      <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm">
+        <div className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-100" aria-hidden>
+            <Trash2 size={24} />
+          </span>
+          <div>
+            <h3 className="text-lg font-black text-slate-950">Danger Zone</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-600">Permanently disconnect your payment account. This action cannot be undone.</p>
+          </div>
+          <Button href={`/api/payments/stripe-connect/disconnect?owner=${ownerQuery}`} variant="danger">
+            Disconnect Payment Account
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PaymentsPanel({
+  academyAdmin,
+  paymentAccountSetting,
+  period,
+  result,
+  search,
+  stripeConnectError,
+  stripeConnectMessage,
+  view,
+}: {
+  academyAdmin: boolean;
+  paymentAccountSetting: PaymentAccountSettingView | null;
+  period: PaymentOverviewPeriod;
+  result: DashboardPaymentsResult;
+  search: string;
+  stripeConnectError?: string;
+  stripeConnectMessage?: string;
+  view: string;
+}) {
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
   const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded");
   const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
   const refundedAmount = visiblePayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
   const currency = visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
-  const recentPayments = visiblePayments.slice(0, 6);
-  const recentRefunds = visiblePayments.filter((payment) => payment.refundedAmount > 0).slice(0, 6);
-  const academyRevenueRows = topAcademyRevenueRows(visiblePayments);
+  const hasConnectedPaymentAccount = Boolean(paymentAccountSetting?.providerAccountId);
+  const paymentAccountVerified = hasConnectedPaymentAccount && paymentAccountSetting?.status === "verified";
   const paymentOverviewMetrics: PaymentOverviewMetric[] = [
     { colorClassName: "bg-teal-700", id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
     { colorClassName: "bg-teal-700", id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
@@ -2423,6 +3378,39 @@ function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(0, currency) },
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
   ];
+  const paymentAccountSetupItems = [
+    { complete: !result.error, id: "payment-gateway", label: "Payment gateway", statusLabel: result.error ? "Unavailable" : "Connected" },
+    { complete: hasConnectedPaymentAccount, id: "rollfinders-account", label: academyAdmin ? "Academy payout account" : "RollFinders platform account", statusLabel: hasConnectedPaymentAccount ? paymentAccountVerified ? "Verified" : "Action needed" : "Setup needed" },
+    { complete: !result.error, id: "webhooks", label: "Payment webhooks", statusLabel: result.error ? "Pending" : "Active" },
+    { complete: Boolean(paymentAccountSetting?.payoutsEnabled), id: "payouts", label: "Payouts", statusLabel: paymentAccountSetting?.payoutsEnabled ? "Enabled" : "Pending" },
+  ];
+
+  if (view === "transactions") {
+    return <PaymentsTransactionsView currency={currency} payments={visiblePayments} result={result} search={search} />;
+  }
+
+  if (view === "earnings") {
+    return <PaymentsEarningsView currency={currency} payments={visiblePayments} period={period} />;
+  }
+
+  if (view === "refunds") {
+    return <PaymentsRefundsView currency={currency} payments={visiblePayments} result={result} search={search} />;
+  }
+
+  if (view === "payouts") {
+    return <PaymentsPayoutsView currency={currency} payments={visiblePayments} period={period} />;
+  }
+
+  if (view === "settings") {
+    return (
+      <PaymentsSettingsView
+        academyAdmin={academyAdmin}
+        paymentAccountSetting={paymentAccountSetting}
+        stripeConnectError={stripeConnectError}
+        stripeConnectMessage={stripeConnectMessage}
+      />
+    );
+  }
 
   return (
     <div className="grid gap-5">
@@ -2433,57 +3421,29 @@ function PaymentsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
         </p>
       ) : null}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)]">
-        <PaymentOverview chartPoints={paymentOverviewChartPoints(visiblePayments)} currency={currency} metrics={paymentOverviewMetrics} />
-        <PaymentServiceStatusPanel error={result.error} />
-      </div>
-      <div className="grid gap-5 xl:grid-cols-2">
-        <PaymentDashboardTable
-          columns={[
-            { key: "course", title: "Course / Event", render: (payment) => <span className="font-bold text-slate-950">{payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment"}</span> },
-            ...(!academyAdmin ? [{ key: "academy", title: "Academy", render: (payment: PaymentRecord) => payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy" }] : []),
-            { key: "payer", title: "Payer", render: (payment) => payment.payerEmail ?? payment.payerUserId ?? "Guest" },
-            { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</span> },
-            { key: "method", title: "Method", render: (payment) => <Badge>{payment.paymentMethodType.replace("_", " ")}</Badge> },
-            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status.replace("_", " ")}</span> },
-            { key: "date", title: "Date", render: (payment) => formatPaymentDate(payment.createdAt) },
-          ]}
-          data={recentPayments}
-          emptyIcon={<ClipboardCheck size={28} aria-hidden />}
-          emptyMessage={result.payments.length ? "No payments match that search." : "No course or event payments have been recorded yet."}
-          getRowId={(payment) => payment.id}
-          title="Recent Payments"
+        <PaymentOverview
+          chartPoints={paymentOverviewChartPoints(visiblePayments, period)}
+          currency={currency}
+          metrics={paymentOverviewMetrics}
+          periodOptions={paymentOverviewPeriodOptions}
+          periodValue={period}
         />
-        <PaymentDashboardTable
-          columns={[
-            { key: "refundId", title: "Refund ID", render: (payment) => payment.id },
-            { key: "order", title: "Order / Payment", render: (payment) => payment.checkoutSessionId ?? payment.providerPaymentId ?? payment.id },
-            { key: "academy", title: "Academy", render: (payment) => payment.metadata?.academy_name ?? payment.metadata?.academy_id ?? "Unknown academy" },
-            { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.refundedAmount, payment.currency)}</span> },
-            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status.replace("_", " ")}</span> },
-            { key: "date", title: "Date", render: (payment) => formatPaymentDate(payment.updatedAt) },
-          ]}
-          data={recentRefunds}
-          emptyIcon={<RefreshCw size={28} aria-hidden />}
-          emptyMessage="No refunds have been recorded yet."
-          getRowId={(payment) => payment.id}
-          title="Recent Refunds"
-        />
+        <div className="grid gap-5">
+          <PaymentServiceStatusPanel error={result.error} />
+          <PaymentAccountSetup
+            accountLabel={hasConnectedPaymentAccount ? paymentAccountVerified ? "Payment account is ready" : "Stripe verification is required" : "Stripe Connect setup is required"}
+            actionHref="/dashboard?panel=payments&paymentsView=settings"
+            actionLabel="Manage"
+            detailsHref="/dashboard?panel=payments&paymentsView=settings"
+            detailsLabel="View details"
+            items={paymentAccountSetupItems}
+            providerName={academyAdmin ? "Academy Stripe account" : "RollFinders Stripe account"}
+            status={paymentAccountVerified ? "active" : "pending"}
+            title="Payment Account Setup"
+            variant="compact"
+          />
+        </div>
       </div>
-      <PaymentDashboardTable
-        columns={[
-          { key: "academy", title: "Academy", render: (row) => <span className="font-bold text-slate-950">{row.academy}</span> },
-          { key: "grossPaid", title: "Gross Paid", render: (row) => formatMinorCurrency(row.grossPaid, currency) },
-          { key: "platformRevenue", title: "Platform Revenue", render: () => formatMinorCurrency(0, currency) },
-          { key: "refunds", title: "Refunds", render: (row) => formatMinorCurrency(row.refunds, currency) },
-          { key: "netRevenue", title: "Net Revenue", render: (row) => formatMinorCurrency(row.grossPaid - row.refunds, currency) },
-          { key: "payments", title: "Payments", render: (row) => row.payments.toLocaleString() },
-        ]}
-        data={academyRevenueRows}
-        emptyIcon={<Building2 size={28} aria-hidden />}
-        emptyMessage="No revenue data available for the selected period."
-        getRowId={(row) => row.id}
-        title="Top Academies by Revenue"
-      />
     </div>
   );
 }
@@ -2630,17 +3590,6 @@ const platformAdminAcademyColumns: TableColumn<PlatformAdminAcademyTableRow>[] =
       </div>
     ),
   },
-  {
-    key: "reviewHref",
-    title: "Actions",
-    className: "text-right",
-    headerClassName: "text-right",
-    render: (value, row) => (
-      <Button href={String(value)} aria-label={`Review ${row.academy}`} size="sm" variant="secondary" className="px-3 text-sm hover:border-teal-700 hover:text-teal-800">
-        Review
-      </Button>
-    ),
-  },
 ];
 
 function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy | null }) {
@@ -2754,6 +3703,13 @@ export function SuperAdminPlatformAcademiesPanel({
       </form>
 
       <Table
+        actions={[
+          {
+            label: "Review",
+            ariaLabel: (row) => `Review ${row.academy}`,
+            href: (row) => String(row.reviewHref),
+          },
+        ]}
         className="mt-5"
         columns={platformAdminAcademyColumns}
         data={rows}

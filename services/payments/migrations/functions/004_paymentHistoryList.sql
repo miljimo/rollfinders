@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION payment_history_list(
+CREATE OR REPLACE FUNCTION "paymentHistoryList"(
     p_client_id text DEFAULT NULL,
     p_resource_type text DEFAULT NULL,
     p_resource_id text DEFAULT NULL,

@@ -233,6 +233,6 @@ npm run payments:test:e2e
 
 The e2e test reads `PAYMENT_GATEWAY_API_KEY` or `STRIPE_SECRET_KEY` from the environment or the root `.env`, calls `POST /v1/checkouts`, verifies that the payment API returns a real Stripe Checkout URL, then retrieves the Checkout Session from Stripe and asserts it is a sandbox session.
 
-OpenAPI source lives at `docs/api/OpenApi.yaml`. SQL migrations live under `migrations/`: `001_core_schema.sql` is the entrypoint, table definitions are split one table per file in `migrations/tables`, and stored routines are split one function or procedure per file under `migrations/functions` and `migrations/procedures`.
+OpenAPI source lives at `docs/api/OpenApi.yaml`. SQL migrations live under `migrations/`: `001_core_schema.sql` is the entrypoint, table definitions are split one table per file in `migrations/tables`, and stored routines are split one function or procedure per file under `migrations/functions` and `migrations/procedures`. Routine names and routine filenames use camelCase after their ordering prefix, for example `001_paymentGet.sql` and `001_paymentClientUpsert.sql`.
 
 Payment data access follows a database-first contract: application repositories must use functions for reads and stored procedures for writes, leaving direct table CRUD to migrations only.

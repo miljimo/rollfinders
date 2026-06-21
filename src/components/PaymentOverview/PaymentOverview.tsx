@@ -1,7 +1,8 @@
-import { ChevronDown, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import { clsx } from "clsx";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import type { PaymentOverviewProps } from "./types";
+import { PaymentPeriodSelect } from "./PaymentPeriodSelect";
 
 function formatCurrencyTick(value: number, currency: string) {
   return new Intl.NumberFormat("en-GB", {
@@ -17,6 +18,8 @@ export function PaymentOverview({
   currency = "GBP",
   metrics,
   periodLabel = "Daily",
+  periodOptions,
+  periodValue,
   title = "Payments Overview",
 }: PaymentOverviewProps) {
   return (
@@ -26,13 +29,7 @@ export function PaymentOverview({
           <h3 id="payment-overview-title" className="truncate text-lg font-black text-slate-950">{title}</h3>
           <Info size={17} className="shrink-0 text-slate-400" aria-hidden />
         </div>
-        <button
-          className="inline-flex min-h-11 items-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm"
-          type="button"
-        >
-          {periodLabel}
-          <ChevronDown size={16} aria-hidden />
-        </button>
+        {periodOptions && periodValue ? <PaymentPeriodSelect options={periodOptions} value={periodValue} /> : null}
       </div>
 
       <LineOverviewChart

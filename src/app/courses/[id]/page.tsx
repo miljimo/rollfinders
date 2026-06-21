@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { CourseType, EventPricingType } from "@prisma/client";
 import { PublicEventDetailPage } from "@/components/PublicEventDetailPage";
 import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
+import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { coursePriceLabel, getCourseOccurrence } from "@/lib/courses";
@@ -62,7 +63,8 @@ export default async function CoursePage({
 
   const payableAmount = Number(event.price);
   const academyTrusted = isPublicAcademyTrusted(event.academy);
-  const canCheckout = event.active && academyTrusted && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
+  const paymentAccount = await academyPaymentAccountReadiness(event.academyId);
+  const canCheckout = event.active && academyTrusted && paymentAccount.ready && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
   const canBookFree = event.active && academyTrusted && event.pricingType === EventPricingType.FREE;
   const checkoutMode = event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
   const suggestedDonationAmount = Number.isFinite(payableAmount) && payableAmount > 0 ? payableAmount : undefined;

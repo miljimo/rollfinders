@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION provider_event_exists(
+CREATE OR REPLACE FUNCTION "providerEventExists"(
     p_provider text,
     p_provider_event_id text
 )
