@@ -232,12 +232,14 @@ model PaymentAccountSetting {
 }
 
 model PaymentPlatformSetting {
-  id                    String   @id
-  platformFeeBasisPoints Int      @default(500) @map("platform_fee_basis_points")
-  platformFeeFixedMinor  Int      @default(0) @map("platform_fee_fixed_minor")
-  currency              String   @default("GBP")
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  id                             String   @id
+  platformFeeBasisPoints          Int      @default(500) @map("platform_fee_basis_points")
+  platformFeeFixedMinor           Int      @default(0) @map("platform_fee_fixed_minor")
+  stripeProcessingFeeBasisPoints  Int      @default(290) @map("stripe_processing_fee_basis_points")
+  stripeProcessingFeeFixedMinor   Int      @default(30) @map("stripe_processing_fee_fixed_minor")
+  currency                       String   @default("GBP")
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
 
   @@map("payment_platform_settings")
 }

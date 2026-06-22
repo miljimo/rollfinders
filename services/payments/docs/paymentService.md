@@ -181,6 +181,15 @@ A commission policy defines how platform fees or payee shares are calculated.
 
 Policies SHALL be versioned so historical allocations remain explainable after fee changes.
 
+For Stripe Connect destination charges, the `application_fee_amount` sent to Stripe SHALL include:
+
+* RollFinders platform commission.
+* Configured estimated Stripe card processing fee.
+
+This ensures Stripe processing fees do not reduce RollFinders net commission. The Payment Service SHALL store both components separately in payment metadata for reporting and reconciliation, while sending their total as the Stripe application fee.
+
+Stripe does not provide the exact final processing fee before a charge is created. The Payment Service SHALL use configured processing fee rates before checkout and SHALL reconcile the exact provider fee after payment from Stripe balance transaction data.
+
 ### Refunds
 
 A refund records money returned to the payer and how that refund reverses allocations.
@@ -519,6 +528,62 @@ Places a settlement hold.
 
 Releases a settlement hold.
 
+### Payout Requests
+
+Payout requests support the current RollFinders production model where payments may be collected into the platform account and academies request payout after funds become eligible.
+
+`GET /v1/payees/{payee_id}/balances`
+
+Returns payee balance, including gross paid, platform fees, refunds, held amount, pending payout requests, paid payouts, and available payout amount.
+
+`POST /v1/payees/{payee_id}/payout-requests`
+
+Creates a payout request for eligible payee funds.
+
+The Payment Service SHALL calculate payout eligibility server-side and SHALL reject requests when:
+
+* The payee account is not verified and enabled.
+* The requested amount exceeds available balance.
+* The requested amount is below the configured minimum.
+* Eligible payment allocations are already reserved or paid.
+* The funds are held because of refund, dispute, reserve, or operational rules.
+
+`GET /v1/payees/{payee_id}/payout-requests`
+
+Lists payout requests for a payee.
+
+`GET /v1/payout-requests`
+
+Lists payout requests across payees for platform operators.
+
+`GET /v1/payout-requests/{payout_request_id}`
+
+Retrieves one payout request.
+
+`POST /v1/payout-requests/{payout_request_id}/approve`
+
+Approves a pending payout request.
+
+`POST /v1/payout-requests/{payout_request_id}/reject`
+
+Rejects a pending or held payout request and releases reserved entries.
+
+`POST /v1/payout-requests/{payout_request_id}/hold`
+
+Places a payout request on operational hold.
+
+`POST /v1/payout-requests/{payout_request_id}/release`
+
+Releases a payout request hold.
+
+`POST /v1/payout-requests/{payout_request_id}/mark-paid`
+
+Marks an approved payout request as paid after provider payout or manual bank transfer is complete.
+
+`POST /v1/payout-requests/{payout_request_id}/cancel`
+
+Cancels a payee-owned pending payout request.
+
 ### Reports
 
 `GET /v1/reports/revenue`
@@ -647,6 +712,14 @@ The Payment Service SHOULD emit or store outbox events:
 * `settlement.failed`
 * `settlement.held`
 * `settlement.released`
+* `payout_request.created`
+* `payout_request.approved`
+* `payout_request.rejected`
+* `payout_request.held`
+* `payout_request.released`
+* `payout_request.cancelled`
+* `payout_request.paid`
+* `payout_request.failed`
 * `payee.created`
 * `payee.updated`
 * `payee.account.updated`
@@ -676,6 +749,9 @@ The API SHALL use the existing error envelope and stable error codes:
 * `payee_account_not_enabled`
 * `settlement_not_found`
 * `settlement_invalid_state`
+* `payout_request_not_found`
+* `payout_request_invalid_state`
+* `payout_balance_unavailable`
 * `refund_failed`
 * `internal_error`
 
@@ -709,6 +785,10 @@ Core tables SHOULD include:
 * `refunds`
 * `settlements`
 * `settlement_entries`
+* `payout_requests`
+* `payout_request_entries`
+* `payout_request_status_history`
+* `payout_request_audit_events`
 * `provider_events`
 * `idempotency_keys`
 * `outbox_events`
@@ -732,8 +812,18 @@ For academy-owned course/event payments:
 
 * Payment may settle directly to the academy payee account.
 * RollFinders receives the configured platform commission.
+* Stripe application fee SHALL include RollFinders platform commission plus estimated Stripe processing fee.
 * Payment Service records the payment regardless of settlement destination.
 * Payment Service records refunds against the original payment and academy allocation.
+
+For the current production platform-settlement model:
+
+* Payment may settle to the RollFinders platform account.
+* Academy earnings SHALL still be represented as payee allocations.
+* Academy Admin users MAY request payout of eligible allocations.
+* Platform Admin and Super Admin users SHALL approve, reject, hold, release, or mark payout requests as paid.
+* The Payment Service SHALL be the source of truth for payout eligibility and payout request state.
+* RollFinders UI SHALL not calculate payout eligibility independently.
 
 ---
 
@@ -762,6 +852,20 @@ THEN the Payment Service SHALL record the payee account, allocation, commission,
 IF a payment has allocations
 WHEN a client requests allocation detail
 THEN the API SHALL return gross amount, payee allocations, platform commission, provider fee when known, and settlement route.
+
+### Academy Payout Requests
+
+IF an academy has platform-settled eligible earnings
+WHEN the Academy Admin requests payout
+THEN the Payment Service SHALL create a payout request, reserve eligible allocation entries, and return a pending review status.
+
+IF an academy does not have an enabled payout account
+WHEN a payout request is created
+THEN the Payment Service SHALL reject the request with `payee_account_not_enabled`.
+
+IF a payout request is approved and marked paid
+WHEN payee balance is requested
+THEN the paid amount SHALL no longer be available for payout.
 
 ### Refund Awareness
 
@@ -812,6 +916,7 @@ The current implementation is intentionally partial for the generic allocation r
 * Course/open-mat checkout integration exists, but payment creation does not yet route direct connected-account settlement with platform commission through the Payment Service.
 * Refund records and refund listing exist, but provider-dashboard refund webhook reconciliation and allocation reversal are not complete.
 * Payout dashboard UI exists, but provider payout/settlement ledger APIs are not complete.
+* Academy payout request workflow is documented but not implemented.
 * Webhook endpoint scaffolding exists, but full Stripe Connect account, payout, transfer, application-fee, dispute, and refund event handling remains to be completed.
 
 ### Not Done
@@ -824,6 +929,7 @@ The following requirements remain to be implemented:
 * Connected-account checkout/payment creation with platform application fees.
 * Commission policy tables, versioning, and allocation calculation.
 * Payment allocation ledger and settlement ledger APIs.
+* Academy payout request APIs, status workflow, reservation ledger, and approval dashboard.
 * Provider payout, transfer, application fee, and balance transaction tracking.
 * Refund allocation reversal, including provider-dashboard refund detection.
 * Reconciliation jobs for provider/payment mismatches.

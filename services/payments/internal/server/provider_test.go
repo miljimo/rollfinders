@@ -72,11 +72,17 @@ func TestStripeConnectMetadataMapsToDestinationChargeParams(t *testing.T) {
 }
 
 func TestPaymentPolicyCalculatesApplicationFeeInService(t *testing.T) {
-	if got := calculateApplicationFeeMinor(1000, platformFeeSetting{PlatformFeeBasisPoints: 500, PlatformFeeFixedMinor: 30}); got != 80 {
-		t.Fatalf("expected 5 percent plus fixed fee to be 80, got %d", got)
+	if got := calculateApplicationFeeMinor(1000, platformFeeSetting{PlatformFeeBasisPoints: 500, PlatformFeeFixedMinor: 30}); got != 139 {
+		t.Fatalf("expected 5 percent plus fixed fee plus Stripe processing fee to be 139, got %d", got)
 	}
 	if got := calculateApplicationFeeMinor(100, platformFeeSetting{PlatformFeeBasisPoints: 10000, PlatformFeeFixedMinor: 30}); got != 100 {
 		t.Fatalf("expected application fee to be capped by amount, got %d", got)
+	}
+	if got := calculateStripeProcessingFeeMinor(1000, platformFeeSetting{StripeProcessingFeeBasisPoints: 290, StripeProcessingFeeFixedMinor: 30}); got != 59 {
+		t.Fatalf("expected Stripe processing fee estimate to be 59, got %d", got)
+	}
+	if got := calculateRollFindersCommissionMinor(1000, platformFeeSetting{PlatformFeeBasisPoints: 500}); got != 50 {
+		t.Fatalf("expected RollFinders commission to be 50, got %d", got)
 	}
 }
 
@@ -89,8 +95,14 @@ func TestPaymentPolicyOverridesClientSuppliedApplicationFee(t *testing.T) {
 
 	srv.applyCheckoutPaymentPolicy(metadata, 1000, "GBP")
 
-	if got := metadata["stripe_application_fee_amount"]; got != "50" {
-		t.Fatalf("expected service-owned 5 percent application fee, got %q", got)
+	if got := metadata["stripe_application_fee_amount"]; got != "109" {
+		t.Fatalf("expected service-owned application fee to include commission and Stripe processing fee, got %q", got)
+	}
+	if got := metadata["rollfinders_commission_amount"]; got != "50" {
+		t.Fatalf("expected RollFinders commission metadata, got %q", got)
+	}
+	if got := metadata["stripe_processing_fee_amount"]; got != "59" {
+		t.Fatalf("expected Stripe processing fee metadata, got %q", got)
 	}
 	if got := metadata["platform_fee_basis_points"]; got != "500" {
 		t.Fatalf("expected fee policy metadata, got %q", got)
@@ -105,6 +117,12 @@ func TestPaymentPolicyRemovesApplicationFeeWithoutDestination(t *testing.T) {
 
 	if _, ok := metadata["stripe_application_fee_amount"]; ok {
 		t.Fatal("expected application fee metadata to be removed without a destination account")
+	}
+	if _, ok := metadata["rollfinders_commission_amount"]; ok {
+		t.Fatal("expected commission metadata to be removed without a destination account")
+	}
+	if _, ok := metadata["stripe_processing_fee_amount"]; ok {
+		t.Fatal("expected processing fee metadata to be removed without a destination account")
 	}
 }
 

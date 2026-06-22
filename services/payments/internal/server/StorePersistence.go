@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"payments/internal/dataaccess"
@@ -216,6 +217,100 @@ func (s *store) listRefundsDB(paymentID string) ([]Refund, error) {
 	return out, nil
 }
 
+func (s *store) getPayeeBalanceDB(payeeID, clientID, currency string) (PayeeBalance, error) {
+	if currency == "" {
+		currency = "GBP"
+	}
+	balance, err := dataaccess.GetPayeeBalance(context.Background(), s.db, payeeID, nullIfEmpty(clientID), currency)
+	if err != nil {
+		return PayeeBalance{}, err
+	}
+	return payeeBalanceFromDataAccess(balance), nil
+}
+
+func (s *store) createPayoutRequestDB(payeeID string, req createPayoutRequestPayload) (PayoutRequest, error) {
+	id := randomID("payout")
+	err := dataaccess.CreatePayoutRequest(
+		context.Background(),
+		s.db,
+		id,
+		req.ClientID,
+		payeeID,
+		req.Amount,
+		req.Currency,
+		req.DestinationAccountID,
+		nullableString(req.RequestedBy),
+		nullableString(req.Notes),
+	)
+	if err != nil {
+		return PayoutRequest{}, payoutDBError(err)
+	}
+	return s.getPayoutRequestDB(id)
+}
+
+func (s *store) listPayoutRequestsDB(filter payoutRequestFilter) ([]PayoutRequest, error) {
+	records, err := dataaccess.ListPayoutRequests(
+		context.Background(),
+		s.db,
+		nullIfEmpty(filter.ClientID),
+		nullIfEmpty(filter.PayeeID),
+		nullIfEmpty(filter.Status),
+		nullIfEmpty(filter.Currency),
+		filter.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PayoutRequest, 0, len(records))
+	for _, record := range records {
+		out = append(out, payoutRequestFromDataAccess(record))
+	}
+	return out, nil
+}
+
+func (s *store) getPayoutRequestDB(id string) (PayoutRequest, error) {
+	payout, err := dataaccess.GetPayoutRequest(context.Background(), s.db, id)
+	if errors.Is(err, dataaccess.ErrNotFound) {
+		return PayoutRequest{}, errNotFound
+	}
+	if err != nil {
+		return PayoutRequest{}, err
+	}
+	return payoutRequestFromDataAccess(payout), nil
+}
+
+func (s *store) transitionPayoutRequestDB(id, nextStatus string, req payoutTransitionPayload) (PayoutRequest, error) {
+	if err := dataaccess.TransitionPayoutRequest(
+		context.Background(),
+		s.db,
+		id,
+		nextStatus,
+		nullableString(req.ActorID),
+		nullableString(req.ProviderReference),
+		nullableString(req.Reason),
+		nullableString(req.Notes),
+	); err != nil {
+		return PayoutRequest{}, payoutDBError(err)
+	}
+	return s.getPayoutRequestDB(id)
+}
+
+func payoutDBError(err error) error {
+	msg := strings.ToLower(err.Error())
+	switch {
+	case strings.Contains(msg, "payout_request_not_found"):
+		return errNotFound
+	case strings.Contains(msg, "payout_request_invalid_state"):
+		return errInvalidTransition
+	case strings.Contains(msg, "payee_account_not_enabled"):
+		return errPayoutDestination
+	case strings.Contains(msg, "payout_balance_unavailable"):
+		return errInsufficientFunds
+	default:
+		return err
+	}
+}
+
 func (s *store) recordProviderEventDB(provider, id string) (bool, error) {
 	exists, err := dataaccess.ProviderEventExists(context.Background(), s.db, provider, id)
 	if err != nil {
@@ -361,5 +456,41 @@ func refundFromDataAccess(refund dataaccess.Refund) Refund {
 		ProviderRefundID: refund.ProviderRefundID,
 		CreatedAt:        refund.CreatedAt,
 		UpdatedAt:        refund.UpdatedAt,
+	}
+}
+
+func payeeBalanceFromDataAccess(balance dataaccess.PayeeBalance) PayeeBalance {
+	return PayeeBalance{
+		PayeeID:                balance.PayeeID,
+		ClientID:               balance.ClientID,
+		Currency:               balance.Currency,
+		GrossPaidAmount:        balance.GrossPaidAmount,
+		PlatformFeeAmount:      balance.PlatformFeeAmount,
+		RefundedAmount:         balance.RefundedAmount,
+		HeldAmount:             balance.HeldAmount,
+		PendingPayoutAmount:    balance.PendingPayoutAmount,
+		PaidPayoutAmount:       balance.PaidPayoutAmount,
+		AvailablePayoutAmount:  balance.AvailablePayoutAmount,
+		MinimumPayoutAmount:    balance.MinimumPayoutAmount,
+		PayoutDestinationReady: balance.PayoutDestinationReady,
+	}
+}
+
+func payoutRequestFromDataAccess(payout dataaccess.PayoutRequest) PayoutRequest {
+	return PayoutRequest{
+		ID:                   payout.ID,
+		ClientID:             payout.ClientID,
+		PayeeID:              payout.PayeeID,
+		Amount:               payout.Amount,
+		Currency:             payout.Currency,
+		Status:               payout.Status,
+		DestinationAccountID: payout.DestinationAccountID,
+		RequestedBy:          payout.RequestedBy,
+		ActorID:              payout.ActorID,
+		ProviderReference:    payout.ProviderReference,
+		Reason:               payout.Reason,
+		Notes:                payout.Notes,
+		CreatedAt:            payout.CreatedAt,
+		UpdatedAt:            payout.UpdatedAt,
 	}
 }

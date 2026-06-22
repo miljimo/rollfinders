@@ -71,13 +71,47 @@ type Refund struct {
 }
 
 type PlatformFeeSetting struct {
-	PlatformFeeBasisPoints int
-	PlatformFeeFixedMinor  int64
-	Currency               string
+	PlatformFeeBasisPoints         int
+	PlatformFeeFixedMinor          int64
+	StripeProcessingFeeBasisPoints int
+	StripeProcessingFeeFixedMinor  int64
+	Currency                       string
 }
 
 type IdempotencyRecord struct {
 	Fingerprint string
 	StatusCode  int
 	Response    string
+}
+
+type PayeeBalance struct {
+	PayeeID                string
+	ClientID               string
+	Currency               string
+	GrossPaidAmount        int64
+	PlatformFeeAmount      int64
+	RefundedAmount         int64
+	HeldAmount             int64
+	PendingPayoutAmount    int64
+	PaidPayoutAmount       int64
+	AvailablePayoutAmount  int64
+	MinimumPayoutAmount    int64
+	PayoutDestinationReady bool
+}
+
+type PayoutRequest struct {
+	ID                   string
+	ClientID             string
+	PayeeID              string
+	Amount               int64
+	Currency             string
+	Status               string
+	DestinationAccountID string
+	RequestedBy          string
+	ActorID              string
+	ProviderReference    string
+	Reason               string
+	Notes                string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }

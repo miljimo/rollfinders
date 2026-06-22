@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -27,6 +28,15 @@ const (
 	refundSucceeded = "succeeded"
 	refundFailed    = "failed"
 	refundCancelled = "cancelled"
+
+	payoutStatusPendingReview = "pending_review"
+	payoutStatusApproved      = "approved"
+	payoutStatusHeld          = "held"
+	payoutStatusProcessing    = "processing"
+	payoutStatusPaid          = "paid"
+	payoutStatusRejected      = "rejected"
+	payoutStatusCancelled     = "cancelled"
+	payoutStatusFailed        = "failed"
 )
 
 var (
@@ -34,6 +44,8 @@ var (
 	errOverRefund        = errors.New("refund exceeds refundable amount")
 	errNotFound          = errors.New("not found")
 	errPaymentCompleted  = errors.New("payment already completed")
+	errInsufficientFunds = errors.New("insufficient payout balance")
+	errPayoutDestination = errors.New("payout destination is not enabled")
 )
 
 type Payment struct {
@@ -120,6 +132,46 @@ type Refund struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 }
 
+type PayeeBalance struct {
+	PayeeID                string `json:"payee_id"`
+	ClientID               string `json:"client_id,omitempty"`
+	Currency               string `json:"currency"`
+	GrossPaidAmount        int64  `json:"gross_paid_amount"`
+	PlatformFeeAmount      int64  `json:"platform_fee_amount"`
+	RefundedAmount         int64  `json:"refunded_amount"`
+	HeldAmount             int64  `json:"held_amount"`
+	PendingPayoutAmount    int64  `json:"pending_payout_amount"`
+	PaidPayoutAmount       int64  `json:"paid_payout_amount"`
+	AvailablePayoutAmount  int64  `json:"available_payout_amount"`
+	MinimumPayoutAmount    int64  `json:"minimum_payout_amount"`
+	PayoutDestinationReady bool   `json:"payout_destination_ready"`
+}
+
+type PayoutRequest struct {
+	ID                   string    `json:"id"`
+	ClientID             string    `json:"client_id"`
+	PayeeID              string    `json:"payee_id"`
+	Amount               int64     `json:"amount"`
+	Currency             string    `json:"currency"`
+	Status               string    `json:"status"`
+	DestinationAccountID string    `json:"destination_account_id,omitempty"`
+	RequestedBy          string    `json:"requested_by,omitempty"`
+	ActorID              string    `json:"actor_id,omitempty"`
+	ProviderReference    string    `json:"provider_reference,omitempty"`
+	Reason               string    `json:"reason,omitempty"`
+	Notes                string    `json:"notes,omitempty"`
+	CreatedAt            time.Time `json:"created_at"`
+	UpdatedAt            time.Time `json:"updated_at"`
+}
+
+type payoutRequestFilter struct {
+	ClientID string
+	PayeeID  string
+	Status   string
+	Currency string
+	Limit    int
+}
+
 type OutboxEvent struct {
 	ID          string
 	Type        string
@@ -151,6 +203,7 @@ type store struct {
 	checkouts map[string]*Checkout
 	clients   map[string]*PaymentClient
 	refunds   map[string][]*Refund
+	payouts   map[string]*PayoutRequest
 	idem      map[string]idempotencyRecord
 	idemWait  map[string]chan struct{}
 	events    map[providerEvent]struct{}
@@ -171,6 +224,7 @@ func newStore(databaseURL ...string) *store {
 		checkouts: map[string]*Checkout{},
 		clients:   map[string]*PaymentClient{},
 		refunds:   map[string][]*Refund{},
+		payouts:   map[string]*PayoutRequest{},
 		idem:      map[string]idempotencyRecord{},
 		idemWait:  map[string]chan struct{}{},
 		events:    map[providerEvent]struct{}{},
@@ -481,6 +535,197 @@ func (s *store) listRefunds(paymentID string) ([]Refund, bool) {
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.Before(items[j].CreatedAt) })
 	return items, true
+}
+
+func (s *store) getPayeeBalance(payeeID, clientID, currency string) PayeeBalance {
+	if s.db != nil {
+		balance, err := s.getPayeeBalanceDB(payeeID, clientID, currency)
+		if err == nil {
+			return balance
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.getPayeeBalanceLocked(payeeID, clientID, currency)
+}
+
+func (s *store) getPayeeBalanceLocked(payeeID, clientID, currency string) PayeeBalance {
+	if currency == "" {
+		currency = "GBP"
+	}
+	balance := PayeeBalance{
+		PayeeID:                payeeID,
+		ClientID:               clientID,
+		Currency:               currency,
+		MinimumPayoutAmount:    defaultMinimumPayoutAmount,
+		PayoutDestinationReady: false,
+	}
+	for _, payout := range s.payouts {
+		if payout.PayeeID != payeeID || payout.Currency != currency {
+			continue
+		}
+		if clientID != "" && payout.ClientID != clientID {
+			continue
+		}
+		if payout.DestinationAccountID != "" {
+			balance.PayoutDestinationReady = true
+		}
+		switch payout.Status {
+		case payoutStatusPendingReview, payoutStatusApproved, payoutStatusHeld, payoutStatusProcessing:
+			balance.PendingPayoutAmount += payout.Amount
+		case payoutStatusPaid:
+			balance.PaidPayoutAmount += payout.Amount
+		}
+	}
+	for _, payment := range s.payments {
+		if payment.Currency != currency || payment.Status != statusSucceeded {
+			continue
+		}
+		if !paymentBelongsToPayee(payment, payeeID, clientID) {
+			continue
+		}
+		balance.GrossPaidAmount += payment.Amount
+		balance.RefundedAmount += payment.RefundedAmount
+		balance.PlatformFeeAmount += platformFeeAmount(payment)
+		if payment.Metadata["stripe_destination_account"] != "" || payment.Metadata["destination_account_id"] != "" {
+			balance.PayoutDestinationReady = true
+		}
+	}
+	balance.AvailablePayoutAmount = balance.GrossPaidAmount - balance.PlatformFeeAmount - balance.RefundedAmount - balance.HeldAmount - balance.PendingPayoutAmount - balance.PaidPayoutAmount
+	if balance.AvailablePayoutAmount < 0 {
+		balance.AvailablePayoutAmount = 0
+	}
+	return balance
+}
+
+func paymentBelongsToPayee(payment *Payment, payeeID, clientID string) bool {
+	if clientID != "" && payment.Metadata["client_id"] != clientID {
+		return false
+	}
+	return payment.Metadata["payee_id"] == payeeID || payment.Metadata["academy_id"] == payeeID
+}
+
+func platformFeeAmount(payment *Payment) int64 {
+	for _, key := range []string{"platform_fee_amount", "stripe_application_fee_amount", "application_fee_amount"} {
+		if value := strings.TrimSpace(payment.Metadata[key]); value != "" {
+			var parsed int64
+			if _, err := fmt.Sscan(value, &parsed); err == nil && parsed > 0 {
+				return parsed
+			}
+		}
+	}
+	return 0
+}
+
+func (s *store) createPayoutRequest(payeeID string, req createPayoutRequestPayload) (PayoutRequest, error) {
+	if s.db != nil {
+		return s.createPayoutRequestDB(payeeID, req)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if req.DestinationAccountID == "" {
+		return PayoutRequest{}, errPayoutDestination
+	}
+	balance := s.getPayeeBalanceLocked(payeeID, req.ClientID, req.Currency)
+	if req.Amount < balance.MinimumPayoutAmount || req.Amount > balance.AvailablePayoutAmount {
+		return PayoutRequest{}, errInsufficientFunds
+	}
+	now := time.Now().UTC()
+	payout := &PayoutRequest{
+		ID:                   s.newID("payout"),
+		ClientID:             req.ClientID,
+		PayeeID:              payeeID,
+		Amount:               req.Amount,
+		Currency:             req.Currency,
+		Status:               payoutStatusPendingReview,
+		DestinationAccountID: req.DestinationAccountID,
+		RequestedBy:          req.RequestedBy,
+		Notes:                req.Notes,
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+	s.payouts[payout.ID] = payout
+	s.addOutboxLocked("payout_request.created", payout.ID, payoutEventPayload(*payout))
+	return *clonePayoutRequest(payout), nil
+}
+
+func (s *store) listPayoutRequests(filter payoutRequestFilter) []PayoutRequest {
+	if s.db != nil {
+		payouts, err := s.listPayoutRequestsDB(filter)
+		if err == nil {
+			return payouts
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	limit := filter.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	items := make([]PayoutRequest, 0, len(s.payouts))
+	for _, payout := range s.payouts {
+		if filter.ClientID != "" && payout.ClientID != filter.ClientID {
+			continue
+		}
+		if filter.PayeeID != "" && payout.PayeeID != filter.PayeeID {
+			continue
+		}
+		if filter.Status != "" && payout.Status != filter.Status {
+			continue
+		}
+		if filter.Currency != "" && payout.Currency != filter.Currency {
+			continue
+		}
+		items = append(items, *clonePayoutRequest(payout))
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+	if len(items) > limit {
+		items = items[:limit]
+	}
+	return items
+}
+
+func (s *store) getPayoutRequest(id string) (PayoutRequest, error) {
+	if s.db != nil {
+		return s.getPayoutRequestDB(id)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	payout, ok := s.payouts[id]
+	if !ok {
+		return PayoutRequest{}, errNotFound
+	}
+	return *clonePayoutRequest(payout), nil
+}
+
+func (s *store) transitionPayoutRequest(id, nextStatus string, req payoutTransitionPayload) (PayoutRequest, error) {
+	if s.db != nil {
+		return s.transitionPayoutRequestDB(id, nextStatus, req)
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	payout, ok := s.payouts[id]
+	if !ok {
+		return PayoutRequest{}, errNotFound
+	}
+	if !validPayoutTransition(payout.Status, nextStatus) {
+		return PayoutRequest{}, errInvalidTransition
+	}
+	now := time.Now().UTC()
+	payout.Status = nextStatus
+	payout.ActorID = req.ActorID
+	if req.ProviderReference != "" {
+		payout.ProviderReference = req.ProviderReference
+	}
+	if req.Reason != "" {
+		payout.Reason = req.Reason
+	}
+	if req.Notes != "" {
+		payout.Notes = req.Notes
+	}
+	payout.UpdatedAt = now
+	s.addOutboxLocked("payout_request."+strings.ReplaceAll(nextStatus, "_review", ""), payout.ID, payoutEventPayload(*payout))
+	return *clonePayoutRequest(payout), nil
 }
 
 func (s *store) recordProviderEvent(provider, id string) bool {

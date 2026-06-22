@@ -80,7 +80,7 @@ paths:
               schema: { $ref: '#/components/schemas/Payment' }
               examples:
                 action_required:
-                  value: { id: pay_000001, amount: 1299, currency: GBP, provider: paypal, payment_method_type: paypal, capture_method: automatic, status: requires_action, provider_payment_id: ORDER-demo, next_action: { type: paypal_approve, url: https://www.paypal.com/checkoutnow?token=ORDER-demo }, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-09T12:00:00Z' }
+                  value: { id: pay_000001, amount: 1299, currency: GBP, provider: paypal, payment_method_type: paypal, capture_method: automatic, status: requires_action, provider_payment_id: ORDER-demo, next_action: { type: paypal_approve, url: 'https://www.paypal.com/checkoutnow?token=ORDER-demo' }, created_at: '2026-06-09T12:00:00Z', updated_at: '2026-06-09T12:00:00Z' }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
@@ -227,6 +227,173 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/Refund' }
         '404': { $ref: '#/components/responses/Error' }
+  /v1/payees/{payee_id}/balances:
+    get:
+      summary: Get payee payout balance
+      description: Calculates payout eligibility from Payment Service records. Clients must not calculate payout availability independently.
+      parameters:
+        - in: path
+          name: payee_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: client_id
+          schema: { type: string }
+        - in: query
+          name: currency
+          schema: { type: string, default: GBP }
+      responses:
+        '200': { description: Payee balance., content: { application/json: { schema: { $ref: '#/components/schemas/PayeeBalance' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /v1/payees/{payee_id}/payout-requests:
+    get:
+      summary: List payout requests for a payee
+      parameters:
+        - in: path
+          name: payee_id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: client_id
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: currency
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+      responses:
+        '200': { description: Payout requests., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequestListResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      summary: Create a payout request
+      parameters:
+        - in: path
+          name: payee_id
+          required: true
+          schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePayoutRequest' }
+      responses:
+        '201': { description: Payout request created., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests:
+    get:
+      summary: List payout requests across payees
+      parameters:
+        - in: query
+          name: client_id
+          schema: { type: string }
+        - in: query
+          name: payee_id
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: currency
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 100 }
+      responses:
+        '200': { description: Payout requests., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequestListResponse' } } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}:
+    get:
+      summary: Get payout request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: Payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '404': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}/approve:
+    post:
+      summary: Approve payout request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody: { $ref: '#/components/requestBodies/PayoutTransition' }
+      responses:
+        '200': { description: Updated payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}/reject:
+    post:
+      summary: Reject payout request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody: { $ref: '#/components/requestBodies/PayoutTransition' }
+      responses:
+        '200': { description: Updated payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}/hold:
+    post:
+      summary: Hold payout request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody: { $ref: '#/components/requestBodies/PayoutTransition' }
+      responses:
+        '200': { description: Updated payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}/release:
+    post:
+      summary: Release held payout request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody: { $ref: '#/components/requestBodies/PayoutTransition' }
+      responses:
+        '200': { description: Updated payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}/mark-paid:
+    post:
+      summary: Mark approved payout request as paid
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody: { $ref: '#/components/requestBodies/PayoutTransition' }
+      responses:
+        '200': { description: Updated payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '400': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /v1/payout-requests/{id}/cancel:
+    post:
+      summary: Cancel pending payout request
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody: { $ref: '#/components/requestBodies/PayoutTransition' }
+      responses:
+        '200': { description: Updated payout request., content: { application/json: { schema: { $ref: '#/components/schemas/PayoutRequest' } } } }
+        '409': { $ref: '#/components/responses/Error' }
   /v1/webhooks/{provider}:
     post:
       security: []
@@ -403,6 +570,67 @@ components:
         provider_refund_id: { type: string }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    PayeeBalance:
+      type: object
+      required: [payee_id, currency, gross_paid_amount, platform_fee_amount, refunded_amount, held_amount, pending_payout_amount, paid_payout_amount, available_payout_amount, minimum_payout_amount, payout_destination_ready]
+      properties:
+        payee_id: { type: string }
+        client_id: { type: string }
+        currency: { type: string }
+        gross_paid_amount: { type: integer, format: int64 }
+        platform_fee_amount: { type: integer, format: int64 }
+        refunded_amount: { type: integer, format: int64 }
+        held_amount: { type: integer, format: int64 }
+        pending_payout_amount: { type: integer, format: int64 }
+        paid_payout_amount: { type: integer, format: int64 }
+        available_payout_amount: { type: integer, format: int64 }
+        minimum_payout_amount: { type: integer, format: int64 }
+        payout_destination_ready: { type: boolean }
+    CreatePayoutRequest:
+      type: object
+      required: [client_id, amount, currency, destination_account_id]
+      additionalProperties: false
+      properties:
+        client_id: { type: string }
+        amount: { type: integer, format: int64, minimum: 1 }
+        currency: { type: string, pattern: '^[A-Z]{3}$' }
+        destination_account_id: { type: string }
+        requested_by: { type: string }
+        notes: { type: string }
+    PayoutTransitionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        actor_id: { type: string }
+        provider_reference: { type: string }
+        reason: { type: string }
+        notes: { type: string }
+    PayoutRequest:
+      type: object
+      required: [id, client_id, payee_id, amount, currency, status, created_at, updated_at]
+      properties:
+        id: { type: string }
+        client_id: { type: string }
+        payee_id: { type: string }
+        amount: { type: integer, format: int64 }
+        currency: { type: string }
+        status: { type: string, enum: [pending_review, approved, held, processing, paid, rejected, cancelled, failed] }
+        destination_account_id: { type: string }
+        requested_by: { type: string }
+        actor_id: { type: string }
+        provider_reference: { type: string }
+        reason: { type: string }
+        notes: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PayoutRequestListResponse:
+      type: object
+      required: [payout_requests, count]
+      properties:
+        payout_requests:
+          type: array
+          items: { $ref: '#/components/schemas/PayoutRequest' }
+        count: { type: integer }
     WebhookEvent:
       type: object
       required: [id]
@@ -425,3 +653,9 @@ components:
             details:
               type: object
               additionalProperties: { type: string }
+  requestBodies:
+    PayoutTransition:
+      required: false
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PayoutTransitionRequest' }

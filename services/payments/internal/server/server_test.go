@@ -265,6 +265,163 @@ func TestCheckoutCallbackRedirectsToApplicationStatus(t *testing.T) {
 	}
 }
 
+func TestPayoutRequestHappyPathAndBalanceReservation(t *testing.T) {
+	srv := testServer("")
+	createSucceededPayment(t, srv, "payment-payout-1", 1000, map[string]string{
+		"client_id":                  "rollfinders",
+		"payee_id":                   "academy_123",
+		"platform_fee_amount":        "50",
+		"stripe_destination_account": "acct_test",
+	})
+	createSucceededPayment(t, srv, "payment-payout-2", 500, map[string]string{
+		"client_id": "rollfinders",
+		"payee_id":  "academy_123",
+	})
+
+	balance := getPayeeBalanceForTest(t, srv, "academy_123", "rollfinders")
+	if balance.AvailablePayoutAmount != 1450 || balance.PlatformFeeAmount != 50 {
+		t.Fatalf("expected available 1450 and fee 50, got %+v", balance)
+	}
+
+	payout := createPayoutRequestForTest(t, srv, "academy_123", "payout-key-1", 1000)
+	if payout.Status != payoutStatusPendingReview || payout.Amount != 1000 {
+		t.Fatalf("unexpected payout request: %+v", payout)
+	}
+
+	balance = getPayeeBalanceForTest(t, srv, "academy_123", "rollfinders")
+	if balance.AvailablePayoutAmount != 450 || balance.PendingPayoutAmount != 1000 {
+		t.Fatalf("expected reserved balance after payout request, got %+v", balance)
+	}
+
+	replay := createPayoutRequestForTest(t, srv, "academy_123", "payout-key-1", 1000)
+	if replay.ID != payout.ID {
+		t.Fatalf("expected idempotent replay to return same payout id, got %s and %s", replay.ID, payout.ID)
+	}
+}
+
+func TestPayoutRequestRejectsUnavailableBalanceAndInvalidTransitions(t *testing.T) {
+	srv := testServer("")
+	createSucceededPayment(t, srv, "payment-payout-invalid", 500, map[string]string{
+		"client_id":                  "rollfinders",
+		"academy_id":                 "academy_456",
+		"stripe_destination_account": "acct_test",
+	})
+
+	body := []byte(`{"client_id":"rollfinders","amount":600,"currency":"GBP","destination_account_id":"acct_test"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/payees/academy_456/payout-requests", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "payout-too-large")
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusConflict {
+		t.Fatalf("expected status 409 for unavailable balance, got %d: %s", res.Code, res.Body.String())
+	}
+
+	payout := createPayoutRequestForTest(t, srv, "academy_456", "payout-key-2", 500)
+	transitionReq := httptest.NewRequest(http.MethodPost, "/v1/payout-requests/"+payout.ID+"/mark-paid", bytes.NewReader([]byte(`{"provider_reference":"manual_1"}`)))
+	authed(transitionReq)
+	transitionReq.Header.Set("Content-Type", "application/json")
+	transitionRes := httptest.NewRecorder()
+	srv.ServeHTTP(transitionRes, transitionReq)
+	if transitionRes.Code != http.StatusConflict {
+		t.Fatalf("expected status 409 for invalid transition, got %d: %s", transitionRes.Code, transitionRes.Body.String())
+	}
+}
+
+func TestRejectedPayoutRequestReleasesBalance(t *testing.T) {
+	srv := testServer("")
+	createSucceededPayment(t, srv, "payment-payout-release", 800, map[string]string{
+		"client_id":                  "rollfinders",
+		"payee_id":                   "academy_789",
+		"stripe_destination_account": "acct_test",
+	})
+	payout := createPayoutRequestForTest(t, srv, "academy_789", "payout-key-3", 800)
+
+	rejectReq := httptest.NewRequest(http.MethodPost, "/v1/payout-requests/"+payout.ID+"/reject", bytes.NewReader([]byte(`{"actor_id":"admin_1","reason":"duplicate request"}`)))
+	authed(rejectReq)
+	rejectReq.Header.Set("Content-Type", "application/json")
+	rejectRes := httptest.NewRecorder()
+	srv.ServeHTTP(rejectRes, rejectReq)
+	if rejectRes.Code != http.StatusOK {
+		t.Fatalf("expected status 200 for reject, got %d: %s", rejectRes.Code, rejectRes.Body.String())
+	}
+
+	balance := getPayeeBalanceForTest(t, srv, "academy_789", "rollfinders")
+	if balance.AvailablePayoutAmount != 800 || balance.PendingPayoutAmount != 0 {
+		t.Fatalf("expected rejected payout to release funds, got %+v", balance)
+	}
+}
+
+func createSucceededPayment(t *testing.T, srv http.Handler, key string, amount int64, metadata map[string]string) Payment {
+	t.Helper()
+	body := map[string]any{
+		"amount":              amount,
+		"currency":            "GBP",
+		"provider":            "stripe",
+		"payment_method_type": "card",
+		"metadata":            metadata,
+	}
+	data, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/v1/payments", bytes.NewReader(data))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", key)
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected payment status 201, got %d: %s", res.Code, res.Body.String())
+	}
+	var payment Payment
+	if err := json.Unmarshal(res.Body.Bytes(), &payment); err != nil {
+		t.Fatal(err)
+	}
+	return payment
+}
+
+func getPayeeBalanceForTest(t *testing.T, srv http.Handler, payeeID string, clientID string) PayeeBalance {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/v1/payees/"+payeeID+"/balances?client_id="+clientID+"&currency=GBP", nil)
+	authed(req)
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("expected balance status 200, got %d: %s", res.Code, res.Body.String())
+	}
+	var balance PayeeBalance
+	if err := json.Unmarshal(res.Body.Bytes(), &balance); err != nil {
+		t.Fatal(err)
+	}
+	return balance
+}
+
+func createPayoutRequestForTest(t *testing.T, srv http.Handler, payeeID string, key string, amount int64) PayoutRequest {
+	t.Helper()
+	body := map[string]any{
+		"client_id":              "rollfinders",
+		"amount":                 amount,
+		"currency":               "GBP",
+		"destination_account_id": "acct_test",
+		"requested_by":           "academy_admin_1",
+		"notes":                  "test payout",
+	}
+	data, _ := json.Marshal(body)
+	req := httptest.NewRequest(http.MethodPost, "/v1/payees/"+payeeID+"/payout-requests", bytes.NewReader(data))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", key)
+	res := httptest.NewRecorder()
+	srv.ServeHTTP(res, req)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected payout request status 201, got %d: %s", res.Code, res.Body.String())
+	}
+	var payout PayoutRequest
+	if err := json.Unmarshal(res.Body.Bytes(), &payout); err != nil {
+		t.Fatal(err)
+	}
+	return payout
+}
+
 func TestRegisteredClientCallbackReceivesCheckoutStatus(t *testing.T) {
 	srv := testServer("")
 	clientBody := []byte(`{"id":"partner_app","name":"Partner App","callback_url":"https://partner.test/payments/callback"}`)

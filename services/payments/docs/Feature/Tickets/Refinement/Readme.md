@@ -106,3 +106,5 @@ Tickets are ordered by dependency and MVP priority.
 - [042 - Integrate RollFinders With Generic Payment Service Model](Ticket042RollFindersGenericPaymentIntegration.md) - P0 - RollFinders integration
 - [043 - Build Generic Payment Service Regression Suite](Ticket043GenericPaymentServiceRegressionSuite.md) - P0 - Regression testing
 - [044 - Update Migration, Configuration, And Developer Docs](Ticket044GenericPaymentServiceMigrationAndDocs.md) - P1 - Developer docs
+- [045 - Implement Academy Payout Request APIs](Ticket045AcademyPayoutRequestApi.md) - P0 - Payout requests
+- [046 - Integrate RollFinders Academy Payout Request Dashboard](Ticket046RollFindersAcademyPayoutDashboard.md) - P0 - RollFinders integration

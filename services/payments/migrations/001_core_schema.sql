@@ -11,6 +11,10 @@ SET search_path TO payments, public;
 \ir tables/006_idempotency_keys.sql
 \ir tables/007_payment_status_history.sql
 \ir tables/008_outbox_events.sql
+\ir tables/009_payoutRequests.sql
+\ir tables/010_payoutRequestEntries.sql
+\ir tables/011_payoutRequestStatusHistory.sql
+\ir tables/012_payoutRequestAuditEvents.sql
 \ir functions/001_paymentGet.sql
 \ir functions/002_paymentClientGet.sql
 \ir functions/003_checkoutGet.sql
@@ -19,6 +23,9 @@ SET search_path TO payments, public;
 \ir functions/006_idempotencyGet.sql
 \ir functions/007_providerEventExists.sql
 \ir functions/008_platformFeeSettingGet.sql
+\ir functions/009_payeeBalanceGet.sql
+\ir functions/010_payoutRequestGet.sql
+\ir functions/011_payoutRequestList.sql
 \ir procedures/001_paymentClientUpsert.sql
 \ir procedures/002_paymentInsert.sql
 \ir procedures/003_checkoutInsert.sql
@@ -26,6 +33,8 @@ SET search_path TO payments, public;
 \ir procedures/005_refundInsert.sql
 \ir procedures/006_providerEventRecord.sql
 \ir procedures/007_idempotencyRecordSave.sql
+\ir procedures/008_payoutRequestCreate.sql
+\ir procedures/009_payoutRequestTransition.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_core_schema')
 ON CONFLICT (version) DO NOTHING;
