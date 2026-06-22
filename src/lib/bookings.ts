@@ -23,6 +23,19 @@ export type BookingRecord = {
   updatedAt: string;
 };
 
+export type CreateBookingInput = {
+  bookableType: string;
+  bookableId: string;
+  bookableInstanceId: string;
+  customerId?: string;
+  guestReference?: string;
+  organisationId: string;
+  participantCount?: number;
+  paymentRequired?: boolean;
+  metadata?: Record<string, unknown>;
+  idempotencyKey: string;
+};
+
 type BookingRecordResponse = {
   id: string;
   reference: string;
@@ -86,7 +99,77 @@ export async function listBookings({
   }
 
   const history = (await response.json()) as BookingListResponse;
-  return history.items.map((booking) => ({
+  return history.items.map(bookingFromResponse);
+}
+
+export async function createBooking(input: CreateBookingInput): Promise<BookingRecord> {
+  const apiKey = bookingServiceApiKey();
+  if (!apiKey) {
+    throw new BookingServiceError("Booking service API key is not configured.", 0);
+  }
+
+  const response = await fetch(`${bookingServiceUrl()}/v1/bookings`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": input.idempotencyKey,
+    },
+    body: JSON.stringify({
+      bookable_type: input.bookableType,
+      bookable_id: input.bookableId,
+      bookable_instance_id: input.bookableInstanceId,
+      customer_id: input.customerId,
+      guest_reference: input.guestReference,
+      organisation_id: input.organisationId,
+      participant_count: input.participantCount ?? 1,
+      payment_required: input.paymentRequired ?? false,
+      metadata: input.metadata ?? {},
+    }),
+  });
+
+  if (!response.ok) {
+    throw new BookingServiceError(`Booking service creation failed with status ${response.status}.`, response.status);
+  }
+
+  return bookingFromResponse((await response.json()) as BookingRecordResponse);
+}
+
+export async function linkBookingPayment({
+  bookingId,
+  idempotencyKey,
+  paymentId,
+}: {
+  bookingId: string;
+  idempotencyKey: string;
+  paymentId: string;
+}): Promise<BookingRecord> {
+  const apiKey = bookingServiceApiKey();
+  if (!apiKey) {
+    throw new BookingServiceError("Booking service API key is not configured.", 0);
+  }
+
+  const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-link`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
+    body: JSON.stringify({ payment_id: paymentId }),
+  });
+
+  if (!response.ok) {
+    throw new BookingServiceError(`Booking service payment link failed with status ${response.status}.`, response.status);
+  }
+
+  return bookingFromResponse((await response.json()) as BookingRecordResponse);
+}
+
+function bookingFromResponse(booking: BookingRecordResponse): BookingRecord {
+  return {
     id: booking.id,
     reference: booking.reference,
     bookableType: booking.bookable_type,
@@ -101,5 +184,5 @@ export async function listBookings({
     metadata: booking.metadata,
     createdAt: booking.created_at,
     updatedAt: booking.updated_at,
-  }));
+  };
 }

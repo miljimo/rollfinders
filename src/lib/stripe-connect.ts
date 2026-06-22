@@ -7,8 +7,10 @@ export type PaymentAccountOwner = {
 
 type StripeAccount = {
   charges_enabled?: boolean;
+  created?: number;
   details_submitted?: boolean;
   id: string;
+  metadata?: Record<string, string>;
   payouts_enabled?: boolean;
 };
 
@@ -18,6 +20,17 @@ type StripeAccountLink = {
 
 export function stripeSecretKey() {
   return process.env.STRIPE_SECRET_KEY || process.env.PAYMENT_GATEWAY_API_KEY || "";
+}
+
+export function rollfindersPlatformPaymentAccountStatus() {
+  if (!stripeSecretKey()) return null;
+
+  return {
+    chargesEnabled: true,
+    payoutsEnabled: true,
+    providerAccountId: "rollfinders-stripe-platform",
+    status: "verified",
+  };
 }
 
 export function paymentSettingsHref(params: Record<string, string | undefined> = {}) {
@@ -106,6 +119,24 @@ export async function retrieveStripeConnectedAccount(accountId: string, owner: P
   return stripeRequest<StripeAccount>(`/v1/accounts/${encodeURIComponent(accountId)}`, undefined, owner);
 }
 
+export async function findReusableStripeConnectedAccount(owner: PaymentAccountOwner) {
+  const response = await stripeRequest<{ data?: StripeAccount[] }>("/v1/accounts?limit=100", undefined, owner);
+  const ownerAccounts = (response.data ?? []).filter((account) => accountMatchesOwner(account, owner));
+  const sortedAccounts = ownerAccounts.sort((left, right) => (right.created ?? 0) - (left.created ?? 0));
+
+  return sortedAccounts.find(isReadyStripeAccount)
+    ?? sortedAccounts.find((account) => account.details_submitted)
+    ?? sortedAccounts[0]
+    ?? null;
+}
+
+export async function deleteDuplicateStripeConnectedAccounts(owner: PaymentAccountOwner, retainedAccountId: string) {
+  const response = await stripeRequest<{ data?: StripeAccount[] }>("/v1/accounts?limit=100", undefined, owner);
+  const duplicates = (response.data ?? []).filter((account) => accountMatchesOwner(account, owner) && account.id !== retainedAccountId);
+
+  await Promise.all(duplicates.map((account) => deleteStripeConnectedAccount(account.id, owner)));
+}
+
 export async function createStripeAccountLink({
   accountId,
   owner,
@@ -127,7 +158,11 @@ export async function createStripeAccountLink({
   }, owner);
 }
 
-async function stripeRequest<T>(path: string, body?: Record<string, string>, owner?: PaymentAccountOwner): Promise<T> {
+export async function deleteStripeConnectedAccount(accountId: string, owner: PaymentAccountOwner) {
+  return stripeRequest<{ deleted?: boolean; id: string }>(`/v1/accounts/${encodeURIComponent(accountId)}`, undefined, owner, "DELETE");
+}
+
+async function stripeRequest<T>(path: string, body?: Record<string, string>, owner?: PaymentAccountOwner, method?: "DELETE" | "GET" | "POST"): Promise<T> {
   void owner;
   const key = stripeSecretKey();
   if (!key) throw new Error("Stripe API key is not configured.");
@@ -138,7 +173,7 @@ async function stripeRequest<T>(path: string, body?: Record<string, string>, own
       Authorization: `Bearer ${key}`,
       ...(body ? { "Content-Type": "application/x-www-form-urlencoded" } : {}),
     },
-    method: body ? "POST" : "GET",
+    method: method ?? (body ? "POST" : "GET"),
     cache: "no-store",
   });
 
@@ -148,4 +183,12 @@ async function stripeRequest<T>(path: string, body?: Record<string, string>, own
   }
 
   return payload as T;
+}
+
+function accountMatchesOwner(account: StripeAccount, owner: PaymentAccountOwner) {
+  return account.metadata?.owner_id === owner.ownerId && account.metadata?.owner_type === owner.ownerType;
+}
+
+function isReadyStripeAccount(account: StripeAccount) {
+  return Boolean(account.details_submitted && account.charges_enabled && account.payouts_enabled);
 }

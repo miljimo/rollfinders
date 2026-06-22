@@ -6,6 +6,7 @@ import { EventPricingType } from "@prisma/client";
 import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
 import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { authOptions } from "@/lib/auth";
+import { BookingServiceError, createBooking, linkBookingPayment } from "@/lib/bookings";
 import { getCourseOccurrence } from "@/lib/courses";
 import { createCourseOccurrenceCheckout, PaymentServiceError } from "@/lib/payments";
 
@@ -67,9 +68,33 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
   const session = await getServerSession(authOptions);
   const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
   const receiptEmail = payerEmail || sessionUser?.email || undefined;
+  const bookableInstanceId = [courseId, event.occurrenceDateParam, event.startTime].join(":");
 
   try {
+    const booking = await createBooking({
+      bookableType: "course_occurrence",
+      bookableId: courseId,
+      bookableInstanceId,
+      customerId: sessionUser?.id,
+      guestReference: sessionUser?.id ? undefined : receiptEmail || attemptId,
+      organisationId: event.academyId,
+      participantCount: 1,
+      paymentRequired: true,
+      idempotencyKey: checkoutIdempotencyKey(["booking", courseId, event.occurrenceDateParam, receiptEmail ?? "", attemptId]),
+      metadata: {
+        academy_id: event.academyId,
+        academy_name: event.academy.name,
+        course_id: courseId,
+        course_title: event.title,
+        occurrence_date: event.occurrenceDateParam,
+        occurrence_start_time: event.startTime,
+        occurrence_end_time: event.endTime,
+        payer_email: receiptEmail ?? "",
+        pricing_type: event.pricingType,
+      },
+    });
     const idempotencyKey = checkoutIdempotencyKey([
+      booking.id,
       courseId,
       event.occurrenceDateParam,
       String(amount),
@@ -77,7 +102,7 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
       attemptId,
     ]);
     const checkout = await createCourseOccurrenceCheckout({
-      clientState: `${courseId}:${event.occurrenceDateParam}:${attemptId}`,
+      clientState: `booking:${booking.id}:${attemptId}`,
       courseId,
       academyId: event.academyId,
       occurrenceDate: event.occurrenceDateParam,
@@ -91,11 +116,18 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
       payerEmail: receiptEmail,
       idempotencyKey,
       metadata: {
+        booking_id: booking.id,
+        booking_reference: booking.reference,
         course_title: event.title,
         academy_name: event.academy.name,
         pricing_type: event.pricingType,
         ...(event.pricingType === EventPricingType.DONATION ? { donation_amount: String(amount) } : {}),
       },
+    });
+    await linkBookingPayment({
+      bookingId: booking.id,
+      paymentId: checkout.paymentId,
+      idempotencyKey: checkoutIdempotencyKey(["booking-payment-link", booking.id, checkout.paymentId]),
     });
     return { checkoutUrl: checkout.checkoutUrl };
   } catch (error) {
@@ -104,6 +136,9 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
     }
     if (error instanceof PaymentServiceError) {
       return checkoutError(`Could not start payment. Payment service returned status ${error.status}. Your card has not been charged.`);
+    }
+    if (error instanceof BookingServiceError) {
+      return checkoutError(`Could not create booking. Booking service returned status ${error.status}. Your card has not been charged.`);
     }
     return checkoutError("Could not start payment. Your card has not been charged. Please try again.");
   }

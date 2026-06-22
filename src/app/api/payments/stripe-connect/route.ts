@@ -5,6 +5,8 @@ import {
   createStripeAccountLink,
   createStripeConnectedAccount,
   browserUrl,
+  deleteDuplicateStripeConnectedAccounts,
+  findReusableStripeConnectedAccount,
   getPaymentAccountOwner,
   paymentSettingsHref,
   retrieveStripeConnectedAccount,
@@ -37,10 +39,19 @@ export async function GET(request: Request) {
       },
     });
 
-    const account = setting?.providerAccountId
+    const currentAccount = setting?.providerAccountId
       ? await retrieveStripeConnectedAccount(setting.providerAccountId, owner)
-      : await createStripeConnectedAccount(user.email, owner);
+      : null;
+    const reusableAccount = !currentAccount?.details_submitted || !currentAccount.charges_enabled || !currentAccount.payouts_enabled
+      ? await findReusableStripeConnectedAccount(owner)
+      : null;
+    const account = reusableAccount && reusableAccount.details_submitted && reusableAccount.charges_enabled && reusableAccount.payouts_enabled
+      ? reusableAccount
+      : currentAccount ?? reusableAccount ?? await createStripeConnectedAccount(user.email, owner);
     await upsertPaymentAccountFromStripe(owner, account);
+    if (account.details_submitted && account.charges_enabled && account.payouts_enabled) {
+      await deleteDuplicateStripeConnectedAccounts(owner, account.id);
+    }
 
     const ownerQuery = owner.ownerType === "academy" ? "academy" : "platform";
     const refreshUrl = browserUrl(request, `/api/payments/stripe-connect/refresh?owner=${ownerQuery}`).toString();

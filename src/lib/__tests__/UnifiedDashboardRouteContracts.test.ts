@@ -306,6 +306,8 @@ describe("unified dashboard route contracts", () => {
       assert.match(source, new RegExp(`label:\\s*"${period}"`));
     }
     assert.match(serviceMenuSource, /aria-label="Service dashboards"/);
+    assert.match(source, /<div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-4">[\s\S]*<DashboardServiceMenu items=\{dashboardServiceNavigationItems\} \/>[\s\S]*<ActionMenu/);
+    assert.match(serviceMenuSource, /<div className="ml-auto flex min-w-max items-center justify-end gap-1">/);
     assert.match(serviceMenuSource, /text-sm transition-colors/);
     assert.match(serviceMenuSource, /<Icon name=\{item\.icon\}/);
     assert.match(serviceMenuSource, /item\.active \? "font-bold text-stone-950"/);
@@ -336,7 +338,7 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(source, /title:\s*"Platform Admin Academy Review"/);
   });
 
-  it("platform admin academy review links use table actions instead of nested mobile-card links", () => {
+  it("platform admin academy review links are serializable across the server/client table boundary", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
     const columnsSource = source.match(/const platformAdminAcademyColumns[\s\S]*?\n\];/)?.[0] ?? "";
     const panelSource = source.match(/export function SuperAdminPlatformAcademiesPanel[\s\S]*?\n}\n\nexport function AcademiesTable/)?.[0] ?? "";
@@ -344,14 +346,24 @@ describe("unified dashboard route contracts", () => {
     assert.notEqual(columnsSource, "", "Expected Platform Admin academy columns source to be present");
     assert.notEqual(panelSource, "", "Expected Platform Admin academy panel source to be present");
     assert.doesNotMatch(columnsSource, /<Button href=\{String\(value\)\}/);
-    assert.match(panelSource, /actions=\{\[\s*\{\s*label:\s*"Review"[\s\S]*href:\s*\(row\) => String\(row\.reviewHref\)/);
-    assert.match(panelSource, /getRowHref=\{\(row\) => String\(row\.reviewHref\)\}/);
+    assert.match(columnsSource, /<Button href=\{row\.reviewHref\} aria-label=\{row\.reviewLabel\}/);
+    assert.match(panelSource, /reviewLabel:\s*`Review \$\{academy\.name\}`/);
+    assert.match(panelSource, /reviewHref:\s*`\/admin\/academies\/\$\{academy\.id\}`/);
+    assert.doesNotMatch(panelSource, /actions=\{\[/);
+    assert.doesNotMatch(panelSource, /ariaLabel:\s*\(row\)/);
+    assert.doesNotMatch(panelSource, /href:\s*\(row\)/);
+    assert.doesNotMatch(panelSource, /getRowHref=\{\(row\) => String\(row\.reviewHref\)\}/);
   });
 
   it("admin dashboard stats board is collapsible and collapsed by default", () => {
     const source = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
-    assert.match(source, /\{panel !== "payments" \? \(/);
+    assert.match(source, /panel === "academies" \? "Academies"/);
+    assert.match(source, /panel === "open-mats" \? "Course\/Events Dashboard"/);
+    assert.match(source, /panel === "bookings" \? "Bookings"/);
+    assert.match(source, /const hideSharedDashboardSections = \["academies", "open-mats", "bookings", "payments"\]\.includes\(panel\)/);
+    assert.match(source, /\{!hideSharedDashboardSections \? \(/);
+    assert.match(source, /getRowHref=\{\(booking\) => bookingEventHref\(booking\)\}/);
     assert.match(source, /<StatsPanel[\s\S]*title="Stats Board"[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
     assert.match(source, /collapseStorageKey="rollfinders\.dashboardStatsCollapsed"/);
   });

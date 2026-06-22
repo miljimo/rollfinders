@@ -23,12 +23,23 @@ describe("course payment service integration", () => {
 
   it("uses a server action for paid course checkout handoff", () => {
     const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
+    const bookingSource = readSource("src/lib/bookings.ts");
     assert.match(actionSource, /["']use server["']/);
+    assert.match(actionSource, /createBooking/);
+    assert.match(actionSource, /linkBookingPayment/);
     assert.match(actionSource, /createCourseOccurrenceCheckout/);
+    assert.match(actionSource, /bookableType:\s*"course_occurrence"/);
+    assert.match(actionSource, /paymentRequired:\s*true/);
+    assert.match(actionSource, /booking_id:\s*booking\.id/);
+    assert.match(actionSource, /clientState:\s*`booking:\$\{booking\.id\}:\$\{attemptId\}`/);
     assert.match(actionSource, /provider:\s*["']stripe["']/);
     assert.match(actionSource, /paymentMethodType:\s*["']card["']/);
     assert.match(actionSource, /checkoutUrl:\s*checkout\.checkoutUrl/);
     assert.doesNotMatch(actionSource, /redirect\(checkout\.checkoutUrl\)/);
+    assert.match(bookingSource, /export async function createBooking/);
+    assert.match(bookingSource, /export async function linkBookingPayment/);
+    assert.match(bookingSource, /\/v1\/bookings/);
+    assert.match(bookingSource, /\/payment-link/);
   });
 
   it("renders checkout controls on course detail through a client handoff", () => {
@@ -66,7 +77,7 @@ describe("course payment service integration", () => {
     assert.match(actionSource, /EventPricingType\.DONATION/);
     assert.match(actionSource, /donationAmount/);
     assert.match(actionSource, /checkoutIdempotencyKey/);
-    assert.match(actionSource, /clientState:\s*`\$\{courseId\}:\$\{event\.occurrenceDateParam\}:\$\{attemptId\}`/);
+    assert.match(actionSource, /clientState:\s*`booking:\$\{booking\.id\}:\$\{attemptId\}`/);
     assert.match(actionSource, /Enter a donation amount greater than zero/);
     assert.match(actionSource, /Payment service is not available/);
 
@@ -131,6 +142,7 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /metadata\.payer_phone/);
     assert.match(dashboardSource, /formatMinorCurrency\(payment\.amount, payment\.currency\)/);
     assert.match(dashboardSource, /\/courses\/\$\{courseId\}/);
+    assert.doesNotMatch(dashboardSource, /PaymentServiceStatusPanel|Payment Service Status|View system status/);
   });
 
   it("keeps Stripe Connect API keys out of dashboard-managed payment settings", () => {
@@ -177,10 +189,20 @@ describe("course payment service integration", () => {
     assert.match(stripeConnectSource, /requestedOwner === "academy"/);
     assert.match(stripeConnectSource, /requestedOwner !== "platform" && Boolean\(user\.academyId\)/);
     assert.match(stripeConnectSource, /ownerId:\s*"rollfinders",\s*ownerType:\s*"platform"/);
+    assert.match(stripeConnectSource, /export function rollfindersPlatformPaymentAccountStatus/);
+    assert.match(stripeConnectSource, /providerAccountId:\s*"rollfinders-stripe-platform"/);
     assert.match(stripeConnectSource, /academyId:\s*owner\.ownerType === "academy" \? owner\.ownerId : null/);
     assert.match(stripeConnectSource, /ownerType_ownerId_provider:\s*\{\s*\n\s*ownerId:\s*owner\.ownerId,\s*\n\s*ownerType:\s*owner\.ownerType,\s*\n\s*provider:\s*"stripe"/);
     assert.match(stripeConnectSource, /"metadata\[owner_id\]":\s*owner\.ownerId/);
     assert.match(stripeConnectSource, /"metadata\[owner_type\]":\s*owner\.ownerType/);
+    assert.match(stripeConnectSource, /findReusableStripeConnectedAccount/);
+    assert.match(stripeConnectSource, /accountMatchesOwner\(account,\s*owner\)/);
+    assert.match(stripeConnectSource, /sortedAccounts\.find\(isReadyStripeAccount\)/);
+    assert.match(stripeConnectSource, /deleteDuplicateStripeConnectedAccounts/);
+    assert.match(stripeConnectSource, /account\.id !== retainedAccountId/);
+    assert.match(stripeConnectSource, /deleteStripeConnectedAccount\(account\.id,\s*owner\)/);
+    assert.match(connectRouteSource, /findReusableStripeConnectedAccount\(owner\)/);
+    assert.match(connectRouteSource, /deleteDuplicateStripeConnectedAccounts\(owner,\s*account\.id\)/);
 
     for (const source of [connectRouteSource, refreshRouteSource, dashboardSource]) {
       assert.match(source, /ownerType_ownerId_provider:\s*\{\s*\n\s*ownerId:\s*owner\.ownerId|ownerId:\s*paymentAccountOwner\.ownerId/);
@@ -191,6 +213,8 @@ describe("course payment service integration", () => {
     assert.match(disconnectRouteSource, /export async function POST/);
     assert.doesNotMatch(disconnectRouteSource, /export async function GET/);
     assert.match(stripeConnectSource, /account\.details_submitted && chargesEnabled && payoutsEnabled \? "verified" : "verification_required"/);
+    assert.match(dashboardSource, /rollfindersPlatformPaymentAccountStatus/);
+    assert.match(dashboardSource, /setting \?\? \(academyAdmin \? null : rollfindersPlatformPaymentAccountStatus\(\)\)/);
     assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);
   });
 

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { clsx } from "clsx";
-import { Ban, BarChart3, Building2, CalendarDays, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, Filter, Globe2, Info, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
+import { Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, Filter, Globe2, Info, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
@@ -21,6 +21,7 @@ import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
+import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
 import { listManagedUsers } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
@@ -592,7 +593,7 @@ export default async function AdminDashboardWorkspace({
               provider: "stripe",
             },
           },
-        })
+        }).then((setting) => setting ?? (academyAdmin ? null : rollfindersPlatformPaymentAccountStatus()))
       : Promise.resolve(null),
     panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
   ]);
@@ -685,6 +686,7 @@ export default async function AdminDashboardWorkspace({
   const dashboardServiceNavigationItems = adminNavigationItems
     .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
     .map((item) => item.href === "/dashboard?panel=academies" ? { ...item, label: "Academies" } : item);
+  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard?panel=payments"
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
@@ -890,30 +892,32 @@ export default async function AdminDashboardWorkspace({
       <main className="transition-[padding] duration-200 lg:pl-[var(--admin-side-panel-width,16rem)]">
         <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24">
           <div className="size-11 lg:hidden" aria-hidden />
-          <DashboardServiceMenu items={dashboardServiceNavigationItems} />
-          <ActionMenu
-            buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
-            label="Open account profile menu"
-            menuClassName="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl"
-            trigger={(
-              <>
-                <span className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</span>
-                <ChevronDown size={18} aria-hidden className="text-slate-400" />
-              </>
-            )}
-          >
-            <div className="flex items-start gap-3 border-b border-stone-100 pb-4">
-              <div className="grid size-14 shrink-0 place-items-center rounded-full bg-teal-100 text-lg font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</div>
-              <div className="min-w-0">
-                <p className="break-words text-lg font-black text-slate-950">{account?.name ?? currentUser.email}</p>
-                <p className="mt-1 break-all text-sm font-semibold text-slate-500">{account?.email ?? currentUser.email}</p>
-                <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(account?.role ?? currentUser.role)}</p>
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-4">
+            <DashboardServiceMenu items={dashboardServiceNavigationItems} />
+            <ActionMenu
+              buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
+              label="Open account profile menu"
+              menuClassName="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl"
+              trigger={(
+                <>
+                  <span className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</span>
+                  <ChevronDown size={18} aria-hidden className="text-slate-400" />
+                </>
+              )}
+            >
+              <div className="flex items-start gap-3 border-b border-stone-100 pb-4">
+                <div className="grid size-14 shrink-0 place-items-center rounded-full bg-teal-100 text-lg font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</div>
+                <div className="min-w-0">
+                  <p className="break-words text-lg font-black text-slate-950">{account?.name ?? currentUser.email}</p>
+                  <p className="mt-1 break-all text-sm font-semibold text-slate-500">{account?.email ?? currentUser.email}</p>
+                  <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(account?.role ?? currentUser.role)}</p>
+                </div>
               </div>
-            </div>
-            <div className="mt-3 flex justify-end">
-              <LogoutButton />
-            </div>
-          </ActionMenu>
+              <div className="mt-3 flex justify-end">
+                <LogoutButton />
+              </div>
+            </ActionMenu>
+          </div>
         </header>
 
         {panel === "settings" ? (
@@ -935,12 +939,12 @@ export default async function AdminDashboardWorkspace({
         <section className="px-4 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-slate-950">{academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <h1 className="text-3xl font-black text-slate-950">{panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
               <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
-          {panel !== "payments" ? (
+          {!hideSharedDashboardSections ? (
             <>
               <StatsPanel
                 className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
@@ -1581,8 +1585,8 @@ function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { acade
 
 function DashboardServiceMenu({ items }: { items: SidePanelItem[] }) {
   return (
-    <nav className="min-w-0 flex-1 overflow-x-auto" aria-label="Service dashboards">
-      <div className="flex min-w-max items-center gap-1">
+    <nav className="min-w-0 overflow-x-auto" aria-label="Service dashboards">
+      <div className="ml-auto flex min-w-max items-center justify-end gap-1">
         {items.map((item) => (
           <Link
             key={item.href}
@@ -2276,7 +2280,7 @@ function metadataText(metadata: Record<string, unknown> | undefined, key: string
 function bookingStatusTone(status: string) {
   if (status === "confirmed" || status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   if (status === "cancelled" || status === "expired") return "bg-red-50 text-red-700 ring-red-100";
-  if (status === "pending_payment") return "bg-amber-50 text-amber-800 ring-amber-100";
+  if (status === "payment_pending") return "bg-amber-50 text-amber-800 ring-amber-100";
   return "bg-slate-50 text-slate-700 ring-slate-100";
 }
 
@@ -2343,7 +2347,7 @@ function bookingCustomerLabel(booking: BookingRecord) {
 function BookingsPanel({ academyAdmin, result, search }: { academyAdmin: boolean; result: DashboardBookingsResult; search: string }) {
   const visibleBookings = result.bookings.filter((booking) => bookingMatchesSearch(booking, search));
   const confirmedBookings = visibleBookings.filter((booking) => booking.status === "confirmed" || booking.status === "completed");
-  const pendingPaymentBookings = visibleBookings.filter((booking) => booking.status === "pending_payment");
+  const pendingPaymentBookings = visibleBookings.filter((booking) => booking.status === "payment_pending");
   const participantTotal = visibleBookings.reduce((sum, booking) => sum + booking.participantCount, 0);
   const recentBookings = visibleBookings.slice(0, 10);
   const summaryCards: PaymentSummaryCard[] = [
@@ -2400,6 +2404,7 @@ function BookingsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
         emptyIcon={<ClipboardCheck size={28} aria-hidden />}
         emptyMessage={result.bookings.length ? "No bookings match that search." : "No bookings have been recorded yet."}
         getRowId={(booking) => booking.id}
+        getRowHref={(booking) => bookingEventHref(booking)}
         title="Recent Bookings"
         viewAllLabel={`${visibleBookings.length.toLocaleString()} shown`}
       />
@@ -2441,47 +2446,6 @@ function PaymentMetricCards({ cards }: { cards: PaymentSummaryCard[] }) {
   );
 }
 
-function PaymentServiceStatusPanel({ error }: { error?: string }) {
-  const connected = !error;
-  const statusLabel = connected ? "Available" : "Unavailable";
-  const statusClassName = connected ? "text-teal-800" : "text-orange-600";
-
-  return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-5" aria-labelledby="payment-service-status-title">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-2">
-          <h3 id="payment-service-status-title" className="truncate text-lg font-black text-slate-950">Payment Service Status</h3>
-          <Info size={17} className="shrink-0 text-slate-400" aria-hidden />
-        </div>
-        <span className={clsx("inline-flex rounded-md border px-3 py-1 text-sm font-bold", connected ? "border-teal-200 bg-teal-50 text-teal-900" : "border-amber-200 bg-amber-50 text-amber-900")}>
-          {connected ? "Connected" : "Unavailable"}
-        </span>
-      </div>
-      <div className="mt-5 flex items-center justify-between gap-3 rounded-lg border border-stone-200 bg-white p-4">
-        <div className="flex items-center gap-3">
-          <span className={clsx("flex h-5 w-5 items-center justify-center rounded-full text-white", connected ? "bg-teal-700" : "bg-amber-500")} aria-hidden>
-            <Check size={14} strokeWidth={3} />
-          </span>
-          <p className="text-sm font-bold text-slate-700">{error ?? "Payment service is connected."}</p>
-        </div>
-        <span className="text-sm font-black text-teal-800">View status</span>
-      </div>
-      <dl className="mt-5 grid gap-4">
-        {["Payment Gateway", "Payouts", "Webhooks", "Fraud Protection"].map((item) => (
-          <div key={item} className="flex items-center justify-between gap-4">
-            <dt className="text-sm font-bold text-slate-600">{item}</dt>
-            <dd className={clsx("text-sm font-black", statusClassName)}>{statusLabel}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-6 flex min-h-14 items-center justify-between rounded-lg border border-stone-200 px-4 text-sm font-black text-teal-800">
-        View system status
-        <ChevronRight size={18} aria-hidden />
-      </div>
-    </section>
-  );
-}
-
 type DashboardTableColumn<T> = {
   key: string;
   render?: (row: T) => ReactNode;
@@ -2494,6 +2458,7 @@ function PaymentDashboardTable<T>({
   emptyIcon,
   emptyMessage,
   getRowId,
+  getRowHref,
   title,
   viewAllLabel = "View all",
 }: {
@@ -2502,6 +2467,7 @@ function PaymentDashboardTable<T>({
   emptyIcon: ReactNode;
   emptyMessage: string;
   getRowId: (row: T, index: number) => string;
+  getRowHref?: (row: T, index: number) => string | undefined;
   title: string;
   viewAllLabel?: string;
 }) {
@@ -2524,13 +2490,23 @@ function PaymentDashboardTable<T>({
             </tr>
           </thead>
           <tbody>
-            {data.map((row, index) => (
-              <tr key={getRowId(row, index)} className="border-b border-stone-100 last:border-b-0">
-                {columns.map((column) => (
-                  <td key={column.key} className="px-4 py-4 text-slate-700">{column.render?.(row) ?? ""}</td>
-                ))}
-              </tr>
-            ))}
+            {data.map((row, index) => {
+              const rowHref = getRowHref?.(row, index);
+              return (
+                <tr key={getRowId(row, index)} className={clsx("border-b border-stone-100 last:border-b-0", rowHref ? "cursor-pointer hover:bg-teal-50/40" : "")}>
+                  {columns.map((column) => (
+                    <td key={column.key} className="relative px-4 py-4 text-slate-700">
+                      {rowHref ? (
+                        <Link href={rowHref} className="absolute inset-0 z-10" aria-label="View booking details">
+                          <span className="sr-only">View booking details</span>
+                        </Link>
+                      ) : null}
+                      <div className={rowHref ? "pointer-events-none relative z-20" : undefined}>{column.render?.(row) ?? ""}</div>
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -3430,21 +3406,18 @@ function PaymentsPanel({
           periodOptions={paymentOverviewPeriodOptions}
           periodValue={period}
         />
-        <div className="grid gap-5">
-          <PaymentServiceStatusPanel error={result.error} />
-          <PaymentAccountSetup
-            accountLabel={hasConnectedPaymentAccount ? paymentAccountVerified ? "Payment account is ready" : "Stripe verification is required" : "Stripe Connect setup is required"}
-            actionHref="/dashboard?panel=payments&paymentsView=settings"
-            actionLabel="Manage"
-            detailsHref="/dashboard?panel=payments&paymentsView=settings"
-            detailsLabel="View details"
-            items={paymentAccountSetupItems}
-            providerName={academyAdmin ? "Academy Stripe account" : "RollFinders Stripe account"}
-            status={paymentAccountVerified ? "active" : "pending"}
-            title="Payment Account Setup"
-            variant="compact"
-          />
-        </div>
+        <PaymentAccountSetup
+          accountLabel={hasConnectedPaymentAccount ? paymentAccountVerified ? "Payment account is ready" : "Stripe verification is required" : "Stripe Connect setup is required"}
+          actionHref="/dashboard?panel=payments&paymentsView=settings"
+          actionLabel="Manage"
+          detailsHref="/dashboard?panel=payments&paymentsView=settings"
+          detailsLabel="View details"
+          items={paymentAccountSetupItems}
+          providerName={academyAdmin ? "Academy Stripe account" : "RollFinders Stripe account"}
+          status={paymentAccountVerified ? "active" : "pending"}
+          title="Payment Account Setup"
+          variant="compact"
+        />
       </div>
     </div>
   );
@@ -3488,6 +3461,7 @@ type PlatformAdminAcademyTableRow = Record<string, unknown> & {
   creator: string;
   creatorEmail: string;
   location: string;
+  reviewLabel: string;
   reviewHref: string;
   verificationStatus: AcademyVerificationStatus;
   createdAt: Date;
@@ -3592,6 +3566,16 @@ const platformAdminAcademyColumns: TableColumn<PlatformAdminAcademyTableRow>[] =
       </div>
     ),
   },
+  {
+    key: "reviewHref",
+    title: "Actions",
+    className: "text-right",
+    render: (_value, row) => (
+      <Button href={row.reviewHref} aria-label={row.reviewLabel} size="sm" variant="secondary" className="px-3 text-sm hover:border-teal-700 hover:text-teal-800">
+        Review
+      </Button>
+    ),
+  },
 ];
 
 function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy | null }) {
@@ -3664,6 +3648,7 @@ export function SuperAdminPlatformAcademiesPanel({
     creatorEmail: academy.createdById ?? "Unknown",
     id: academy.id,
     location: [academy.borough ?? academy.city, academy.postcode].filter(Boolean).join(", "),
+    reviewLabel: `Review ${academy.name}`,
     reviewHref: `/admin/academies/${academy.id}`,
     slug: academy.slug,
     verificationStatus: academy.verificationStatus,
@@ -3705,18 +3690,10 @@ export function SuperAdminPlatformAcademiesPanel({
       </form>
 
       <Table
-        actions={[
-          {
-            label: "Review",
-            ariaLabel: (row) => `Review ${row.academy}`,
-            href: (row) => String(row.reviewHref),
-          },
-        ]}
         className="mt-5"
         columns={platformAdminAcademyColumns}
         data={rows}
         emptyMessage="No academies have been created by Platform Admins yet."
-        getRowHref={(row) => String(row.reviewHref)}
         getRowId={(row) => row.id}
         minWidthClassName="min-w-[920px]"
         pagination={totalItems > 0
