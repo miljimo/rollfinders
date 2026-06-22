@@ -66,7 +66,7 @@ export function CourseCheckoutForm({
         </label>
       ) : null}
       <label className="grid gap-1 text-sm font-bold text-stone-800">
-        Receipt email <span className="text-xs font-semibold text-stone-500">Optional</span>
+        Receipt email <span className="text-xs font-semibold text-stone-500">Required for guests</span>
         <input name="payerEmail" type="email" placeholder="you@example.com" className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-sm font-normal" />
       </label>
       <div>

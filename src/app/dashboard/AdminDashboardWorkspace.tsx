@@ -15,6 +15,7 @@ import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, 
 import { getMapItems } from "@/lib/data";
 import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
+import { calculatePlatformFeeMinor, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { listCourseOccurrencePayments, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
@@ -52,6 +53,9 @@ import { fetchAcademyClaims, type AcademyClaimListItem } from "../admin/academy-
 import { EmailOperationsPanel } from "../admin/EmailOperationsPanel";
 import { EditProfileForm } from "./EditProfileForm";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
+import { updatePlatformPaymentFees } from "./paymentSettingsActions";
+import { cancelDashboardBooking, confirmDashboardBooking } from "./bookingActions";
+import { BookingActionSubmitButton } from "./BookingActionSubmitButton";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 
@@ -377,6 +381,10 @@ export default async function AdminDashboardWorkspace({
   const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
   const stripeConnectMessage = firstParam(params.stripeConnect);
   const stripeConnectError = firstParam(params.stripeConnectError);
+  const paymentSettingsMessage = firstParam(params.paymentSettingsMessage);
+  const paymentSettingsError = firstParam(params.paymentSettingsError);
+  const bookingActionError = firstParam(params.bookingActionError);
+  const bookingActionBookingId = firstParam(params.bookingActionBookingId);
   const bookingsSearch = (firstParam(params.bookingsSearch) ?? "").trim();
   const platformAcademiesSearch = (firstParam(params.platformAcademiesSearch) ?? "").trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
@@ -532,6 +540,7 @@ export default async function AdminDashboardWorkspace({
     assignedAcademyProfile,
     paymentResult,
     paymentAccountSetting,
+    paymentPlatformSettings,
     bookingResult,
   ] = await Promise.all([
     prisma.academy.findMany({
@@ -595,6 +604,7 @@ export default async function AdminDashboardWorkspace({
           },
         }).then((setting) => setting ?? (academyAdmin ? null : rollfindersPlatformPaymentAccountStatus()))
       : Promise.resolve(null),
+    panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
     panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
@@ -686,7 +696,7 @@ export default async function AdminDashboardWorkspace({
   const dashboardServiceNavigationItems = adminNavigationItems
     .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
     .map((item) => item.href === "/dashboard?panel=academies" ? { ...item, label: "Academies" } : item);
-  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments"].includes(panel);
+  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard?panel=payments"
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
@@ -885,6 +895,7 @@ export default async function AdminDashboardWorkspace({
       <SidePanelControl
         accountLabel={account?.name ?? account?.email ?? currentUser.email}
         footerNavigationItems={sidePanelFooterNavigationItems}
+        mobileNavigationItems={dashboardServiceNavigationItems}
         navigationItems={serviceNavigationItems}
         roleLabel={roleLabel(account?.role ?? currentUser.role)}
       />
@@ -913,6 +924,22 @@ export default async function AdminDashboardWorkspace({
                   <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(account?.role ?? currentUser.role)}</p>
                 </div>
               </div>
+              <nav className="mt-4 grid gap-1 border-b border-stone-100 pb-4 lg:hidden" aria-label="Service dashboards">
+                {dashboardServiceNavigationItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    aria-current={item.active ? "page" : undefined}
+                    className={clsx(
+                      "inline-flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
+                      item.active ? "font-bold text-stone-950" : "font-medium text-stone-700 hover:bg-stone-50 hover:text-stone-950",
+                    )}
+                  >
+                    <Icon name={item.icon} size={17} className="shrink-0" />
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+              </nav>
               <div className="mt-3 flex justify-end">
                 <LogoutButton />
               </div>
@@ -939,7 +966,7 @@ export default async function AdminDashboardWorkspace({
         <section className="px-4 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-slate-950">{panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <h1 className="text-3xl font-black text-slate-950">{panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "User's Boards" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
               <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
@@ -1033,7 +1060,7 @@ export default async function AdminDashboardWorkspace({
           ) : null}
           {panel === "payments" ? (
             <AdminPanel
-              action={<PaymentsDashboardActions payments={paymentResult.payments} />}
+              action={paymentsView === "payouts" ? null : <PaymentsDashboardActions payments={paymentResult.payments} />}
               description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : paymentsView === "settings" ? academyAdmin ? "Set up and manage the academy payout account." : "Manage the RollFinders payment account and platform payment setup." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
               search={paymentsView === "overview" ? <PaymentsPanelSearch search={paymentsSearch} /> : null}
@@ -1042,11 +1069,14 @@ export default async function AdminDashboardWorkspace({
               <PaymentsPanel
                 academyAdmin={academyAdmin}
                 paymentAccountSetting={paymentAccountSetting}
+                paymentPlatformSettings={paymentPlatformSettings ?? undefined}
                 period={paymentsPeriod}
                 result={paymentResult}
                 search={paymentsSearch}
                 stripeConnectError={stripeConnectError}
                 stripeConnectMessage={stripeConnectMessage}
+                paymentSettingsError={paymentSettingsError}
+                paymentSettingsMessage={paymentSettingsMessage}
                 view={paymentsView}
               />
             </AdminPanel>
@@ -1058,7 +1088,7 @@ export default async function AdminDashboardWorkspace({
               search={<BookingsPanelSearch search={bookingsSearch} />}
               title="Bookings"
             >
-              <BookingsPanel academyAdmin={academyAdmin} result={bookingResult} search={bookingsSearch} />
+              <BookingsPanel academyAdmin={academyAdmin} actionBookingId={bookingActionBookingId} actionError={bookingActionError} result={bookingResult} search={bookingsSearch} />
             </AdminPanel>
           ) : null}
           {panel === "academy-claims" ? (
@@ -1585,7 +1615,7 @@ function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { acade
 
 function DashboardServiceMenu({ items }: { items: SidePanelItem[] }) {
   return (
-    <nav className="min-w-0 overflow-x-auto" aria-label="Service dashboards">
+    <nav className="hidden min-w-0 overflow-x-auto md:block" aria-label="Service dashboards">
       <div className="ml-auto flex min-w-max items-center justify-end gap-1">
         {items.map((item) => (
           <Link
@@ -2280,8 +2310,15 @@ function metadataText(metadata: Record<string, unknown> | undefined, key: string
 function bookingStatusTone(status: string) {
   if (status === "confirmed" || status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   if (status === "cancelled" || status === "expired") return "bg-red-50 text-red-700 ring-red-100";
+  if (status === "payment_received") return "bg-blue-50 text-blue-700 ring-blue-100";
   if (status === "payment_pending") return "bg-amber-50 text-amber-800 ring-amber-100";
   return "bg-slate-50 text-slate-700 ring-slate-100";
+}
+
+function bookingStatusLabel(status: string) {
+  if (status === "payment_received") return "Payment received";
+  if (status === "payment_pending") return "Payment pending";
+  return status.replace("_", " ");
 }
 
 function bookingSearchText(booking: BookingRecord) {
@@ -2344,21 +2381,96 @@ function bookingCustomerLabel(booking: BookingRecord) {
   return metadataText(booking.metadata, "payer_email") ?? booking.customerId ?? booking.guestReference ?? "Guest";
 }
 
-function BookingsPanel({ academyAdmin, result, search }: { academyAdmin: boolean; result: DashboardBookingsResult; search: string }) {
+function BookingActionsMenu({ booking }: { booking: BookingRecord }) {
+  const canConfirm = booking.status === "payment_received";
+  const canCancel = booking.status === "payment_pending" || booking.status === "payment_received";
+  return (
+    <ActionMenu
+      label={`Open actions for ${booking.reference || booking.id}`}
+      buttonClassName="inline-flex size-9 items-center justify-center rounded-md text-slate-700 transition hover:bg-slate-50"
+      menuClassName="absolute right-0 z-20 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-2 text-left shadow-xl"
+    >
+      {canConfirm ? (
+        <form action={confirmDashboardBooking}>
+          <input type="hidden" name="bookingId" value={booking.id} />
+          <BookingActionSubmitButton
+            className="block w-full rounded-md px-3 py-2 text-left text-sm font-bold text-slate-700 hover:bg-teal-50 hover:text-teal-800"
+            pendingLabel="Confirming..."
+          >
+            Confirm Booking
+          </BookingActionSubmitButton>
+        </form>
+      ) : null}
+      {canCancel ? (
+        <form action={cancelDashboardBooking}>
+          <input type="hidden" name="bookingId" value={booking.id} />
+          <BookingActionSubmitButton
+            className="block w-full rounded-md px-3 py-2 text-left text-sm font-bold text-red-700 hover:bg-red-50"
+            pendingLabel="Cancelling..."
+          >
+            Cancel Booking
+          </BookingActionSubmitButton>
+        </form>
+      ) : null}
+      {!canConfirm && !canCancel ? (
+        <span className="block rounded-md px-3 py-2 text-sm font-semibold text-slate-400" role="menuitem">
+          No actions available
+        </span>
+      ) : null}
+    </ActionMenu>
+  );
+}
+
+function bookingActionNotice(error: string | null | undefined, booking: BookingRecord | undefined) {
+  if (!error) return null;
+  if (!booking && error !== "booking-missing") return null;
+  if (error === "refund-requested") {
+    return {
+      message: "Booking cancelled and refund request queued for the received payment.",
+      tone: "success" as const,
+    };
+  }
+  if (error === "payment-cancel-failed" && booking?.status !== "payment_pending") return null;
+  let message = "Booking action failed. Please try again.";
+  if (error === "payment-cancel-failed") message = "Payment cancellation failed. The booking was not cancelled.";
+  if (error === "payment-already-complete") message = "Stripe says this payment is already complete. The booking was not cancelled; refresh the booking payment status before requesting a refund.";
+  if (error === "refund-missing-payment") message = "This paid booking has no payment reference, so a refund request could not be queued.";
+  if (error === "refund-request-failed") message = "Refund request failed. The booking was not cancelled.";
+  if (error === "cancel-invalid-status") message = "Only pending-payment or payment-received bookings can be cancelled from this action.";
+  if (error === "booking-load-failed") message = "Booking details could not be loaded. Please try again.";
+  if (error === "forbidden") message = "You do not have permission to update that booking.";
+  if (error === "confirm-failed") message = "Booking confirmation failed. Please try again.";
+  if (error === "cancel-failed") message = "Booking cancellation failed. Please try again.";
+  return {
+    message,
+    tone: "error" as const,
+  };
+}
+
+function BookingsPanel({ academyAdmin, actionBookingId, actionError, result, search }: { academyAdmin: boolean; actionBookingId?: string | null; actionError?: string | null; result: DashboardBookingsResult; search: string }) {
   const visibleBookings = result.bookings.filter((booking) => bookingMatchesSearch(booking, search));
   const confirmedBookings = visibleBookings.filter((booking) => booking.status === "confirmed" || booking.status === "completed");
   const pendingPaymentBookings = visibleBookings.filter((booking) => booking.status === "payment_pending");
+  const paymentReceivedBookings = visibleBookings.filter((booking) => booking.status === "payment_received");
   const participantTotal = visibleBookings.reduce((sum, booking) => sum + booking.participantCount, 0);
   const recentBookings = visibleBookings.slice(0, 10);
   const summaryCards: PaymentSummaryCard[] = [
     { changeLabel: "All matching records", icon: <ClipboardCheck size={27} aria-hidden />, id: "total-bookings", label: "Total Bookings", value: visibleBookings.length.toLocaleString() },
     { changeLabel: "Confirmed or completed", icon: <CheckCircle2 size={28} aria-hidden />, id: "confirmed-bookings", label: "Confirmed", value: confirmedBookings.length.toLocaleString() },
+    { changeLabel: "Awaiting academy confirmation", icon: <ShieldCheck size={28} aria-hidden />, id: "payment-received-bookings", label: "Payment Received", value: paymentReceivedBookings.length.toLocaleString() },
     { changeLabel: "Waiting for payment", icon: <CreditCard size={28} aria-hidden />, id: "pending-payment-bookings", label: "Pending Payment", value: pendingPaymentBookings.length.toLocaleString() },
     { changeLabel: "Booked participant count", icon: <Users size={27} aria-hidden />, id: "participants", label: "Participants", value: participantTotal.toLocaleString() },
   ];
+  const actionBooking = actionBookingId ? result.bookings.find((booking) => booking.id === actionBookingId) : undefined;
+  const actionNotice = bookingActionNotice(actionError, actionBooking);
 
   return (
     <div className="grid gap-5">
+      {actionNotice ? (
+        <section className={clsx("rounded-lg border p-4 text-sm font-bold", actionNotice.tone === "success" ? "border-teal-200 bg-teal-50 text-teal-800" : "border-red-200 bg-red-50 text-red-800")}>
+          {actionNotice.message}
+        </section>
+      ) : null}
       <PaymentMetricCards cards={summaryCards} />
       {search ? (
         <p className="text-sm font-semibold text-slate-600">
@@ -2397,8 +2509,13 @@ function BookingsPanel({ academyAdmin, result, search }: { academyAdmin: boolean
           { key: "customer", title: "Customer", render: (booking) => bookingCustomerLabel(booking) },
           { key: "participants", title: "Participants", render: (booking) => <span className="font-bold text-slate-950">{booking.participantCount.toLocaleString()}</span> },
           { key: "payment", title: "Payment", render: (booking) => booking.paymentId ? <span className="font-mono text-xs">{booking.paymentId}</span> : <span className="text-slate-400">None</span> },
-          { key: "status", title: "Status", render: (booking) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${bookingStatusTone(booking.status)}`}>{booking.status.replace("_", " ")}</span> },
+          { key: "status", title: "Status", render: (booking) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${bookingStatusTone(booking.status)}`}>{bookingStatusLabel(booking.status)}</span> },
           { key: "created", title: "Created", render: (booking) => formatPaymentDate(booking.createdAt) },
+          {
+            key: "action",
+            title: "Actions",
+            render: (booking) => <BookingActionsMenu booking={booking} />,
+          },
         ]}
         data={recentBookings}
         emptyIcon={<ClipboardCheck size={28} aria-hidden />}
@@ -2424,9 +2541,9 @@ type PaymentSummaryCard = {
 
 function PaymentMetricCards({ cards }: { cards: PaymentSummaryCard[] }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="flex flex-wrap items-start gap-4">
       {cards.map((card) => (
-        <section key={card.id} className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+        <section key={card.id} className="w-full rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:w-fit sm:min-w-[17rem] sm:max-w-[24rem]">
           <div className="grid grid-cols-[auto_1fr] gap-4">
             <div className={clsx("flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100", card.iconClassName)}>
               {card.icon}
@@ -2501,7 +2618,7 @@ function PaymentDashboardTable<T>({
                           <span className="sr-only">View booking details</span>
                         </Link>
                       ) : null}
-                      <div className={rowHref ? "pointer-events-none relative z-20" : undefined}>{column.render?.(row) ?? ""}</div>
+                      <div className={rowHref && column.key !== "action" ? "pointer-events-none relative z-20" : "relative z-20"}>{column.render?.(row) ?? ""}</div>
                     </td>
                   ))}
                 </tr>
@@ -2647,12 +2764,12 @@ function PaymentsTransactionsView({ payments, result, search, currency }: { paym
   );
 }
 
-function platformFeeAmount(amount: number) {
-  return Math.round(amount * 0.05);
+function platformFeeAmount(amount: number, settings: PaymentPlatformSettings) {
+  return calculatePlatformFeeMinor(amount, settings);
 }
 
-function netPaymentAmount(payment: PaymentRecord) {
-  return Math.max(0, payment.amount - platformFeeAmount(payment.amount) - payment.refundedAmount);
+function netPaymentAmount(payment: PaymentRecord, settings: PaymentPlatformSettings) {
+  return Math.max(0, payment.amount - platformFeeAmount(payment.amount, settings) - payment.refundedAmount);
 }
 
 type EarningsCourseRow = {
@@ -2663,14 +2780,14 @@ type EarningsCourseRow = {
   platformFees: number;
 };
 
-function earningsCourseRows(payments: PaymentRecord[]): EarningsCourseRow[] {
+function earningsCourseRows(payments: PaymentRecord[], settings: PaymentPlatformSettings): EarningsCourseRow[] {
   const rows = new Map<string, EarningsCourseRow>();
   payments.forEach((payment) => {
     if (payment.status !== "succeeded") return;
     const label = paymentDescription(payment);
     const id = payment.metadata?.course_id ?? payment.resourceId ?? label;
     const row = rows.get(id) ?? { grossRevenue: 0, id, label, netEarnings: 0, platformFees: 0 };
-    const platformFees = platformFeeAmount(payment.amount);
+    const platformFees = platformFeeAmount(payment.amount, settings);
     row.grossRevenue += payment.amount;
     row.platformFees += platformFees;
     row.netEarnings += Math.max(0, payment.amount - platformFees - payment.refundedAmount);
@@ -2679,7 +2796,7 @@ function earningsCourseRows(payments: PaymentRecord[]): EarningsCourseRow[] {
   return Array.from(rows.values()).sort((left, right) => right.netEarnings - left.netEarnings).slice(0, 5);
 }
 
-function EarningsSummaryPanel({ currency, grossRevenue, netEarnings, platformFees, refunds }: { currency: string; grossRevenue: number; netEarnings: number; platformFees: number; refunds: number }) {
+function EarningsSummaryPanel({ currency, feeLabel, grossRevenue, netEarnings, platformFees, refunds }: { currency: string; feeLabel: string; grossRevenue: number; netEarnings: number; platformFees: number; refunds: number }) {
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
@@ -2692,7 +2809,7 @@ function EarningsSummaryPanel({ currency, grossRevenue, netEarnings, platformFee
           <dd className="font-black text-slate-950">{formatMinorCurrency(grossRevenue, currency)}</dd>
         </div>
         <div className="flex justify-between gap-4">
-          <dt>Platform Fees (5%)</dt>
+          <dt>Platform Fees ({feeLabel})</dt>
           <dd className="font-black text-red-600">-{formatMinorCurrency(platformFees, currency)}</dd>
         </div>
         <div className="flex justify-between gap-4">
@@ -2757,14 +2874,14 @@ function EarningsBreakdownPanel({ currency, rows, total }: { currency: string; r
   );
 }
 
-function PaymentsEarningsView({ currency, payments, period }: { currency: string; payments: PaymentRecord[]; period: PaymentOverviewPeriod }) {
+function PaymentsEarningsView({ currency, payments, paymentPlatformSettings, period }: { currency: string; payments: PaymentRecord[]; paymentPlatformSettings: PaymentPlatformSettings; period: PaymentOverviewPeriod }) {
   const succeededPayments = payments.filter((payment) => payment.status === "succeeded");
   const grossRevenue = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const platformFees = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount), 0);
+  const platformFees = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount, paymentPlatformSettings), 0);
   const refunds = payments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
-  const netEarnings = succeededPayments.reduce((sum, payment) => sum + netPaymentAmount(payment), 0);
+  const netEarnings = succeededPayments.reduce((sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings), 0);
   const pendingEarnings = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + payment.amount, 0);
-  const courseRows = earningsCourseRows(payments);
+  const courseRows = earningsCourseRows(payments, paymentPlatformSettings);
   const maxNetEarnings = Math.max(...courseRows.map((row) => row.netEarnings), 1);
   const summaryCards: PaymentSummaryCard[] = [
     { changeClassName: "text-emerald-700", changeLabel: "↑ 11.7% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "net-earnings", label: "Net Earnings", value: formatMinorCurrency(netEarnings, currency) },
@@ -2815,7 +2932,7 @@ function PaymentsEarningsView({ currency, payments, period }: { currency: string
             ))}
           </dl>
         </section>
-        <EarningsSummaryPanel currency={currency} grossRevenue={grossRevenue} netEarnings={netEarnings} platformFees={platformFees} refunds={refunds} />
+        <EarningsSummaryPanel currency={currency} feeLabel={platformFeeLabel(paymentPlatformSettings)} grossRevenue={grossRevenue} netEarnings={netEarnings} platformFees={platformFees} refunds={refunds} />
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
         <PaymentDashboardTable
@@ -2962,7 +3079,7 @@ type PayoutDashboardRow = {
   status: string;
 };
 
-function payoutRows(payments: PaymentRecord[]): PayoutDashboardRow[] {
+function payoutRows(payments: PaymentRecord[], settings: PaymentPlatformSettings): PayoutDashboardRow[] {
   return payments
     .filter((payment) => payment.status === "succeeded")
     .slice(0, 5)
@@ -2970,7 +3087,7 @@ function payoutRows(payments: PaymentRecord[]): PayoutDashboardRow[] {
       const paidAt = new Date(payment.createdAt);
       const arrivalDate = Number.isNaN(paidAt.getTime()) ? payment.createdAt : new Date(paidAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
       return {
-        amount: netPaymentAmount(payment),
+        amount: netPaymentAmount(payment, settings),
         arrivalDate,
         date: payment.createdAt,
         id: `PAYOUT-${payment.id || String(index + 1).padStart(4, "0")}`,
@@ -2979,11 +3096,11 @@ function payoutRows(payments: PaymentRecord[]): PayoutDashboardRow[] {
     });
 }
 
-function PaymentsPayoutsView({ currency, payments, period }: { currency: string; payments: PaymentRecord[]; period: PaymentOverviewPeriod }) {
+function PaymentsPayoutsView({ currency, payments, paymentPlatformSettings, period }: { currency: string; payments: PaymentRecord[]; paymentPlatformSettings: PaymentPlatformSettings; period: PaymentOverviewPeriod }) {
   const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
-  const rows = payoutRows(payments);
-  const totalPayouts = successfulPayments.reduce((sum, payment) => sum + netPaymentAmount(payment), 0);
-  const pendingPayouts = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + Math.max(0, payment.amount - platformFeeAmount(payment.amount)), 0);
+  const rows = payoutRows(payments, paymentPlatformSettings);
+  const totalPayouts = successfulPayments.reduce((sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings), 0);
+  const pendingPayouts = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + Math.max(0, payment.amount - platformFeeAmount(payment.amount, paymentPlatformSettings)), 0);
   const summaryCards: PaymentSummaryCard[] = [
     { changeClassName: "text-emerald-700", changeLabel: "↑ 15.4% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "total-payouts", label: "Total Payouts", value: formatMinorCurrency(totalPayouts, currency) },
     { changeClassName: "text-emerald-700", changeLabel: `${rows.length.toLocaleString()} payouts`, icon: <Wallet size={27} aria-hidden />, id: "payouts-sent", label: "Payouts Sent", value: formatMinorCurrency(totalPayouts, currency) },
@@ -3005,7 +3122,7 @@ function PaymentsPayoutsView({ currency, payments, period }: { currency: string;
         <span className="text-slate-800">Payouts</span>
       </div>
       <PaymentMetricCards cards={summaryCards} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.45fr)_minmax(300px,0.8fr)]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.45fr)]">
         <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
@@ -3049,109 +3166,25 @@ function PaymentsPayoutsView({ currency, payments, period }: { currency: string;
           title="Recent Payouts"
           viewAllLabel="View all"
         />
-        <div className="grid gap-5">
-          <section className="rounded-lg border border-stone-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-5 py-4">
-              <h3 className="text-lg font-black text-slate-950">Payout Account</h3>
-              <Button href="/dashboard?panel=payments&paymentsView=settings" variant="secondary">Manage</Button>
-            </div>
-            <div className="grid gap-5 p-5">
-              <div className="flex items-center gap-4">
-                <span className="grid h-14 w-14 place-items-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100" aria-hidden>
-                  <Building2 size={28} />
-                </span>
-                <div>
-                  <p className="font-black text-slate-950">Barclays Bank</p>
-                  <p className="text-sm font-semibold text-slate-500">•••• 5678</p>
-                </div>
-              </div>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="font-semibold text-slate-500">Account Holder</dt>
-                  <dd className="mt-1 font-black text-slate-950">RollFinders Academy</dd>
-                </div>
-                <div>
-                  <dt className="font-semibold text-slate-500">Currency</dt>
-                  <dd className="mt-1 font-black text-slate-950">{currency}</dd>
-                </div>
-              </dl>
-              <span className="w-fit rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">Verified</span>
-            </div>
-          </section>
-          <section className="rounded-lg border border-teal-100 bg-teal-50/60 p-5 shadow-sm">
-            <div className="flex gap-4">
-              <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-white text-teal-800 ring-1 ring-teal-100" aria-hidden>
-                <ShieldCheck size={30} />
-              </span>
-              <div>
-                <h3 className="font-black text-slate-950">Secure Payouts</h3>
-                <p className="mt-1 text-sm font-semibold text-slate-600">Payouts are sent securely to your bank account.</p>
-                <Link href="/dashboard?panel=payments&paymentsView=settings" className="mt-3 inline-flex items-center gap-2 text-sm font-black text-teal-800">
-                  Learn more
-                  <ChevronRight size={16} aria-hidden />
-                </Link>
-              </div>
-            </div>
-          </section>
-        </div>
       </div>
     </div>
-  );
-}
-
-function SettingsInfoCard({ actionHref, actionLabel, children, icon, title }: { actionHref: string; actionLabel: string; children: ReactNode; icon: ReactNode; title: string }) {
-  return (
-    <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-      <div className="grid gap-5 p-5">
-        <div className="flex items-center gap-4">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100" aria-hidden>
-            {icon}
-          </span>
-          <h3 className="text-lg font-black text-slate-950">{title}</h3>
-        </div>
-        {children}
-      </div>
-      <Link href={actionHref} className="flex min-h-14 items-center justify-between border-t border-stone-100 px-5 text-sm font-black text-teal-800 hover:bg-teal-50">
-        {actionLabel}
-        <ChevronRight size={18} aria-hidden />
-      </Link>
-    </section>
-  );
-}
-
-function SettingsDefinitionList({ rows }: { rows: { label: string; value: ReactNode }[] }) {
-  return (
-    <dl className="grid gap-4 text-sm">
-      {rows.map((row) => (
-        <div key={row.label} className="flex items-center justify-between gap-4">
-          <dt className="font-semibold text-slate-600">{row.label}</dt>
-          <dd className="text-right font-black text-slate-950">{row.value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function EnabledBadge() {
-  return <span className="rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">Enabled</span>;
-}
-
-function NotificationToggle() {
-  return (
-    <span className="inline-flex h-6 w-11 items-center rounded-full bg-teal-700 p-1" aria-hidden>
-      <span className="ml-auto h-4 w-4 rounded-full bg-white shadow-sm" />
-    </span>
   );
 }
 
 function PaymentsSettingsView({
   academyAdmin,
   paymentAccountSetting,
+  paymentPlatformSettings,
+  paymentSettingsError,
+  paymentSettingsMessage,
   stripeConnectError,
   stripeConnectMessage,
 }: {
   academyAdmin: boolean;
   paymentAccountSetting: PaymentAccountSettingView | null;
+  paymentPlatformSettings: PaymentPlatformSettings;
+  paymentSettingsError?: string;
+  paymentSettingsMessage?: string;
   stripeConnectError?: string;
   stripeConnectMessage?: string;
 }) {
@@ -3161,15 +3194,21 @@ function PaymentsSettingsView({
   const accountName = academyAdmin ? "Academy Stripe Connect" : "RollFinders Stripe Connect";
   const manageLabel = connected ? "Manage Stripe Account" : "Set Up Stripe Connect";
   const accountDescription = academyAdmin ? "Connected payout account" : "Connected platform account";
-  const settingsNotice = stripeConnectError
-    ? { tone: "error", text: stripeConnectError }
-    : stripeConnectMessage === "connected"
-      ? { tone: "success", text: "Stripe account setup was completed and the account status has been refreshed." }
-      : stripeConnectMessage === "refreshed"
-        ? { tone: "success", text: "Stripe account status has been refreshed." }
-        : stripeConnectMessage === "disconnected"
-          ? { tone: "success", text: "Stripe account has been disconnected from RollFinders." }
-          : null;
+  const platformFeePercent = platformFeePercentage(paymentPlatformSettings);
+  const fixedPlatformFee = paymentPlatformSettings.platformFeeFixedMinor / 100;
+  const settingsNotice = paymentSettingsError
+    ? { tone: "error", text: paymentSettingsError }
+    : stripeConnectError
+      ? { tone: "error", text: stripeConnectError }
+      : paymentSettingsMessage === "platform-fees-updated"
+        ? { tone: "success", text: "Platform fees have been updated." }
+        : stripeConnectMessage === "connected"
+          ? { tone: "success", text: "Stripe account setup was completed and the account status has been refreshed." }
+          : stripeConnectMessage === "refreshed"
+            ? { tone: "success", text: "Stripe account status has been refreshed." }
+            : stripeConnectMessage === "disconnected"
+              ? { tone: "success", text: "Stripe account has been disconnected from RollFinders." }
+              : null;
 
   return (
     <div className="grid gap-5">
@@ -3216,87 +3255,59 @@ function PaymentsSettingsView({
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-3">
-        <SettingsInfoCard
-          actionHref="/dashboard?panel=payments&paymentsView=payouts"
-          actionLabel="View payout schedule"
-          icon={<Building2 size={24} />}
-          title="Payout Settings"
-        >
-          <SettingsDefinitionList
-            rows={[
-              { label: "Payout Schedule", value: "Weekly (Tuesday)" },
-              { label: "Minimum Payout", value: "£25.00" },
-              { label: "Payout Method", value: "Standard Transfer" },
-              { label: "Currency", value: "GBP" },
-            ]}
-          />
-        </SettingsInfoCard>
-
-        <SettingsInfoCard
-          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=methods"
-          actionLabel="Manage payment methods"
-          icon={<CreditCard size={24} />}
-          title="Payment Methods"
-        >
-          <SettingsDefinitionList
-            rows={[
-              { label: "Cards", value: <span className="inline-flex items-center gap-2"><Badge>VISA</Badge><Badge>MC</Badge><Badge>AMEX</Badge><EnabledBadge /></span> },
-              { label: "Apple Pay", value: <span className="inline-flex items-center gap-2"><Badge>Pay</Badge><EnabledBadge /></span> },
-              { label: "Google Pay", value: <span className="inline-flex items-center gap-2"><Badge>G Pay</Badge><EnabledBadge /></span> },
-              { label: "Link (by Stripe)", value: <span className="inline-flex items-center gap-2"><Badge>link</Badge><EnabledBadge /></span> },
-            ]}
-          />
-        </SettingsInfoCard>
-
-        <SettingsInfoCard
-          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=pricing"
-          actionLabel="View pricing details"
-          icon={<KeyRound size={24} />}
-          title="Fees & Pricing"
-        >
-          <SettingsDefinitionList
-            rows={[
-              { label: "Platform Fee", value: "5%" },
-              { label: "Card Processing Fee", value: "2.9% + £0.30" },
-              { label: "Refund Fee", value: "£0.30" },
-              { label: "Currency", value: "GBP" },
-            ]}
-          />
-        </SettingsInfoCard>
-
-        <SettingsInfoCard
-          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=billing"
-          actionLabel="Update billing information"
-          icon={<User size={24} />}
-          title="Billing Information"
-        >
-          <SettingsDefinitionList
-            rows={[
-              { label: "Business Name", value: academyAdmin ? "Academy Account" : "RollFinders Academy" },
-              { label: "Legal Entity", value: academyAdmin ? "Academy Ltd." : "RollFinders Academy Ltd." },
-              { label: "Email", value: academyAdmin ? "billing@academy.local" : "billing@rollfinders.com" },
-              { label: "Phone", value: "+44 7700 900123" },
-            ]}
-          />
-        </SettingsInfoCard>
-
-        <SettingsInfoCard
-          actionHref="/dashboard?panel=payments&paymentsView=settings&paymentAction=notifications"
-          actionLabel="Manage notifications"
-          icon={<Mail size={24} />}
-          title="Payment Notifications"
-        >
-          <SettingsDefinitionList
-            rows={[
-              { label: "Payment Received", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
-              { label: "Payouts Sent", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
-              { label: "Refunds Processed", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
-              { label: "Failed Payments", value: <span className="inline-flex items-center gap-3">On <NotificationToggle /></span> },
-            ]}
-          />
-        </SettingsInfoCard>
-      </div>
+      {!academyAdmin ? (
+        <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] lg:items-start">
+            <div>
+              <h3 className="text-xl font-black text-slate-950">Platform Fees</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-600">
+                These fees are applied to academy Stripe Connect payments before the academy payout amount is calculated.
+              </p>
+              <dl className="mt-5 grid gap-3 text-sm font-semibold text-slate-600">
+                <div className="flex justify-between gap-4">
+                  <dt>Current fee</dt>
+                  <dd className="font-black text-slate-950">{platformFeeLabel(paymentPlatformSettings)}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt>Currency</dt>
+                  <dd className="font-black text-slate-950">{paymentPlatformSettings.currency}</dd>
+                </div>
+              </dl>
+            </div>
+            <form action={updatePlatformPaymentFees} className="grid gap-4 rounded-lg border border-stone-200 p-4">
+              <label className="grid gap-2 text-sm font-black text-slate-800">
+                Platform fee percentage
+                <input
+                  className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-semibold text-slate-950"
+                  defaultValue={Number.isInteger(platformFeePercent) ? platformFeePercent.toFixed(0) : platformFeePercent.toFixed(2)}
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  name="platformFeePercent"
+                  step="0.01"
+                  type="number"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-black text-slate-800">
+                Fixed platform fee
+                <div className="grid grid-cols-[auto_1fr] overflow-hidden rounded-md border border-stone-300">
+                  <span className="grid min-h-11 place-items-center border-r border-stone-300 bg-stone-50 px-3 text-base font-black text-slate-700">£</span>
+                  <input
+                    className="min-h-11 px-3 text-base font-semibold text-slate-950 outline-none"
+                    defaultValue={fixedPlatformFee.toFixed(2)}
+                    inputMode="decimal"
+                    min="0"
+                    name="platformFeeFixed"
+                    step="0.01"
+                    type="number"
+                  />
+                </div>
+              </label>
+              <Button type="submit">Save Platform Fees</Button>
+            </form>
+          </div>
+        </section>
+      ) : null}
 
       <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm">
         <div className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
@@ -3321,6 +3332,13 @@ function PaymentsSettingsView({
 function PaymentsPanel({
   academyAdmin,
   paymentAccountSetting,
+  paymentPlatformSettings = {
+    currency: "GBP",
+    platformFeeBasisPoints: 500,
+    platformFeeFixedMinor: 0,
+  },
+  paymentSettingsError,
+  paymentSettingsMessage,
   period,
   result,
   search,
@@ -3330,6 +3348,9 @@ function PaymentsPanel({
 }: {
   academyAdmin: boolean;
   paymentAccountSetting: PaymentAccountSettingView | null;
+  paymentPlatformSettings?: PaymentPlatformSettings;
+  paymentSettingsError?: string;
+  paymentSettingsMessage?: string;
   period: PaymentOverviewPeriod;
   result: DashboardPaymentsResult;
   search: string;
@@ -3340,6 +3361,7 @@ function PaymentsPanel({
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
   const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded");
   const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const platformRevenue = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount, paymentPlatformSettings), 0);
   const refundedAmount = visiblePayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
   const currency = visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
   const hasConnectedPaymentAccount = Boolean(paymentAccountSetting?.providerAccountId);
@@ -3347,13 +3369,13 @@ function PaymentsPanel({
   const paymentOverviewMetrics: PaymentOverviewMetric[] = [
     { colorClassName: "bg-teal-700", id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
     { colorClassName: "bg-teal-700", id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
-    { colorClassName: "bg-orange-500", id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(0, currency) },
+    { colorClassName: "bg-orange-500", id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(platformRevenue, currency) },
     { colorClassName: "bg-emerald-400", id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
   ];
   const summaryCards: PaymentSummaryCard[] = [
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
-    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(0, currency) },
+    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(platformRevenue, currency) },
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
   ];
   const paymentAccountSetupItems = [
@@ -3368,7 +3390,7 @@ function PaymentsPanel({
   }
 
   if (view === "earnings") {
-    return <PaymentsEarningsView currency={currency} payments={visiblePayments} period={period} />;
+    return <PaymentsEarningsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} period={period} />;
   }
 
   if (view === "refunds") {
@@ -3376,7 +3398,7 @@ function PaymentsPanel({
   }
 
   if (view === "payouts") {
-    return <PaymentsPayoutsView currency={currency} payments={visiblePayments} period={period} />;
+    return <PaymentsPayoutsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} period={period} />;
   }
 
   if (view === "settings") {
@@ -3384,6 +3406,9 @@ function PaymentsPanel({
       <PaymentsSettingsView
         academyAdmin={academyAdmin}
         paymentAccountSetting={paymentAccountSetting}
+        paymentPlatformSettings={paymentPlatformSettings}
+        paymentSettingsError={paymentSettingsError}
+        paymentSettingsMessage={paymentSettingsMessage}
         stripeConnectError={stripeConnectError}
         stripeConnectMessage={stripeConnectMessage}
       />

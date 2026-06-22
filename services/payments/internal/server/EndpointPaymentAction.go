@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 
 	"payments/internal/handlers"
@@ -24,6 +25,9 @@ func (s *server) paymentAction(w http.ResponseWriter, r *http.Request, action st
 		}
 		result, err := call(adapter, payment, key)
 		if err != nil {
+			if errors.Is(err, errPaymentCompleted) {
+				return http.StatusConflict, ErrorEnvelope{Error: APIError{Code: "payment_already_completed", Message: "Payment is already completed and cannot be cancelled.", RequestID: requestIDFrom(r)}}
+			}
 			return http.StatusBadGateway, ErrorEnvelope{Error: APIError{Code: "provider_error", Message: "Provider request failed.", RequestID: requestIDFrom(r)}}
 		}
 		updated, err := s.store.transitionPayment(payment.ID, result.Status)

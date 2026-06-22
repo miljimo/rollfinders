@@ -70,6 +70,12 @@ type Refund struct {
 	UpdatedAt        time.Time
 }
 
+type PlatformFeeSetting struct {
+	PlatformFeeBasisPoints int
+	PlatformFeeFixedMinor  int64
+	Currency               string
+}
+
 type IdempotencyRecord struct {
 	Fingerprint string
 	StatusCode  int

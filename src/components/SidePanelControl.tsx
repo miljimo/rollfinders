@@ -25,6 +25,7 @@ export type SidePanelChildItem = {
 type SidePanelControlProps = {
   accountLabel?: string | null;
   footerNavigationItems?: SidePanelItem[];
+  mobileNavigationItems?: SidePanelItem[];
   navigationItems: SidePanelItem[];
   roleLabel?: string | null;
   supportHref?: string;
@@ -37,6 +38,7 @@ const railWidth = "4.5rem";
 export function SidePanelControl({
   accountLabel,
   footerNavigationItems = [],
+  mobileNavigationItems,
   navigationItems,
   roleLabel,
   supportHref = "/contact",
@@ -137,7 +139,7 @@ export function SidePanelControl({
               collapsed={false}
               drawerTitleId={drawerTitleId}
               footerNavigationItems={footerNavigationItems}
-              navigationItems={navigationItems}
+              navigationItems={mobileNavigationItems ?? navigationItems}
               onClose={() => setMobileOpen(false)}
               roleLabel={roleLabel}
               showClose

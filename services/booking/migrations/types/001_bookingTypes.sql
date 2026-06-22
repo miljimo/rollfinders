@@ -1,7 +1,16 @@
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'booking'::regnamespace AND typname = 'booking_status') THEN
-        CREATE TYPE booking.booking_status AS ENUM ('pending', 'payment_pending', 'confirmed', 'cancelled', 'completed');
+        CREATE TYPE booking.booking_status AS ENUM ('pending', 'payment_pending', 'payment_received', 'confirmed', 'cancelled', 'completed');
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_enum
+        WHERE enumtypid = 'booking.booking_status'::regtype
+          AND enumlabel = 'payment_received'
+    ) THEN
+        ALTER TYPE booking.booking_status ADD VALUE 'payment_received' AFTER 'payment_pending';
     END IF;
 
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'booking'::regnamespace AND typname = 'participant_status') THEN

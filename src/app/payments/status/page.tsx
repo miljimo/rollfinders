@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { markBookingPaymentReceived } from "@/lib/bookings";
 
 export const metadata: Metadata = {
   title: "Payment status | RollFinders",
@@ -17,7 +18,36 @@ type SearchParams = {
   resource_type?: string;
   result?: string;
   state?: string;
+  metadata_booking_id?: string;
 };
+
+function successfulPayment(result?: string, status?: string) {
+  return result === "success" && ["paid", "succeeded", "completed"].includes(String(status ?? "").toLowerCase());
+}
+
+function bookingIdFromParams(params: SearchParams) {
+  if (params.metadata_booking_id) return params.metadata_booking_id;
+  const match = /^booking:([^:]+):/.exec(params.state ?? "");
+  return match?.[1] ?? "";
+}
+
+async function markPaidBookingPaymentReceived(params: SearchParams) {
+  if (!successfulPayment(params.result, params.payment_status)) return "";
+  const bookingId = bookingIdFromParams(params);
+  if (!bookingId || !params.payment_id) return "";
+
+  try {
+    await markBookingPaymentReceived({
+      bookingId,
+      idempotencyKey: `payment-status-received:${params.payment_id}:${bookingId}`,
+      reason: `payment_received:${params.payment_id}`,
+    });
+    return "payment received";
+  } catch (error) {
+    console.error("Payment status page could not mark booking payment received.", { bookingId, error, paymentId: params.payment_id });
+    return "failed";
+  }
+}
 
 function statusContent(result?: string, paymentStatus?: string) {
   if (result === "cancelled" || paymentStatus === "cancelled") {
@@ -58,6 +88,7 @@ function statusContent(result?: string, paymentStatus?: string) {
 
 export default async function PaymentStatusPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
+  const bookingPaymentReceived = await markPaidBookingPaymentReceived(params);
   const content = statusContent(params.result, params.payment_status);
   const Icon = content.icon;
 
@@ -81,6 +112,7 @@ export default async function PaymentStatusPage({ searchParams }: { searchParams
             <PaymentDetail label="Resource type" value={params.resource_type} />
             <PaymentDetail label="Client" value={params.client_id} />
             <PaymentDetail label="State" value={params.state} />
+            <PaymentDetail label="Booking payment" value={bookingPaymentReceived} />
           </dl>
         </section>
 

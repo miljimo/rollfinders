@@ -20,4 +20,15 @@ if [ -f services/courses/migrations/001_coreSchema.sql ]; then
   (cd services/courses/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
 fi
 
+if [ -d services/booking/migrations ]; then
+  for dir in schema types tables procedures functions; do
+    if [ -d "services/booking/migrations/${dir}" ]; then
+      for file in services/booking/migrations/${dir}/*.sql; do
+        [ -f "${file}" ] || continue
+        psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
+      done
+    fi
+  done
+fi
+
 echo "Service SQL migrations completed successfully."

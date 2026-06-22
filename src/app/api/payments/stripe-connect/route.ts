@@ -8,6 +8,7 @@ import {
   deleteDuplicateStripeConnectedAccounts,
   findReusableStripeConnectedAccount,
   getPaymentAccountOwner,
+  isMissingStripeAccountError,
   paymentSettingsHref,
   retrieveStripeConnectedAccount,
   upsertPaymentAccountFromStripe,
@@ -39,9 +40,15 @@ export async function GET(request: Request) {
       },
     });
 
-    const currentAccount = setting?.providerAccountId
-      ? await retrieveStripeConnectedAccount(setting.providerAccountId, owner)
-      : null;
+    let currentAccount = null;
+    if (setting?.providerAccountId) {
+      try {
+        currentAccount = await retrieveStripeConnectedAccount(setting.providerAccountId, owner);
+      } catch (error) {
+        if (!isMissingStripeAccountError(error)) throw error;
+        currentAccount = null;
+      }
+    }
     const reusableAccount = !currentAccount?.details_submitted || !currentAccount.charges_enabled || !currentAccount.payouts_enabled
       ? await findReusableStripeConnectedAccount(owner)
       : null;

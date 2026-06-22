@@ -55,6 +55,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: guest_reference
+          in: query
+          schema:
+            type: string
         - name: organisation_id
           in: query
           schema:
@@ -322,7 +326,7 @@ components:
   schemas:
     BookingStatus:
       type: string
-      enum: [pending, payment_pending, confirmed, cancelled, completed]
+      enum: [pending, payment_pending, payment_received, confirmed, cancelled, completed]
     ParticipantStatus:
       type: string
       enum: [active, cancelled]

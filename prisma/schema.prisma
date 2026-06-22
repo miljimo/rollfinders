@@ -231,6 +231,17 @@ model PaymentAccountSetting {
   @@map("payment_account_settings")
 }
 
+model PaymentPlatformSetting {
+  id                    String   @id
+  platformFeeBasisPoints Int      @default(500) @map("platform_fee_basis_points")
+  platformFeeFixedMinor  Int      @default(0) @map("platform_fee_fixed_minor")
+  currency              String   @default("GBP")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_platform_settings")
+}
+
 model AcademySocialLink {
   id        String                @id @default(cuid())
   academyId String                @map("academy_id")

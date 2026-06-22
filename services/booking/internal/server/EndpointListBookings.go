@@ -20,6 +20,7 @@ func (s *server) listBookings(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 	list, err := dataaccess.ListBookings(r.Context(), db, dataaccess.ListBookingsFilter{
 		CustomerID:         params.Get("customer_id"),
+		GuestReference:     params.Get("guest_reference"),
 		OrganisationID:     params.Get("organisation_id"),
 		BookableType:       params.Get("bookable_type"),
 		BookableID:         params.Get("bookable_id"),

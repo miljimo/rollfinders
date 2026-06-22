@@ -53,6 +53,7 @@ type CreateBookingInput struct {
 
 type ListBookingsFilter struct {
 	CustomerID         string
+	GuestReference     string
 	OrganisationID     string
 	BookableType       string
 	BookableID         string

@@ -45,7 +45,11 @@ BEGIN
         RAISE EXCEPTION 'invalid_status_transition';
     END IF;
 
-    IF v_new_status = 'confirmed' AND v_old_status NOT IN ('pending', 'payment_pending') THEN
+    IF v_new_status = 'payment_received' AND v_old_status NOT IN ('payment_pending', 'payment_received') THEN
+        RAISE EXCEPTION 'invalid_status_transition';
+    END IF;
+
+    IF v_new_status = 'confirmed' AND v_old_status NOT IN ('pending', 'payment_pending', 'payment_received') THEN
         RAISE EXCEPTION 'invalid_status_transition';
     END IF;
 

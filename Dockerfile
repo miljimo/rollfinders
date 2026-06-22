@@ -48,6 +48,7 @@ COPY --chown=nextjs:nodejs seed ./seed
 COPY --chown=nextjs:nodejs services/users/migrations ./services/users/migrations
 COPY --chown=nextjs:nodejs services/payments/migrations ./services/payments/migrations
 COPY --chown=nextjs:nodejs services/courses/migrations ./services/courses/migrations
+COPY --chown=nextjs:nodejs services/booking/migrations ./services/booking/migrations
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
 COPY --chown=nextjs:nodejs src/lib/prisma-pg-pool.ts ./src/lib/prisma-pg-pool.ts

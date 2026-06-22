@@ -12,6 +12,7 @@ import { getOpenMatOccurrence } from "@/lib/data";
 import { eventPermanentPath, eventQrCodePath } from "@/lib/event-share-links";
 import { publicDetailDashboardDialogPath, publicDetailReturnPath } from "@/lib/public-detail-return-path";
 import { CourseCheckoutForm } from "../../courses/[id]/CourseCheckoutForm";
+import { bookFreeCourseOccurrence } from "../../courses/[id]/payment-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,7 @@ export default async function EventPage({
       backLabel="Back to sessions"
       checkoutForm={canCheckout && !canBookFree ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
       event={event}
+      freeBookingAction={canBookFree ? bookFreeCourseOccurrence : undefined}
       permanentHref={permanentHref}
       qrCodeHref={qrCodeHref}
       sourcePage="open_mat_profile"

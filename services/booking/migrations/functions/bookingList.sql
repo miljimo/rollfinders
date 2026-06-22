@@ -1,5 +1,6 @@
 CREATE OR REPLACE FUNCTION booking."bookingList"(
     p_customer_id text,
+    p_guest_reference text,
     p_organisation_id text,
     p_bookable_type text,
     p_bookable_id text,
@@ -43,6 +44,7 @@ AS $$
         b.updated_at
     FROM booking.bookings b
     WHERE (p_customer_id IS NULL OR b.customer_id = p_customer_id)
+      AND (p_guest_reference IS NULL OR b.guest_reference = p_guest_reference)
       AND (p_organisation_id IS NULL OR b.organisation_id = p_organisation_id)
       AND (p_bookable_type IS NULL OR b.bookable_type = p_bookable_type)
       AND (p_bookable_id IS NULL OR b.bookable_id = p_bookable_id)

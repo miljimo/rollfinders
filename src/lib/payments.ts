@@ -59,6 +59,30 @@ export type PaymentRecord = {
   payerEmail?: string;
 };
 
+export type CancelPaymentInput = {
+  paymentId: string;
+  idempotencyKey: string;
+};
+
+export type CreatePaymentRefundInput = {
+  paymentId: string;
+  idempotencyKey: string;
+  amount?: number;
+  reason?: string;
+};
+
+export type PaymentRefundRecord = {
+  id: string;
+  paymentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reason?: string;
+  providerRefundId?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CheckoutResponse = {
   checkout_session_id: string;
   client_id: string;
@@ -96,6 +120,18 @@ type PaymentHistoryResponse = {
   count: number;
 };
 
+type PaymentRefundRecordResponse = {
+  id: string;
+  payment_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  reason?: string;
+  provider_refund_id?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 const paymentServiceUrl = () => getEnvVariable("PAYMENT_SERVICE_URL", "http://localhost:3002").replace(/\/+$/, "");
 const paymentServiceApiKey = () => getEnvVariable("PAYMENT_SERVICE_API_KEY", "");
 
@@ -103,11 +139,19 @@ export class PaymentServiceError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
   ) {
     super(message);
     this.name = "PaymentServiceError";
   }
 }
+
+type ErrorResponse = {
+  error?: {
+    code?: string;
+    message?: string;
+  };
+};
 
 export async function createCourseOccurrenceCheckout(
   input: CreateCourseOccurrenceCheckoutInput,
@@ -151,7 +195,8 @@ export async function createCourseOccurrenceCheckout(
   });
 
   if (!response.ok) {
-    throw new PaymentServiceError(`Payment service checkout creation failed with status ${response.status}.`, response.status);
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment service checkout creation failed with status ${response.status}.`, response.status, error.code);
   }
 
   const checkout = (await response.json()) as CheckoutResponse;
@@ -206,6 +251,103 @@ export async function listCourseOccurrencePayments({ limit = 100 }: { limit?: nu
     payerUserId: payment.payer_user_id,
     payerEmail: payment.payer_email,
   })).filter(isProviderBackedPaymentRecord);
+}
+
+export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentRecord> {
+  const apiKey = paymentServiceApiKey();
+  if (!apiKey) {
+    throw new PaymentServiceError("Payment service API key is not configured.", 0);
+  }
+
+  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/cancel`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": input.idempotencyKey,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment service cancellation failed with status ${response.status}.`, response.status, error.code);
+  }
+
+  const payment = (await response.json()) as PaymentRecordResponse;
+  return {
+    id: payment.id,
+    amount: payment.amount,
+    currency: payment.currency,
+    provider: payment.provider,
+    paymentMethodType: payment.payment_method_type,
+    status: payment.status,
+    refundedAmount: payment.refunded_amount,
+    metadata: payment.metadata,
+    providerPaymentId: payment.provider_payment_id,
+    providerStatus: payment.provider_status,
+    createdAt: payment.created_at,
+    updatedAt: payment.updated_at,
+    checkoutSessionId: payment.checkout_session_id,
+    clientId: payment.client_id,
+    clientState: payment.client_state,
+    resourceType: payment.resource_type,
+    resourceId: payment.resource_id,
+    resourceLabel: payment.resource_label,
+    payerUserId: payment.payer_user_id,
+    payerEmail: payment.payer_email,
+  };
+}
+
+export async function createPaymentRefund(input: CreatePaymentRefundInput): Promise<PaymentRefundRecord> {
+  const apiKey = paymentServiceApiKey();
+  if (!apiKey) {
+    throw new PaymentServiceError("Payment service API key is not configured.", 0);
+  }
+
+  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": input.idempotencyKey,
+    },
+    body: JSON.stringify({
+      amount: input.amount ?? 0,
+      reason: input.reason ?? "booking_cancelled_by_academy",
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment service refund request failed with status ${response.status}.`, response.status, error.code);
+  }
+
+  const refund = (await response.json()) as PaymentRefundRecordResponse;
+  return {
+    id: refund.id,
+    paymentId: refund.payment_id,
+    amount: refund.amount,
+    currency: refund.currency,
+    status: refund.status,
+    reason: refund.reason,
+    providerRefundId: refund.provider_refund_id,
+    createdAt: refund.created_at,
+    updatedAt: refund.updated_at,
+  };
+}
+
+async function readPaymentServiceError(response: Response): Promise<{ code?: string; message?: string }> {
+  try {
+    const body = (await response.json()) as ErrorResponse;
+    return {
+      code: body.error?.code,
+      message: body.error?.message,
+    };
+  } catch {
+    return {};
+  }
 }
 
 function isProviderBackedPaymentRecord(payment: PaymentRecord) {

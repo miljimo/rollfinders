@@ -11,6 +11,7 @@ import { coursePriceLabel, getCourseOccurrence } from "@/lib/courses";
 import { eventPermanentPath, eventQrCodePath } from "@/lib/event-share-links";
 import { publicDetailDashboardDialogPath, publicDetailReturnPath } from "@/lib/public-detail-return-path";
 import { CourseCheckoutForm } from "./CourseCheckoutForm";
+import { bookFreeCourseOccurrence } from "./payment-actions";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,7 @@ export default async function CoursePage({
       backLabel="Back to courses"
       checkoutForm={canCheckout && !canBookFree ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
       event={event}
+      freeBookingAction={canBookFree ? bookFreeCourseOccurrence : undefined}
       permanentHref={permanentHref}
       qrCodeHref={qrCodeHref}
       sourcePage="course_profile"

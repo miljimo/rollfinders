@@ -15,6 +15,7 @@ func ListBookings(ctx context.Context, db databases.DataContext, filter ListBook
 		ctx,
 		`booking."bookingList"`,
 		nullable(filter.CustomerID),
+		nullable(filter.GuestReference),
 		nullable(filter.OrganisationID),
 		nullable(filter.BookableType),
 		nullable(filter.BookableID),

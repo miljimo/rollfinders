@@ -31,6 +31,10 @@ describe("course payment service integration", () => {
     assert.match(actionSource, /bookableType:\s*"course_occurrence"/);
     assert.match(actionSource, /paymentRequired:\s*true/);
     assert.match(actionSource, /booking_id:\s*booking\.id/);
+    assert.match(actionSource, /stripe_destination_account:\s*paymentAccount\.providerAccountId/);
+    assert.doesNotMatch(actionSource, /getPaymentPlatformSettings/);
+    assert.doesNotMatch(actionSource, /calculatePlatformFeeMinor/);
+    assert.doesNotMatch(actionSource, /stripe_application_fee_amount/);
     assert.match(actionSource, /clientState:\s*`booking:\$\{booking\.id\}:\$\{attemptId\}`/);
     assert.match(actionSource, /provider:\s*["']stripe["']/);
     assert.match(actionSource, /paymentMethodType:\s*["']card["']/);
@@ -56,6 +60,7 @@ describe("course payment service integration", () => {
     assert.match(formSource, /eventKind=\{mode === "donation" \? "donation" : "paid"\}/);
     assert.match(formSource, /Creating checkout/);
     assert.match(formSource, /Receipt email/);
+    assert.match(formSource, /Required for guests/);
     assert.doesNotMatch(`${pageSource}\n${formSource}`, /stripe\.com|Stripe\(/);
   });
 
@@ -64,12 +69,26 @@ describe("course payment service integration", () => {
     const freeButtonSource = readSource("src/components/FreeEventBookingButton.tsx");
     const openMatPageSource = readSource("src/app/open-mats/[id]/page.tsx");
     const coursePageSource = readSource("src/app/courses/[id]/page.tsx");
+    const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
 
     assert.match(publicDetailSource, /freeBookable/);
     assert.match(publicDetailSource, /FreeEventBookingButton/);
+    assert.match(publicDetailSource, /freeBookingAction/);
+    assert.match(freeButtonSource, /useActionState/);
+    assert.match(freeButtonSource, /Booking confirmed/);
+    assert.match(freeButtonSource, /Booking email/);
     assert.match(freeButtonSource, /No payment needed/);
+    assert.doesNotMatch(freeButtonSource, /onClick=\{\(\) => setBooked\(true\)\}/);
     assert.match(openMatPageSource, /EventPricingType\.FREE/);
+    assert.match(openMatPageSource, /bookFreeCourseOccurrence/);
+    assert.match(openMatPageSource, /freeBookingAction=\{canBookFree \? bookFreeCourseOccurrence : undefined\}/);
     assert.match(coursePageSource, /EventPricingType\.FREE/);
+    assert.match(coursePageSource, /bookFreeCourseOccurrence/);
+    assert.match(coursePageSource, /freeBookingAction=\{canBookFree \? bookFreeCourseOccurrence : undefined\}/);
+    assert.match(actionSource, /export async function bookFreeCourseOccurrence/);
+    assert.match(actionSource, /paymentRequired:\s*false/);
+    assert.match(actionSource, /pricingType !== EventPricingType\.FREE/);
+    assert.match(actionSource, /Enter an email address so the academy knows who is attending/);
   });
 
   it("supports donation checkout with a caller-specified amount", () => {
@@ -79,6 +98,7 @@ describe("course payment service integration", () => {
     assert.match(actionSource, /checkoutIdempotencyKey/);
     assert.match(actionSource, /clientState:\s*`booking:\$\{booking\.id\}:\$\{attemptId\}`/);
     assert.match(actionSource, /Enter a donation amount greater than zero/);
+    assert.match(actionSource, /Enter an email address so the academy knows who is attending/);
     assert.match(actionSource, /Payment service is not available/);
 
     const formSource = readSource("src/app/courses/[id]/CourseCheckoutForm.tsx");
@@ -137,12 +157,18 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /metadata\?\.academy_id === academyId/);
     assert.match(dashboardSource, /<PaymentsPanel/);
     assert.match(dashboardSource, /PaymentsPanelSearch/);
+    assert.match(dashboardSource, /<div className="flex flex-wrap items-start gap-4">/);
+    assert.match(dashboardSource, /sm:w-fit sm:min-w-\[17rem\] sm:max-w-\[24rem\]/);
+    assert.match(dashboardSource, /action=\{paymentsView === "payouts" \? null : <PaymentsDashboardActions payments=\{paymentResult\.payments\} \/>\}/);
     assert.match(dashboardSource, /paymentsSearch/);
     assert.match(dashboardSource, /paymentMatchesSearch/);
     assert.match(dashboardSource, /metadata\.payer_phone/);
     assert.match(dashboardSource, /formatMinorCurrency\(payment\.amount, payment\.currency\)/);
     assert.match(dashboardSource, /\/courses\/\$\{courseId\}/);
     assert.doesNotMatch(dashboardSource, /PaymentServiceStatusPanel|Payment Service Status|View system status/);
+    const payoutsViewSource = dashboardSource.match(/function PaymentsPayoutsView[\s\S]*?function PaymentsSettingsView/)?.[0] ?? "";
+    assert.notEqual(payoutsViewSource, "", "Expected PaymentsPayoutsView source to be present");
+    assert.doesNotMatch(payoutsViewSource, /Payout Account|Barclays Bank|Secure Payouts|•••• 5678/);
   });
 
   it("keeps Stripe Connect API keys out of dashboard-managed payment settings", () => {
@@ -169,8 +195,10 @@ describe("course payment service integration", () => {
     assert.match(settingsSource, /\/api\/payments\/stripe-connect\?owner=\$\{ownerQuery\}/);
     assert.match(settingsSource, /<form action=\{`\/api\/payments\/stripe-connect\/disconnect\?owner=\$\{ownerQuery\}`\} method="post">/);
     assert.doesNotMatch(settingsSource, /<Button href=\{`\/api\/payments\/stripe-connect\/disconnect/);
-    assert.doesNotMatch(settingsSource, /<input[\s\S]*(api|secret|key|publishable)/i);
+    assert.doesNotMatch(settingsSource, /Stripe API Key/i);
+    assert.doesNotMatch(settingsSource, /name=["'](?:api|secret|key|publishable)/i);
     assert.doesNotMatch(settingsSource, /textarea[\s\S]*(api|secret|key|publishable)/i);
+    assert.doesNotMatch(settingsSource, /Payout Settings|Payment Methods|Fees & Pricing|Billing Information|Payment Notifications/);
   });
 
   it("stores Stripe Connect accounts against academy or platform ownership", () => {
@@ -230,10 +258,48 @@ describe("course payment service integration", () => {
 
   it("proxies public checkout callbacks to the private payment service", () => {
     const routeSource = readSource("src/app/v1/checkouts/[id]/callbacks/[result]/route.ts");
+    const paymentStatusSource = readSource("src/app/payments/status/page.tsx");
+    const bookingSource = readSource("src/lib/bookings.ts");
 
     assert.match(routeSource, /PAYMENT_SERVICE_URL/);
     assert.match(routeSource, /\/v1\/checkouts\/\$\{encodeURIComponent\(id\)\}\/callbacks\/\$\{encodeURIComponent\(result\)\}/);
     assert.match(routeSource, /redirect:\s*"manual"/);
-    assert.match(routeSource, /NextResponse\.redirect\(location,\s*response\.status\)/);
+    assert.match(routeSource, /metadata_booking_id/);
+    assert.match(routeSource, /markBookingPaymentReceived/);
+    assert.match(routeSource, /payment-callback-received/);
+    assert.match(routeSource, /NextResponse\.redirect\(redirectUrl,\s*response\.status\)/);
+    assert.match(paymentStatusSource, /markPaidBookingPaymentReceived/);
+    assert.match(paymentStatusSource, /metadata_booking_id/);
+    assert.match(paymentStatusSource, /payment-status-received/);
+    assert.match(paymentStatusSource, /markBookingPaymentReceived/);
+    assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/payment-received/);
+    assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/confirm/);
+  });
+
+  it("cancels pending booking payments and requests refunds for received payments through the payment service", () => {
+    const paymentSource = readSource("src/lib/payments.ts");
+    const bookingSource = readSource("src/lib/bookings.ts");
+    const dashboardActionSource = readSource("src/app/dashboard/bookingActions.ts");
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const stripeProviderSource = readSource("services/payments/internal/server/provider.go");
+
+    assert.match(paymentSource, /export async function cancelPayment/);
+    assert.match(paymentSource, /\/v1\/payments\/\$\{encodeURIComponent\(input\.paymentId\)\}\/cancel/);
+    assert.match(paymentSource, /export async function createPaymentRefund/);
+    assert.match(paymentSource, /\/v1\/payments\/\$\{encodeURIComponent\(input\.paymentId\)\}\/refunds/);
+    assert.match(bookingSource, /export async function cancelBooking/);
+    assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/cancel/);
+    assert.match(dashboardActionSource, /await cancelPayment/);
+    assert.match(dashboardActionSource, /await createPaymentRefund/);
+    assert.match(dashboardActionSource, /booking\.status === "payment_received"/);
+    assert.match(dashboardActionSource, /refund_requested_by_academy/);
+    assert.match(dashboardActionSource, /refund-requested/);
+    assert.match(dashboardActionSource, /await cancelBooking/);
+    assert.match(dashboardActionSource, /payment_already_completed/);
+    assert.doesNotMatch(dashboardActionSource, /markBookingPaymentReceived/);
+    assert.match(dashboardSource, /cancelDashboardBooking/);
+    assert.match(dashboardSource, /booking\.status === "payment_pending" \|\| booking\.status === "payment_received"/);
+    assert.match(dashboardSource, /Booking cancelled and refund request queued/);
+    assert.match(stripeProviderSource, /\/v1\/checkout\/sessions\/"\+url\.PathEscape\(p\.ProviderPaymentID\)\+"\/expire"/);
   });
 });

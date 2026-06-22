@@ -18,6 +18,7 @@ SET search_path TO payments, public;
 \ir functions/005_refundList.sql
 \ir functions/006_idempotencyGet.sql
 \ir functions/007_providerEventExists.sql
+\ir functions/008_platformFeeSettingGet.sql
 \ir procedures/001_paymentClientUpsert.sql
 \ir procedures/002_paymentInsert.sql
 \ir procedures/003_checkoutInsert.sql

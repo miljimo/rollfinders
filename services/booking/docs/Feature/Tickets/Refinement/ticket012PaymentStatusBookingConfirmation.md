@@ -26,7 +26,7 @@ Confirm, fail, or cancel pending bookings from trusted Payment Service status ha
 
 ## Acceptance Criteria
 
-- WHEN payment succeeds, THEN the associated booking becomes `confirmed`.
+- WHEN payment succeeds, THEN the associated booking becomes `payment_received` and awaits academy confirmation.
 - WHEN payment fails, THEN the associated booking becomes `failed` or remains non-confirmed.
 - WHEN payment is cancelled, THEN the associated booking is cancelled or remains non-confirmed.
 - WHEN callbacks are replayed, THEN booking status remains consistent.

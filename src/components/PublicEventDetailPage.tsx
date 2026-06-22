@@ -25,6 +25,7 @@ import { SummaryTile } from "@/components/SummaryTile";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { courseLocationLabel, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
 import { formatDate } from "@/lib/utils";
+import type { CourseCheckoutState } from "@/app/courses/[id]/payment-actions";
 
 type AcademyForDetail = {
   address: string;
@@ -88,6 +89,7 @@ type PublicEventDetailPageProps = {
   backLabel: string;
   checkoutForm?: ReactNode;
   event: PublicDetailEvent;
+  freeBookingAction?: (state: CourseCheckoutState, formData: FormData) => Promise<CourseCheckoutState>;
   permanentHref: string;
   qrCodeHref: string;
   sourcePage: string;
@@ -109,10 +111,12 @@ function coverInitials(name: string) {
 function BookingAction({
   checkoutForm,
   event,
+  freeBookingAction,
   trusted,
 }: {
   checkoutForm?: React.ReactNode;
   event: PublicDetailEvent;
+  freeBookingAction?: (state: CourseCheckoutState, formData: FormData) => Promise<CourseCheckoutState>;
   trusted: boolean;
 }) {
   const priceLabel = coursePriceLabel(event);
@@ -128,8 +132,10 @@ function BookingAction({
     <section aria-label="Booking action">
       {bookable ? (
         <div className="max-w-[300px]">{checkoutForm}</div>
-      ) : freeBookable ? (
-        <FreeEventBookingButton priceLabel={priceLabel} className="w-full max-w-[300px]" />
+      ) : freeBookable && freeBookingAction ? (
+        <div className="max-w-[300px]">
+          <FreeEventBookingButton action={freeBookingAction} courseId={event.id} occurrenceDate={event.occurrenceDateParam} priceLabel={priceLabel} className="w-full" />
+        </div>
       ) : (
         <BookEventButton
           disabled
@@ -240,6 +246,7 @@ export function PublicEventDetailPage({
   backLabel,
   checkoutForm,
   event,
+  freeBookingAction,
   permanentHref,
   qrCodeHref,
   sourcePage,
@@ -274,7 +281,7 @@ export function PublicEventDetailPage({
                 <SummaryTile icon={<Users size={16} aria-hidden />} label="Capacity" value={event.capacity ? `${event.capacity} Total spots` : "Check first"} />
               </dl>
 
-              <BookingAction checkoutForm={checkoutForm} event={event} trusted={trusted} />
+              <BookingAction checkoutForm={checkoutForm} event={event} freeBookingAction={freeBookingAction} trusted={trusted} />
 
               <EventOutline event={event} />
 

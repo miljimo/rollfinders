@@ -33,6 +33,7 @@ var (
 	errInvalidTransition = errors.New("invalid state transition")
 	errOverRefund        = errors.New("refund exceeds refundable amount")
 	errNotFound          = errors.New("not found")
+	errPaymentCompleted  = errors.New("payment already completed")
 )
 
 type Payment struct {

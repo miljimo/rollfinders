@@ -48,6 +48,8 @@ func (s *server) createCheckout(w http.ResponseWriter, r *http.Request) {
 		if req.PayerUserID != "" {
 			metadata["payer_user_id"] = req.PayerUserID
 		}
+		s.applyCheckoutPaymentPolicy(metadata, req.Amount, req.Currency)
+		req.Metadata = metadata
 		paymentReq := createPaymentRequest{
 			Amount:            req.Amount,
 			Currency:          req.Currency,
@@ -59,6 +61,9 @@ func (s *server) createCheckout(w http.ResponseWriter, r *http.Request) {
 		}
 		result, err := adapter.CreatePayment(paymentReq, key)
 		if err != nil {
+			if providerCode, providerMessage := providerErrorDetails(err); providerCode != "" {
+				return http.StatusBadGateway, ErrorEnvelope{Error: APIError{Code: providerCode, Message: providerMessage, RequestID: requestIDFrom(r)}}
+			}
 			return http.StatusBadGateway, ErrorEnvelope{Error: APIError{Code: "provider_error", Message: "Provider request failed.", RequestID: requestIDFrom(r)}}
 		}
 		payment := s.store.createPayment(paymentReq, result)

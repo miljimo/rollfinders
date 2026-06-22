@@ -22,6 +22,14 @@ CREATE INDEX IF NOT EXISTS idx_booking_bookings_bookable_instance ON booking.boo
 CREATE INDEX IF NOT EXISTS idx_booking_bookings_payment ON booking.bookings (payment_id);
 CREATE INDEX IF NOT EXISTS idx_booking_bookings_status ON booking.bookings (status);
 
+UPDATE booking.bookings
+SET guest_reference = lower(NULLIF(metadata->>'payer_email', ''))
+WHERE guest_reference IS NULL
+  AND NULLIF(metadata->>'payer_email', '') IS NOT NULL;
+
+DROP INDEX IF EXISTS booking.uq_booking_active_customer_instance;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_booking_active_customer_instance
-    ON booking.bookings (bookable_type, bookable_instance_id, customer_id)
-    WHERE customer_id IS NOT NULL AND status IN ('pending', 'payment_pending', 'confirmed');
+    ON booking.bookings (bookable_type, bookable_instance_id, COALESCE(guest_reference, customer_id))
+    WHERE COALESCE(guest_reference, customer_id) IS NOT NULL
+      AND status IN ('pending', 'payment_pending', 'payment_received', 'confirmed');

@@ -43,6 +43,7 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/bookings/{booking_id}/cancel", []string{http.MethodPost}, s.cancelBooking, s.requireAuth)
 	mustHandle("/v1/bookings/{booking_id}/confirm", []string{http.MethodPost}, s.confirmBooking, s.requireAuth)
 	mustHandle("/v1/bookings/{booking_id}/complete", []string{http.MethodPost}, s.completeBooking, s.requireAuth)
+	mustHandle("/v1/bookings/{booking_id}/payment-received", []string{http.MethodPost}, s.markPaymentReceived, s.requireAuth)
 	mustHandle("/v1/bookings/{booking_id}/payment-link", []string{http.MethodPost}, s.linkPayment, s.requireAuth)
 	mustHandle("/v1/bookings/{booking_id}/participants", []string{http.MethodPost}, s.createParticipant, s.requireAuth)
 	mustHandle("/v1/bookings/{booking_id}/participants", []string{http.MethodGet}, s.listParticipants, s.requireAuth)

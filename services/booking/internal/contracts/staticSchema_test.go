@@ -39,7 +39,7 @@ func TestBookingSchemaContainsRequiredObjects(t *testing.T) {
 		"bookable_instance_id text NOT NULL",
 		"payment_id text",
 		"uq_booking_active_customer_instance",
-		"status IN ('pending', 'payment_pending', 'confirmed')",
+		"status IN ('pending', 'payment_pending', 'payment_received', 'confirmed')",
 	}
 	for _, term := range required {
 		if !strings.Contains(content, term) {

@@ -22,6 +22,10 @@ export function stripeSecretKey() {
   return process.env.STRIPE_SECRET_KEY || process.env.PAYMENT_GATEWAY_API_KEY || "";
 }
 
+export function isMissingStripeAccountError(error: unknown) {
+  return error instanceof Error && /No such account|No such destination/i.test(error.message);
+}
+
 export function rollfindersPlatformPaymentAccountStatus() {
   if (!stripeSecretKey()) return null;
 
@@ -177,9 +181,12 @@ async function stripeRequest<T>(path: string, body?: Record<string, string>, own
     cache: "no-store",
   });
 
-  const payload = await response.json().catch(() => ({})) as { error?: { message?: string } };
+  const payload = await response.json().catch(() => ({})) as { error?: { code?: string; message?: string } };
   if (!response.ok) {
-    throw new Error(payload.error?.message || `Stripe returned status ${response.status}.`);
+    const message = payload.error?.message || `Stripe returned status ${response.status}.`;
+    const error = new Error(message) as Error & { code?: string };
+    error.code = payload.error?.code;
+    throw error;
   }
 
   return payload as T;

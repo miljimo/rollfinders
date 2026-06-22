@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SidePanelControl, type SidePanelItem } from "../SidePanelControl";
@@ -82,6 +83,14 @@ describe("SidePanelControl", () => {
     assert.match(markup, /Settings/);
     assert.match(markup, /Help &amp; Support/);
     assert.match(markup, /Settings[\s\S]*Help &amp; Support[\s\S]*Logout/);
+  });
+
+  it("can render a complete mobile navigation list while keeping the desktop panel scoped", () => {
+    const source = readFileSync("src/components/SidePanelControl.tsx", "utf8");
+
+    assert.match(source, /mobileNavigationItems\?: SidePanelItem\[\]/);
+    assert.match(source, /navigationItems=\{mobileNavigationItems \?\? navigationItems\}/);
+    assert.match(source, /navigationItems=\{navigationItems\}/);
   });
 
   it("renders active nested navigation under the selected section", () => {

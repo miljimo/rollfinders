@@ -7,13 +7,18 @@ import (
 	"booking/internal/handlers"
 )
 
+const (
+	missingIdempotencyKey         = "missing_idempotency_key"
+	idempotencyKeyRequiredMessage = "Idempotency-Key header is required."
+)
+
 type attendanceRequest struct {
 	AttendanceStatus string `json:"attendance_status"`
 }
 
 func (s *server) recordAttendance(w http.ResponseWriter, r *http.Request) {
 	if err := requireIdempotencyKey(r); err != nil {
-		writeError(w, r, http.StatusBadRequest, "missing_idempotency_key", "Idempotency-Key header is required.", nil)
+		writeError(w, r, http.StatusBadRequest, missingIdempotencyKey, idempotencyKeyRequiredMessage, nil)
 		return
 	}
 	var req attendanceRequest
