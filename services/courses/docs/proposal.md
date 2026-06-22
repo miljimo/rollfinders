@@ -10,6 +10,8 @@ The service must be designed as a domain-driven microservice and must not own us
 
 All references to users and organisations are external identifiers.
 
+Authorisation Service owns all course permissions, role bundles, permission assignments, and permission evaluation. Course Service declares required permissions and enforces them through the gateway/application layer or a direct Authorisation Service check for protected operations.
+
 ---
 
 # Technology Stack
@@ -60,6 +62,106 @@ The Course Service must not manage:
 * Attendance
 * Authentication
 * Authorization
+
+---
+
+# Permission Catalog
+
+Authorisation Service stores and evaluates these permissions. Course Service declares which permission is required for each protected operation.
+
+Permission scope should include:
+
+```text
+organisation_id
+application_id
+resource_type = course | course_type | course_session | course_schedule | course_activity
+resource_id
+```
+
+## Course Type Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `course.type.create` | Create a course type for an organisation/application. | organisation/application |
+| `course.type.read` | Read a course type. | organisation/application/resource |
+| `course.type.search` | List/search course types. | organisation/application |
+| `course.type.update` | Update course type metadata. | organisation/application/resource |
+| `course.type.delete` | Delete or archive a course type. | organisation/application/resource |
+
+## Course Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `course.create` | Create a course. | organisation/application |
+| `course.read` | Read course details. | organisation/application/resource |
+| `course.search` | List/search courses. | organisation/application |
+| `course.update` | Update course details, price, capacity, status-safe metadata, or location linkage. | organisation/application/resource |
+| `course.publish` | Publish a course for public discovery. | organisation/application/resource |
+| `course.unpublish` | Remove a course from public discovery without deleting it. | organisation/application/resource |
+| `course.archive` | Archive a course. | organisation/application/resource |
+| `course.delete` | Delete a course where policy allows hard deletion. | organisation/application/resource |
+
+## Activity Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `course.activity.create` | Add an activity block to a course. | course |
+| `course.activity.read` | Read course activity blocks. | course |
+| `course.activity.update` | Update an activity block. | course |
+| `course.activity.reorder` | Reorder activity blocks. | course |
+| `course.activity.delete` | Delete an activity block. | course |
+
+## Schedule And Session Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `course.schedule.create` | Add a schedule to a course. | course |
+| `course.schedule.read` | Read schedules for a course. | course |
+| `course.schedule.update` | Update a schedule. | course |
+| `course.schedule.delete` | Delete a schedule. | course |
+| `course.session.read` | Read a materialized session or generated occurrence. | course_session |
+| `course.session.search` | List/search sessions. | organisation/application |
+| `course.session.update` | Update a session override, capacity, status, or location details. | course_session |
+| `course.session.cancel` | Cancel a session. | course_session |
+| `course.session.complete` | Mark a session complete. | course_session |
+| `course.session.generate` | Run session generation from schedules. | service |
+
+## Operational Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `course.analytics.read` | Read course/session analytics. | organisation/application |
+| `course.audit.read` | Read course/session history and audit events. | organisation/application/resource |
+| `course.outbox.dispatch` | Dispatch Course Service outbox events. | service |
+
+## Route Permission Matrix
+
+| Route | Permission |
+| --- | --- |
+| `POST /course-types` | `course.type.create` |
+| `GET /course-types` | `course.type.search` |
+| `GET /course-types/{id}` | `course.type.read` |
+| `PUT /course-types/{id}` | `course.type.update` |
+| `DELETE /course-types/{id}` | `course.type.delete` |
+| `POST /courses` | `course.create` |
+| `GET /courses` | `course.search` |
+| `GET /courses/{id}` | `course.read` |
+| `PUT /courses/{id}` | `course.update` |
+| `DELETE /courses/{id}` | `course.delete` |
+| `POST /courses/{id}/activities` | `course.activity.create` |
+| `GET /courses/{id}/activities` | `course.activity.read` |
+| `PUT /activities/{id}` | `course.activity.update` |
+| `DELETE /activities/{id}` | `course.activity.delete` |
+| `POST /courses/{id}/schedules` | `course.schedule.create` |
+| `GET /courses/{id}/schedules` | `course.schedule.read` |
+| `PUT /schedules/{id}` | `course.schedule.update` |
+| `DELETE /schedules/{id}` | `course.schedule.delete` |
+| `GET /sessions` | `course.session.search` |
+| `GET /sessions/{id}` | `course.session.read` |
+| `PUT /sessions/{id}` | `course.session.update` |
+| `POST /sessions/{id}/cancel` | `course.session.cancel` |
+
+Public course discovery may use unauthenticated or token-light read rules where product policy allows, but administrative course, schedule, activity, and session mutations must use Authorisation Service permissions.
 
 ---
 
@@ -415,23 +517,28 @@ Publish events using the same event framework already used by Payment Service.
 
 # Security
 
-Authentication is performed by API Gateway.
+Authentication is performed by API Gateway or the orchestration layer.
 
-Course Service must trust incoming JWT.
+Course Service must trust only internal caller identity and authorisation context from the gateway/application layer, or call Authorisation Service directly before protected operations.
 
-Expected claims:
+Expected authorisation context:
 
 ```json
 {
   "sub":"user-id",
   "organisation_id":"organisation-id",
-  "roles":["academy_admin"]
+  "application_id":"application-id",
+  "permission":"course.update",
+  "resource_type":"course",
+  "resource_id":"course-id"
 }
 ```
 
 Course Service does not validate passwords.
 
 Course Service does not issue tokens.
+
+Course Service does not inspect role names for access control.
 
 ---
 

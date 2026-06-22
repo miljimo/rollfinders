@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { AcademyMemberRole } from "@prisma/client";
 import { canDeleteAcademyRecord, type AcademyAccess } from "../academy-access";
 import { isPlatformAdminRole } from "../admin";
 
@@ -9,7 +8,8 @@ function access(overrides: Partial<AcademyAccess>): AcademyAccess {
     userId: "user-1",
     platformAdmin: false,
     superAdmin: false,
-    memberRole: null,
+    academyAdmin: false,
+    academyOwner: false,
     ...overrides,
   };
 }
@@ -32,6 +32,6 @@ describe("academy access", () => {
   });
 
   it("does not allow academy members to delete academy records", () => {
-    assert.equal(canDeleteAcademyRecord(access({ memberRole: AcademyMemberRole.OWNER }), { createdById: "user-1" }), false);
+    assert.equal(canDeleteAcademyRecord(access({ academyOwner: true }), { createdById: "user-1" }), false);
   });
 });

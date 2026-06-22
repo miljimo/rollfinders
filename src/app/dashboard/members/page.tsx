@@ -54,7 +54,6 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
               <thead className="bg-stone-50 text-xs font-bold uppercase text-stone-500">
                 <tr>
                   <th className="px-4 py-3">Member</th>
-                  <th className="px-4 py-3">Role</th>
                   <th className="px-4 py-3">Registered</th>
                 </tr>
               </thead>
@@ -65,15 +64,12 @@ export default async function StandardMembersPage({ searchParams }: { searchPara
                       <p className="font-semibold text-stone-950">{member.user?.name ?? member.user?.email ?? member.userId}</p>
                       <p className="break-all text-stone-600">{member.user?.email ?? member.userId}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{member.role}</span>
-                    </td>
                     <td className="px-4 py-3 text-stone-600">{formatDate(member.createdAt)}</td>
                   </tr>
                 ))}
                 {members.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-stone-600">No members match that search.</td>
+                    <td colSpan={2} className="px-4 py-8 text-center text-stone-600">No members match that search.</td>
                   </tr>
                 ) : null}
               </tbody>

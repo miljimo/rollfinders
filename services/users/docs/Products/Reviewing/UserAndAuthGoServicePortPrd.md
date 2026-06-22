@@ -34,7 +34,7 @@ Moving this logic into a Go service gives RollFinders:
 * a service architecture consistent with payments
 * simpler future reuse by mobile apps, admin tooling, and background jobs
 * reduced coupling between page rendering and account mutation rules
-* clearer ownership of protected Super Admin safeguards
+* clearer ownership of protected-account safeguards
 
 ---
 
@@ -92,7 +92,7 @@ This PRD does not require:
 * moving academy, event, course, or payment domain logic into the user service
 * adding OAuth or social login
 * changing the public login page design
-* changing current role names or authorization semantics
+* owning roles, permissions, or authorization semantics
 
 ---
 
@@ -233,6 +233,21 @@ Next.js SHALL NOT duplicate final authorization decisions for migrated user-mana
 
 Next.js MAY still perform preflight session checks to avoid unnecessary internal service calls.
 
+The permission check SHALL call Authorisation Service. Users Service SHALL NOT calculate effective permissions locally.
+
+Required permissions for migrated user-management routes are:
+
+| Route | Required Permission |
+| --- | --- |
+| `GET /v1/users` | `user.search` |
+| `POST /v1/users` | `user.create` |
+| `GET /v1/users/{id}` | `user.read` |
+| `PUT /v1/users/{id}` | `user.update` |
+| `DELETE /v1/users/{id}` | `user.delete` |
+| `POST /v1/users/{id}/disable` | `user.status.disable` |
+| `POST /v1/users/{id}/enable` | `user.status.enable` |
+| protected-account mutations | `user.protected.manage` plus the route permission |
+
 ---
 
 # Requirement 3: Next.js Integration
@@ -266,7 +281,7 @@ The Go service SHALL return only the user fields required to populate the NextAu
 * id
 * email
 * name
-* role
+* compatibility role label, where the current frontend session still requires it
 
 NextAuth SHALL continue to issue and validate the session cookie.
 
@@ -285,6 +300,8 @@ The Users Service SHALL NOT evaluate role hierarchy or effective permissions loc
 The Users Service SHALL NOT provide role or permission management APIs.
 
 Role and permission management belongs to Authorisation Service.
+
+Users Service permissions are declared in `GenericIdentityAccessManagementPrd.md` and stored/evaluated by Authorisation Service with the `user.*` prefix.
 
 The service SHALL preserve protected-account rules for any account with `is_protected = true`.
 
@@ -348,7 +365,7 @@ The migration SHALL NOT require a password reset for existing users.
 * NextAuth credentials authentication delegates to the Go service.
 * Current browser-facing auth and admin user routes remain stable.
 * Admin user-management operations are authorized and persisted by the Go service.
-* Protected Super Admin safeguards are enforced by the Go service.
+* Protected-account safeguards are enforced by the Go service.
 * Admin user-management audit logs are written by the Go service.
 * Local compose can run the web app, database, payment service, and user service together.
 * Existing role-boundary tests are updated or added to cover the service-backed path.

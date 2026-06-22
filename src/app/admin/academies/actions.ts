@@ -2,10 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
+import { replaceUserAuthorisationRole } from "@/lib/authorisation-service";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
@@ -611,32 +612,11 @@ export async function sendBulkAcademyClaimReminders(formData: FormData) {
 }
 
 export async function removeAcademyMember(academyId: string, memberId: string) {
-  const access = await requireAcademyOwner(academyId);
+  await requireAcademyOwner(academyId);
   const member = await prisma.academyMember.findUnique({ where: { id: memberId } });
   if (!member || member.academyId !== academyId) return;
-  if (!access.platformAdmin && member.role === AcademyMemberRole.OWNER) return;
 
   await prisma.academyMember.delete({ where: { id: memberId } });
-  revalidatePath(`/admin/academies/${academyId}/team`);
-}
-
-export async function transferAcademyOwnership(academyId: string, memberId: string) {
-  const access = await requireAcademyOwner(academyId);
-  const nextOwner = await prisma.academyMember.findUnique({ where: { id: memberId } });
-  if (!nextOwner || nextOwner.academyId !== academyId) return;
-
-  await prisma.$transaction([
-    prisma.academyMember.updateMany({
-      where: { academyId, role: AcademyMemberRole.OWNER },
-      data: { role: AcademyMemberRole.ADMIN },
-    }),
-    prisma.academyMember.update({
-      where: { id: memberId },
-      data: { role: AcademyMemberRole.OWNER },
-    }),
-  ]);
-
-  if (!access.platformAdmin) redirect(`/admin/academies/${academyId}/team`);
   revalidatePath(`/admin/academies/${academyId}/team`);
 }
 
@@ -655,14 +635,15 @@ export async function acceptAcademyInvitation(token: string) {
   await prisma.$transaction([
     prisma.academyMember.upsert({
       where: { academyId_userId: { academyId: invitation.academyId, userId: user.id } },
-      update: { role: AcademyMemberRole.ADMIN },
-      create: { academyId: invitation.academyId, userId: user.id, role: AcademyMemberRole.ADMIN },
+      update: {},
+      create: { academyId: invitation.academyId, userId: user.id },
     }),
     prisma.academyInvitation.update({
       where: { id: invitation.id },
       data: { status: InvitationStatus.ACCEPTED },
     }),
   ]);
+  await replaceUserAuthorisationRole(user, user.id, "ACADEMY_ADMIN", { organisationId: invitation.academyId });
 
   redirect(`/admin/academies/${invitation.academyId}`);
 }

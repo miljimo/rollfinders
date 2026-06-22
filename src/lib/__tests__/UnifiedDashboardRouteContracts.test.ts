@@ -228,9 +228,16 @@ describe("unified dashboard route contracts", () => {
     assert.match(actionsSource, /updateUserInService\(actor,\s*userId,\s*\{[\s\S]*academyId[\s\S]*\}\)/);
     assert.match(userServiceSource, /const serviceInput = \{ \.\.\.\(input as Record<string, unknown>\) \}/);
     assert.doesNotMatch(userServiceSource, /const\s+\{\s*academyId,\s*\.\.\.serviceInput\s*\}/);
+    assert.match(userServiceSource, /const \{ serviceInput, academyId, role \} = splitRollfinderAcademyInput\(input\)/);
     assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId\)/);
+    assert.match(userServiceSource, /replaceUserAuthorisationRole\(actor,\s*result\.user\.id,\s*role,\s*\{ organisationId: academyId \?\? undefined \}\)/);
+    assert.match(actionsSource, /canAssignManagedUserRole\(actor,\s*\{ role,\s*academyId \}\)/);
+    assert.match(profileSource, /listUserAuthorisationRoles/);
+    assert.doesNotMatch(profileSource, /AcademyMemberRole|memberRole|member_role/);
+    assert.doesNotMatch(profileSource, /roleForAcademyMember|profileRole/);
     assert.doesNotMatch(profileSource, /prisma\.user|tx\.user/);
     assert.match(profileSource, /academyMember\.create/);
+    assert.doesNotMatch(schemaSource, /enum AcademyMemberRole|role\s+AcademyMemberRole/);
     assert.doesNotMatch(schemaSource, /model User \{/);
   });
 

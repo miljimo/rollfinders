@@ -1,4 +1,3 @@
-import { AcademyMemberRole } from "@prisma/client";
 import { redirect } from "next/navigation";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole } from "./admin";
 import { prisma } from "./prisma";
@@ -7,7 +6,8 @@ export type AcademyAccess = {
   userId: string;
   platformAdmin: boolean;
   superAdmin: boolean;
-  memberRole: AcademyMemberRole | null;
+  academyAdmin: boolean;
+  academyOwner: boolean;
 };
 
 export async function getAcademyAccess(academyId: string): Promise<AcademyAccess | null> {
@@ -15,11 +15,17 @@ export async function getAcademyAccess(academyId: string): Promise<AcademyAccess
   if (!user) return null;
 
   if (isPlatformAdminRole(user.role)) {
-    return { userId: user.id, platformAdmin: true, superAdmin: isSuperAdminRole(user.role), memberRole: null };
+    return { userId: user.id, platformAdmin: true, superAdmin: isSuperAdminRole(user.role), academyAdmin: false, academyOwner: false };
   }
 
   if (isAcademyAdminRole(user.role) && user.academyId === academyId) {
-    return { userId: user.id, platformAdmin: false, superAdmin: false, memberRole: AcademyMemberRole.ADMIN };
+    return {
+      userId: user.id,
+      platformAdmin: false,
+      superAdmin: false,
+      academyAdmin: true,
+      academyOwner: user.role === "ACADEMY_OWNER",
+    };
   }
 
   const member = await prisma.academyMember.findUnique({
@@ -27,7 +33,7 @@ export async function getAcademyAccess(academyId: string): Promise<AcademyAccess
   });
 
   if (!member) return null;
-  return { userId: user.id, platformAdmin: false, superAdmin: false, memberRole: member.role };
+  return { userId: user.id, platformAdmin: false, superAdmin: false, academyAdmin: false, academyOwner: false };
 }
 
 export async function requireAcademyEditor(academyId: string) {
@@ -47,7 +53,7 @@ export async function canManageOpenMat(event: { academyId: string; createdById?:
 
   const access = await getAcademyAccess(event.academyId);
   if (!access) return false;
-  if (access.platformAdmin || access.memberRole === AcademyMemberRole.OWNER || access.memberRole === AcademyMemberRole.ADMIN) return true;
+  if (access.platformAdmin || access.academyOwner || access.academyAdmin) return true;
   return false;
 }
 
@@ -58,7 +64,7 @@ export async function requireOpenMatAccess(event: { academyId: string; createdBy
 
 export async function requireAcademyOwner(academyId: string) {
   const access = await getAcademyAccess(academyId);
-  if (!access || (!access.platformAdmin && access.memberRole !== AcademyMemberRole.OWNER)) {
+  if (!access || (!access.platformAdmin && !access.academyOwner)) {
     redirect(`/admin/academies/${academyId}`);
   }
   return access;
@@ -71,11 +77,11 @@ export async function requireAcademyTeamViewer(academyId: string) {
 }
 
 export function canViewAcademyTeam(access: AcademyAccess) {
-  return access.platformAdmin || access.memberRole === AcademyMemberRole.OWNER || access.memberRole === AcademyMemberRole.ADMIN;
+  return access.platformAdmin || access.academyOwner || access.academyAdmin;
 }
 
 export function canManageAcademyTeam(access: AcademyAccess) {
-  return access.platformAdmin || access.memberRole === AcademyMemberRole.OWNER;
+  return access.platformAdmin || access.academyOwner;
 }
 
 export function canDeleteAcademy(access: AcademyAccess) {
@@ -87,5 +93,5 @@ export function canDeleteAcademyRecord(access: AcademyAccess, academy: { created
 }
 
 export function canTransferAcademyOwnership(access: AcademyAccess) {
-  return access.superAdmin || access.memberRole === AcademyMemberRole.OWNER;
+  return access.superAdmin || access.academyOwner;
 }

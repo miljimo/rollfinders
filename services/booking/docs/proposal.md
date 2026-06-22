@@ -115,11 +115,21 @@ The Booking Service must not:
 * User contact information.
 * Authentication.
 
+### Authorisation Service Owns
+
+* Booking permissions.
+* Role-to-permission mappings.
+* User role assignments.
+* Direct user permission assignments.
+* Effective permission checks for booking reads and mutations.
+
 ### Organisation/Academy Domain Owns
 
 * Academy/organisation profile.
 * Claim and verification status.
-* Academy membership/admin authorization.
+* Academy membership/domain relationships.
+
+Booking Service must not check role names directly. It must receive an already-authorised internal request from the gateway/application layer or call Authorisation Service with the required permission and scope before protected reads and mutations.
 
 ---
 
@@ -418,6 +428,61 @@ Rules:
 * Guests should use a generated `guest_reference`.
 * Booking Service must not store guest email as profile data.
 * If lookup by guest email is needed, RollFinders should store a hash or external contact reference in metadata, not raw long-term profile data.
+
+---
+
+## Permission Catalog
+
+Authorisation Service stores and evaluates these permissions. Booking Service declares which permission is required for each protected operation.
+
+Permission scope should include:
+
+```text
+organisation_id
+application_id
+resource_type = booking | course_occurrence
+resource_id
+bookable_type
+bookable_id
+bookable_instance_id
+```
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `booking.create` | Create a booking for the current actor or trusted server-side workflow. | organisation/application/resource |
+| `booking.read` | Read a specific booking. | booking/resource |
+| `booking.search` | List/search bookings within an organisation, academy, customer, or bookable scope. | organisation/application/resource |
+| `booking.cancel` | Cancel a booking. | booking/resource |
+| `booking.confirm` | Confirm a pending booking from a trusted server-side workflow. | booking/resource |
+| `booking.complete` | Mark a booking complete. | booking/resource |
+| `booking.fail` | Mark a pending booking failed after trusted payment or operational handling. | booking/resource |
+| `booking.payment_link.create` | Link a Payment Service payment to a booking. | booking/resource |
+| `booking.participant.read` | Read booking participants. | booking/resource |
+| `booking.participant.add` | Add a participant to a booking. | booking/resource |
+| `booking.participant.update` | Update participant status or metadata. | booking/resource |
+| `booking.participant.remove` | Remove a participant from a booking where policy allows. | booking/resource |
+| `booking.attendance.read` | Read participant attendance/check-in state. | booking/resource |
+| `booking.attendance.record` | Record check-in, attended, no-show, or attendance corrections. | booking/resource |
+| `booking.metrics.read` | Read booking metrics and operational summaries. | organisation/application |
+| `booking.audit.read` | Read booking status history and audit events. | organisation/application/resource |
+| `booking.outbox.dispatch` | Dispatch booking outbox events. | service |
+
+### Route Permission Matrix
+
+| Route | Permission |
+| --- | --- |
+| `POST /v1/bookings` | `booking.create` |
+| `GET /v1/bookings/{id}` | `booking.read` |
+| `GET /v1/bookings` | `booking.search` |
+| `POST /v1/bookings/{id}/payment-link` | `booking.payment_link.create` |
+| `POST /v1/bookings/{id}/confirm` | `booking.confirm` |
+| `POST /v1/bookings/{id}/cancel` | `booking.cancel` |
+| `POST /v1/bookings/{id}/complete` | `booking.complete` |
+| `POST /v1/bookings/{id}/participants` | `booking.participant.add` |
+| `GET /v1/bookings/{id}/participants` | `booking.participant.read` |
+| `POST /v1/bookings/{id}/participants/{participant_id}/check-in` | `booking.attendance.record` |
+
+Public self-service booking flows may be authorised through authenticated-user ownership and server-side validation before calling Booking Service, but admin, academy, platform, and trusted payment callbacks must use explicit Authorisation Service permissions.
 
 ---
 

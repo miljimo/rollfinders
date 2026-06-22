@@ -33,13 +33,15 @@ Responsibilities:
 
 ```text
 Authentication validation
-Authorization checks
+Authorisation checks
 Permission checks
 Service routing
 Request validation
 Response formatting
 Audit logging
 ```
+
+The orchestrator does not own permissions, roles, or user assignments. It calls Authorisation Service with the permission required by the target route and the request scope.
 
 ---
 
@@ -87,7 +89,7 @@ Go Orchestrator
    ↓
 Users Service
    ↓
-Authorization Service
+Authorisation Service
    ↓
 Academy Service
    ↓
@@ -101,6 +103,55 @@ Payments Service
 No frontend calls backend services directly.
 
 No TypeScript API business logic remains.
+
+---
+
+# Permission Enforcement
+
+The Go Orchestrator is the primary enforcement point for browser/mobile requests.
+
+The orchestrator SHALL:
+
+* validate the authenticated actor through Users Service or trusted session/JWT context
+* resolve `organisation_id`, `application_id`, and resource identifiers from the route/request
+* map each route to one permission code declared by the owning service PRD
+* call Authorisation Service `POST /v1/authorize`
+* fail closed when the permission check cannot be completed
+* forward only authorised requests to downstream services
+
+The orchestrator SHALL NOT:
+
+* store roles or permissions
+* assign roles or permissions
+* calculate effective permissions locally
+* check hardcoded role names for access control
+
+Permission catalogs are owned as follows:
+
+| Prefix | Declared By | Examples |
+| --- | --- | --- |
+| `academy.*` | Academy Service PRD | `academy.update`, `academy.claim.approve` |
+| `course.*` | Course Service PRD | `course.create`, `course.session.cancel` |
+| `booking.*` | Booking Service PRD | `booking.create`, `booking.attendance.record` |
+| `payment.*` | Payment Service PRD | `payment.refund.create`, `payment.payout_request.approve` |
+| `organisation.*` | Organisation Service PRD | `organisation.application.create`, `organisation.service.enable` |
+| `user.*` | Users Service PRDs | `user.create`, `user.status.disable` |
+| `authorisation.*` | Authorisation Service PRD | `authorisation.role.create`, `authorisation.assignment.grant` |
+
+Gateway-owned permissions should be avoided unless the gateway exposes operational admin routes of its own. Domain access must use the downstream service permission code, not a generic gateway permission.
+
+Example authorisation request:
+
+```json
+{
+  "subjectId": "user_123",
+  "permission": "payment.payout_request.approve",
+  "organisationId": "org_123",
+  "applicationId": "app_rollfinders",
+  "resourceType": "payout_request",
+  "resourceId": "payout_456"
+}
+```
 
 ---
 
@@ -160,8 +211,10 @@ Easy middleware composition
 * Existing TypeScript API can still run during migration.
 * Frontend routes begin moving to Go Orchestrator.
 * Go Orchestrator validates authentication.
-* Go Orchestrator calls Authorization Service.
+* Go Orchestrator calls Authorisation Service.
 * Go Orchestrator blocks unauthorized requests.
+* Go Orchestrator does not own roles, permissions, or assignments.
+* Go Orchestrator maps routes to service-declared permission codes.
 * Go Orchestrator can proxy legacy TypeScript endpoints.
 * Business logic is progressively removed from TypeScript.
 * Final architecture supports web, mobile, and future frontend apps.

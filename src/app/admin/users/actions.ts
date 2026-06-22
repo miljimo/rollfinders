@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
-import { getCurrentUser, requireAdminPage } from "@/lib/admin";
+import { canAssignManagedUserRole, getCurrentUser, requireAdminPage } from "@/lib/admin";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
 import { requestPasswordResetForEmail } from "@/lib/password-reset";
 import {
@@ -50,6 +50,9 @@ export async function createManagedUser(formData: FormData) {
   const redirectTo = managedUsersReturnPath(returnTo);
 
   if (!email || !email.includes("@")) return;
+  if (!canAssignManagedUserRole(actor, { role, academyId })) {
+    throw new Error("You do not have permission to assign that role.");
+  }
 
   try {
     await createUserInService(actor, { name, email, password, role, academyId });
@@ -78,6 +81,9 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   const redirectTo = managedUsersReturnPath(returnTo);
 
   if (!email || !email.includes("@")) return;
+  if (!canAssignManagedUserRole(actor, { role, academyId })) {
+    throw new Error("You do not have permission to assign that role.");
+  }
 
   try {
     await updateUserInService(actor, userId, { name, email, role, status, academyId });

@@ -1,4 +1,4 @@
-import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
 import { WarningPanel } from "@/components/WarningPanel";
 
 type PublicAcademyTrust = {
@@ -13,7 +13,7 @@ type CourseCreatorTrust = {
   createdBy?: {
     role?: Role;
     academyId?: string | null;
-    academyMemberships?: { academyId?: string | null; role?: AcademyMemberRole }[];
+    academyMemberships?: { academyId?: string | null }[];
   } | null;
 };
 
@@ -28,7 +28,7 @@ function wasCreatedByAcademyAdmin(academy: PublicAcademyTrust, course?: CourseCr
   const creator = course?.createdBy;
   if (!creator || creator.role !== Role.ACADEMY_ADMIN || !academy.id) return false;
   if (creator.academyId === academy.id) return true;
-  return Boolean(creator.academyMemberships?.some((membership) => membership.academyId === academy.id && membership.role === AcademyMemberRole.ADMIN));
+  return Boolean(creator.academyMemberships?.some((membership) => membership.academyId === academy.id));
 }
 
 export function PublicListingWarning({ academy, className = "", course }: { academy: PublicAcademyTrust; className?: string; course?: unknown }) {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AcademyMemberRole, AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
 import { PublicListingWarning } from "../PublicListingWarning";
 
 describe("PublicListingWarning", () => {
@@ -37,7 +37,7 @@ describe("PublicListingWarning", () => {
           createdBy: {
             role: Role.ACADEMY_ADMIN,
             academyId: "academy-1",
-            academyMemberships: [{ academyId: "academy-1", role: AcademyMemberRole.ADMIN }],
+            academyMemberships: [{ academyId: "academy-1" }],
           },
         }}
       />,

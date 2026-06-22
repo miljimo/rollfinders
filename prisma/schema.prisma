@@ -127,11 +127,6 @@ enum AcademySocialPlatform {
   OTHER
 }
 
-enum AcademyMemberRole {
-  OWNER
-  ADMIN
-}
-
 enum InvitationStatus {
   PENDING
   ACCEPTED
@@ -347,7 +342,6 @@ model AcademyMember {
   id        String            @id @default(cuid())
   academyId String            @map("academy_id")
   userId    String            @map("user_id")
-  role      AcademyMemberRole
   createdAt DateTime          @default(now()) @map("created_at")
   updatedAt DateTime          @updatedAt @map("updated_at")
   academy   Academy           @relation(fields: [academyId], references: [id], onDelete: Cascade)

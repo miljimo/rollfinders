@@ -130,6 +130,78 @@ authorisation.manage
 
 Permissions are the public contract used by application and service code.
 
+## Permission Catalog Ownership
+
+Authorisation Service is the storage and evaluation source of truth for permissions. Domain services declare their own permission codes in their PRDs because they own the protected resources and route semantics.
+
+Authorisation Service SHALL seed, validate, expose, and evaluate the catalog, but it SHALL NOT move domain ownership into itself.
+
+| Prefix | Declared By | Authorisation Responsibility |
+| --- | --- | --- |
+| `academy.*` | Academy Service | Store/evaluate academy permissions. |
+| `course.*` | Course Service | Store/evaluate course, schedule, activity, and session permissions. |
+| `booking.*` | Booking Service | Store/evaluate booking, participant, and attendance permissions. |
+| `payment.*` | Payment Service | Store/evaluate payment, refund, payee, settlement, report, and payout permissions. |
+| `organisation.*` | Organisation Service | Store/evaluate organisation, application, service-enablement, and tenant settings permissions. |
+| `user.*` | Users Service | Store/evaluate identity-management permissions. |
+| `authorisation.*` | Authorisation Service | Store/evaluate permission-system administration permissions. |
+
+Permission creation APIs must reject codes outside the approved naming convention unless a platform operator explicitly extends the catalog policy.
+
+## Authorisation Administration Permissions
+
+These permissions protect Authorisation Service itself.
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `authorisation.permission.create` | Create a permission definition. | platform |
+| `authorisation.permission.read` | Read a permission definition. | platform/organisation/application |
+| `authorisation.permission.search` | List/search permission definitions. | platform/organisation/application |
+| `authorisation.permission.update` | Update permission metadata, level, or assignability policy. | platform |
+| `authorisation.permission.delete` | Delete/deactivate a permission definition where policy allows. | platform |
+| `authorisation.role.create` | Create a role bundle. | platform/organisation/application |
+| `authorisation.role.read` | Read a role bundle. | platform/organisation/application |
+| `authorisation.role.search` | List/search role bundles. | platform/organisation/application |
+| `authorisation.role.update` | Update role metadata, level, or assignability. | platform/organisation/application |
+| `authorisation.role.delete` | Delete/deactivate a role bundle. | platform/organisation/application |
+| `authorisation.role_permission.assign` | Add a permission to a role. | platform/organisation/application |
+| `authorisation.role_permission.remove` | Remove a permission from a role. | platform/organisation/application |
+| `authorisation.role_permission.read` | Read role-permission mappings. | platform/organisation/application |
+| `authorisation.user_role.assign` | Assign a role to a user in scope. | organisation/application/resource |
+| `authorisation.user_role.remove` | Remove a role assignment from a user. | organisation/application/resource |
+| `authorisation.user_role.read` | Read user role assignments. | organisation/application/resource |
+| `authorisation.user_permission.assign` | Grant or deny a direct user permission. | organisation/application/resource |
+| `authorisation.user_permission.remove` | Remove a direct user permission assignment. | organisation/application/resource |
+| `authorisation.user_permission.read` | Read direct user permission assignments. | organisation/application/resource |
+| `authorisation.effective_permission.read` | Read a user's effective permissions. | organisation/application/resource |
+| `authorisation.delegation.manage` | Manage delegated administration limits. | platform/organisation/application |
+| `authorisation.catalog.seed` | Seed or reconcile service-declared permission catalogs. | service/platform |
+| `authorisation.audit.read` | Read authorisation audit events. | platform/organisation/application |
+
+### Route Permission Matrix
+
+| Route | Permission |
+| --- | --- |
+| `POST /v1/permissions` | `authorisation.permission.create` |
+| `GET /v1/permissions` | `authorisation.permission.search` |
+| `GET /v1/permissions/{permission_id}` | `authorisation.permission.read` |
+| `PUT /v1/permissions/{permission_id}` | `authorisation.permission.update` |
+| `POST /v1/roles` | `authorisation.role.create` |
+| `GET /v1/roles` | `authorisation.role.search` |
+| `GET /v1/roles/{role_id}` | `authorisation.role.read` |
+| `PUT /v1/roles/{role_id}` | `authorisation.role.update` |
+| `POST /v1/roles/{role_id}/permissions` | `authorisation.role_permission.assign` |
+| `DELETE /v1/roles/{role_id}/permissions/{permission_id}` | `authorisation.role_permission.remove` |
+| `GET /v1/roles/{role_id}/permissions` | `authorisation.role_permission.read` |
+| `POST /v1/users/{user_id}/roles` | `authorisation.user_role.assign` |
+| `DELETE /v1/users/{user_id}/roles/{assignment_id}` | `authorisation.user_role.remove` |
+| `GET /v1/users/{user_id}/roles` | `authorisation.user_role.read` |
+| `POST /v1/users/{user_id}/permissions` | `authorisation.user_permission.assign` |
+| `DELETE /v1/users/{user_id}/permissions/{assignment_id}` | `authorisation.user_permission.remove` |
+| `GET /v1/users/{user_id}/permissions` | `authorisation.user_permission.read` |
+| `POST /v1/authorize` | service-to-service decision endpoint; protected by internal service auth |
+| `GET /v1/users/{user_id}/effective-permissions` | `authorisation.effective_permission.read` |
+
 ### Role
 
 A role is an admin-managed bundle of permissions.

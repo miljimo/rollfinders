@@ -46,7 +46,6 @@ Organisation Service owns:
 
 * Organisations
 * Applications
-* Organisation Users
 * Application Ownership
 * Organisation Settings
 * Organisation Status
@@ -55,10 +54,16 @@ Organisation Service owns:
 Organisation Service does not own:
 
 * Users
+* User-to-organisation membership
+* Roles
+* Permissions
 * Academies
 * Courses
 * Bookings
 * Payments
+
+Users/IAM Service is the current implementation baseline for organisation membership records.
+Authorisation Service owns all permission and role assignment decisions.
 
 ---
 
@@ -174,27 +179,9 @@ CREATE TABLE organisation_profiles (
 
 ## organisation_users
 
-```sql
-CREATE TABLE organisation_users (
-    id UUID PRIMARY KEY,
+`organisation_users` is not owned by Organisation Service.
 
-    organisation_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-
-    role VARCHAR(50) NOT NULL,
-
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
-);
-```
-
-Roles:
-
-```text
-owner
-admin
-member
-```
+Current implementation keeps organisation membership in the Users/IAM service baseline. Future Organisation Service runtime may read membership through an IAM API or projected read model, but it must not introduce a second writable membership table.
 
 ---
 
@@ -311,13 +298,13 @@ DELETE /organisations/{id}
 
 ---
 
-## Organisation Users
+## Organisation Membership References
 
 ```http
-POST   /organisations/{id}/users
-GET    /organisations/{id}/users
-DELETE /organisations/{id}/users/{userId}
+GET /organisations/{id}/memberships
 ```
+
+This endpoint is optional future work and must proxy or reference IAM membership. Organisation Service must not create, update, or delete membership assignments directly.
 
 ---
 
@@ -378,20 +365,75 @@ Existing data should automatically belong to the default Rollfinders organisatio
 
 # Security
 
-Only organisation owners and admins can:
+Organisation Service must not check role names directly.
+
+Protected operations must require Authorisation Service permission checks with `organisation_id` and, where relevant, `application_id` scope.
+
+## Permission Catalog
+
+Authorisation Service stores and evaluates these permissions. Organisation Service declares which permission is required for each protected operation.
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `organisation.create` | Create a platform-controlled organisation record. | platform |
+| `organisation.read` | Read an organisation record. | organisation |
+| `organisation.search` | Search/list organisations. | platform |
+| `organisation.update` | Update organisation name, slug, or status-safe metadata. | organisation |
+| `organisation.archive` | Archive an organisation. | organisation |
+| `organisation.activate` | Reactivate an archived or suspended organisation. | organisation |
+| `organisation.suspend` | Suspend an organisation from platform access. | platform |
+| `organisation.delete` | Delete an organisation where policy allows hard deletion. | platform |
+| `organisation.profile.read` | Read organisation profile details. | organisation |
+| `organisation.profile.update` | Update organisation profile details. | organisation |
+| `organisation.settings.read` | Read tenant settings. | organisation |
+| `organisation.settings.update` | Update tenant settings. | organisation |
+| `organisation.application.create` | Create an application under an organisation. | organisation |
+| `organisation.application.read` | Read application records. | organisation/application |
+| `organisation.application.search` | List applications for an organisation. | organisation |
+| `organisation.application.update` | Update application metadata or status. | organisation/application |
+| `organisation.application.archive` | Archive an application. | organisation/application |
+| `organisation.service.read` | Read enabled services for an application. | organisation/application |
+| `organisation.service.enable` | Enable a service for an application. | organisation/application |
+| `organisation.service.disable` | Disable a service for an application. | organisation/application |
+| `organisation.resource_link.read` | Read future organisation-to-domain-resource mappings. | organisation/application |
+| `organisation.resource_link.create` | Create future organisation-to-domain-resource mappings. | organisation/application |
+| `organisation.resource_link.update` | Update future organisation-to-domain-resource mappings. | organisation/application |
+| `organisation.resource_link.delete` | Delete future organisation-to-domain-resource mappings. | organisation/application |
+| `organisation.audit.read` | Read organisation/application audit events. | organisation/platform |
+
+### Route Permission Matrix
+
+| Route | Permission |
+| --- | --- |
+| `POST /organisations` | `organisation.create` |
+| `GET /organisations/{id}` | `organisation.read` |
+| `GET /organisations` | `organisation.search` |
+| `PUT /organisations/{id}` | `organisation.update` |
+| `DELETE /organisations/{id}` | `organisation.delete` |
+| `POST /organisations/{id}/applications` | `organisation.application.create` |
+| `GET /applications/{id}` | `organisation.application.read` |
+| `GET /organisations/{id}/applications` | `organisation.application.search` |
+| `PUT /applications/{id}` | `organisation.application.update` |
+| `DELETE /applications/{id}` | `organisation.application.archive` |
+| `POST /applications/{id}/services` | `organisation.service.enable` |
+| `GET /applications/{id}/services` | `organisation.service.read` |
+| `PUT /applications/{id}/services/{serviceName}` | `organisation.service.enable` or `organisation.service.disable` based on requested state |
+| `GET /organisations/{id}/memberships` | IAM-backed membership read plus `organisation.read` |
+
+Authorised users can:
 
 * Create applications
 * Enable services
-* Manage organisation users
+* Read membership references through IAM-backed APIs
 
-Application permissions remain managed by individual services.
+Application and domain permissions remain managed through Authorisation Service and declared by each individual service.
 
 ---
 
 # Acceptance Criteria
 
 * Organisations can be created.
-* Organisations can manage users.
+* Organisation Service does not own or manage user membership.
 * Organisations can create applications.
 * Applications can enable services.
 * Services support organisation_id.
@@ -399,3 +441,4 @@ Application permissions remain managed by individual services.
 * Existing Rollfinders data is migrated to a default organisation.
 * Existing Rollfinders functionality continues to work without breaking changes.
 * New applications can reuse Users, Courses, Booking, Payments, and Academy services.
+* Protected Organisation routes declare and enforce Authorisation Service permissions.

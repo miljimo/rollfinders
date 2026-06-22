@@ -110,6 +110,159 @@ The Payment Service SHALL NOT:
 * Render user interface.
 * Replace accounting or tax advice.
 
+Authorisation Service owns all payment permissions, role bundles, permission assignments, and permission evaluation. Payment Service declares required permissions for protected operations and must receive an already-authorised internal request or call Authorisation Service directly.
+
+---
+
+## Permission Catalog
+
+Authorisation Service stores and evaluates these permissions. Payment Service declares which permission is required for each protected operation.
+
+Permission scope should include:
+
+```text
+client_id
+organisation_id
+application_id
+resource_type
+resource_id
+payee_id
+payment_id
+refund_id
+payout_request_id
+```
+
+### Client And Payment Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `payment.client.create` | Create a client integration record. | platform/application |
+| `payment.client.read` | Read a client integration record. | platform/application |
+| `payment.client.update` | Update client callback URLs, origins, or metadata. | platform/application |
+| `payment.create` | Create a payment or hosted checkout. | client/resource |
+| `payment.read` | Read a payment. | client/resource/payment |
+| `payment.search` | List/search payments. | client/organisation/application |
+| `payment.cancel` | Cancel an eligible payment. | payment |
+| `payment.capture` | Capture an authorized payment where provider flow supports it. | payment |
+| `payment.allocation.read` | Read payment allocation breakdowns. | payment/payee |
+| `payment.allocation.search` | List/search allocations. | client/payee |
+
+### Refund Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `payment.refund.create` | Create a full or partial refund. | payment |
+| `payment.refund.read` | Read a refund. | refund/payment |
+| `payment.refund.search` | List/search refunds. | client/payee/payment |
+| `payment.refund.reconcile` | Reconcile provider-created refunds or disputes. | service/platform |
+
+### Payee And Account Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `payment.payee.create` | Create a generic payee. | client/organisation/application |
+| `payment.payee.read` | Read a payee. | payee |
+| `payment.payee.search` | List/search payees. | client/organisation/application |
+| `payment.payee.update` | Update payee display metadata. | payee |
+| `payment.payee.archive` | Deactivate a payee. | payee |
+| `payment.payee.balance.read` | Read payee balances and payout eligibility. | payee |
+| `payment.payee_account.create` | Create a provider account for a payee. | payee |
+| `payment.payee_account.read` | Read provider account state. | payee |
+| `payment.payee_account.update` | Update account metadata or provider-linked settings. | payee |
+| `payment.payee_account.onboarding.start` | Generate provider onboarding or account-update links. | payee |
+| `payment.payee_account.refresh` | Refresh provider account capability/requirements state. | payee |
+| `payment.payee_account.disconnect` | Disconnect or deactivate a provider account where policy allows. | payee |
+
+### Commission, Settlement, And Payout Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `payment.commission_policy.create` | Create a commission policy. | client/application |
+| `payment.commission_policy.read` | Read commission policy data. | client/application |
+| `payment.commission_policy.search` | List commission policies. | client/application |
+| `payment.commission_policy.update` | Update future-effective commission policy metadata or create a new version. | client/application |
+| `payment.commission_policy.archive` | Deactivate a commission policy for future payments. | client/application |
+| `payment.settlement.read` | Read a settlement. | payee/platform |
+| `payment.settlement.search` | List/search settlements. | client/payee/platform |
+| `payment.settlement.hold` | Place a settlement hold. | platform/payee |
+| `payment.settlement.release` | Release a settlement hold. | platform/payee |
+| `payment.payout_request.create` | Create a payee payout request. | payee |
+| `payment.payout_request.read` | Read a payout request. | payee/platform |
+| `payment.payout_request.search` | List/search payout requests. | payee/platform |
+| `payment.payout_request.approve` | Approve a payout request. | platform |
+| `payment.payout_request.reject` | Reject a payout request. | platform |
+| `payment.payout_request.hold` | Place a payout request on hold. | platform |
+| `payment.payout_request.release` | Release a payout request hold. | platform |
+| `payment.payout_request.mark_paid` | Mark an approved payout request as paid. | platform |
+| `payment.payout_request.cancel` | Cancel a payee-owned pending payout request. | payee |
+
+### Operational Permissions
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `payment.report.revenue.read` | Read revenue reports. | client/organisation/application/platform |
+| `payment.report.refund.read` | Read refund reports. | client/organisation/application/platform |
+| `payment.report.settlement.read` | Read settlement reports. | client/organisation/application/platform |
+| `payment.report.platform_revenue.read` | Read platform commission reports. | platform |
+| `payment.webhook.ingest` | Ingest provider webhooks. | service |
+| `payment.reconciliation.run` | Run provider reconciliation jobs. | service/platform |
+| `payment.reconciliation.read` | Read reconciliation results. | service/platform |
+| `payment.audit.read` | Read payment audit events. | client/platform/resource |
+
+### Route Permission Matrix
+
+| Route | Permission |
+| --- | --- |
+| `POST /v1/clients` | `payment.client.create` |
+| `GET /v1/clients/{client_id}` | `payment.client.read` |
+| `PATCH /v1/clients/{client_id}` | `payment.client.update` |
+| `POST /v1/payments` | `payment.create` |
+| `POST /v1/checkouts` | `payment.create` |
+| `GET /v1/payments/{payment_id}` | `payment.read` |
+| `GET /v1/payments` | `payment.search` |
+| `POST /v1/payments/{payment_id}/cancel` | `payment.cancel` |
+| `GET /v1/payments/{payment_id}/allocations` | `payment.allocation.read` |
+| `GET /v1/allocations` | `payment.allocation.search` |
+| `POST /v1/payees` | `payment.payee.create` |
+| `GET /v1/payees/{payee_id}` | `payment.payee.read` |
+| `GET /v1/payees` | `payment.payee.search` |
+| `PATCH /v1/payees/{payee_id}` | `payment.payee.update` |
+| `DELETE /v1/payees/{payee_id}` | `payment.payee.archive` |
+| `POST /v1/payees/{payee_id}/accounts` | `payment.payee_account.create` |
+| `GET /v1/payees/{payee_id}/accounts` | `payment.payee_account.read` |
+| `GET /v1/payees/{payee_id}/accounts/{account_id}` | `payment.payee_account.read` |
+| `POST /v1/payees/{payee_id}/accounts/onboarding-link` | `payment.payee_account.onboarding.start` |
+| `POST /v1/payees/{payee_id}/accounts/{account_id}/refresh` | `payment.payee_account.refresh` |
+| `POST /v1/commission-policies` | `payment.commission_policy.create` |
+| `GET /v1/commission-policies` | `payment.commission_policy.search` |
+| `GET /v1/commission-policies/{policy_id}` | `payment.commission_policy.read` |
+| `PATCH /v1/commission-policies/{policy_id}` | `payment.commission_policy.update` |
+| `DELETE /v1/commission-policies/{policy_id}` | `payment.commission_policy.archive` |
+| `POST /v1/payments/{payment_id}/refunds` | `payment.refund.create` |
+| `GET /v1/payments/{payment_id}/refunds` | `payment.refund.search` |
+| `GET /v1/refunds/{refund_id}` | `payment.refund.read` |
+| `GET /v1/settlements` | `payment.settlement.search` |
+| `GET /v1/settlements/{settlement_id}` | `payment.settlement.read` |
+| `POST /v1/settlements/{settlement_id}/hold` | `payment.settlement.hold` |
+| `POST /v1/settlements/{settlement_id}/release` | `payment.settlement.release` |
+| `GET /v1/payees/{payee_id}/balances` | `payment.payee.balance.read` |
+| `POST /v1/payees/{payee_id}/payout-requests` | `payment.payout_request.create` |
+| `GET /v1/payees/{payee_id}/payout-requests` | `payment.payout_request.search` |
+| `GET /v1/payout-requests` | `payment.payout_request.search` |
+| `GET /v1/payout-requests/{payout_request_id}` | `payment.payout_request.read` |
+| `POST /v1/payout-requests/{payout_request_id}/approve` | `payment.payout_request.approve` |
+| `POST /v1/payout-requests/{payout_request_id}/reject` | `payment.payout_request.reject` |
+| `POST /v1/payout-requests/{payout_request_id}/hold` | `payment.payout_request.hold` |
+| `POST /v1/payout-requests/{payout_request_id}/release` | `payment.payout_request.release` |
+| `POST /v1/payout-requests/{payout_request_id}/mark-paid` | `payment.payout_request.mark_paid` |
+| `POST /v1/payout-requests/{payout_request_id}/cancel` | `payment.payout_request.cancel` |
+| `GET /v1/reports/revenue` | `payment.report.revenue.read` |
+| `GET /v1/reports/refunds` | `payment.report.refund.read` |
+| `GET /v1/reports/settlements` | `payment.report.settlement.read` |
+| `GET /v1/reports/platform-revenue` | `payment.report.platform_revenue.read` |
+
+Provider webhooks should use `payment.webhook.ingest` through service credentials, not an end-user permission.
+
 ---
 
 ## Core Resources
@@ -817,7 +970,7 @@ For the current production platform-settlement model:
 * Payment may settle to the RollFinders platform account.
 * Academy earnings SHALL still be represented as payee allocations.
 * Academy Admin users MAY request payout of eligible allocations.
-* Platform Admin and Super Admin users SHALL approve, reject, hold, release, or mark payout requests as paid.
+* Users with `payment.payout_request.approve`, `payment.payout_request.reject`, `payment.payout_request.hold`, `payment.payout_request.release`, or `payment.payout_request.mark_paid` SHALL perform the relevant payout review actions.
 * The Payment Service SHALL be the source of truth for payout eligibility and payout request state.
 * RollFinders UI SHALL not calculate payout eligibility independently.
 

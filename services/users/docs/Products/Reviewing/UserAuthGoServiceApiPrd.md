@@ -25,6 +25,21 @@ Service-to-service authentication and authorization SHALL be enforced by the orc
 
 ---
 
+# Permission Requirements
+
+Authentication routes primarily use credential, session, or token validation rather than `user.*` permissions.
+
+| Route | Access Model |
+| --- | --- |
+| `POST /v1/auth/credentials` | Public credential verification through trusted browser/session flow. |
+| `GET /v1/accounts/{id}` | Authenticated session/account lookup; caller must be the subject or an internal trusted service. |
+| password reset request/validate/confirm routes | Token-based flow; admin-managed reset initiation requires `user.password.reset.send_managed` if exposed. |
+| password change route | Requires authenticated subject and `user.password.change.self`. |
+
+Users Service SHALL NOT return authoritative permissions from authentication responses. Callers must query Authorisation Service for effective permissions after identity is established.
+
+---
+
 # Internal Authentication
 
 IF a request reaches a user-service route

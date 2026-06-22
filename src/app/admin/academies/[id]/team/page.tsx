@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { AcademyMemberRole, InvitationStatus } from "@prisma/client";
+import { InvitationStatus } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
-import { canManageAcademyTeam, canTransferAcademyOwnership, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
+import { canManageAcademyTeam, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
 import { prisma } from "@/lib/prisma";
 import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { formatDate } from "@/lib/utils";
-import { cancelAcademyInvitation, inviteAcademyAdmin, removeAcademyMember, resendAcademyInvitation, transferAcademyOwnership } from "../../actions";
+import { cancelAcademyInvitation, inviteAcademyAdmin, removeAcademyMember, resendAcademyInvitation } from "../../actions";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
   const academy = await prisma.academy.findUnique({
     where: { id },
     include: {
-      members: { orderBy: [{ role: "desc" }, { createdAt: "asc" }] },
+      members: { orderBy: [{ createdAt: "asc" }] },
       invitations: { where: { status: InvitationStatus.PENDING }, orderBy: { createdAt: "desc" } },
     },
   });
@@ -50,20 +50,13 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
                 <div key={member.id} className="flex items-center justify-between gap-3 border-b border-stone-100 py-3">
                   <div>
                     <p className="font-semibold text-stone-950">{member.user?.name ?? member.user?.email ?? member.userId}</p>
-                    <p className="break-all text-sm text-stone-600">{member.user?.email ?? member.userId} · {member.role}</p>
+                    <p className="break-all text-sm text-stone-600">{member.user?.email ?? member.userId}</p>
                   </div>
                   {canManageTeam ? (
                     <div className="flex flex-wrap justify-end gap-2">
-                      {canTransferAcademyOwnership(access) && member.role !== AcademyMemberRole.OWNER ? (
-                        <form action={transferAcademyOwnership.bind(null, academy.id, member.id)}>
-                          <Button type="submit" size="sm" variant="secondary">Make Owner</Button>
-                        </form>
-                      ) : null}
-                      {member.role !== AcademyMemberRole.OWNER || access.platformAdmin ? (
-                        <form action={removeAcademyMember.bind(null, academy.id, member.id)}>
-                          <Button type="submit" size="sm" variant="danger">Remove</Button>
-                        </form>
-                      ) : null}
+                      <form action={removeAcademyMember.bind(null, academy.id, member.id)}>
+                        <Button type="submit" size="sm" variant="danger">Remove</Button>
+                      </form>
                     </div>
                   ) : null}
                 </div>

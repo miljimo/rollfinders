@@ -50,6 +50,61 @@ Application/API Gateway responsibilities:
 * pass `user_id`, `organisation_id`, `application_id`, and resource scope where applicable
 * avoid hardcoded role guards in new code
 
+## User Permission Catalog
+
+Authorisation Service stores and evaluates these permissions. Users Service declares which permission is required for each protected identity-management operation.
+
+Authentication endpoints such as login, logout, refresh, credential validation, password reset request/confirm, and password change use credential/session/token validation rather than role checks. Admin user-management routes require explicit `user.*` permissions.
+
+Permission scope should include:
+
+```text
+organisation_id
+application_id
+resource_type = user | session | mfa_method
+resource_id
+target_user_id
+```
+
+| Permission | Purpose | Typical Scope |
+| --- | --- | --- |
+| `user.create` | Create a managed user identity. | organisation/application |
+| `user.read` | Read a managed user identity. | user/organisation/application |
+| `user.search` | List/search managed users. | organisation/application |
+| `user.update` | Update user profile/status-safe identity fields. | user/organisation/application |
+| `user.delete` | Delete a user identity where policy allows. | user/platform |
+| `user.status.disable` | Disable a user account. | user/organisation/application |
+| `user.status.enable` | Enable a disabled user account. | user/organisation/application |
+| `user.protected.manage` | Modify protected accounts where product policy allows. | platform |
+| `user.password.change.self` | Change the authenticated user's own password. | user |
+| `user.password.reset.request` | Request password reset flow. | public/token |
+| `user.password.reset.confirm` | Confirm password reset with a valid token. | public/token |
+| `user.password.reset.send_managed` | Start a managed reset for another user. | user/organisation/application |
+| `user.session.read` | Read user sessions. | user |
+| `user.session.revoke` | Revoke a user session. | user |
+| `user.mfa.read` | Read MFA method state. | user |
+| `user.mfa.setup` | Start MFA setup. | user |
+| `user.mfa.verify` | Verify MFA setup or challenge. | user |
+| `user.mfa.disable` | Disable an MFA method where policy allows. | user/platform |
+| `user.audit.read` | Read user-management audit logs. | organisation/application/platform |
+
+### Route Permission Matrix
+
+| Route | Permission |
+| --- | --- |
+| `POST /v1/users` | `user.create` |
+| `GET /v1/users` | `user.search` |
+| `GET /v1/users/{id}` | `user.read` |
+| `PUT /v1/users/{id}` | `user.update` |
+| `DELETE /v1/users/{id}` | `user.delete` |
+| `POST /v1/users/{id}/disable` | `user.status.disable` |
+| `POST /v1/users/{id}/enable` | `user.status.enable` |
+| `POST /v1/auth/credentials` | credential validation, not `user.*` permission |
+| `POST /v1/auth/password-reset/request` | token flow, not `user.*` permission unless admin-managed |
+| `POST /v1/auth/password-reset/validate` | token flow |
+| `POST /v1/auth/password-reset/confirm` | token flow |
+| `POST /auth/change-password` | `user.password.change.self` |
+
 ## 3. Objectives
 
 Business goals:

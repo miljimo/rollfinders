@@ -136,6 +136,27 @@ export function canViewManagedUser(
   return false;
 }
 
+export function canAssignManagedUserRole(
+  actor: { role?: string; academyId?: string | null },
+  target: { role: Role; academyId?: string | null },
+) {
+  if (isSuperAdminRole(actor.role)) return true;
+
+  if (actor.role === Role.PLATFORM_ADMIN) {
+    return target.role === Role.STANDARD_USER
+      || target.role === Role.USER
+      || target.role === Role.ACADEMY_ADMIN
+      || target.role === Role.ACADEMY_OWNER;
+  }
+
+  if (isAcademyAdminRole(actor.role)) {
+    return actor.academyId === target.academyId
+      && (target.role === Role.STANDARD_USER || target.role === Role.USER || target.role === Role.ACADEMY_ADMIN);
+  }
+
+  return false;
+}
+
 export function canSendManagedUserPasswordReset(
   actor: { id: string; role?: string; academyId?: string | null },
   target: { id: string; role: Role; email: string; academyId?: string | null; isProtected?: boolean | null },

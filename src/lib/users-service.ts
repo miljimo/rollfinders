@@ -1,4 +1,5 @@
 import { getEnvVariable } from "./environments";
+import { replaceUserAuthorisationRole } from "./authorisation-service";
 import {
   enrichManagedUserWithRollfinderProfile,
   enrichManagedUsersWithRollfinderProfiles,
@@ -68,14 +69,16 @@ async function parseResponse(response: Response) {
 
 function splitRollfinderAcademyInput(input: unknown) {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    return { serviceInput: input, academyId: undefined as string | null | undefined };
+    return { serviceInput: input, academyId: undefined as string | null | undefined, role: undefined as string | undefined };
   }
 
   const serviceInput = { ...(input as Record<string, unknown>) };
   const academyId = serviceInput.academyId;
+  const role = serviceInput.role;
   return {
     serviceInput,
     academyId: typeof academyId === "string" ? academyId.trim() || null : academyId === null ? null : undefined,
+    role: typeof role === "string" ? role.trim() || undefined : undefined,
   };
 }
 
@@ -168,7 +171,7 @@ export async function listManagedUsers(actor: ActorContext, query: string) {
 }
 
 export async function createManagedUser(actor: ActorContext, input: unknown) {
-  const { serviceInput, academyId } = splitRollfinderAcademyInput(input);
+  const { serviceInput, academyId, role } = splitRollfinderAcademyInput(input);
   const response = await fetch(`${userServiceUrl()}/v1/users`, {
     method: "POST",
     cache: "no-store",
@@ -177,6 +180,9 @@ export async function createManagedUser(actor: ActorContext, input: unknown) {
   });
   const result = await parseResponse(response) as { user: ManagedUser };
   const user = await syncRollfinderUserProfile(result.user, academyId);
+  if (role) {
+    await replaceUserAuthorisationRole(actor, result.user.id, role, { organisationId: academyId ?? undefined });
+  }
   return { user: await enrichManagedUserWithRollfinderProfile(user) as ManagedUser };
 }
 
@@ -191,7 +197,7 @@ export async function getManagedUser(actor: ActorContext, id: string) {
 }
 
 export async function updateManagedUser(actor: ActorContext, id: string, input: unknown) {
-  const { serviceInput, academyId } = splitRollfinderAcademyInput(input);
+  const { serviceInput, academyId, role } = splitRollfinderAcademyInput(input);
   const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}`, {
     method: "PUT",
     cache: "no-store",
@@ -200,6 +206,9 @@ export async function updateManagedUser(actor: ActorContext, id: string, input: 
   });
   const result = await parseResponse(response) as { user: ManagedUser };
   const user = await syncRollfinderUserProfile(result.user, academyId);
+  if (role) {
+    await replaceUserAuthorisationRole(actor, result.user.id, role, { organisationId: academyId ?? undefined });
+  }
   return { user: await enrichManagedUserWithRollfinderProfile(user) as ManagedUser };
 }
 

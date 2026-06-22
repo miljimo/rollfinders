@@ -14,7 +14,6 @@ export async function GET(request: Request) {
       id: member.id,
       name: member.user?.name ?? null,
       email: member.user?.email ?? member.userId,
-      role: member.role,
       createdAt: member.createdAt,
     })),
   });

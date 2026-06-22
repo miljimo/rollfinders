@@ -45,7 +45,7 @@ All routes SHALL require internal service authentication and actor context.
 Next.js SHALL pass the authenticated admin actor in an internal-only header:
 
 ```text
-X-Actor: {"id":"...","role":"...","email":"...","academyId":"..."}
+X-Actor: {"id":"...","email":"...","organisationId":"...","applicationId":"..."}
 ```
 
 IF actor context is missing or malformed
@@ -59,6 +59,25 @@ IF the actor does not have the required Authorisation Service permission
 WHEN a user-management route is called
 
 THEN the service SHALL return `403`.
+
+# Permission Requirements
+
+Users Service does not own permissions or roles. The Authorisation Service stores and evaluates the permissions below.
+
+| Route | Required Permission |
+| --- | --- |
+| `GET /v1/users` | `user.search` |
+| `POST /v1/users` | `user.create` |
+| `GET /v1/users/{id}` | `user.read` |
+| `PUT /v1/users/{id}` | `user.update` |
+| `DELETE /v1/users/{id}` | `user.delete` |
+| `POST /v1/users/{id}/disable` | `user.status.disable` |
+| `POST /v1/users/{id}/enable` | `user.status.enable` |
+| protected-account mutations | `user.protected.manage` plus the route permission |
+| `POST /v1/users/{id}/promote` | removed; use Authorisation Service role assignment APIs |
+| `POST /v1/users/{id}/demote` | removed; use Authorisation Service role assignment APIs |
+
+Permission scope SHALL include `organisation_id`, `application_id`, and `resource_type=user` with the target user id where applicable.
 
 ---
 
@@ -116,7 +135,6 @@ Request body:
   "name": "User Name",
   "email": "user@example.com",
   "password": "optional-password",
-  "role": "standard_user",
   "academyId": "academy_123"
 }
 ```
@@ -133,29 +151,13 @@ WHEN the request is handled
 
 THEN the service SHALL return `409`.
 
-IF an academy-scoped role is requested
-
-WHEN no valid academy is provided or implied by the actor
-
-THEN the service SHALL return `400`.
-
 IF the actor is an academy admin
 
 WHEN they create a user
 
 THEN the service SHALL force the new user into the actor's academy.
 
-IF the actor has the `users.role.assign` privilege and requests an existing assignable role
-
-WHEN the request is valid
-
-THEN the service SHALL create the user with that role.
-
-IF the actor does not have `users.role.assign`
-
-WHEN the actor creates a user
-
-THEN the service SHALL use the configured default user role.
+Users Service SHALL create identity records only. Any role assignment for the new user must be performed by Authorisation Service after user creation.
 
 The service SHALL write a `USER_CREATED` audit log.
 
@@ -192,12 +194,11 @@ Editable fields:
 
 * name
 * email
-* role, subject to actor permissions
 * status, subject to protected-account rules
 
-Protected Super Admin accounts SHALL NOT have role or status changed through this route.
+Protected accounts SHALL NOT have status changed unless the actor has `user.protected.manage` and product policy allows the mutation.
 
-The service SHALL prevent disabling the last active Super Admin account.
+The service SHALL prevent disabling the last active protected platform recovery account.
 
 The service SHALL write a `USER_EDITED` audit log containing previous and next state.
 
@@ -216,7 +217,6 @@ DELETE /v1/users/{id}
 The service SHALL reject deleting:
 
 * the actor's own account
-* Super Admin accounts
 * protected accounts
 * users outside the actor's management scope
 
@@ -249,21 +249,21 @@ status = ACTIVE
 disabled = false
 ```
 
-The service SHALL reject disabling the last active Super Admin.
+The service SHALL reject disabling the last active protected platform recovery account.
 
-The service SHALL reject modifying protected Super Admin accounts.
+The service SHALL reject modifying protected accounts unless the actor has `user.protected.manage` and product policy allows the mutation.
 
 Successful mutations SHALL write:
 
 * `USER_DISABLED`
 * `USER_ENABLED`
-* `SUPER_USER_ENABLED` for enabling Super Admin users
+* `PROTECTED_USER_ENABLED` for enabling protected users
 
 Status mutations and audit log writes SHALL be executed through stored procedures.
 
 ---
 
-# Requirement 7: Role Mutations
+# Requirement 7: Removed Role Mutations
 
 Routes:
 
@@ -272,34 +272,20 @@ POST /v1/users/{id}/promote
 POST /v1/users/{id}/demote
 ```
 
-Only actors with `users.role.assign` SHALL promote or demote users.
+These routes are removed from Users Service.
 
-Promote SHALL set:
+Role assignment, role removal, direct user permission grants, and direct user permission denies belong to Authorisation Service.
 
-```text
-role = requested assignable role
-```
-
-Demote SHALL set:
+Replacement Authorisation Service routes:
 
 ```text
-role = configured default user role
+POST   /v1/users/{user_id}/roles
+DELETE /v1/users/{user_id}/roles/{assignment_id}
+POST   /v1/users/{user_id}/permissions
+DELETE /v1/users/{user_id}/permissions/{assignment_id}
 ```
 
-The service SHALL reject demoting:
-
-* the actor's own account
-* Super Admin accounts
-* protected accounts
-
-Promoting a user SHALL ensure a platform-admin profile exists.
-
-Successful mutations SHALL write:
-
-* `USER_PROMOTED`
-* `USER_DEMOTED`
-
-Role mutations, platform-admin profile creation, and audit log writes SHALL be executed through stored procedures.
+Users Service SHALL NOT mutate role or permission assignment data.
 
 ---
 
@@ -319,7 +305,7 @@ Next.js MAY pass this message through to existing browser-facing route responses
 
 # Acceptance Criteria
 
-* Academy admin, Platform Admin, and Super Admin scopes match existing behavior.
+* Academy, platform, and protected-account scopes match existing behavior through Authorisation Service permissions.
 * Protected account checks live in the Go service.
 * Password hashes are never returned.
 * Audit logs are written for every successful admin mutation.

@@ -1,4 +1,5 @@
-import { AcademyMemberRole, Role, UserStatus } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
+import { listUserAuthorisationRoles } from "./authorisation-service";
 import { prisma } from "./prisma";
 
 type RollfinderUserInput = {
@@ -38,10 +39,25 @@ function normalizeStatus(value?: string | null) {
   return value === UserStatus.DISABLED ? UserStatus.DISABLED : UserStatus.ACTIVE;
 }
 
-function academyMemberRoleFor(role: Role) {
-  if (role === Role.ACADEMY_OWNER) return AcademyMemberRole.OWNER;
-  if (role === Role.ACADEMY_ADMIN) return AcademyMemberRole.ADMIN;
-  return null;
+const rolePriority: Record<Role, number> = {
+  [Role.USER]: 10,
+  [Role.STANDARD_USER]: 10,
+  [Role.ACADEMY_ADMIN]: 40,
+  [Role.ACADEMY_OWNER]: 50,
+  [Role.PLATFORM_ADMIN]: 90,
+  [Role.ADMIN]: 100,
+  [Role.SUPER_ADMIN]: 100,
+};
+
+function highestRole(roles: Role[]) {
+  return roles.reduce((highest, role) => rolePriority[role] > rolePriority[highest] ? role : highest, Role.STANDARD_USER);
+}
+
+async function authorisationProfileRole(userId: string, serviceRole: Role) {
+  const roles = (await listUserAuthorisationRoles(userId))
+    .map((assignment) => normalizeRole(assignment.role_key))
+    .filter((role) => role !== Role.STANDARD_USER || serviceRole === Role.STANDARD_USER || serviceRole === Role.USER);
+  return highestRole([serviceRole, ...roles]);
 }
 
 async function validAcademyId(academyId: string | null | undefined) {
@@ -59,20 +75,26 @@ export async function localUserAcademyId(userId: string) {
   return membership?.academyId ?? null;
 }
 
+async function localUserAcademyProfile(userId: string) {
+  const membership = await prisma.academyMember.findFirst({
+    where: { userId },
+    select: { academyId: true },
+    orderBy: { createdAt: "asc" },
+  });
+  return membership ?? null;
+}
+
 export async function syncRollfinderUserProfile(user: RollfinderUserInput, academyIdOverride?: string | null) {
   const existingAcademyId = academyIdOverride === undefined ? await localUserAcademyId(user.id) : null;
   const academyId = await validAcademyId(academyIdOverride === undefined ? existingAcademyId ?? user.academyId ?? null : academyIdOverride);
-  const role = normalizeRole(user.role);
-  const memberRole = academyMemberRoleFor(role);
 
   await prisma.$transaction(async (tx) => {
     await tx.academyMember.deleteMany({ where: { userId: user.id } });
-    if (academyId && memberRole) {
+    if (academyId) {
       await tx.academyMember.create({
         data: {
           academyId,
           userId: user.id,
-          role: memberRole,
         },
       });
     }
@@ -86,11 +108,14 @@ export async function removeRollfinderUserProfile(userId: string) {
 }
 
 export async function enrichManagedUserWithRollfinderProfile<T extends RollfinderUserInput>(user: T): Promise<T & { academyId: string | null }> {
-  const fallbackAcademyId = user.academyId ?? await localUserAcademyId(user.id);
+  const membership = await localUserAcademyProfile(user.id);
+  const fallbackAcademyId = user.academyId ?? membership?.academyId;
+  const serviceRole = normalizeRole(user.role);
+  const role = await authorisationProfileRole(user.id, serviceRole);
   return {
     ...user,
     academyId: fallbackAcademyId ?? null,
-    role: user.role ?? Role.STANDARD_USER,
+    role,
     status: normalizeStatus(user.status),
     disabled: user.disabled ?? normalizeStatus(user.status) === UserStatus.DISABLED,
     isProtected: user.isProtected ?? false,
@@ -105,28 +130,30 @@ export async function enrichManagedUsersWithRollfinderProfiles<T extends Rollfin
     select: { userId: true, academyId: true },
     orderBy: { createdAt: "asc" },
   });
-  const membershipByUserId = new Map<string, string>();
+  const membershipByUserId = new Map<string, { academyId: string }>();
   for (const membership of memberships) {
-    if (!membershipByUserId.has(membership.userId)) membershipByUserId.set(membership.userId, membership.academyId);
+    if (!membershipByUserId.has(membership.userId)) membershipByUserId.set(membership.userId, { academyId: membership.academyId });
   }
 
-  return users.map((user) => {
+  return Promise.all(users.map(async (user) => {
+    const membership = membershipByUserId.get(user.id);
+    const serviceRole = normalizeRole(user.role);
+    const role = await authorisationProfileRole(user.id, serviceRole);
     return {
       ...user,
-      academyId: user.academyId ?? membershipByUserId.get(user.id) ?? null,
-      role: user.role ?? Role.STANDARD_USER,
+      academyId: user.academyId ?? membership?.academyId ?? null,
+      role,
       status: normalizeStatus(user.status),
       disabled: user.disabled ?? normalizeStatus(user.status) === UserStatus.DISABLED,
       isProtected: user.isProtected ?? false,
     };
-  });
+  }));
 }
 
 export async function academyMemberProfiles(academyId: string, query = ""): Promise<Array<{
   id: string;
   academyId: string;
   userId: string;
-  role: AcademyMemberRole;
   createdAt: Date;
   updatedAt: Date;
   user: AcademyMemberProfileUser | null;

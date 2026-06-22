@@ -1,8 +1,9 @@
-import { AcademyMemberRole, ClaimStatus, type ClaimRequest, type Prisma } from "@prisma/client";
+import { ClaimStatus, type ClaimRequest, type Prisma } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
+import { replaceUserAuthorisationRole } from "@/lib/authorisation-service";
 
 type ClaimWithAcademy = ClaimRequest & {
   academy: { id: string; name: string; slug: string; city: string; postcode: string };
@@ -63,21 +64,21 @@ export type ClaimDecisionResult =
   | { ok: false; status: 404 | 409; error: string };
 
 export async function approveAcademyClaim(claimId: string, actorUserId: string): Promise<ClaimDecisionResult> {
-  return prisma.$transaction(async (tx) => {
+  const result: ClaimDecisionResult = await prisma.$transaction(async (tx) => {
     const claim = await tx.claimRequest.findUnique({
       where: { id: claimId },
       include: { academy: { select: { id: true, name: true, slug: true, city: true, postcode: true } } },
     });
 
-    if (!claim) return { ok: false, status: 404, error: "Claim not found" };
-    if (claim.status !== ClaimStatus.PENDING) return { ok: false, status: 409, error: "Only pending claims can be approved" };
-    if (await isAcademyManaged(claim.academyId, tx)) return { ok: false, status: 409, error: "Academy is already managed" };
+    if (!claim) return { ok: false as const, status: 404, error: "Claim not found" };
+    if (claim.status !== ClaimStatus.PENDING) return { ok: false as const, status: 409, error: "Only pending claims can be approved" };
+    if (await isAcademyManaged(claim.academyId, tx)) return { ok: false as const, status: 409, error: "Academy is already managed" };
 
     const { user, createdUser } = await linkRequesterUser(tx, claim);
     await tx.academyMember.upsert({
       where: { academyId_userId: { academyId: claim.academyId, userId: user.id } },
-      update: { role: AcademyMemberRole.ADMIN },
-      create: { academyId: claim.academyId, userId: user.id, role: AcademyMemberRole.ADMIN },
+      update: {},
+      create: { academyId: claim.academyId, userId: user.id },
     });
 
     const reviewedAt = new Date();
@@ -109,8 +110,12 @@ export async function approveAcademyClaim(claimId: string, actorUserId: string):
       },
     });
 
-    return { ok: true, claim: updatedClaim, user, createdUser };
+    return { ok: true as const, claim: updatedClaim, user, createdUser };
   });
+  if (result.ok === true && result.user) {
+    await replaceUserAuthorisationRole({ id: actorUserId }, result.user.id, "ACADEMY_ADMIN", { organisationId: result.claim.academyId });
+  }
+  return result;
 }
 
 export async function rejectAcademyClaim(claimId: string, actorUserId: string, rejectionReason?: string | null): Promise<ClaimDecisionResult> {
