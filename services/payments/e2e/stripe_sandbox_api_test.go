@@ -43,8 +43,7 @@ func TestStripeSandboxCheckoutEndToEnd(t *testing.T) {
 		t.Skip("STRIPE_SECRET_KEY or PAYMENT_GATEWAY_API_KEY is required")
 	}
 
-	baseURL := strings.TrimRight(firstNonEmpty(os.Getenv("PAYMENT_API_BASE_URL"), "http://localhost:3002"), "/")
-	apiKey := firstNonEmpty(os.Getenv("PAYMENT_SERVICE_API_KEY"), "local-dev-key")
+	baseURL := strings.TrimRight(firstNonEmpty(os.Getenv("PAYMENT_PUBLIC_BASE_URL"), "http://localhost:3002"), "/")
 	httpClient := &http.Client{Timeout: 15 * time.Second}
 
 	assertHealth(t, httpClient, baseURL)
@@ -66,7 +65,7 @@ func TestStripeSandboxCheckoutEndToEnd(t *testing.T) {
 		},
 	}
 	var checkout checkoutResponse
-	doJSON(t, httpClient, http.MethodPost, baseURL+"/v1/checkouts", apiKey, idempotencyKey, body, http.StatusCreated, &checkout)
+	doJSON(t, httpClient, http.MethodPost, baseURL+"/v1/checkouts", idempotencyKey, body, http.StatusCreated, &checkout)
 
 	if checkout.CheckoutSessionID == "" || checkout.PaymentID == "" {
 		t.Fatalf("expected checkout and payment ids, got %+v", checkout)
@@ -79,7 +78,7 @@ func TestStripeSandboxCheckoutEndToEnd(t *testing.T) {
 	}
 
 	var payment paymentResponse
-	doJSON(t, httpClient, http.MethodGet, baseURL+"/v1/payments/"+url.PathEscape(checkout.PaymentID), apiKey, "", nil, http.StatusOK, &payment)
+	doJSON(t, httpClient, http.MethodGet, baseURL+"/v1/payments/"+url.PathEscape(checkout.PaymentID), "", nil, http.StatusOK, &payment)
 	if payment.Provider != "stripe" || payment.ProviderPaymentID == "" {
 		t.Fatalf("expected Stripe provider payment id, got %+v", payment)
 	}
@@ -112,7 +111,7 @@ func assertHealth(t *testing.T, client *http.Client, baseURL string) {
 	}
 }
 
-func doJSON(t *testing.T, client *http.Client, method string, endpoint string, apiKey string, idempotencyKey string, body any, expectedStatus int, target any) {
+func doJSON(t *testing.T, client *http.Client, method string, endpoint string, idempotencyKey string, body any, expectedStatus int, target any) {
 	t.Helper()
 	var payload io.Reader
 	if body != nil {
@@ -126,7 +125,6 @@ func doJSON(t *testing.T, client *http.Client, method string, endpoint string, a
 	if err != nil {
 		t.Fatal(err)
 	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

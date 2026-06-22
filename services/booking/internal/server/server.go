@@ -79,14 +79,6 @@ func (s *server) accessLog(next http.Handler) http.Handler {
 
 func (s *server) requireAuth(next handlers.HttpHandler) handlers.HttpHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.APIKey == "" {
-			writeError(w, r, http.StatusUnauthorized, "unauthorized", "API authentication is not configured.", nil)
-			return
-		}
-		if r.Header.Get("Authorization") != "Bearer "+s.cfg.APIKey && r.Header.Get("X-API-Key") != s.cfg.APIKey {
-			writeError(w, r, http.StatusUnauthorized, "unauthorized", "Valid API credentials are required.", nil)
-			return
-		}
 		next(w, r)
 	}
 }

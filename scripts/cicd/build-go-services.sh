@@ -17,7 +17,7 @@ IMAGE_ENV_FILE="${IMAGE_ENV_FILE:-image.env}"
 
 touch "${IMAGE_ENV_FILE}"
 TMP_IMAGE_ENV="$(mktemp)"
-grep -v -E '^(USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
+grep -v -E '^(USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
 mv "${TMP_IMAGE_ENV}" "${IMAGE_ENV_FILE}"
 
 service_changed() {
@@ -100,4 +100,10 @@ if target_matches "payments" && service_changed "services/payments"; then
   build_service "payments" "services/payments" "PAYMENT_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "payments" "PAYMENT_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "authorisation" && service_changed "services/authorisation"; then
+  build_service "authorisation" "services/authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
 fi

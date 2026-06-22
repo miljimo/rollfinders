@@ -343,24 +343,6 @@ model ClaimRequest {
   @@map("claim_requests")
 }
 
-model User {
-  id          String     @id
-  email       String     @unique
-  name        String?
-  role        Role       @default(STANDARD_USER)
-  academyId   String?    @map("academy_id")
-  status      UserStatus @default(ACTIVE)
-  disabled    Boolean    @default(false)
-  isProtected Boolean    @default(false) @map("is_protected")
-  createdAt   DateTime   @default(now()) @map("created_at")
-  updatedAt   DateTime   @updatedAt @map("updated_at")
-
-  @@index([academyId])
-  @@index([role])
-  @@index([status])
-  @@map("users")
-}
-
 model AcademyMember {
   id        String            @id @default(cuid())
   academyId String            @map("academy_id")

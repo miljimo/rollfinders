@@ -193,7 +193,7 @@ IF the payment service is down
 
 THEN the dashboard SHALL render a clear warning message and an empty payment table instead of failing the whole dashboard.
 
-IF `PAYMENT_SERVICE_API_KEY` is missing
+IF the payment service URL is missing or unreachable
 
 THEN the dashboard SHALL show a configuration warning instead of exposing stack traces.
 

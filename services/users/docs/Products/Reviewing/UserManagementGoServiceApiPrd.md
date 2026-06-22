@@ -10,15 +10,15 @@ Status: Ready For Review
 
 # Objective
 
-Define the Go service API for admin-managed user listing, creation, editing, deletion, role changes, status changes, and audit logging.
+Define the Go service API for admin-managed user listing, creation, editing, deletion, status changes, and audit logging.
 
-The API SHALL preserve the behavior of the existing Next.js admin user-management routes while moving canonical authorization and persistence into the Go service.
+The API SHALL preserve identity-management behavior from the existing Next.js admin user-management routes while moving role and permission ownership to the Authorisation Service.
 
 All mutation routes in this PRD SHALL be backed by PostgreSQL stored procedures in `services/users/migrations/procedures`, following the payment service database pattern.
 
-Role and privilege checks SHALL be data-driven through `roles`, `privileges`, and `role_privileges`.
+Role and permission checks SHALL be performed through the Authorisation Service.
 
-The service SHALL NOT hard-code which role names can manage users.
+The service SHALL NOT own roles, permissions, role assignments, or direct user permissions.
 
 ---
 
@@ -33,8 +33,8 @@ The service SHALL NOT hard-code which role names can manage users.
 | `DELETE` | `/v1/users/{id}` | Delete managed user |
 | `POST` | `/v1/users/{id}/disable` | Disable user |
 | `POST` | `/v1/users/{id}/enable` | Enable user |
-| `POST` | `/v1/users/{id}/promote` | Promote user to Platform Admin |
-| `POST` | `/v1/users/{id}/demote` | Demote user to Standard User |
+| `POST` | `/v1/users/{id}/promote` | Removed from Users Service; use Authorisation Service |
+| `POST` | `/v1/users/{id}/demote` | Removed from Users Service; use Authorisation Service |
 
 All routes SHALL require internal service authentication and actor context.
 
@@ -54,7 +54,7 @@ WHEN a user-management route is called
 
 THEN the service SHALL return `403`.
 
-IF the actor is not an admin role
+IF the actor does not have the required Authorisation Service permission
 
 WHEN a user-management route is called
 
@@ -77,7 +77,7 @@ Supported query params:
 | `page` | 1-based page number |
 | `pageSize` | one of `20`, `50`, `100` |
 | `search` | name/email partial match |
-| `role` | role filter |
+| `role` | temporary compatibility filter; ignored by Users Service after Authorisation cutover |
 | `status` | active/disabled filter |
 | `emailStatus` | email status filter |
 
@@ -93,11 +93,11 @@ The response SHALL include:
 }
 ```
 
-Academy admins SHALL only see users in their academy with academy-compatible roles.
+Academy-scoped visibility SHALL be decided by Authorisation Service permissions and scope.
 
-Platform admins SHALL NOT see Super Admin, legacy Admin, or peer Platform Admin accounts.
+Platform-admin and protected-account visibility SHALL be decided by Authorisation Service permissions plus Users `is_protected` status.
 
-Super Admins SHALL see all users.
+Users Service SHALL NOT evaluate role hierarchy locally.
 
 ---
 

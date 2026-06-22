@@ -62,7 +62,7 @@ Minimum cases:
 - `GET /healthz` returns `200` without auth or database.
 - `GET /readyz` returns `503` when database config is missing or unreachable.
 - Protected `/v1` endpoint without credentials returns `401`.
-- Protected `/v1` endpoint with `Authorization: Bearer <api key>` or the selected internal key header passes auth and reaches the next validation/database failure.
+- `/v1` endpoints do not require a service API key; service-to-service authentication is handled by the orchestration layer.
 - Unauthorized responses use the stable JSON error envelope.
 - Request IDs are included or propagated in responses according to the skeleton contract.
 

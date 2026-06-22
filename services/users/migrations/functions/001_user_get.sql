@@ -53,13 +53,7 @@ AS $$
             ORDER BY c.credential_type ASC, c.created_at ASC
             LIMIT 1
         ), '') AS password_hash,
-        COALESCE((
-            SELECT ur.role_key
-            FROM user_roles ur
-            WHERE ur.user_id = u.id
-            ORDER BY ur.organisation_id NULLS FIRST, ur.created_at ASC
-            LIMIT 1
-        ), ''),
+        CASE WHEN u.is_protected THEN 'SUPER_ADMIN' ELSE 'STANDARD_USER' END AS role,
         (
             SELECT ou.organisation_id
             FROM organisation_users ou

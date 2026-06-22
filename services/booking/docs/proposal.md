@@ -758,8 +758,8 @@ src/lib/bookings.ts
 Environment variables:
 
 ```text
-BOOKING_SERVICE_URL
-BOOKING_SERVICE_API_KEY
+BOOKING_PUBLIC_BASE_URL
+Service-to-service authentication is handled by the orchestration layer; no shared booking service key is required.
 ```
 
 ### Free Booking UI

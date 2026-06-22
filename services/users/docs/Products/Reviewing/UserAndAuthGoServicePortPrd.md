@@ -184,17 +184,18 @@ The service schema SHALL contain service-owned SQL types, tables, functions, and
 
 The user service SHALL own table creation for user-domain data so it can run as an independent service rather than depending on RollFinders Prisma migrations.
 
-The initial service-owned tables SHALL include:
+The initial service-owned identity/authentication tables SHALL include:
 
-* `roles`
-* `privileges`
-* `role_privileges`
 * `users`
 * `password_reset_tokens`
-* `academy_members`
-* `academy_invitations`
+* `credentials`
+* `credential_secrets`
+* `sessions`
+* `refresh_tokens`
+* `mfa_methods`
+* `organisations`
+* `organisation_users`
 * `admin_audit_logs`
-* `platform_admin_profiles`
 
 Foreign keys SHALL remain inside the `users` schema only for user-service-owned entities. Cross-service references, such as academy ids, SHALL be represented as text identifiers rather than foreign keys into RollFinders-owned tables.
 
@@ -204,15 +205,13 @@ The user service SHALL NOT validate whether an academy id exists in an academy-o
 
 Platform-admin activity, rewards, weekly targets, and exemptions SHALL remain outside the user service because they are platform operations/productivity concerns, not account-management concerns.
 
-Roles SHALL NOT be PostgreSQL enums or hard-coded authorization branches in application code.
+Roles, permissions, role-permission mappings, user-role assignments, and direct user-permission assignments SHALL NOT be owned by the Users Service.
 
-Roles SHALL be rows in `users.roles`.
+Authorisation Service SHALL own role and permission tables.
 
-Privileges SHALL be rows in `users.privileges`.
+Users Service migrations SHALL NOT create or seed `users.roles`, `users.privileges`, `users.role_privileges`, `users.user_roles`, or `users.user_permissions`.
 
-Role capabilities SHALL be assigned through `users.role_privileges`.
-
-The system MAY seed default roles and privileges, but authorization decisions SHALL be driven by those tables so operators can create roles and assign privileges without changing Go code.
+The Users Service may temporarily return compatibility role labels in user read models, but these labels are not authoritative for access control.
 
 All user-service writes SHALL be implemented as stored procedures.
 
@@ -249,8 +248,7 @@ Existing client-side pages SHALL NOT be required to call the Go service directly
 The Next.js service client SHALL read:
 
 ```text
-USER_SERVICE_URL
-USER_SERVICE_API_KEY
+USER_PUBLIC_BASE_URL
 ```
 
 ---
@@ -278,15 +276,15 @@ NextAuth SHALL continue to issue and validate the session cookie.
 
 IF user-management behavior is migrated
 
-WHEN roles and privileges are evaluated
+WHEN roles and permissions are evaluated
 
-THEN the user service SHALL evaluate privileges assigned to the actor's role.
+THEN the caller SHALL use the Authorisation Service.
 
-The service SHALL support system-seeded default roles for compatibility, but those role names SHALL be data, not source-code authorization branches.
+The Users Service SHALL NOT evaluate role hierarchy or effective permissions locally.
 
-The service SHALL support custom roles created by the system or operators.
+The Users Service SHALL NOT provide role or permission management APIs.
 
-The service SHALL support assigning privileges to roles without redeploying the service.
+Role and permission management belongs to Authorisation Service.
 
 The service SHALL preserve protected-account rules for any account with `is_protected = true`.
 
@@ -318,7 +316,6 @@ The service SHALL support:
 
 * `PORT`
 * `DATABASE_URL` or `DB_*` variables
-* `API_KEY`
 * read timeout
 * write timeout
 * shutdown timeout
@@ -326,8 +323,7 @@ The service SHALL support:
 The root app compose environment SHALL provide:
 
 ```text
-USER_SERVICE_URL=http://users:8080
-USER_SERVICE_API_KEY=<shared internal secret>
+USER_PUBLIC_BASE_URL=http://users:8080
 ```
 
 ---
@@ -338,7 +334,9 @@ IF the migration is released
 
 WHEN production traffic is moved to the Go service
 
-THEN existing users SHALL keep their current passwords, roles, status, protected flags, academy relationships, audit history, and last-login semantics.
+THEN existing users SHALL keep their current passwords, status, protected flags, academy relationships, audit history, and last-login semantics.
+
+Existing role and permission data SHALL be migrated to the Authorisation Service before legacy Users authorisation tables are dropped.
 
 The migration SHALL NOT require a password reset for existing users.
 

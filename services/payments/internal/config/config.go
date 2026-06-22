@@ -12,7 +12,6 @@ import (
 type Config struct {
 	Port                     string
 	DatabaseURL              string
-	APIKey                   string
 	StripeSecretKey          string
 	StripeSecretKeyFile      string
 	StripeAPIVersion         string
@@ -35,7 +34,6 @@ func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
 		Port:                     env.GetWithDefault("PORT", "8080"),
 		DatabaseURL:              databaseURL(env),
-		APIKey:                   env.Get("API_KEY"),
 		StripeSecretKey:          firstNonEmpty(env.Get("STRIPE_SECRET_KEY"), env.Get("PAYMENT_GATEWAY_API_KEY")),
 		StripeSecretKeyFile:      env.Get("STRIPE_SECRET_KEY_FILE"),
 		StripeAPIVersion:         env.GetWithDefault("STRIPE_API_VERSION", "2024-09-30.acacia"),

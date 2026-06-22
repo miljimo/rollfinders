@@ -15,10 +15,10 @@ describe("course payment service integration", () => {
   it("calls the payment service from server-only code", () => {
     const paymentsSource = readSource("src/lib/payments.ts");
     assert.match(paymentsSource, /import\s+["']server-only["']/);
-    assert.match(paymentsSource, /PAYMENT_SERVICE_URL/);
-    assert.match(paymentsSource, /PAYMENT_SERVICE_API_KEY/);
+    assert.match(paymentsSource, /PAYMENT_PUBLIC_BASE_URL/);
     assert.match(paymentsSource, /\/v1\/checkouts/);
-    assert.match(paymentsSource, /Authorization:\s*`Bearer \$\{apiKey\}`/);
+    assert.doesNotMatch(paymentsSource, /PAYMENT_SERVICE_API_KEY/);
+    assert.doesNotMatch(paymentsSource, /Authorization:\s*`Bearer/);
   });
 
   it("uses a server action for paid course checkout handoff", () => {
@@ -261,7 +261,7 @@ describe("course payment service integration", () => {
     const paymentStatusSource = readSource("src/app/payments/status/page.tsx");
     const bookingSource = readSource("src/lib/bookings.ts");
 
-    assert.match(routeSource, /PAYMENT_SERVICE_URL/);
+    assert.match(routeSource, /PAYMENT_PUBLIC_BASE_URL/);
     assert.match(routeSource, /\/v1\/checkouts\/\$\{encodeURIComponent\(id\)\}\/callbacks\/\$\{encodeURIComponent\(result\)\}/);
     assert.match(routeSource, /redirect:\s*"manual"/);
     assert.match(routeSource, /metadata_booking_id/);

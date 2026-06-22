@@ -320,11 +320,7 @@ Provider-specific status SHALL be stored separately from canonical status.
 
 All APIs SHALL use JSON and versioned `/v1` routes.
 
-Protected APIs SHALL require:
-
-```text
-Authorization: Bearer <token>
-```
+Service-to-service authentication and authorization SHALL be enforced by the orchestration layer before requests reach the Payment Service.
 
 All write operations SHALL require:
 

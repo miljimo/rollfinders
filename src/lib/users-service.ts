@@ -48,14 +48,10 @@ export class UserServiceError extends Error {
   }
 }
 
-const userServiceUrl = () => getEnvVariable("USER_SERVICE_URL", "http://localhost:3003").replace(/\/+$/, "");
-const userServiceApiKey = () => getEnvVariable("USER_SERVICE_API_KEY", "local-user-dev-key");
+const userServiceUrl = () => getEnvVariable("USER_PUBLIC_BASE_URL", "http://localhost:3003").replace(/\/+$/, "");
 
 function headers(actor?: ActorContext) {
-  const apiKey = userServiceApiKey();
-  if (!apiKey) throw new UserServiceError("User service API key is not configured.", 0);
   return {
-    Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
     ...(actor ? { "X-Actor": JSON.stringify(actor) } : {}),
   };

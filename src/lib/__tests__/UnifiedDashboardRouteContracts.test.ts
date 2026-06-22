@@ -142,7 +142,7 @@ describe("unified dashboard route contracts", () => {
     const adminAcademiesApi = readSource("src/app/api/admin/academies/route.ts");
 
     assert.match(admin, /export\s+async\s+function\s+requireAdminApi/);
-    assert.match(admin, /!isAnyAdminRole\(user\?\.role\)/);
+    assert.match(admin, /hasPermission\(user,\s*"users\.admin\.access"\)/);
     assert.match(adminAcademiesApi, /const\s+forbidden\s*=\s*await\s+requireAdminApi\(\)/);
     assert.match(adminAcademiesApi, /if\s*\(\s*forbidden\s*\)\s*return\s+forbidden/);
   });
@@ -217,7 +217,7 @@ describe("unified dashboard route contracts", () => {
     assert.equal(managedUsersReturnPath("/admin.evil/users"), "/admin/users");
   });
 
-  it("managed user create and edit keep academy assignment in RollFinders public users", () => {
+  it("managed user create and edit keep academy assignment out of public users", () => {
     const actionsSource = readSource("src/app/admin/users/actions.ts");
     const userServiceSource = readSource("src/lib/users-service.ts");
     const profileSource = readSource("src/lib/rollfinder-user-profiles.ts");
@@ -229,9 +229,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(userServiceSource, /const serviceInput = \{ \.\.\.\(input as Record<string, unknown>\) \}/);
     assert.doesNotMatch(userServiceSource, /const\s+\{\s*academyId,\s*\.\.\.serviceInput\s*\}/);
     assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId\)/);
-    assert.match(profileSource, /tx\.user\.upsert/);
+    assert.doesNotMatch(profileSource, /prisma\.user|tx\.user/);
     assert.match(profileSource, /academyMember\.create/);
-    assert.match(schemaSource, /model User \{[\s\S]*academyId\s+String\?\s+@map\("academy_id"\)[\s\S]*@@map\("users"\)/);
+    assert.doesNotMatch(schemaSource, /model User \{/);
   });
 
   it("managed user tables request exactly ten users per page", () => {
@@ -251,7 +251,7 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(adminUsersSource, /supportedPageSizes|Rows per page/);
   });
 
-  it("academy member surfaces resolve RollFinders public user profiles", () => {
+  it("academy member surfaces do not depend on public user profiles", () => {
     const memberPage = readSource("src/app/dashboard/members/page.tsx");
     const memberApi = readSource("src/app/api/dashboard/members/route.ts");
     const academyTeamPage = readSource("src/app/admin/academies/[id]/team/page.tsx");
@@ -261,7 +261,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(memberPage, /member\.user\?\.name\s*\?\?\s*member\.user\?\.email/);
     assert.match(memberApi, /academyMemberProfiles\(academy\.id,\s*q\)/);
     assert.match(academyTeamPage, /academyMemberProfiles\(academy\.id\)/);
-    assert.match(profileHelper, /prisma\.user\.findMany\(\{[\s\S]*email:[\s\S]*contains:\s*search/);
+    assert.match(profileHelper, /prisma\.academyMember\.findMany/);
+    assert.doesNotMatch(profileHelper, /prisma\.user|tx\.user/);
   });
 
   it("admin top service menu keeps footer-only Map and Settings out of primary navigation", () => {

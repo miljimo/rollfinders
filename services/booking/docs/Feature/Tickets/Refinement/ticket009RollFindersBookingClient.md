@@ -18,7 +18,7 @@ Add a server-only RollFinders booking client for calling Booking Service from Ne
 ## Implementation Notes
 
 - Add `src/lib/bookings.ts`.
-- Use `BOOKING_SERVICE_URL` and `BOOKING_SERVICE_API_KEY`.
+- Use `BOOKING_PUBLIC_BASE_URL`. Service-to-service authentication is handled by the orchestration layer.
 - Throw a typed service error for unavailable service, unauthorized, validation failure, duplicate booking, and conflict responses.
 - Keep browser code from calling Booking Service directly.
 - Match the style of `src/lib/payments.ts`.

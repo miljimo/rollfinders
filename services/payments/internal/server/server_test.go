@@ -17,7 +17,6 @@ func testServer(databaseURL string) http.Handler {
 		Config: config.Config{
 			Port:                     "8080",
 			DatabaseURL:              databaseURL,
-			APIKey:                   "test-key",
 			PublicBaseURL:            "https://payments.rollfinders.test",
 			DefaultClientID:          "rollfinders",
 			DefaultClientName:        "Rollfinders",
@@ -29,7 +28,6 @@ func testServer(databaseURL string) http.Handler {
 }
 
 func authed(req *http.Request) *http.Request {
-	req.Header.Set("Authorization", "Bearer test-key")
 	return req
 }
 

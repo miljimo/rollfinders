@@ -44,20 +44,12 @@ describe("deployment safety contracts", () => {
     );
   });
 
-  it("backfills legacy public user password hashes into service credentials before marking the users schema migrated", () => {
+  it("does not backfill from public users in the Users service core schema", () => {
     const coreSchema = readSource("services/users/migrations/001_core_schema.sql");
-    const credentialBackfill = readSource("services/users/migrations/backfills/001_rollfinders_public_user_credentials.sql");
 
-    assert.ok(
-      coreSchema.indexOf("\\ir backfills/001_rollfinders_public_user_credentials.sql") <
-        coreSchema.indexOf("\\ir backfills/002_rollfinders_public_academy_memberships.sql"),
-      "credential backfill must run before academy membership backfill",
-    );
-    assert.match(credentialBackfill, /information_schema\.columns[\s\S]*column_name = 'password_hash'/);
-    assert.match(credentialBackfill, /INSERT INTO users\.credentials/);
-    assert.match(credentialBackfill, /INSERT INTO users\.credential_secrets/);
-    assert.match(credentialBackfill, /pu\.password_hash/);
-    assert.match(credentialBackfill, /001_rollfinders_public_user_credentials/);
+    assert.doesNotMatch(coreSchema, /public\.users/);
+    assert.doesNotMatch(coreSchema, /rollfinders_public_user/);
+    assert.doesNotMatch(coreSchema, /\\ir backfills\//);
   });
 
   it("lets one-shot migration tasks finish even before service schemas are ready", () => {

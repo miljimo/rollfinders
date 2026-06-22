@@ -58,8 +58,7 @@ type BookingListResponse = {
   count: number;
 };
 
-const bookingServiceUrl = () => getEnvVariable("BOOKING_SERVICE_URL", "http://localhost:3005").replace(/\/+$/, "");
-const bookingServiceApiKey = () => getEnvVariable("BOOKING_SERVICE_API_KEY", "");
+const bookingServiceUrl = () => getEnvVariable("BOOKING_PUBLIC_BASE_URL", "http://localhost:3005").replace(/\/+$/, "");
 
 export class BookingServiceError extends Error {
   constructor(
@@ -90,11 +89,6 @@ export async function listBookings({
   status?: string | null;
   limit?: number;
 } = {}): Promise<BookingRecord[]> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const params = new URLSearchParams({ page_size: String(limit) });
   if (bookableId) params.set("bookable_id", bookableId);
   if (bookableInstanceId) params.set("bookable_instance_id", bookableInstanceId);
@@ -107,9 +101,6 @@ export async function listBookings({
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings?${params.toString()}`, {
     method: "GET",
     cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
   });
 
   if (!response.ok) {
@@ -121,16 +112,10 @@ export async function listBookings({
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<BookingRecord> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": input.idempotencyKey,
     },
@@ -155,17 +140,9 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
 }
 
 export async function getBooking(bookingId: string): Promise<BookingRecord> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}`, {
     method: "GET",
     cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
   });
 
   if (!response.ok) {
@@ -184,16 +161,10 @@ export async function linkBookingPayment({
   idempotencyKey: string;
   paymentId: string;
 }): Promise<BookingRecord> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-link`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
@@ -216,16 +187,10 @@ export async function confirmBooking({
   idempotencyKey: string;
   reason?: string;
 }): Promise<BookingRecord> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/confirm`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
@@ -248,16 +213,10 @@ export async function cancelBooking({
   idempotencyKey: string;
   reason?: string;
 }): Promise<BookingRecord> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/cancel`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
@@ -280,16 +239,10 @@ export async function markBookingPaymentReceived({
   idempotencyKey: string;
   reason?: string;
 }): Promise<BookingRecord> {
-  const apiKey = bookingServiceApiKey();
-  if (!apiKey) {
-    throw new BookingServiceError("Booking service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-received`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },

@@ -1,72 +1,3 @@
-CREATE OR REPLACE FUNCTION roles_list()
-RETURNS TABLE (
-    key text,
-    name text,
-    description text,
-    organisation_id text,
-    is_system boolean,
-    assignable boolean,
-    created_at timestamptz,
-    updated_at timestamptz
-)
-LANGUAGE sql
-STABLE
-SET search_path TO users, public
-AS $$
-    SELECT key, name, description, organisation_id, is_system, assignable, created_at, updated_at
-    FROM roles
-    ORDER BY is_system DESC, name ASC;
-$$;
-
-CREATE OR REPLACE FUNCTION privileges_list()
-RETURNS TABLE (
-    key text,
-    name text,
-    description text,
-    created_at timestamptz
-)
-LANGUAGE sql
-STABLE
-SET search_path TO users, public
-AS $$
-    SELECT key, name, description, created_at
-    FROM privileges
-    ORDER BY key ASC;
-$$;
-
-CREATE OR REPLACE FUNCTION role_privileges_list(p_role_key text)
-RETURNS TABLE (
-    privilege_key text,
-    organisation_id text,
-    created_at timestamptz
-)
-LANGUAGE sql
-STABLE
-SET search_path TO users, public
-AS $$
-    SELECT privilege_key, organisation_id, created_at
-    FROM role_privileges
-    WHERE role_key = p_role_key
-    ORDER BY privilege_key ASC;
-$$;
-
-CREATE OR REPLACE FUNCTION user_roles_list(p_user_id text)
-RETURNS TABLE (
-    role_key text,
-    organisation_id text,
-    assigned_by text,
-    created_at timestamptz
-)
-LANGUAGE sql
-STABLE
-SET search_path TO users, public
-AS $$
-    SELECT role_key, organisation_id, assigned_by, created_at
-    FROM user_roles
-    WHERE user_id = p_user_id
-    ORDER BY organisation_id NULLS FIRST, role_key ASC;
-$$;
-
 CREATE OR REPLACE FUNCTION organisations_list()
 RETURNS TABLE (
     id text,
@@ -99,32 +30,6 @@ AS $$
     SELECT id, name, status, created_at, updated_at
     FROM organisations
     WHERE id = p_id;
-$$;
-
-CREATE OR REPLACE FUNCTION effective_privileges_list(p_user_id text)
-RETURNS TABLE (privilege_key text)
-LANGUAGE sql
-STABLE
-SET search_path TO users, public
-AS $$
-    SELECT DISTINCT rp.privilege_key
-    FROM user_roles ur
-    JOIN role_privileges rp ON rp.role_key = ur.role_key
-    WHERE ur.user_id = p_user_id
-      AND NOT EXISTS (
-        SELECT 1
-        FROM user_permissions up
-        WHERE up.user_id = ur.user_id
-          AND up.privilege_key = rp.privilege_key
-          AND up.effect = 'DENY'
-          AND (up.organisation_id IS NULL OR up.organisation_id = ur.organisation_id)
-      )
-    UNION
-    SELECT DISTINCT up.privilege_key
-    FROM user_permissions up
-    WHERE up.user_id = p_user_id
-      AND up.effect = 'ALLOW'
-    ORDER BY privilege_key ASC;
 $$;
 
 CREATE OR REPLACE FUNCTION refresh_token_session_get(p_token_hash text)

@@ -21,14 +21,6 @@ var errNotFound = errors.New("not found")
 
 func (s *server) requireAuth(next handlers.HttpHandler) handlers.HttpHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.APIKey == "" {
-			writeError(w, http.StatusUnauthorized, "API authentication is not configured.")
-			return
-		}
-		if r.Header.Get("Authorization") != "Bearer "+s.cfg.APIKey && r.Header.Get("X-API-Key") != s.cfg.APIKey {
-			writeError(w, http.StatusUnauthorized, "Valid API credentials are required.")
-			return
-		}
 		next(w, r)
 	}
 }
@@ -166,42 +158,26 @@ func (s *server) findAccountByID(ctx context.Context, id string) (accountRecord,
 		Role:      stringValue(rows[0]["role"]),
 		AcademyID: stringPtrValue(rows[0]["academy_id"]),
 	}
-	privileges, err := s.effectivePrivileges(ctx, id)
-	if err != nil {
-		return accountRecord{}, err
-	}
-	account.Privileges = privileges
+	account.Privileges = []string{}
 	return account, nil
 }
 
-func (s *server) effectivePrivileges(ctx context.Context, userID string) ([]string, error) {
-	rows, err := s.db.Function(ctx, "users.effective_privileges_list", userID)
-	if err != nil {
-		return nil, err
-	}
-	privileges := make([]string, 0, len(rows))
-	for _, row := range rows {
-		privileges = append(privileges, stringValue(row["privilege_key"]))
-	}
-	return privileges, nil
-}
-
-func (s *server) insertUser(ctx context.Context, id string, name *string, email, passwordHash, role string, academyID *string) (userRecord, error) {
-	if _, err := s.db.Procedure(ctx, `users."userInsert"`, id, name, email, passwordHash, role, academyID); err != nil {
+func (s *server) insertUser(ctx context.Context, id string, name *string, email, passwordHash string, academyID *string) (userRecord, error) {
+	if _, err := s.db.Procedure(ctx, `users."userInsert"`, id, name, email, passwordHash, academyID); err != nil {
 		return userRecord{}, err
 	}
 	return s.findUserByID(ctx, id)
 }
 
-func (s *server) updateUserRecord(ctx context.Context, id string, name *string, email, role, status string, academyID *string) (userRecord, error) {
-	if _, err := s.db.Procedure(ctx, `users."userUpdate"`, id, name, email, role, status, academyID); err != nil {
+func (s *server) updateUserRecord(ctx context.Context, id string, name *string, email, status string, academyID *string) (userRecord, error) {
+	if _, err := s.db.Procedure(ctx, `users."userUpdate"`, id, name, email, status, academyID); err != nil {
 		return userRecord{}, err
 	}
 	return s.findUserByID(ctx, id)
 }
 
-func (s *server) setUserMutation(ctx context.Context, id, role, status string, disabled bool) (userRecord, error) {
-	if _, err := s.db.Procedure(ctx, `users."userMutationSet"`, id, role, status, disabled); err != nil {
+func (s *server) setUserMutation(ctx context.Context, id, status string, disabled bool) (userRecord, error) {
+	if _, err := s.db.Procedure(ctx, `users."userMutationSet"`, id, status, disabled); err != nil {
 		return userRecord{}, err
 	}
 	return s.findUserByID(ctx, id)
@@ -209,16 +185,6 @@ func (s *server) setUserMutation(ctx context.Context, id, role, status string, d
 
 func (s *server) hasAnotherActiveSuperUser(ctx context.Context, id string) bool {
 	rows, err := s.db.Function(ctx, "users.active_super_user_exists", id)
-	return err == nil && len(rows) > 0 && boolValue(firstValue(rows[0]))
-}
-
-func (s *server) hasPrivilege(ctx context.Context, userID string, privilege string) bool {
-	rows, err := s.db.Function(ctx, "users.user_has_privilege", userID, privilege)
-	return err == nil && len(rows) > 0 && boolValue(firstValue(rows[0]))
-}
-
-func (s *server) roleExists(ctx context.Context, role string) bool {
-	rows, err := s.db.Function(ctx, "users.role_exists", role)
 	return err == nil && len(rows) > 0 && boolValue(firstValue(rows[0]))
 }
 
@@ -246,10 +212,6 @@ func (s *server) canManageTarget(ctx context.Context, actor actorContext, target
 		return false
 	}
 	return true
-}
-
-func normalizeRole(role string) string {
-	return strings.TrimSpace(role)
 }
 
 func normalizeStatus(status string) string {

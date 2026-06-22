@@ -46,8 +46,8 @@ The public ALB SHALL route only to the `web` container on port `3000`.
 The Go service containers SHALL listen only inside the ECS task network. RollFinders SHALL call them by internal task-local URLs:
 
 ```text
-USER_SERVICE_URL=http://127.0.0.1:8081
-PAYMENT_SERVICE_URL=http://127.0.0.1:8082
+USER_PUBLIC_BASE_URL=http://127.0.0.1:8081
+PAYMENT_PUBLIC_BASE_URL=http://127.0.0.1:8082
 ```
 
 No ALB listener, target group, public DNS record, API Gateway route, or public security group rule SHALL be created for the Go service ports.

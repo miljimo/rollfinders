@@ -1,6 +1,8 @@
+DROP PROCEDURE IF EXISTS "userMutationSet"(text, text, text, boolean);
+DROP PROCEDURE IF EXISTS "userMutationSet"(text, text, boolean);
+
 CREATE OR REPLACE PROCEDURE "userMutationSet"(
     p_id text,
-    p_role text,
     p_status text,
     p_disabled boolean
 )
@@ -14,14 +16,5 @@ BEGIN
         updated_at = now()
     WHERE id = p_id;
 
-    IF COALESCE(trim(p_role), '') <> '' THEN
-        DELETE FROM user_roles
-        WHERE user_id = p_id
-          AND organisation_id IS NULL;
-
-        INSERT INTO user_roles (user_id, role_key)
-        VALUES (p_id, trim(p_role))
-        ON CONFLICT DO NOTHING;
-    END IF;
 END;
 $$;

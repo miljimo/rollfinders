@@ -10,7 +10,7 @@ import (
 )
 
 func TestHealthDoesNotRequireAuth(t *testing.T) {
-	handler := New(Options{Config: config.Config{APIKey: "secret"}})
+	handler := New(Options{Config: config.Config{}})
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
@@ -21,20 +21,20 @@ func TestHealthDoesNotRequireAuth(t *testing.T) {
 	}
 }
 
-func TestProtectedEndpointRequiresAuth(t *testing.T) {
-	handler := New(Options{Config: config.Config{APIKey: "secret"}})
+func TestProtectedEndpointDoesNotRequireServiceAuth(t *testing.T) {
+	handler := New(Options{Config: config.Config{}})
 	req := httptest.NewRequest(http.MethodGet, "/v1/courses?organisation_id=aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", nil)
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusUnauthorized {
-		t.Fatalf("expected 401, got %d", rec.Code)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected database availability to fail with 503, got %d", rec.Code)
 	}
 }
 
-func TestProtectedEndpointAcceptsAPIKeyHeader(t *testing.T) {
-	handler := New(Options{Config: config.Config{APIKey: "secret"}})
+func TestProtectedEndpointIgnoresLegacyServiceKeyHeader(t *testing.T) {
+	handler := New(Options{Config: config.Config{}})
 	req := httptest.NewRequest(http.MethodGet, "/v1/courses?organisation_id=aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa", nil)
 	req.Header.Set("X-API-Key", "secret")
 	rec := httptest.NewRecorder()
@@ -47,9 +47,8 @@ func TestProtectedEndpointAcceptsAPIKeyHeader(t *testing.T) {
 }
 
 func TestCourseTypeCreateRequiresPlatformAdminRole(t *testing.T) {
-	handler := New(Options{Config: config.Config{APIKey: "secret"}})
+	handler := New(Options{Config: config.Config{}})
 	req := httptest.NewRequest(http.MethodPost, "/v1/course-types", strings.NewReader(`{"name":"Open Mat"}`))
-	req.Header.Set("X-API-Key", "secret")
 	rec := httptest.NewRecorder()
 
 	handler.ServeHTTP(rec, req)
@@ -60,9 +59,8 @@ func TestCourseTypeCreateRequiresPlatformAdminRole(t *testing.T) {
 }
 
 func TestCourseTypeCreateAllowsPlatformAdminRole(t *testing.T) {
-	handler := New(Options{Config: config.Config{APIKey: "secret"}})
+	handler := New(Options{Config: config.Config{}})
 	req := httptest.NewRequest(http.MethodPost, "/v1/course-types", strings.NewReader(`{"name":"Open Mat"}`))
-	req.Header.Set("X-API-Key", "secret")
 	req.Header.Set("X-Actor-Role", "PLATFORM_ADMIN")
 	rec := httptest.NewRecorder()
 
@@ -74,7 +72,7 @@ func TestCourseTypeCreateAllowsPlatformAdminRole(t *testing.T) {
 }
 
 func TestReadyReportsUnavailableWithoutDatabase(t *testing.T) {
-	handler := New(Options{Config: config.Config{APIKey: "secret"}})
+	handler := New(Options{Config: config.Config{}})
 	req := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 	rec := httptest.NewRecorder()
 

@@ -10,7 +10,7 @@ The backend never accepts raw card PAN or CVV fields. Stripe.js, PayPal approval
 docker compose up --build
 ```
 
-The compose stack starts PostgreSQL, initializes `migrations/001_core_schema.sql`, and runs the API with `API_KEY=local-dev-key`. The top-level migration is an ordered orchestrator that loads schema, type, table, function, and procedure files from subfolders.
+The compose stack starts PostgreSQL, initializes `migrations/001_core_schema.sql`, and runs the API. The top-level migration is an ordered orchestrator that loads schema, type, table, function, and procedure files from subfolders.
 
 ```bash
 curl http://localhost:3002/healthz
@@ -21,7 +21,6 @@ Create a Stripe card payment:
 
 ```bash
 curl -s http://localhost:3002/v1/payments \
-  -H 'Authorization: Bearer local-dev-key' \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: create-demo-1' \
   -d '{"amount":1299,"currency":"GBP","provider":"stripe","payment_method_type":"card","capture_method":"automatic","metadata":{"order_id":"ord_123"}}'
@@ -31,7 +30,6 @@ Create a Stripe Google Pay payment intent:
 
 ```bash
 curl -s http://localhost:3002/v1/payments \
-  -H 'Authorization: Bearer local-dev-key' \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: create-demo-google-pay-1' \
   -d '{"amount":1299,"currency":"GBP","provider":"stripe","payment_method_type":"google_pay","capture_method":"automatic","metadata":{"order_id":"ord_123"}}'
@@ -43,7 +41,6 @@ Create a PayPal wallet payment:
 
 ```bash
 curl -s http://localhost:3002/v1/payments \
-  -H 'Authorization: Bearer local-dev-key' \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: create-demo-2' \
   -d '{"amount":1299,"currency":"GBP","provider":"paypal","payment_method_type":"paypal"}'
@@ -53,7 +50,6 @@ Create a generic hosted checkout:
 
 ```bash
 curl -s http://localhost:3002/v1/checkouts \
-  -H 'Authorization: Bearer local-dev-key' \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: course-cmq123-2026-06-08-1900-student' \
   -d '{
@@ -81,7 +77,6 @@ Register another service as a payment client:
 
 ```bash
 curl -s http://localhost:3002/v1/clients \
-  -H 'Authorization: Bearer local-dev-key' \
   -H 'Content-Type: application/json' \
   -d '{"id":"partner_app","name":"Partner App","callback_url":"https://partner.example.com/payments/callback"}'
 ```
@@ -90,7 +85,6 @@ Refund a payment:
 
 ```bash
 curl -s http://localhost:3002/v1/payments/pay_000001/refunds \
-  -H 'Authorization: Bearer local-dev-key' \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: refund-demo-1' \
   -d '{"amount":500,"reason":"requested_by_customer"}'
@@ -112,8 +106,7 @@ The service reads configuration from environment variables only.
 - `PORT`, default `8080`
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD`, used to build the PostgreSQL connection for `/readyz`
 - `DATABASE_URL`, optional compatibility override when DB parts are not supplied
-- `API_KEY`, required for protected payment/refund/status endpoints and `/readyz`
-- `PAYMENT_PUBLIC_BASE_URL`, default `http://localhost:3002`; used to build service-owned provider callback URLs
+- `PAYMENT_PUBLIC_BASE_URL`, default `http://localhost:3002`; canonical payment service URI used to build service-owned provider callback URLs
 - `PAYMENT_DEFAULT_CLIENT_ID`, default `default`; optional pre-registered client id for local/single-client deployments
 - `PAYMENT_DEFAULT_CLIENT_NAME`, default `Default Client`; display name for the pre-registered client
 - `PAYMENT_DEFAULT_CLIENT_CALLBACK_URL`; optional callback URL for the pre-registered client. `PAYMENT_APPLICATION_STATUS_URL` is still accepted as a legacy alias.
@@ -129,7 +122,7 @@ The service reads configuration from environment variables only.
 - `PAYPAL_CLIENT_SECRET`, future live PayPal credential
 - `PAYPAL_WEBHOOK_ID`, future live PayPal webhook verification identifier
 
-If database configuration or `API_KEY` is missing, `/readyz` returns `503` with a clear reason. Protected endpoints return `401` when credentials are missing or invalid.
+If database configuration is missing, `/readyz` returns `503` with a clear reason. Service-to-service authentication is handled by the orchestration layer, not by this service.
 
 Environment variables inside a running container cannot be changed without recreating the container. Use `STRIPE_SECRET_KEY_FILE` for restart-free local or production key rotation. For example, mount a secret file at `/run/secrets/stripe_secret_key`, set `STRIPE_SECRET_KEY_FILE=/run/secrets/stripe_secret_key`, and replace the file contents when rotating the key.
 
@@ -187,7 +180,6 @@ List recorded payments:
 
 ```bash
 curl -s 'http://localhost:3002/v1/payments?client_id=rollfinders&payer_email=student@example.com' \
-  -H 'Authorization: Bearer local-dev-key'
 ```
 
 Useful filters:

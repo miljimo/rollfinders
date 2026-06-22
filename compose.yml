@@ -3,6 +3,7 @@ include:
   - path: ./services/booking/compose.yml
   - path: ./services/users/compose.yml
   - path: ./services/courses/compose.yml
+  - path: ./services/authorisation/compose.yml
 
 services:
   db:
@@ -91,14 +92,13 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
-      PAYMENT_SERVICE_URL: ${PAYMENT_SERVICE_URL:-http://payments:8080}
-      PAYMENT_SERVICE_API_KEY: ${PAYMENT_SERVICE_API_KEY:-local-dev-key}
-      BOOKING_SERVICE_URL: ${BOOKING_SERVICE_URL:-http://booking:8080}
-      BOOKING_SERVICE_API_KEY: ${BOOKING_SERVICE_API_KEY:-local-booking-dev-key}
-      USER_SERVICE_URL: ${USER_SERVICE_URL:-http://users:8080}
-      USER_SERVICE_API_KEY: ${USER_SERVICE_API_KEY:-local-user-dev-key}
-      COURSE_SERVICE_URL: ${COURSE_SERVICE_URL:-http://courses:8080}
-      COURSE_SERVICE_API_KEY: ${COURSE_SERVICE_API_KEY:-local-course-dev-key}
+      PAYMENT_PUBLIC_BASE_URL: ${PAYMENT_PUBLIC_BASE_URL:-http://payments:8080}
+      BOOKING_PUBLIC_BASE_URL: ${BOOKING_PUBLIC_BASE_URL:-http://booking:8080}
+      USER_PUBLIC_BASE_URL: ${USER_PUBLIC_BASE_URL:-http://users:8080}
+      AUTHORISATION_PUBLIC_BASE_URL: ${AUTHORISATION_PUBLIC_BASE_URL:-http://authorisation-api:8080}
+      AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
+      ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
+      COURSE_PUBLIC_BASE_URL: ${COURSE_PUBLIC_BASE_URL:-http://courses:8080}
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
     ports:
       - "3000:3000"
@@ -108,6 +108,8 @@ services:
       migrate:
         condition: service_completed_successfully
       users:
+        condition: service_healthy
+      authorisation-api:
         condition: service_healthy
       courses:
         condition: service_healthy

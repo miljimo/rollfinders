@@ -82,15 +82,11 @@ export class CourseServiceError extends Error {
   }
 }
 
-const courseServiceUrl = () => getEnvVariable("COURSE_SERVICE_URL", "http://localhost:3004").replace(/\/+$/, "");
-const courseServiceApiKey = () => getEnvVariable("COURSE_SERVICE_API_KEY", "local-course-dev-key");
+const courseServiceUrl = () => getEnvVariable("COURSE_PUBLIC_BASE_URL", "http://localhost:3004").replace(/\/+$/, "");
 const courseServiceRequired = () => getEnvVariable("COURSE_SERVICE_REQUIRED", "false").toLowerCase() === "true";
 
 function headers() {
-  const apiKey = courseServiceApiKey();
-  if (!apiKey) throw new CourseServiceError("Course service API key is not configured.", 0);
   return {
-    Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
 }

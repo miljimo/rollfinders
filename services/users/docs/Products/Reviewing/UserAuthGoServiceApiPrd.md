@@ -21,7 +21,7 @@ Define the Go service API required for authentication and account-session valida
 | `POST` | `/v1/auth/credentials` | Verify email/password credentials |
 | `GET` | `/v1/accounts/{id}` | Return current active account context |
 
-All routes SHALL require internal service authentication.
+Service-to-service authentication and authorization SHALL be enforced by the orchestration layer before requests reach this service.
 
 ---
 
@@ -31,19 +31,9 @@ IF a request reaches a user-service route
 
 WHEN the route is not `healthz` or `readyz`
 
-THEN the request SHALL include either:
+THEN the service SHALL process the request without requiring a service API key header.
 
-```text
-Authorization: Bearer <USER_SERVICE_API_KEY>
-```
-
-or:
-
-```text
-X-API-Key: <USER_SERVICE_API_KEY>
-```
-
-Invalid or missing credentials SHALL return `401`.
+Invalid actor or permission context SHALL be handled by the orchestration layer or Authorisation Service, not by a shared service API key.
 
 ---
 

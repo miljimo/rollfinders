@@ -108,11 +108,6 @@ BEGIN
         VALUES ('csec_' || replace(gen_random_uuid()::text, '-', ''), v_credential_id, p_password_hash);
     END IF;
 
-    IF COALESCE(trim(p_default_role), '') <> '' THEN
-        INSERT INTO user_roles (user_id, role_key)
-        VALUES (p_id, trim(p_default_role))
-        ON CONFLICT DO NOTHING;
-    END IF;
 END;
 $$;
 
@@ -186,16 +181,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE PROCEDURE "userRoleRemove"(p_user_id text, p_role_key text)
-LANGUAGE plpgsql
-SET search_path TO users, public
-AS $$
-BEGIN
-    DELETE FROM user_roles
-    WHERE user_id = p_user_id AND role_key = p_role_key;
-END;
-$$;
-
 CREATE OR REPLACE PROCEDURE "bootstrapSuperAdmin"(
     p_id text,
     p_name text,
@@ -235,8 +220,5 @@ BEGIN
     SET password_hash = EXCLUDED.password_hash,
         updated_at = now();
 
-    INSERT INTO user_roles (user_id, role_key)
-    VALUES (p_id, 'SUPER_ADMIN')
-    ON CONFLICT DO NOTHING;
 END;
 $$;

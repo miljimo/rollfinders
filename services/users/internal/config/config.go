@@ -10,17 +10,17 @@ import (
 )
 
 type Config struct {
-	Port            string
-	DatabaseURL     string
-	APIKey          string
-	JWTSecret       string
-	DefaultUserRole string
-	SuperAdminEmail string
-	SuperAdminName  string
-	SuperAdminPass  string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	ShutdownTimeout time.Duration
+	Port                 string
+	DatabaseURL          string
+	JWTSecret            string
+	DefaultUserRole      string
+	SuperAdminEmail      string
+	SuperAdminName       string
+	SuperAdminPass       string
+	AuthorisationCutover bool
+	ReadTimeout          time.Duration
+	WriteTimeout         time.Duration
+	ShutdownTimeout      time.Duration
 }
 
 func Load() (Config, error) {
@@ -29,17 +29,17 @@ func Load() (Config, error) {
 
 func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
-		Port:            env.GetWithDefault("PORT", "8080"),
-		DatabaseURL:     databaseURL(env),
-		APIKey:          env.Get("API_KEY"),
-		JWTSecret:       env.GetWithDefault("JWT_SECRET", env.GetWithDefault("API_KEY", "local-user-jwt-secret")),
-		DefaultUserRole: env.GetWithDefault("DEFAULT_USER_ROLE", "STANDARD_USER"),
-		SuperAdminEmail: env.GetWithDefault("SUPER_ADMIN_EMAIL", env.GetWithDefault("DEFAULT_SUPER_ADMIN_EMAIL", "admin@rollfinder.com")),
-		SuperAdminName:  env.GetWithDefault("SUPER_ADMIN_NAME", env.GetWithDefault("DEFAULT_SUPER_ADMIN_NAME", "RollFinder Admin")),
-		SuperAdminPass:  env.GetWithDefault("SUPER_ADMIN_PASSWORD", env.GetWithDefault("DEFAULT_SUPER_ADMIN_PASSWORD", "")),
-		ReadTimeout:     durationDefault(env, "READ_TIMEOUT", 5*time.Second),
-		WriteTimeout:    durationDefault(env, "WRITE_TIMEOUT", 10*time.Second),
-		ShutdownTimeout: durationDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
+		Port:                 env.GetWithDefault("PORT", "8080"),
+		DatabaseURL:          databaseURL(env),
+		JWTSecret:            env.GetWithDefault("JWT_SECRET", "local-user-jwt-secret"),
+		DefaultUserRole:      env.GetWithDefault("DEFAULT_USER_ROLE", "STANDARD_USER"),
+		SuperAdminEmail:      env.GetWithDefault("SUPER_ADMIN_EMAIL", env.GetWithDefault("DEFAULT_SUPER_ADMIN_EMAIL", "admin@rollfinder.com")),
+		SuperAdminName:       env.GetWithDefault("SUPER_ADMIN_NAME", env.GetWithDefault("DEFAULT_SUPER_ADMIN_NAME", "RollFinder Admin")),
+		SuperAdminPass:       env.GetWithDefault("SUPER_ADMIN_PASSWORD", env.GetWithDefault("DEFAULT_SUPER_ADMIN_PASSWORD", "")),
+		AuthorisationCutover: env.GetWithDefault("AUTHORISATION_CUTOVER", "false") == "true",
+		ReadTimeout:          durationDefault(env, "READ_TIMEOUT", 5*time.Second),
+		WriteTimeout:         durationDefault(env, "WRITE_TIMEOUT", 10*time.Second),
+		ShutdownTimeout:      durationDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
 	}
 	if cfg.Port == "" {
 		return Config{}, errors.New("PORT must not be empty")

@@ -132,8 +132,7 @@ type PaymentRefundRecordResponse = {
   updated_at: string;
 };
 
-const paymentServiceUrl = () => getEnvVariable("PAYMENT_SERVICE_URL", "http://localhost:3002").replace(/\/+$/, "");
-const paymentServiceApiKey = () => getEnvVariable("PAYMENT_SERVICE_API_KEY", "");
+const paymentServiceUrl = () => getEnvVariable("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002").replace(/\/+$/, "");
 
 export class PaymentServiceError extends Error {
   constructor(
@@ -156,16 +155,10 @@ type ErrorResponse = {
 export async function createCourseOccurrenceCheckout(
   input: CreateCourseOccurrenceCheckoutInput,
 ): Promise<CourseOccurrenceCheckout> {
-  const apiKey = paymentServiceApiKey();
-  if (!apiKey) {
-    throw new PaymentServiceError("Payment service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${paymentServiceUrl()}/v1/checkouts`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": input.idempotencyKey,
     },
@@ -209,10 +202,6 @@ export async function createCourseOccurrenceCheckout(
 }
 
 export async function listCourseOccurrencePayments({ limit = 100 }: { limit?: number } = {}): Promise<PaymentRecord[]> {
-  const apiKey = paymentServiceApiKey();
-  if (!apiKey) {
-    throw new PaymentServiceError("Payment service API key is not configured.", 0);
-  }
   const params = new URLSearchParams({
     client_id: "rollfinders",
     resource_type: "course_occurrence",
@@ -221,9 +210,6 @@ export async function listCourseOccurrencePayments({ limit = 100 }: { limit?: nu
   const response = await fetch(`${paymentServiceUrl()}/v1/payments?${params.toString()}`, {
     method: "GET",
     cache: "no-store",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-    },
   });
   if (!response.ok) {
     throw new PaymentServiceError(`Payment service history request failed with status ${response.status}.`, response.status);
@@ -254,16 +240,10 @@ export async function listCourseOccurrencePayments({ limit = 100 }: { limit?: nu
 }
 
 export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentRecord> {
-  const apiKey = paymentServiceApiKey();
-  if (!apiKey) {
-    throw new PaymentServiceError("Payment service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/cancel`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": input.idempotencyKey,
     },
@@ -300,16 +280,10 @@ export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentR
 }
 
 export async function createPaymentRefund(input: CreatePaymentRefundInput): Promise<PaymentRefundRecord> {
-  const apiKey = paymentServiceApiKey();
-  if (!apiKey) {
-    throw new PaymentServiceError("Payment service API key is not configured.", 0);
-  }
-
   const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`, {
     method: "POST",
     cache: "no-store",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
       "Idempotency-Key": input.idempotencyKey,
     },

@@ -1,211 +1,224 @@
 # Product Requirements Document (PRD)
 
-# Generic Identity & Access Management (IAM) Service
+# Users Identity & Authentication Service
 
 ## Document Information
 
 | Field | Value |
 | --- | --- |
-| Product | User Management Service |
-| Version | 1.0 |
+| Product | Users Service |
+| Version | 1.1 |
 | Status | Draft |
 | Audience | Product Managers, Architects, Backend Engineers, API Developers |
-| Database | PostgreSQL |
-| Architecture | Microservice or Shared Platform Service |
+| Database | PostgreSQL `users` schema in the shared RollFinders database |
+| Architecture | Identity and authentication service |
 
 ## 1. Overview
 
-The User Management Service provides centralized identity, authentication, authorization, role management, and privilege management capabilities for applications and services.
+The Users Service owns user identity, credentials, authentication sessions, password reset, MFA, user profile state, organisation records currently implemented in the Users schema, and organisation membership records.
 
-The service acts as a lightweight IAM platform and supports user directory, authentication, RBAC, permission management, organization or tenant support, auditability, and API-based management.
+The Users Service no longer owns roles, permissions, role-permission mappings, user-role assignments, direct user permissions, or effective permission evaluation. Those responsibilities belong to the Authorisation Service.
 
-## 2. Objectives
+## 2. Ownership Boundaries
+
+Users Service owns:
+
+* users
+* credentials and credential secrets
+* sessions and refresh tokens
+* password reset tokens
+* MFA methods
+* user profile/status/protected-account state
+* current implementation baseline for organisations and `organisation_users`
+* user-management audit logs
+
+RollFinders public Prisma schema shall not own or mirror a `users` table. Domain tables may store user identifiers as text references, but canonical user records must live in the Users Service schema.
+
+Authorisation Service owns:
+
+* roles
+* permissions
+* role-permission mappings
+* user-role assignments
+* direct user-permission assignments
+* effective permission resolution
+* role and permission management APIs
+
+Application/API Gateway responsibilities:
+
+* call Authorisation Service for access decisions
+* pass `user_id`, `organisation_id`, `application_id`, and resource scope where applicable
+* avoid hardcoded role guards in new code
+
+## 3. Objectives
 
 Business goals:
 
-* Centralize user administration.
-* Reduce duplicate user management implementations.
-* Support multi-tenant applications.
-* Provide scalable authorization controls.
-* Enable future SSO integration.
+* Centralize user identity and authentication.
+* Keep authentication independent from permission policy.
+* Support one user account across organisations and academy locations.
+* Preserve current RollFinders login and user-management workflows during authorisation cutover.
 
 Technical goals:
 
-* Secure user identities.
-* Support role-based access control.
-* Support permission-based authorization.
-* Support organization-level role assignment.
-* Provide REST APIs.
-
-## 3. User Types
-
-* Super Administrator can manage all organizations, all users, roles, permissions, and system configuration.
-* Organization Administrator can manage users, roles, and permissions within an organization, but cannot manage other organizations or system settings.
-* Manager can view users, assign approved roles, and manage operational resources.
-* Standard User can log in, update their own profile, and access authorized resources.
-* Guest can access limited resources.
+* Secure user identities and credentials.
+* Use stored procedures/functions for all database operations.
+* Keep the Users schema free of permission ownership tables after migration.
+* Integrate with Authorisation Service for role and permission decisions.
+* Support future SSO, OIDC, SAML, SCIM, and passkeys without reintroducing RBAC ownership.
 
 ## 4. Functional Requirements
 
 FR-001 User Management:
 
-* System shall allow create, read, update, deactivate, reactivate, and delete user.
-* User attributes shall include `id`, `email`, optional `username`, `first_name`, `last_name`, optional `phone`, `password_hash`, `status`, `created_at`, and `updated_at`.
+* System shall allow create, read, update, deactivate, reactivate, and delete user identities.
+* User attributes shall include `id`, `email`, optional `username`, `first_name`, `last_name`, optional `phone`, status, protected-account flag, created timestamp, and updated timestamp.
+* User create/update APIs shall not write role assignments.
 
 FR-002 Authentication:
 
-* System shall support email login, username login, password validation, password reset, password change, and account lockout.
-* Future support includes SSO, OAuth2, OpenID Connect, and SAML.
+* System shall support email login, username login, password validation, password reset, password change, account disablement, sessions, and refresh tokens.
+* Future support includes SSO, OAuth2, OpenID Connect, SAML, SCIM, MFA expansion, and passkeys.
 
-FR-003 Role Management:
+FR-003 Organisation Records:
 
-* System shall allow create, edit, delete, view, and assign role.
-* Roles are data rows, not hard-coded application branches.
+* System shall continue to expose the current `/v1/organisations` baseline while Organisation Service extraction is staged.
+* System shall support organisation creation/update only for platform-controlled flows, not public RollFinders self-serve organisation creation.
 
-FR-004 Permission Management:
+FR-004 Organisation Membership:
 
-* System shall allow create permission, view permission, assign permission to role, and remove permission from role.
-* Permission keys shall use the `resource.action` format.
+* System shall keep `organisation_users` as the current membership baseline.
+* Organisation membership shall not imply a role or permission.
+* Access to an organisation resource shall be decided by Authorisation Service permissions scoped to the relevant organisation/application/resource.
 
-FR-005 User Role Assignment:
+FR-005 Role and Permission Cutover:
 
-* System shall support assigning, removing, and viewing user roles.
-* A user may have multiple roles.
+* Users Service shall not create, update, delete, or list roles.
+* Users Service shall not create, update, delete, or list permissions.
+* Users Service shall not create, update, delete, or list user-role assignments.
+* Users Service shall not create, update, delete, or list direct user-permission assignments.
+* Legacy Users authorisation tables shall be dropped after data is migrated into the Authorisation Service.
 
-FR-006 Direct User Permissions:
+FR-006 Compatibility Fields:
 
-* System shall support direct user permission exceptions.
-* Permission evaluation priority shall be explicit deny, explicit allow, then role permission.
+* Users APIs may temporarily return compatibility fields such as `role` and `privileges` where existing RollFinders callers still require them.
+* Compatibility role values are not authoritative and shall not be used for new access decisions.
+* `privileges` shall be returned as an empty compatibility array from Users; callers shall query Authorisation Service for permissions.
 
-FR-007 Organization Management:
+FR-007 Audit Logging:
 
-* System shall support creating, updating, disabling organizations, adding users, and removing users.
+* System shall record identity/authentication/user-management actions.
+* Role and permission audit events shall be recorded by Authorisation Service.
 
-FR-008 Organization Role Assignment:
-
-* Roles may exist within organizations.
-* The same user may hold different roles in different organizations.
-
-FR-009 User Status Management:
-
-* Supported statuses are `pending_verification`, `active`, `inactive`, `suspended`, `locked`, and `deleted`.
-
-FR-010 User Profile Management:
-
-* Users can update profile, change password, verify email, and verify phone.
-
-FR-011 Audit Logging:
-
-* System shall record user creation, user update, password changes, role assignments, permission assignments, and login events.
-* Audit fields shall include actor, action, resource, resource ID, timestamp, old value, and new value.
-
-## 5. Authorization Model
-
-RBAC:
-
-```text
-User -> Role -> Permission
-```
-
-Effective permissions:
-
-```text
-Role Permissions + Direct User Permissions - Denied Permissions
-```
-
-## 6. API Requirements
+## 5. API Requirements
 
 Users:
 
 ```http
-POST   /api/v1/users
-GET    /api/v1/users
-GET    /api/v1/users/{id}
-PUT    /api/v1/users/{id}
-DELETE /api/v1/users/{id}
+POST   /v1/users
+GET    /v1/users
+GET    /v1/users/{id}
+PUT    /v1/users/{id}
+DELETE /v1/users/{id}
+POST   /v1/users/{id}/disable
+POST   /v1/users/{id}/enable
 ```
 
-Roles:
+Authentication:
 
 ```http
-POST   /api/v1/roles
-GET    /api/v1/roles
-GET    /api/v1/roles/{id}
-PUT    /api/v1/roles/{id}
-DELETE /api/v1/roles/{id}
+POST   /v1/auth/credentials
+POST   /v1/auth/password-reset/request
+POST   /v1/auth/password-reset/validate
+POST   /v1/auth/password-reset/confirm
+POST   /auth/register
+POST   /auth/login
+POST   /auth/logout
+POST   /auth/refresh
+POST   /auth/change-password
 ```
 
-Permissions:
+Organisations:
 
 ```http
-POST   /api/v1/permissions
-GET    /api/v1/permissions
-GET    /api/v1/permissions/{id}
+POST   /v1/organisations
+GET    /v1/organisations
+GET    /v1/organisations/{id}
+PUT    /v1/organisations/{id}
 ```
 
-User roles:
+Removed from Users Service:
 
 ```http
-POST   /api/v1/users/{id}/roles
-DELETE /api/v1/users/{id}/roles/{roleId}
-GET    /api/v1/users/{id}/roles
+POST   /v1/roles
+GET    /v1/roles
+POST   /v1/permissions
+GET    /v1/permissions
+POST   /v1/roles/{id}/permissions
+GET    /v1/roles/{id}/permissions
+POST   /v1/users/{id}/roles
+GET    /v1/users/{id}/roles
+DELETE /v1/users/{id}/roles/{roleId}
 ```
 
-Organizations:
+These APIs belong to Authorisation Service.
 
-```http
-POST   /api/v1/organisations
-GET    /api/v1/organisations
-GET    /api/v1/organisations/{id}
-PUT    /api/v1/organisations/{id}
-```
+## 6. Database Model
 
-## 7. Non-Functional Requirements
-
-* Passwords shall be hashed using Argon2 or bcrypt.
-* HTTPS is required.
-* JWT authentication and refresh tokens are supported.
-* Account lockout shall happen after configurable failed attempts.
-* The service shall support 1M+ users, 100K+ organizations, horizontal scaling, 99.9% uptime, P95 API response under 200ms, and permission evaluation under 20ms.
-
-## 8. Database Model
-
-Core tables:
+Users schema tables:
 
 ```text
 users
-roles
-permissions
-user_roles
-role_permissions
-user_permissions
+credentials
+credential_secrets
+sessions
+refresh_tokens
+password_reset_tokens
+mfa_methods
 organisations
 organisation_users
-organisation_user_roles
+admin_audit_logs
+schema_migrations
 ```
 
-Audit tables:
+Removed from Users schema:
 
 ```text
-audit_logs
-login_history
+roles
+privileges
+role_privileges
+user_roles
+user_permissions
 ```
 
-## 9. Future Enhancements
+Removed from RollFinders public schema:
 
-Phase 2: MFA, passkeys, Google Login, Microsoft Login, GitHub Login.
+```text
+users
+academy_member_profiles
+```
 
-Phase 3: SCIM provisioning, OpenID Connect provider, SAML provider, fine-grained authorization.
+## 7. Migration Requirements
 
-Phase 4: policy engine, ABAC, dynamic policies, conditional access.
+* Migrate existing Users role and privilege data into the Authorisation Service before cleanup.
+* Verify Authorisation Service row counts are at least equal to legacy Users authorisation row counts.
+* Drop legacy Users authorisation functions, procedures, and tables after migration.
+* Do not reintroduce Users-owned role tables in future migrations.
 
-## 10. Success Metrics
+## 8. Non-Functional Requirements
+
+* Passwords shall be hashed using a strong one-way password hashing algorithm.
+* HTTPS is required outside local development.
+* JWT authentication and refresh tokens are supported.
+* Database operations shall go through stored procedures/functions.
+* Users APIs shall not perform permission evaluation locally.
+
+## 9. Success Metrics
 
 | Metric | Target |
 | --- | --- |
 | User Creation Success Rate | >99% |
 | Login Success Rate | >99% |
 | API Availability | 99.9% |
-| Permission Evaluation Time | <20ms |
 | Password Reset Completion | >95% |
-| Audit Coverage | 100% |
+| Users-owned permission tables after cleanup | 0 |

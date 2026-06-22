@@ -4,7 +4,7 @@ import { getEnvVariable } from "@/lib/environments";
 
 export const dynamic = "force-dynamic";
 
-const paymentServiceUrl = () => getEnvVariable("PAYMENT_SERVICE_URL", "http://localhost:3002").replace(/\/+$/, "");
+const paymentServiceUrl = () => getEnvVariable("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002").replace(/\/+$/, "");
 
 function successfulPayment(result: string, status: string | null) {
   return result === "success" && ["paid", "succeeded", "completed"].includes(String(status ?? "").toLowerCase());

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { Role, type Prisma } from "@prisma/client";
 import { authOptions } from "./auth";
+import { authorize } from "./authorisation-service";
 import { prisma } from "./prisma";
 import { getUserAccount, UserServiceError } from "./users-service";
 
@@ -63,17 +64,30 @@ export function canManageNonPlatformUsers(role?: string) {
   return isPlatformAdminRole(role);
 }
 
+function defaultAuthorisationScope(user: { academyId?: string | null }) {
+  return {
+    organisationId: user.academyId ?? undefined,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+  };
+}
+
+async function hasPermission(user: Awaited<ReturnType<typeof getCurrentUser>>, permission: string) {
+  if (!user) return false;
+  return authorize(user, permission, defaultAuthorisationScope(user));
+}
+
 export async function requireAdminPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  if (!isAnyAdminRole(user.role) && !hasUserPrivilege(user, "users.admin.access")) redirect("/");
+  if (!(await hasPermission(user, "users.admin.access"))) redirect("/");
   if (isAcademyAdminRole(user.role) && !user.academyId) redirect("/");
   return user;
 }
 
 export async function requireSuperAdminPage() {
   const user = await getCurrentUser();
-  if (!isSuperAdminRole(user?.role)) {
+  if (!user) redirect("/login");
+  if (!(await hasPermission(user, "users.protected.manage"))) {
     redirect("/dashboard");
   }
   return user;
@@ -81,7 +95,8 @@ export async function requireSuperAdminPage() {
 
 export async function requirePlatformAdminPage() {
   const user = await getCurrentUser();
-  if (!isPlatformAdminRole(user?.role)) {
+  if (!user) redirect("/login");
+  if (!(await hasPermission(user, "organisation.application.manage"))) {
     redirect("/dashboard");
   }
   return user;
@@ -89,7 +104,7 @@ export async function requirePlatformAdminPage() {
 
 export async function requireAdminApi() {
   const user = await getCurrentUser();
-  if ((!isAnyAdminRole(user?.role) && !hasUserPrivilege(user, "users.admin.access")) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
+  if (!(await hasPermission(user, "users.admin.access")) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
     return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
   return null;
@@ -97,7 +112,7 @@ export async function requireAdminApi() {
 
 export async function requireAdminApiUser() {
   const user = await getCurrentUser();
-  if ((!isAnyAdminRole(user?.role) && !hasUserPrivilege(user, "users.admin.access")) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
+  if (!(await hasPermission(user, "users.admin.access")) || (isAcademyAdminRole(user?.role) && !user?.academyId)) {
     return { response: NextResponse.json({ error: "Admin access required" }, { status: 403 }), user: null };
   }
   return { response: null, user };
@@ -146,7 +161,7 @@ export function academyScopedEventWhere(actor: { role?: string; academyId?: stri
 
 export async function requireSuperAdminApi() {
   const user = await getCurrentUser();
-  if (!isSuperAdminRole(user?.role)) {
+  if (!(await hasPermission(user, "users.protected.manage"))) {
     return { response: NextResponse.json({ error: "Super admin access required" }, { status: 403 }), user: null };
   }
   return { response: null, user };
@@ -154,7 +169,7 @@ export async function requireSuperAdminApi() {
 
 export async function requirePlatformAdminApi() {
   const user = await getCurrentUser();
-  if (!isPlatformAdminRole(user?.role)) {
+  if (!(await hasPermission(user, "organisation.application.manage"))) {
     return NextResponse.json({ error: "Platform admin access required" }, { status: 403 });
   }
   return null;

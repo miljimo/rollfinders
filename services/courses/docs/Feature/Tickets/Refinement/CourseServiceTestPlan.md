@@ -4,7 +4,7 @@ This plan covers the first test files to add once `services/courses` contains th
 
 ## Existing Service Patterns Observed
 
-* `services/payments/internal/server/server_test.go` uses `httptest`, a local `testServer(databaseURL string)` helper, and an `authed` helper with `Authorization: Bearer test-key`.
+* Service tests use `httptest` and local `testServer(databaseURL string)` helpers.
 * `/healthz` must not require a database. `/readyz` should fail without a configured database URL.
 * Request validation tests assert HTTP status codes and decode JSON response bodies only where response contracts matter.
 * Migration entry points follow the service include style with the Courses camelCase file name `services/courses/migrations/001_coreSchema.sql`: schema include first, `SET search_path`, ordered `\ir` includes for schema/types/tables/functions/procedures, then idempotent `INSERT INTO schema_migrations(version) ... ON CONFLICT DO NOTHING`.
@@ -17,17 +17,15 @@ Create helpers equivalent to payments:
 
 ```go
 func testServer(databaseURL string) http.Handler
-func authed(req *http.Request) *http.Request
 ```
 
 Test cases:
 
 * `TestHealthDoesNotRequireDatabase`: `GET /healthz` returns `200`, JSON content type, and a JSON status field.
 * `TestReadyFailsWithoutDatabaseURL`: `GET /readyz` returns `503` when the database URL is empty.
-* `TestProtectedEndpointsRequireAPIKey`: table test for `POST /v1/courses`, `GET /v1/courses`, `GET /v1/courses/course_123`, `PUT /v1/courses/course_123`, `POST /v1/courses/course_123/activities`, and `GET /v1/courses/course_123/activities`; no auth should return `401`.
-* `TestProtectedEndpointsRejectWrongAPIKey`: same table with `Authorization: Bearer wrong-key`; expect `401` or `403`, whichever the service standardizes.
-* `TestCourseCreateRequiresJSON`: authed `POST /v1/courses` without `Content-Type: application/json` returns `415`.
-* `TestCourseCreateRejectsInvalidPayload`: authed JSON body missing `organisation_id`, `course_type_id`, or `title` returns `400`.
+* `TestProtectedEndpointsDoNotRequireSharedServiceKey`: table test for `POST /v1/courses`, `GET /v1/courses`, `GET /v1/courses/course_123`, `PUT /v1/courses/course_123`, `POST /v1/courses/course_123/activities`, and `GET /v1/courses/course_123/activities`; no internal shared key should reach route/database validation.
+* `TestCourseCreateRequiresJSON`: `POST /v1/courses` without `Content-Type: application/json` returns `415`.
+* `TestCourseCreateRejectsInvalidPayload`: JSON body missing `organisation_id`, `course_type_id`, or `title` returns `400`.
 * `TestCourseCreateListGetUpdateRoundTrip`: with the service's no-database fake success rule respected, run only when an in-memory/test repository or test database is configured. Create a course, assert `201`, list by `organisation_id`, get by id, update title/status, and assert scoped data remains stable.
 * `TestActivityCreateRejectsOutOfRangeTimes`: activity create with end before start or outside session/course time range returns `400`.
 * `TestActivityCreateListChronological`: create two activity blocks out of order, list them, and assert response order is chronological.

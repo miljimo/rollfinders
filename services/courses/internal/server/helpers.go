@@ -20,14 +20,6 @@ func (r *statusRecorder) WriteHeader(status int) {
 
 func (s *server) requireAuth(next handlers.HttpHandler) handlers.HttpHandler {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if s.cfg.APIKey == "" {
-			handlers.WriteError(w, http.StatusUnauthorized, "unauthorized", "API authentication is not configured.")
-			return
-		}
-		if r.Header.Get("Authorization") != "Bearer "+s.cfg.APIKey && r.Header.Get("X-API-Key") != s.cfg.APIKey {
-			handlers.WriteError(w, http.StatusUnauthorized, "unauthorized", "Valid API credentials are required.")
-			return
-		}
 		next(w, r)
 	}
 }

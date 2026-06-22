@@ -1,0 +1,296 @@
+openapi: 3.1.0
+info:
+  title: RollFinder Authorisation Service
+  version: 0.1.0
+servers:
+  - url: /v1
+security:
+  - internalApiKey: []
+paths:
+  /permissions:
+    get:
+      responses:
+        "200":
+          description: Permission list
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PermissionWrite"
+      responses:
+        "201":
+          description: Permission created
+  /permissions/{permission_id}:
+    parameters:
+      - $ref: "#/components/parameters/PermissionId"
+    get:
+      responses:
+        "200":
+          description: Permission
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PermissionWrite"
+      responses:
+        "200":
+          description: Permission updated
+  /roles:
+    get:
+      responses:
+        "200":
+          description: Role list
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWrite"
+      responses:
+        "201":
+          description: Role created
+  /roles/{role_id}:
+    parameters:
+      - $ref: "#/components/parameters/RoleId"
+    get:
+      responses:
+        "200":
+          description: Role
+    put:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleWrite"
+      responses:
+        "200":
+          description: Role updated
+  /roles/{role_id}/permissions:
+    parameters:
+      - $ref: "#/components/parameters/RoleId"
+    get:
+      responses:
+        "200":
+          description: Role permissions
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [permission_id]
+              properties:
+                permission_id:
+                  type: string
+      responses:
+        "201":
+          description: Permission assigned
+  /roles/{role_id}/permissions/{permission_id}:
+    parameters:
+      - $ref: "#/components/parameters/RoleId"
+      - $ref: "#/components/parameters/PermissionId"
+    delete:
+      responses:
+        "204":
+          description: Permission removed from role
+  /users/{user_id}/roles:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      responses:
+        "200":
+          description: User role assignments
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Scope"
+                - type: object
+                  required: [role_id, assigned_by]
+                  properties:
+                    role_id:
+                      type: string
+                    assigned_by:
+                      type: string
+      responses:
+        "201":
+          description: User role assigned
+  /users/{user_id}/roles/{assignment_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/AssignmentId"
+    delete:
+      responses:
+        "204":
+          description: User role assignment removed
+  /users/{user_id}/permissions:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      responses:
+        "200":
+          description: Direct user permission assignments
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: "#/components/schemas/Scope"
+                - type: object
+                  required: [permission_id, effect, assigned_by]
+                  properties:
+                    permission_id:
+                      type: string
+                    effect:
+                      type: string
+                      enum: [ALLOW, DENY]
+                    assigned_by:
+                      type: string
+      responses:
+        "201":
+          description: Direct user permission assigned
+  /users/{user_id}/permissions/{assignment_id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - $ref: "#/components/parameters/AssignmentId"
+    delete:
+      responses:
+        "204":
+          description: Direct user permission assignment removed
+  /users/{user_id}/effective-permissions:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      parameters:
+        - name: organisation_id
+          in: query
+          schema:
+            type: string
+        - name: application_id
+          in: query
+          schema:
+            type: string
+        - name: resource_type
+          in: query
+          schema:
+            type: string
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Effective permissions
+  /authorize:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subjectId, permission]
+              properties:
+                subjectId:
+                  type: string
+                permission:
+                  type: string
+                organisationId:
+                  type: string
+                applicationId:
+                  type: string
+                resourceType:
+                  type: string
+                resourceId:
+                  type: string
+      responses:
+        "200":
+          description: Authorisation decision
+components:
+  securitySchemes:
+    internalApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    PermissionId:
+      name: permission_id
+      in: path
+      required: true
+      schema:
+        type: string
+    RoleId:
+      name: role_id
+      in: path
+      required: true
+      schema:
+        type: string
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+    AssignmentId:
+      name: assignment_id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    Scope:
+      type: object
+      properties:
+        organisation_id:
+          type: string
+        application_id:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+    PermissionWrite:
+      type: object
+      required: [code, name]
+      properties:
+        code:
+          type: string
+          pattern: "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)+$"
+        name:
+          type: string
+        description:
+          type: string
+        level:
+          type: integer
+          default: 100
+    RoleWrite:
+      type: object
+      required: [key, name]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        level:
+          type: integer
+          default: 100
+        assignable:
+          type: boolean
+          default: true
+        system_role:
+          type: boolean
+          default: false

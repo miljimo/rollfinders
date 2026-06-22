@@ -12,7 +12,6 @@ import (
 type Config struct {
 	Port            string
 	DatabaseURL     string
-	APIKey          string
 	ReadTimeout     time.Duration
 	WriteTimeout    time.Duration
 	ShutdownTimeout time.Duration
@@ -26,7 +25,6 @@ func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
 		Port:            env.GetWithDefault("PORT", "8080"),
 		DatabaseURL:     databaseURL(env),
-		APIKey:          env.Get("API_KEY"),
 		ReadTimeout:     durationOrDefault(env, "READ_TIMEOUT", 5*time.Second),
 		WriteTimeout:    durationOrDefault(env, "WRITE_TIMEOUT", 10*time.Second),
 		ShutdownTimeout: durationOrDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),

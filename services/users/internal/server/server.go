@@ -76,12 +76,7 @@ func New(opts Options) (http.Handler, func() error, error) {
 	mustHandle("/v1/users/{id}", []string{http.MethodGet}, s.getUser, auth)
 	mustHandle("/v1/users/{id}", []string{http.MethodPut}, s.updateUser, auth)
 	mustHandle("/v1/users/{id}", []string{http.MethodDelete}, s.deleteUser, auth)
-	mustHandle("/v1/users/{id}/roles", []string{http.MethodGet, http.MethodPost}, s.userRoles, auth)
-	mustHandle("/v1/users/{id}/roles/{roleId}", []string{http.MethodDelete}, s.removeUserRole, auth)
 	mustHandle("/v1/users/{id}/{mutation}", []string{http.MethodPost}, s.mutateUser, auth)
-	mustHandle("/v1/roles", []string{http.MethodGet, http.MethodPost}, s.roles, auth)
-	mustHandle("/v1/roles/{id}/permissions", []string{http.MethodGet, http.MethodPost}, s.rolePermissions, auth)
-	mustHandle("/v1/permissions", []string{http.MethodGet, http.MethodPost}, s.permissions, auth)
 	mustHandle("/v1/organisations", []string{http.MethodGet, http.MethodPost}, s.organisations, auth)
 	mustHandle("/v1/organisations/{id}", []string{http.MethodGet, http.MethodPut}, s.organisation, auth)
 
@@ -255,10 +250,6 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Valid email is required.")
 		return
 	}
-	role := strings.TrimSpace(body.Role)
-	if role == "" || !s.roleExists(r.Context(), role) {
-		role = s.cfg.DefaultUserRole
-	}
 	password := body.Password
 	if password == "" {
 		password = "rollfinder-user"
@@ -271,7 +262,7 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 	id := newID()
 	name := nullString(strings.TrimSpace(body.Name))
 	academyID := nullString(strings.TrimSpace(body.AcademyID))
-	user, err := s.insertUser(r.Context(), id, name, email, hash, role, academyID)
+	user, err := s.insertUser(r.Context(), id, name, email, hash, academyID)
 	if err != nil {
 		if isUniqueViolation(err) {
 			writeError(w, http.StatusConflict, "A user with this email already exists.")
@@ -280,7 +271,7 @@ func (s *server) createUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "Unable to create user.")
 		return
 	}
-	_ = s.writeAuditLog(r.Context(), actor.ID, &user.ID, "USER_CREATED", map[string]any{"email": email, "role": role})
+	_ = s.writeAuditLog(r.Context(), actor.ID, &user.ID, "USER_CREATED", map[string]any{"email": email})
 	writeJSON(w, http.StatusCreated, map[string]any{"user": publicUser(user)})
 }
 
@@ -325,16 +316,12 @@ func (s *server) updateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Valid email is required.")
 		return
 	}
-	role := normalizeRole(body.Role)
-	if target.IsProtected || !s.roleExists(r.Context(), role) {
-		role = target.Role
-	}
 	status := normalizeStatus(body.Status)
 	if actor.ID == id && status == statusDisabled && !s.hasAnotherActiveSuperUser(r.Context(), id) {
 		writeError(w, http.StatusBadRequest, "You cannot disable the last active super admin account.")
 		return
 	}
-	user, err := s.updateUserRecord(r.Context(), id, nullString(strings.TrimSpace(body.Name)), email, role, status, nullString(strings.TrimSpace(body.AcademyID)))
+	user, err := s.updateUserRecord(r.Context(), id, nullString(strings.TrimSpace(body.Name)), email, status, nullString(strings.TrimSpace(body.AcademyID)))
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Unable to update user.")
 		return
@@ -377,7 +364,11 @@ func (s *server) mutateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	id := handlers.Param(r, "id")
 	mutation := handlers.Param(r, "mutation")
-	if mutation != "disable" && mutation != "enable" && mutation != "promote" && mutation != "demote" {
+	if mutation == "promote" || mutation == "demote" {
+		writeError(w, http.StatusGone, "Role assignment is managed by Authorisation Service.")
+		return
+	}
+	if mutation != "disable" && mutation != "enable" {
 		writeError(w, http.StatusNotFound, "Mutation not found.")
 		return
 	}
@@ -398,27 +389,19 @@ func (s *server) mutateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "You cannot disable the last active super admin account.")
 		return
 	}
-	role, status, disabled := target.Role, target.Status, target.Disabled
+	status, disabled := target.Status, target.Disabled
 	action := "USER_ENABLED"
 	switch mutation {
 	case "disable":
 		status, disabled, action = statusDisabled, true, "USER_DISABLED"
 	case "enable":
 		status, disabled = statusActive, false
-	case "promote":
-		role, action = strings.TrimSpace(r.URL.Query().Get("role")), "USER_PROMOTED"
-		if role == "" || !s.roleExists(r.Context(), role) {
-			writeError(w, http.StatusBadRequest, "Valid role is required.")
-			return
-		}
-	case "demote":
-		role, action = s.cfg.DefaultUserRole, "USER_DEMOTED"
 	}
-	user, err := s.setUserMutation(r.Context(), id, role, status, disabled)
+	user, err := s.setUserMutation(r.Context(), id, status, disabled)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Unable to update user.")
 		return
 	}
-	_ = s.writeAuditLog(r.Context(), actor.ID, &id, action, map[string]any{"email": target.Email, "previousRole": target.Role, "role": user.Role, "status": user.Status})
+	_ = s.writeAuditLog(r.Context(), actor.ID, &id, action, map[string]any{"email": target.Email, "status": user.Status})
 	writeJSON(w, http.StatusOK, map[string]any{"user": publicUser(user)})
 }

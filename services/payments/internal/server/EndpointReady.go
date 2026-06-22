@@ -15,14 +15,6 @@ func (s *server) ready(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if s.cfg.APIKey == "" {
-		writeJSON(w, http.StatusServiceUnavailable, map[string]string{
-			"status": "not_ready",
-			"reason": "API_KEY is not configured",
-		})
-		return
-	}
-
 	address, err := postgresAddress(s.cfg.DatabaseURL)
 	if err != nil {
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{

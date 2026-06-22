@@ -53,13 +53,7 @@ AS $$
         u.last_name,
         NULL::text AS phone,
         ''::text AS password_hash,
-        COALESCE((
-            SELECT ur.role_key
-            FROM user_roles ur
-            WHERE ur.user_id = u.id
-            ORDER BY ur.organisation_id NULLS FIRST, ur.created_at ASC
-            LIMIT 1
-        ), '') AS role,
+        CASE WHEN u.is_protected THEN 'SUPER_ADMIN' ELSE 'STANDARD_USER' END AS role,
         (
             SELECT ou.organisation_id
             FROM organisation_users ou
@@ -89,9 +83,7 @@ AS $$
               AND c.credential_identifier ILIKE '%' || p_search || '%'
         )
       )
-      AND (p_role IS NULL OR p_role = '' OR EXISTS (
-          SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role_key = p_role
-      ))
+      AND (p_role IS NULL OR p_role = '')
       AND (p_actor_academy_id IS NULL OR p_actor_academy_id = '' OR EXISTS (
           SELECT 1 FROM organisation_users ou
           WHERE ou.user_id = u.id

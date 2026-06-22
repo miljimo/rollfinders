@@ -1,9 +1,11 @@
+DROP PROCEDURE IF EXISTS "userInsert"(text, text, text, text, text, text);
+DROP PROCEDURE IF EXISTS "userInsert"(text, text, text, text, text);
+
 CREATE OR REPLACE PROCEDURE "userInsert"(
     p_id text,
     p_name text,
     p_email text,
     p_password_hash text,
-    p_role text,
     p_academy_id text
 )
 LANGUAGE plpgsql
@@ -28,12 +30,6 @@ BEGIN
     WHERE c.user_id = p_id
       AND c.credential_type = 'EMAIL_PASSWORD'
       AND lower(c.credential_identifier) = lower(trim(p_email));
-
-    IF COALESCE(trim(p_role), '') <> '' THEN
-        INSERT INTO user_roles (user_id, role_key)
-        VALUES (p_id, trim(p_role))
-        ON CONFLICT DO NOTHING;
-    END IF;
 
     IF COALESCE(trim(p_academy_id), '') <> '' THEN
         INSERT INTO organisations (id, name, status)
