@@ -34,7 +34,7 @@ Implement scoped user role assignment APIs and scoped direct user permission ass
 - Call database functions/procedures for assignment persistence; do not embed table-level SQL in Go service code.
 - Enforce delegation rules:
   - actor cannot assign role above actor maximum assignable level
-  - actor cannot assign permission above actor maximum assignable level
+- Permission assignment is controlled by Authorisation administration permissions and scope, not permission levels.
 - Record audit events for assignment and removal operations.
 
 ## Acceptance Criteria
@@ -42,7 +42,7 @@ Implement scoped user role assignment APIs and scoped direct user permission ass
 - WHEN a role assignment is created, THEN it is scoped correctly and returned in user role list.
 - WHEN a direct user permission assignment is created, THEN it is scoped correctly and returned in the user permission list.
 - WHEN a direct user deny assignment exists, THEN it is available for effective permission calculation.
-- WHEN actor attempts to assign above delegated level, THEN the API rejects the request.
+- WHEN actor attempts to assign a role above delegated level, THEN the API rejects the request.
 - WHEN assignments are removed, THEN audit events are recorded.
 - WHEN code is reviewed, THEN assignment APIs contain no table-level inline SQL.
 

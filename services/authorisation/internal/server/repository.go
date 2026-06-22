@@ -56,10 +56,10 @@ func (r *repository) close() error {
 
 func (r *repository) createPermission(ctx context.Context, p Permission, actor, requestID string) (Permission, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO permissions (id, code, name, description, level)
-		VALUES ($1, $2, $3, NULLIF($4, ''), $5)
-		RETURNING id, code, name, COALESCE(description, ''), level, created_at, updated_at`,
-		p.ID, p.Code, p.Name, p.Description, p.Level)
+		INSERT INTO permissions (id, code, name, description)
+		VALUES ($1, $2, $3, NULLIF($4, ''))
+		RETURNING id, code, name, COALESCE(description, ''), created_at, updated_at`,
+		p.ID, p.Code, p.Name, p.Description)
 	created, err := scanPermission(row)
 	if err != nil {
 		return Permission{}, err
@@ -72,10 +72,10 @@ func (r *repository) updatePermission(ctx context.Context, p Permission, actor, 
 	before, _ := r.getPermission(ctx, p.ID)
 	row := r.db.QueryRowContext(ctx, `
 		UPDATE permissions
-		SET code = $2, name = $3, description = NULLIF($4, ''), level = $5, updated_at = now()
+		SET code = $2, name = $3, description = NULLIF($4, ''), updated_at = now()
 		WHERE id = $1
-		RETURNING id, code, name, COALESCE(description, ''), level, created_at, updated_at`,
-		p.ID, p.Code, p.Name, p.Description, p.Level)
+		RETURNING id, code, name, COALESCE(description, ''), created_at, updated_at`,
+		p.ID, p.Code, p.Name, p.Description)
 	updated, err := scanPermission(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Permission{}, errNotFound
@@ -88,7 +88,7 @@ func (r *repository) updatePermission(ctx context.Context, p Permission, actor, 
 }
 
 func (r *repository) listPermissions(ctx context.Context) ([]Permission, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, code, name, COALESCE(description, ''), level, created_at, updated_at FROM permissions ORDER BY code`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, code, name, COALESCE(description, ''), created_at, updated_at FROM permissions ORDER BY code`)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (r *repository) listPermissions(ctx context.Context) ([]Permission, error) 
 }
 
 func (r *repository) getPermission(ctx context.Context, id string) (Permission, error) {
-	p, err := scanPermission(r.db.QueryRowContext(ctx, `SELECT id, code, name, COALESCE(description, ''), level, created_at, updated_at FROM permissions WHERE id = $1`, id))
+	p, err := scanPermission(r.db.QueryRowContext(ctx, `SELECT id, code, name, COALESCE(description, ''), created_at, updated_at FROM permissions WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Permission{}, errNotFound
 	}
@@ -113,7 +113,7 @@ func (r *repository) getPermission(ctx context.Context, id string) (Permission, 
 }
 
 func (r *repository) permissionByCode(ctx context.Context, code string) (Permission, error) {
-	p, err := scanPermission(r.db.QueryRowContext(ctx, `SELECT id, code, name, COALESCE(description, ''), level, created_at, updated_at FROM permissions WHERE code = $1`, code))
+	p, err := scanPermission(r.db.QueryRowContext(ctx, `SELECT id, code, name, COALESCE(description, ''), created_at, updated_at FROM permissions WHERE code = $1`, code))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Permission{}, errNotFound
 	}
@@ -122,7 +122,7 @@ func (r *repository) permissionByCode(ctx context.Context, code string) (Permiss
 
 func scanPermission(scanner interface{ Scan(dest ...any) error }) (Permission, error) {
 	var p Permission
-	err := scanner.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.Level, &p.CreatedAt, &p.UpdatedAt)
+	err := scanner.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -212,7 +212,7 @@ func (r *repository) removeRolePermission(ctx context.Context, roleID, permissio
 
 func (r *repository) rolePermissions(ctx context.Context, roleID string) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.level, p.created_at, p.updated_at
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.created_at, p.updated_at
 		FROM permissions p
 		JOIN role_permissions rp ON rp.permission_id = p.id
 		WHERE rp.role_id = $1
@@ -307,9 +307,6 @@ func scanUserRoleWithKey(scanner interface{ Scan(dest ...any) error }) (UserRole
 func (r *repository) assignUserPermission(ctx context.Context, a UserPermissionAssignment, actor, requestID string) (UserPermissionAssignment, error) {
 	permission, err := r.getPermission(ctx, a.PermissionID)
 	if err != nil {
-		return UserPermissionAssignment{}, err
-	}
-	if err := r.ensureAssignable(ctx, actor, permission.Level); err != nil {
 		return UserPermissionAssignment{}, err
 	}
 	row := r.db.QueryRowContext(ctx, `
@@ -409,7 +406,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 	allowed := map[string]Permission{}
 	denied := map[string]Permission{}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.level, p.created_at, p.updated_at
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.created_at, p.updated_at
 		FROM user_roles ur
 		JOIN role_permissions rp ON rp.role_id = ur.role_id
 		JOIN permissions p ON p.id = rp.permission_id
@@ -430,7 +427,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 		return effectiveSet{}, err
 	}
 	rows, err = r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.level, p.created_at, p.updated_at, up.effect
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.created_at, p.updated_at, up.effect
 		FROM user_permissions up
 		JOIN permissions p ON p.id = up.permission_id
 		WHERE up.user_id = $1 AND scope_matches(up.organisation_id, up.application_id, up.resource_type, up.resource_id, $2, $3, $4, $5)`,
@@ -442,7 +439,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 	for rows.Next() {
 		var p Permission
 		var effect string
-		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.Level, &p.CreatedAt, &p.UpdatedAt, &effect); err != nil {
+		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedAt, &p.UpdatedAt, &effect); err != nil {
 			return effectiveSet{}, err
 		}
 		if effect == "DENY" {
@@ -468,11 +465,6 @@ func (r *repository) ensureAssignable(ctx context.Context, actor string, targetL
 			FROM user_roles
 			JOIN roles ON roles.id = user_roles.role_id
 			WHERE user_roles.user_id = $1
-			UNION ALL
-			SELECT permissions.level
-			FROM user_permissions
-			JOIN permissions ON permissions.id = user_permissions.permission_id
-			WHERE user_permissions.user_id = $1 AND user_permissions.effect = 'ALLOW'
 		) levels`, actor).Scan(&maxLevel)
 	if err != nil {
 		return err

@@ -8,6 +8,7 @@ import { AcademyMap } from "@/components/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { authorize } from "@/lib/authorisation-service";
 import { BookingServiceError, listBookings, type BookingRecord } from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
@@ -119,6 +120,21 @@ function isPlatformOnlyPanel(panel: string) {
 
 function isSuperOnlyPanel(panel: string) {
   return panel === "platform-admin-academies" || panel === "analytics";
+}
+
+async function resolvePaymentMetricVisibility(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<PaymentMetricVisibility> {
+  const scope = {
+    organisationId: user.academyId ?? undefined,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+  };
+  const [grossPaid, successfulPayments, platformRevenue, refunds] = await Promise.all([
+    authorize(user, "payment.report.revenue.read", scope),
+    authorize(user, "payment.search", scope),
+    authorize(user, "payment.report.platform_revenue.read", scope),
+    authorize(user, "payment.report.refund.read", scope),
+  ]);
+
+  return { grossPaid, platformRevenue, refunds, successfulPayments };
 }
 
 function selectedClaimStatus(value: string | undefined) {
@@ -315,6 +331,13 @@ function emptyEmailOperationsSummary(): Awaited<ReturnType<typeof getEmailQueueO
 type DashboardPaymentsResult = {
   error?: string;
   payments: PaymentRecord[];
+};
+
+type PaymentMetricVisibility = {
+  grossPaid: boolean;
+  platformRevenue: boolean;
+  refunds: boolean;
+  successfulPayments: boolean;
 };
 
 type DashboardBookingsResult = {
@@ -541,6 +564,7 @@ export default async function AdminDashboardWorkspace({
     paymentResult,
     paymentAccountSetting,
     paymentPlatformSettings,
+    paymentMetricVisibility,
     bookingResult,
   ] = await Promise.all([
     prisma.academy.findMany({
@@ -605,6 +629,7 @@ export default async function AdminDashboardWorkspace({
         }).then((setting) => setting ?? (academyAdmin ? null : rollfindersPlatformPaymentAccountStatus()))
       : Promise.resolve(null),
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
+    panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
@@ -1068,6 +1093,7 @@ export default async function AdminDashboardWorkspace({
             >
               <PaymentsPanel
                 academyAdmin={academyAdmin}
+                metricVisibility={paymentMetricVisibility}
                 paymentAccountSetting={paymentAccountSetting}
                 paymentPlatformSettings={paymentPlatformSettings ?? undefined}
                 period={paymentsPeriod}
@@ -3331,6 +3357,7 @@ function PaymentsSettingsView({
 
 function PaymentsPanel({
   academyAdmin,
+  metricVisibility,
   paymentAccountSetting,
   paymentPlatformSettings = {
     currency: "GBP",
@@ -3347,6 +3374,7 @@ function PaymentsPanel({
   view,
 }: {
   academyAdmin: boolean;
+  metricVisibility: PaymentMetricVisibility;
   paymentAccountSetting: PaymentAccountSettingView | null;
   paymentPlatformSettings?: PaymentPlatformSettings;
   paymentSettingsError?: string;
@@ -3371,13 +3399,25 @@ function PaymentsPanel({
     { colorClassName: "bg-teal-700", id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
     { colorClassName: "bg-orange-500", id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(platformRevenue, currency) },
     { colorClassName: "bg-emerald-400", id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
-  ];
+  ].filter((metric) => {
+    if (metric.id === "gross-paid") return metricVisibility.grossPaid;
+    if (metric.id === "successful-payments") return metricVisibility.successfulPayments;
+    if (metric.id === "platform-revenue") return metricVisibility.platformRevenue;
+    if (metric.id === "refunds") return metricVisibility.refunds;
+    return false;
+  });
   const summaryCards: PaymentSummaryCard[] = [
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(platformRevenue, currency) },
     { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
-  ];
+  ].filter((card) => {
+    if (card.id === "gross-paid") return metricVisibility.grossPaid;
+    if (card.id === "successful-payments") return metricVisibility.successfulPayments;
+    if (card.id === "platform-revenue") return metricVisibility.platformRevenue;
+    if (card.id === "refunds") return metricVisibility.refunds;
+    return false;
+  });
   const paymentAccountSetupItems = [
     { complete: !result.error, id: "payment-gateway", label: "Payment gateway", statusLabel: result.error ? "Unavailable" : "Connected" },
     { complete: hasConnectedPaymentAccount, id: "rollfinders-account", label: academyAdmin ? "Academy payout account" : "RollFinders platform account", statusLabel: hasConnectedPaymentAccount ? paymentAccountVerified ? "Verified" : "Action needed" : "Setup needed" },

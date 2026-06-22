@@ -3,7 +3,6 @@ CREATE TABLE IF NOT EXISTS permissions (
     code text NOT NULL UNIQUE,
     name text NOT NULL,
     description text,
-    level integer NOT NULL DEFAULT 100,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );

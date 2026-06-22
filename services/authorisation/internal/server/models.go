@@ -14,7 +14,6 @@ type Permission struct {
 	Code        string    `json:"code"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
-	Level       int       `json:"level"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

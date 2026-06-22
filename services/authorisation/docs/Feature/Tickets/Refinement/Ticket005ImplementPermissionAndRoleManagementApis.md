@@ -30,7 +30,8 @@ Implement APIs to create, list, read, and update permissions and roles, plus API
   - `DELETE /v1/roles/{role_id}/permissions/{permission_id}`
   - `GET /v1/roles/{role_id}/permissions`
 - Validate permission codes use approved naming convention.
-- Enforce role and permission level fields.
+- Enforce role level fields.
+- Permissions must not have numeric level fields.
 - Record audit events for create/update/assign/remove operations.
 - Use stable error responses from the OpenAPI contract.
 - Call database functions/procedures for persistence; do not embed `SELECT`, `INSERT`, `UPDATE`, or `DELETE` statements in Go service code.
@@ -38,7 +39,7 @@ Implement APIs to create, list, read, and update permissions and roles, plus API
 
 ## Acceptance Criteria
 
-- WHEN a permission is created, THEN it is persisted with code, name, description, and level.
+- WHEN a permission is created, THEN it is persisted with code, name, and description.
 - WHEN a role is created, THEN it is persisted with key, name, description, level, and assignability.
 - WHEN a permission is assigned to a role, THEN it appears in the role permission list.
 - WHEN a role permission is removed, THEN it no longer contributes to effective permissions.

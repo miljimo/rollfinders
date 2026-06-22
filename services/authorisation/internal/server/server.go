@@ -107,7 +107,7 @@ func (s *server) writeRepoError(w http.ResponseWriter, r *http.Request, err erro
 	case errors.Is(err, errNotFound):
 		writeError(w, r, http.StatusNotFound, "not_found", "Authorisation resource was not found.", nil)
 	case err != nil && err.Error() == "delegation violation":
-		writeError(w, r, http.StatusForbidden, "delegation_violation", "Actor cannot assign this role or permission level.", nil)
+		writeError(w, r, http.StatusForbidden, "delegation_violation", "Actor cannot assign this role level.", nil)
 	default:
 		s.logger.Error("authorisation data error", "request_id", requestIDFrom(r), "error", err)
 		writeError(w, r, http.StatusInternalServerError, "internal_error", "Authorisation request could not be completed.", nil)

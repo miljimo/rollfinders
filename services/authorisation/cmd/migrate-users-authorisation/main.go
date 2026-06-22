@@ -168,13 +168,13 @@ func migratePermissions(ctx context.Context, usersDB *sql.DB, tx *sql.Tx) (int, 
 			return 0, err
 		}
 		_, err := tx.ExecContext(ctx, `
-			INSERT INTO permissions (id, code, name, description, level)
-			VALUES ($1, $2, $3, NULLIF($4, ''), $5)
+			INSERT INTO permissions (id, code, name, description)
+			VALUES ($1, $2, $3, NULLIF($4, ''))
 			ON CONFLICT (code) DO UPDATE
 			SET name = EXCLUDED.name,
 			    description = EXCLUDED.description,
 			    updated_at = now()`,
-			permissionID(key), key, name, description, permissionLevel(key))
+			permissionID(key), key, name, description)
 		if err != nil {
 			return 0, err
 		}
@@ -332,19 +332,6 @@ func roleLevel(key string) int {
 		return 300
 	case "MEMBER":
 		return 200
-	default:
-		return 100
-	}
-}
-
-func permissionLevel(code string) int {
-	switch {
-	case strings.HasPrefix(code, "permissions."), strings.HasPrefix(code, "roles."):
-		return 900
-	case strings.Contains(code, ".delete"), strings.Contains(code, ".disable"), strings.Contains(code, ".assign"), strings.Contains(code, ".manage"):
-		return 700
-	case strings.Contains(code, ".create"), strings.Contains(code, ".update"):
-		return 600
 	default:
 		return 100
 	}

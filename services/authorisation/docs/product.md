@@ -157,7 +157,7 @@ These permissions protect Authorisation Service itself.
 | `authorisation.permission.create` | Create a permission definition. | platform |
 | `authorisation.permission.read` | Read a permission definition. | platform/organisation/application |
 | `authorisation.permission.search` | List/search permission definitions. | platform/organisation/application |
-| `authorisation.permission.update` | Update permission metadata, level, or assignability policy. | platform |
+| `authorisation.permission.update` | Update permission metadata. | platform |
 | `authorisation.permission.delete` | Delete/deactivate a permission definition where policy allows. | platform |
 | `authorisation.role.create` | Create a role bundle. | platform/organisation/application |
 | `authorisation.role.read` | Read a role bundle. | platform/organisation/application |
@@ -265,7 +265,9 @@ payout_request
 
 ## Delegation And Role Levels
 
-Roles and permissions MAY have levels for delegated administration safety.
+Roles MAY have levels for delegated administration safety.
+
+Permissions do not have levels. A permission is a capability code only. Whether a user can grant or deny a permission is controlled by Authorisation Service administration permissions and scope, not by a numeric permission level.
 
 Example levels:
 
@@ -282,16 +284,15 @@ Example levels:
 100  User
 ```
 
-Levels do not replace permission checks. Levels limit what a user can assign.
+Levels do not replace permission checks. Role levels limit which roles a user can assign.
 
 Critical rules:
 
 ```text
 assigned_role.level <= actor.maximum_assignable_level
-assigned_permission.level <= actor.maximum_assignable_level
 ```
 
-A user cannot grant a role or permission above their own delegated authority.
+A user cannot grant a role above their own delegated authority.
 
 ## Database Model
 
@@ -327,7 +328,6 @@ CREATE TABLE permissions (
     code text NOT NULL UNIQUE,
     name text NOT NULL,
     description text,
-    level integer NOT NULL DEFAULT 100,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -617,7 +617,7 @@ Audit events SHALL record:
 * Users can have direct permission allow and deny assignments.
 * Direct user deny wins over allow.
 * Users cannot assign roles above their delegated level.
-* Users cannot assign permissions above their delegated level.
+* Permissions do not have numeric levels.
 * Full audit history is maintained for authorisation changes.
 * RollFinders new code uses permission-first checks rather than role-name guards.
 * Existing hardcoded role guards are migrated through the rollout plan.

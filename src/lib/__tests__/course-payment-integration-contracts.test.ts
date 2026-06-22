@@ -246,6 +246,15 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);
   });
 
+  it("hides platform payment revenue metrics from academy admins", () => {
+    const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(dashboardSource, /authorize\(user,\s*"payment\.report\.platform_revenue\.read"/);
+    assert.match(dashboardSource, /<PaymentsPanel[\s\S]*metricVisibility=\{paymentMetricVisibility\}/);
+    assert.match(dashboardSource, /metric\.id === "platform-revenue"[\s\S]*return metricVisibility\.platformRevenue/);
+    assert.match(dashboardSource, /card\.id === "platform-revenue"[\s\S]*return metricVisibility\.platformRevenue/);
+  });
+
   it("keeps paid event links usable when stored occurrence dates are stale", () => {
     const courseSource = readSource("src/lib/courses.ts");
     const openMatSource = readSource("src/lib/data.ts");

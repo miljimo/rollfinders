@@ -4,6 +4,8 @@ import test from "node:test";
 
 const migration = readFileSync("services/authorisation/migrations/001_core_schema.sql", "utf8");
 const schema = readFileSync("services/authorisation/migrations/schema/001_authorisation_schema.sql", "utf8");
+const permissionsTable = readFileSync("services/authorisation/migrations/tables/001_permissions.sql", "utf8");
+const seedCatalog = readFileSync("services/authorisation/migrations/procedures/001_seedAuthorisationCatalog.sql", "utf8");
 const repository = readFileSync("services/authorisation/internal/server/repository.go", "utf8");
 const migrationCommand = readFileSync("services/authorisation/cmd/migrate-users-authorisation/main.go", "utf8");
 
@@ -22,4 +24,24 @@ test("Authorisation migration follows the service migration folder structure", (
 test("Authorisation runtime scopes database connections to the authorisation schema", () => {
   assert.match(repository, /search_path=authorisation,public/);
   assert.match(migrationCommand, /search_path=authorisation,public/);
+});
+
+test("Authorisation permissions are capability codes without numeric levels", () => {
+  assert.doesNotMatch(permissionsTable, /\blevel\b/);
+  assert.doesNotMatch(seedCatalog, /INSERT INTO permissions \(id, code, name, description, level\)/);
+  assert.doesNotMatch(repository, /permissions\.level|p\.level|permission\.Level/);
+});
+
+test("Authorisation seed keeps platform payment revenue separate from academy payment metrics", () => {
+  assert.match(seedCatalog, /payment\.report\.revenue\.read/);
+  assert.match(seedCatalog, /payment\.report\.refund\.read/);
+  assert.match(seedCatalog, /payment\.report\.platform_revenue\.read/);
+
+  const academyWhereIndex = seedCatalog.indexOf("WHERE r.key IN ('ACADEMY_OWNER', 'ACADEMY_ADMIN')");
+  const academyJoinIndex = seedCatalog.lastIndexOf("JOIN permissions p ON p.code IN", academyWhereIndex);
+  const academyConflictIndex = seedCatalog.indexOf("ON CONFLICT DO NOTHING;", academyWhereIndex);
+  const academyRoleBlock = seedCatalog.slice(academyJoinIndex, academyConflictIndex);
+  assert.match(academyRoleBlock, /payment\.report\.revenue\.read/);
+  assert.match(academyRoleBlock, /payment\.report\.refund\.read/);
+  assert.doesNotMatch(academyRoleBlock, /payment\.report\.platform_revenue\.read/);
 });

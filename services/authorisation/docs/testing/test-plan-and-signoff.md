@@ -43,7 +43,7 @@ These tests model the required decision semantics and migration equivalence. Kee
 - Role permission assignment and removal tests.
 - Scoped user role assignment and removal tests.
 - Direct user permission `ALLOW` and `DENY` assignment tests.
-- Delegation violation tests for role and permission levels.
+- Delegation violation tests for role levels.
 - Audit event tests for every mutation.
 
 ### Ticket 007: Decision Engine

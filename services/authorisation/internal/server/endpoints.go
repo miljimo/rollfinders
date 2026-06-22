@@ -10,7 +10,6 @@ type permissionRequest struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
-	Level       int    `json:"level"`
 }
 
 func (s *server) createPermission(w http.ResponseWriter, r *http.Request) {
@@ -70,15 +69,11 @@ func (s *server) updatePermission(w http.ResponseWriter, r *http.Request) {
 }
 
 func permissionFromRequest(id string, req permissionRequest) (Permission, bool) {
-	level := req.Level
-	if level == 0 {
-		level = 100
-	}
 	code := cleanString(req.Code)
 	if !validatePermissionCode(code) || cleanString(req.Name) == "" {
 		return Permission{}, false
 	}
-	return Permission{ID: id, Code: code, Name: cleanString(req.Name), Description: cleanString(req.Description), Level: level}, true
+	return Permission{ID: id, Code: code, Name: cleanString(req.Name), Description: cleanString(req.Description)}, true
 }
 
 type roleRequest struct {
