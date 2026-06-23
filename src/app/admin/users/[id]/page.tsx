@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { PageShell } from "@/components/PageShell";
-import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { getManagedUser, getUserPermissionPanelModel } from "@/lib/users-service";
 import { updateManagedUser } from "../actions";
 import { UserForm } from "../UserForm";
@@ -15,6 +15,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const currentUser = await getCurrentUser();
   const superAdmin = isSuperAdminRole(currentUser?.role);
   const platformAdmin = isPlatformAdminRole(currentUser?.role);
+  const academyAdmin = isAcademyAdminRole(currentUser?.role);
   if (!currentUser) redirect("/admin/users");
   const { user } = await getManagedUser(currentUser, id).catch(() => ({ user: null }));
 
@@ -38,6 +39,8 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
           academies={[]}
           action={updateManagedUser.bind(null, user.id)}
           assignableFeatures={assignableFeatures}
+          academyAdmin={academyAdmin}
+          actorRole={currentUser.role}
           mode="edit"
           superAdmin={superAdmin}
           user={{ ...user, role: user.role as Role, status: user.status as UserStatus }}

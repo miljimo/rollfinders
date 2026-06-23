@@ -6,6 +6,7 @@ import type { AssignableUserFeature } from "@/lib/users-service";
 import { applyManagedUserPrivileges } from "./actions";
 
 type Permission = AssignableUserFeature["permissions"][number];
+const pageSize = 10;
 
 function permissionText(permission: Permission) {
   return `${permission.code} ${permission.name} ${permission.description ?? ""}`.toLowerCase();
@@ -42,7 +43,7 @@ export function PermissionPanel({
     return Object.fromEntries(features.map((feature) => [feature.key, new Set(feature.permissions.filter((permission) => permission.assigned).map((permission) => permission.code))]));
   });
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [featurePage, setFeaturePage] = useState(1);
   const [showAssigned, setShowAssigned] = useState(true);
   const [showNotAssigned, setShowNotAssigned] = useState(true);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -55,7 +56,7 @@ export function PermissionPanel({
   }, [features, normalizedSearch]);
 
   const selectedFeature = useMemo(() => {
-    return features.find((feature) => feature.key === selectedFeatureKey) ?? visibleFeatures[0] ?? features[0];
+    return visibleFeatures.find((feature) => feature.key === selectedFeatureKey) ?? visibleFeatures[0] ?? features[0];
   }, [features, selectedFeatureKey, visibleFeatures]);
 
   const selectedAssigned = selectedFeature ? assignedByFeature[selectedFeature.key] ?? new Set<string>() : new Set<string>();
@@ -72,12 +73,22 @@ export function PermissionPanel({
   const totalPages = Math.max(1, Math.ceil(filteredPermissions.length / pageSize));
   const currentPage = Math.min(page, totalPages);
   const pagedPermissions = filteredPermissions.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalFeaturePages = Math.max(1, Math.ceil(visibleFeatures.length / pageSize));
+  const currentFeaturePage = Math.min(featurePage, totalFeaturePages);
+  const pagedFeatures = visibleFeatures.slice((currentFeaturePage - 1) * pageSize, currentFeaturePage * pageSize);
   const assignedCount = selectedFeature?.permissions.filter((permission) => selectedAssigned.has(permission.code)).length ?? 0;
 
   function selectFeature(featureKey: string) {
     setSelectedFeatureKey(featureKey);
     setPage(1);
     setMessage(null);
+  }
+
+  function goToFeaturePage(nextPage: number) {
+    const boundedPage = Math.min(totalFeaturePages, Math.max(1, nextPage));
+    setFeaturePage(boundedPage);
+    const nextFeature = visibleFeatures[(boundedPage - 1) * pageSize];
+    if (nextFeature) selectFeature(nextFeature.key);
   }
 
   function togglePermission(code: string) {
@@ -143,6 +154,7 @@ export function PermissionPanel({
             onChange={(event) => {
               setSearch(event.target.value);
               setPage(1);
+              setFeaturePage(1);
             }}
             placeholder="Search feature..."
             className="min-h-12 w-full rounded-md border border-stone-300 pl-12 pr-10 text-base font-medium text-stone-950 outline-none focus:border-teal-700"
@@ -154,8 +166,8 @@ export function PermissionPanel({
         <aside className="border-b border-stone-200 p-6 lg:border-b-0 lg:border-r">
           <h3 className="text-lg font-black text-stone-950">Select Feature</h3>
           <p className="mt-1 text-sm font-medium text-stone-600">Select a feature.</p>
-          <div className="mt-6 grid max-h-[31rem] gap-2 overflow-auto pr-2">
-            {visibleFeatures.map((feature) => {
+          <div className="mt-6 grid gap-2">
+            {pagedFeatures.map((feature) => {
               const active = feature.key === selectedFeature?.key;
               return (
                 <button
@@ -173,6 +185,18 @@ export function PermissionPanel({
             })}
             {!visibleFeatures.length ? <p className="rounded-md bg-stone-50 px-3 py-4 text-sm font-semibold text-stone-600">No matching assignable features.</p> : null}
           </div>
+          {visibleFeatures.length > pageSize ? (
+            <div className="mt-5 flex items-center justify-between gap-2 border-t border-stone-100 pt-4 text-sm font-semibold text-stone-600">
+              <span>
+                {((currentFeaturePage - 1) * pageSize) + 1}-{Math.min(currentFeaturePage * pageSize, visibleFeatures.length)} of {visibleFeatures.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button type="button" className="inline-flex size-9 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentFeaturePage === 1} onClick={() => goToFeaturePage(currentFeaturePage - 1)}>‹</button>
+                <span className="inline-flex size-9 items-center justify-center rounded-md bg-stone-950 text-white">{currentFeaturePage}</span>
+                <button type="button" className="inline-flex size-9 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentFeaturePage === totalFeaturePages} onClick={() => goToFeaturePage(currentFeaturePage + 1)}>›</button>
+              </div>
+            </div>
+          ) : null}
         </aside>
 
         <div className="min-w-0 p-6">
@@ -227,18 +251,6 @@ export function PermissionPanel({
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 px-6 py-4 text-sm font-medium text-stone-700">
         <span>Showing {filteredPermissions.length ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredPermissions.length)} of {filteredPermissions.length} permissions</span>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={pageSize}
-            onChange={(event) => {
-              setPageSize(Number(event.target.value));
-              setPage(1);
-            }}
-            className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-semibold"
-          >
-            <option value={10}>10 per page</option>
-            <option value={20}>20 per page</option>
-            <option value={50}>50 per page</option>
-          </select>
           <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(1)}><ChevronsLeft size={17} aria-hidden /></button>
           <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>‹</button>
           <span className="inline-flex size-10 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">{currentPage}</span>

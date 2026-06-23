@@ -23,6 +23,7 @@ import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
+import { canSeeRole } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
 import { getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
@@ -1183,7 +1184,7 @@ export default async function AdminDashboardWorkspace({
               title={usersView === "roles" ? "Roles" : usersView === "permissions" ? "Permissions" : usersView === "access-keys" ? "Access Keys" : usersView === "mfa" ? "MFA" : "Users & Roles"}
             >
               {usersView === "roles" ? (
-                <SystemRolesPanel roles={authorisationRoles} />
+                <SystemRolesPanel actorRole={currentUser.role} roles={authorisationRoles} />
               ) : usersView === "permissions" ? (
                 <UserPermissionsBoard directAssignments={currentUserPermissionAssignments} permissions={currentUserEffectivePermissions} />
               ) : usersView === "access-keys" ? (
@@ -1205,7 +1206,7 @@ export default async function AdminDashboardWorkspace({
         )}
       </main>
       {panel === "users" && dialog === "new-user" ? (
-        <NewUserDialog academies={academyOptions} academyAdmin={academyAdmin} superAdmin={superAdmin} />
+        <NewUserDialog academies={academyOptions} academyAdmin={academyAdmin} actorRole={currentUser.role} superAdmin={superAdmin} />
       ) : null}
       {panel === "users" && dialog === "view-user" && selectedDialogUser ? (
         <ViewUserDialog user={selectedDialogUser} />
@@ -1495,6 +1496,7 @@ async function EditUserDialog({
         mode="edit"
         returnTo="/dashboard?panel=users"
         academyAdmin={academyAdmin}
+        actorRole={actor.role}
         superAdmin={superAdmin}
         user={{ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, status: user.status, academyId: user.academyId }}
       />
@@ -1640,7 +1642,9 @@ function UserResult({ params }: { params: AdminSearchParams }) {
   );
 }
 
-function SystemRolesPanel({ roles }: { roles: AuthorisationRole[] }) {
+function SystemRolesPanel({ actorRole, roles }: { actorRole: string; roles: AuthorisationRole[] }) {
+  const visibleRoles = roles.filter((role) => canSeeRole(actorRole, role.key, role.level));
+
   return (
     <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
       <div className="border-b border-stone-100 px-5 py-4">
@@ -1661,7 +1665,7 @@ function SystemRolesPanel({ roles }: { roles: AuthorisationRole[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
-            {roles.map((role) => (
+            {visibleRoles.map((role) => (
               <tr key={role.id}>
                 <td className="px-5 py-4 font-medium text-stone-700">{role.id}</td>
                 <td className="px-5 py-4 font-black text-stone-950">{role.key}</td>
@@ -1672,7 +1676,7 @@ function SystemRolesPanel({ roles }: { roles: AuthorisationRole[] }) {
                 <td className="px-5 py-4 font-medium text-stone-700">{formatDate(new Date(role.updated_at))}</td>
               </tr>
             ))}
-            {!roles.length ? (
+            {!visibleRoles.length ? (
               <tr>
                 <td className="px-5 py-8 text-center font-semibold text-stone-600" colSpan={7}>
                   No Authorisation roles were returned.
@@ -1783,7 +1787,7 @@ function DashboardServiceMenu({ items }: { items: SidePanelItem[] }) {
   );
 }
 
-function NewUserDialog({ academies, academyAdmin, superAdmin }: { academies: { id: string; name: string }[]; academyAdmin: boolean; superAdmin: boolean }) {
+function NewUserDialog({ academies, academyAdmin, actorRole, superAdmin }: { academies: { id: string; name: string }[]; academyAdmin: boolean; actorRole: string; superAdmin: boolean }) {
   return (
     <DialogShell closeHref="/dashboard?panel=users" description="Create a user and assign role and academy access." title="New User">
       <UserForm
@@ -1793,6 +1797,7 @@ function NewUserDialog({ academies, academyAdmin, superAdmin }: { academies: { i
         mode="create"
         returnTo="/dashboard?panel=users"
         academyAdmin={academyAdmin}
+        actorRole={actorRole}
         superAdmin={superAdmin}
       />
     </DialogShell>

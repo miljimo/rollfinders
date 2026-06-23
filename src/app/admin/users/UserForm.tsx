@@ -1,24 +1,10 @@
-"use client";
-
 import Link from "next/link";
-import { useState } from "react";
-import type { Role, UserStatus } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { canSeeRole, roleLevel } from "@/lib/role-hierarchy";
 import type { AssignableUserFeature } from "@/lib/users-service";
 import { PermissionPanel } from "./PermissionPanel";
-
-const ROLE = {
-  ADMIN: "ADMIN",
-  ACADEMY_ADMIN: "ACADEMY_ADMIN",
-  PLATFORM_ADMIN: "PLATFORM_ADMIN",
-  STANDARD_USER: "STANDARD_USER",
-  SUPER_ADMIN: "SUPER_ADMIN",
-} as const;
-
-const USER_STATUS = {
-  ACTIVE: "ACTIVE",
-  DISABLED: "DISABLED",
-} as const;
+import { UserFormTabs } from "./UserFormTabs";
 
 type UserFormAcademy = {
   id: string;
@@ -39,6 +25,7 @@ export function UserForm({
   academyAdmin = false,
   academies,
   action,
+  actorRole,
   assignableFeatures = [],
   cancelHref = "/admin/users",
   mode,
@@ -49,6 +36,7 @@ export function UserForm({
   academyAdmin?: boolean;
   academies: UserFormAcademy[];
   action: (formData: FormData) => Promise<void>;
+  actorRole?: string;
   assignableFeatures?: AssignableUserFeature[];
   cancelHref?: string;
   mode: "create" | "edit";
@@ -61,7 +49,16 @@ export function UserForm({
     label: academy.name,
   }));
   const lockedAcademy = academyAdmin ? academies[0] : null;
-  const [activeTab, setActiveTab] = useState<"details" | "permissions">("details");
+  const effectiveActorRole = actorRole ?? (superAdmin ? Role.SUPER_ADMIN : academyAdmin ? Role.ACADEMY_ADMIN : Role.PLATFORM_ADMIN);
+  const actorLevel = roleLevel(effectiveActorRole);
+  const roleOptions = [
+    { value: Role.STANDARD_USER, label: "Standard user", minimumActorLevel: roleLevel(Role.STANDARD_USER) },
+    { value: Role.ACADEMY_ADMIN, label: "Academy admin", minimumActorLevel: roleLevel(Role.ACADEMY_ADMIN) },
+    { value: Role.ACADEMY_OWNER, label: "Academy owner", minimumActorLevel: roleLevel(Role.PLATFORM_ADMIN) },
+    { value: Role.PLATFORM_ADMIN, label: "Platform admin", minimumActorLevel: roleLevel(Role.SUPER_ADMIN) },
+    { value: Role.SUPER_ADMIN, label: "Super admin", minimumActorLevel: roleLevel(Role.SUPER_ADMIN) },
+    ...(user?.role === Role.ADMIN ? [{ value: Role.ADMIN, label: "Admin", minimumActorLevel: roleLevel(Role.ADMIN) }] : []),
+  ].filter((option) => actorLevel >= option.minimumActorLevel && canSeeRole(effectiveActorRole, option.value));
 
   const detailsForm = (
     <form action={action} className="rounded-lg border border-stone-200 bg-white p-6 shadow-sm">
@@ -96,12 +93,10 @@ export function UserForm({
 
         <label className="grid gap-2 text-sm font-black text-stone-950">
           Role
-          <select name="role" defaultValue={user?.role ?? ROLE.STANDARD_USER} className="min-h-14 rounded-md border border-stone-300 px-4 text-base font-normal">
-            <option value={ROLE.STANDARD_USER}>Standard user</option>
-            <option value={ROLE.ACADEMY_ADMIN}>Academy admin</option>
-            {!academyAdmin && superAdmin ? <option value={ROLE.PLATFORM_ADMIN}>Platform admin</option> : null}
-            {!academyAdmin && superAdmin ? <option value={ROLE.SUPER_ADMIN}>Super admin</option> : null}
-            {!academyAdmin && superAdmin && user?.role === ROLE.ADMIN ? <option value={ROLE.ADMIN}>Admin</option> : null}
+          <select name="role" defaultValue={user?.role ?? Role.STANDARD_USER} className="min-h-14 rounded-md border border-stone-300 px-4 text-base font-normal">
+            {roleOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
           </select>
           <span className="text-sm font-medium text-stone-600">Defines the user's primary role in the system.</span>
         </label>
@@ -127,9 +122,9 @@ export function UserForm({
         {mode === "edit" ? (
           <label className="grid gap-2 text-sm font-black text-stone-950">
             Status
-            <select name="status" defaultValue={user?.status ?? USER_STATUS.ACTIVE} className="min-h-14 rounded-md border border-stone-300 px-4 text-base font-normal">
-              <option value={USER_STATUS.ACTIVE}>Active</option>
-              <option value={USER_STATUS.DISABLED}>Disabled</option>
+            <select name="status" defaultValue={user?.status ?? UserStatus.ACTIVE} className="min-h-14 rounded-md border border-stone-300 px-4 text-base font-normal">
+              <option value={UserStatus.ACTIVE}>Active</option>
+              <option value={UserStatus.DISABLED}>Disabled</option>
             </select>
             <span className="text-sm font-medium text-stone-600">Inactive users cannot access the system.</span>
           </label>
@@ -150,29 +145,9 @@ export function UserForm({
   }
 
   return (
-    <div className="mt-8">
-      <div className="mb-5 inline-flex rounded-lg border border-stone-200 bg-white p-1 shadow-sm" role="tablist" aria-label="Edit user sections">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "details"}
-          onClick={() => setActiveTab("details")}
-          className={`min-h-11 rounded-md px-5 text-sm font-black ${activeTab === "details" ? "bg-stone-950 text-white" : "text-stone-700 hover:bg-stone-50"}`}
-        >
-          User Details
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "permissions"}
-          onClick={() => setActiveTab("permissions")}
-          className={`min-h-11 rounded-md px-5 text-sm font-black ${activeTab === "permissions" ? "bg-stone-950 text-white" : "text-stone-700 hover:bg-stone-50"}`}
-        >
-          Permissions
-        </button>
-      </div>
-
-      {activeTab === "details" ? detailsForm : <PermissionPanel features={assignableFeatures} userId={user.id} />}
-    </div>
+    <UserFormTabs
+      detailsPanel={detailsForm}
+      permissionsPanel={<PermissionPanel features={assignableFeatures} userId={user.id} />}
+    />
   );
 }

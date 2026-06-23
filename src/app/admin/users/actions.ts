@@ -19,6 +19,7 @@ function normalizeRole(value: string) {
   if (value === Role.SUPER_ADMIN) return Role.SUPER_ADMIN;
   if (value === Role.ADMIN) return Role.ADMIN;
   if (value === Role.ACADEMY_ADMIN) return Role.ACADEMY_ADMIN;
+  if (value === Role.ACADEMY_OWNER) return Role.ACADEMY_OWNER;
   if (value === Role.PLATFORM_ADMIN) return Role.PLATFORM_ADMIN;
   return Role.STANDARD_USER;
 }
