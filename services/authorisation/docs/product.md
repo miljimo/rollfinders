@@ -114,9 +114,20 @@ Examples:
 
 ```text
 academy.create
+academy.view
 academy.update
+academy.edit
 academy.delete
+academy.claim.view
 academy.claim.approve
+academy.verify
+academy.unverify
+academy.suspend
+academy.activate
+academy.archive
+academy.restore
+academy.audit.view
+academy.public.enabled
 course.create
 course.update
 course.delete
@@ -147,6 +158,120 @@ Authorisation Service SHALL seed, validate, expose, and evaluate the catalog, bu
 | `authorisation.*` | Authorisation Service | Store/evaluate permission-system administration permissions. |
 
 Permission creation APIs must reject codes outside the approved naming convention unless a platform operator explicitly extends the catalog policy.
+
+## Service Endpoint Permission Catalog
+
+Every protected endpoint exposed by a RollFinders service SHALL map to one permission code. Public credential, token, callback, webhook, and internal worker routes still receive explicit permission codes so they can be audited, restricted, or moved behind service authentication without inventing new policy names later.
+
+### Users And Authentication Service
+
+```text
+POST   /auth/register                         auth.register
+POST   /auth/login                            auth.login
+POST   /auth/logout                           auth.logout
+POST   /auth/refresh                          auth.refresh
+POST   /auth/change-password                  auth.password.change
+POST   /auth/forgot-password                  auth.password_reset.request
+POST   /auth/reset-password                   auth.password_reset.confirm
+GET    /auth/sessions                         auth.session.read
+DELETE /auth/sessions/{id}                    auth.session.revoke
+POST   /auth/mfa/setup                        auth.mfa.setup
+POST   /auth/mfa/verify                       auth.mfa.verify
+POST   /v1/auth/credentials                   auth.credentials.authenticate
+POST   /v1/auth/password-reset/request        auth.password_reset.request
+POST   /v1/auth/password-reset/validate       auth.password_reset.validate
+POST   /v1/auth/password-reset/confirm        auth.password_reset.confirm
+GET    /v1/accounts/{id}                      account.read
+GET    /v1/users                              user.read
+POST   /v1/users                              user.create
+GET    /v1/users/{id}                         user.read
+PUT    /v1/users/{id}                         user.update
+DELETE /v1/users/{id}                         user.delete
+POST   /v1/users/{id}/{mutation}              user.mutate
+GET    /v1/organisations                      organisation.read
+POST   /v1/organisations                      organisation.create
+GET    /v1/organisations/{id}                 organisation.read
+PUT    /v1/organisations/{id}                 organisation.update
+```
+
+### Academy Service
+
+```text
+GET    /v1/academies                          academy.search
+POST   /v1/academies                          academy.create
+GET    /v1/academies/{academy_id}             academy.view
+PATCH  /v1/academies/{academy_id}             academy.edit
+DELETE /v1/academies/{academy_id}             academy.delete
+GET    /v1/academies/{academy_id}/members     academy.member.read
+POST   /v1/academies/{academy_id}/members     academy.member.add
+DELETE /v1/academies/{academy_id}/members/{user_id} academy.member.remove
+GET    /v1/memberships                        academy.membership.read
+```
+
+### Courses Service
+
+```text
+GET    /v1/course-types                       course.type.read
+POST   /v1/course-types                       course.type.create
+GET    /v1/course-types/{id}                  course.type.read
+PUT    /v1/course-types/{id}                  course.type.update
+DELETE /v1/course-types/{id}                  course.type.delete
+GET    /v1/courses                            course.search
+POST   /v1/courses                            course.create
+GET    /v1/courses/{id}                       course.read
+PUT    /v1/courses/{id}                       course.update
+DELETE /v1/courses/{id}                       course.delete
+GET    /v1/courses/{id}/activities            course.activity.read
+POST   /v1/courses/{id}/activities            course.activity.create
+PUT    /v1/activities/{id}                    course.activity.update
+DELETE /v1/activities/{id}                    course.activity.delete
+```
+
+### Booking Service
+
+```text
+GET    /v1/bookings                           booking.read
+POST   /v1/bookings                           booking.create
+GET    /v1/bookings/{booking_id}              booking.view
+POST   /v1/bookings/{booking_id}/cancel       booking.cancel
+POST   /v1/bookings/{booking_id}/confirm      booking.confirm
+POST   /v1/bookings/{booking_id}/complete     booking.complete
+POST   /v1/bookings/{booking_id}/payment-received booking.payment_received
+POST   /v1/bookings/{booking_id}/payment-link booking.payment_link
+GET    /v1/bookings/{booking_id}/participants booking.participant.read
+POST   /v1/bookings/{booking_id}/participants booking.participant.create
+POST   /v1/bookings/{booking_id}/participants/{participant_id}/attendance booking.participant.attendance.record
+```
+
+### Payments And Payouts Service
+
+```text
+POST   /v1/clients                            payment.client.create
+POST   /v1/checkouts                          payment.checkout.create
+GET    /v1/checkouts/{id}/callbacks/{result}  payment.checkout.callback
+POST   /v1/course-occurrence-checkouts        payment.course_occurrence_checkout.create
+GET    /v1/course-occurrence-checkouts/{id}/callbacks/{result} payment.course_occurrence_checkout.callback
+GET    /v1/payments                           payment.search
+POST   /v1/payments                           payment.create
+GET    /v1/payments/{id}                      payment.read
+POST   /v1/payments/{id}/capture              payment.capture
+POST   /v1/payments/{id}/cancel               payment.cancel
+GET    /v1/payments/{id}/refunds              payment.refund.read
+POST   /v1/payments/{id}/refunds              payment.refund
+GET    /v1/payees/{payee_id}/balances         payment.payee.balance.read
+GET    /v1/payees/{payee_id}/payout-requests  payout.request.read
+POST   /v1/payees/{payee_id}/payout-requests  payout.request.create
+GET    /v1/payout-requests                    payout.request.read
+GET    /v1/payout-requests/{id}               payout.request.read
+POST   /v1/payout-requests/{id}/approve       payout.request.approve
+POST   /v1/payout-requests/{id}/reject        payout.request.reject
+POST   /v1/payout-requests/{id}/hold          payout.request.hold
+POST   /v1/payout-requests/{id}/release       payout.request.release
+POST   /v1/payout-requests/{id}/mark-paid     payout.request.mark_paid
+POST   /v1/payout-requests/{id}/cancel        payout.request.cancel
+POST   /v1/webhooks/{provider}                payment.webhook.receive
+POST   /internal/outbox/dispatch              payment.outbox.dispatch
+```
 
 ## Authorisation Administration Permissions
 

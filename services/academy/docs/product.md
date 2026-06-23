@@ -239,15 +239,23 @@ Permission names use the `academy.resource.action` pattern where the resource ne
 | Permission | Purpose | Typical Scope |
 | --- | --- | --- |
 | `academy.create` | Create a new academy/location resource. | organisation/application |
+| `academy.view` | View academy records and public/admin profile details. | platform, organisation, or academy |
 | `academy.read` | Read non-sensitive academy details. | platform, organisation, or academy |
 | `academy.search` | Search/list academies. | platform or organisation |
+| `academy.edit` | Edit academy records and profile fields. | academy |
 | `academy.update` | Update academy core fields such as name, slug, status metadata. | academy |
 | `academy.archive` | Archive academy from active management. | academy |
+| `academy.activate` | Reactivate a suspended academy. | academy/platform |
 | `academy.publish` | Publish academy to marketplace surfaces. | academy |
+| `academy.public.enabled` | Enable academy public listing and discovery visibility. | academy |
 | `academy.unpublish` | Remove academy from marketplace surfaces without deleting it. | academy |
 | `academy.suspend` | Suspend academy management or listing due to policy/quality concerns. | academy |
 | `academy.delete` | Permanently delete academy where allowed by retention policy. | academy/platform |
 | `academy.restore` | Restore archived/suspended academy. | academy |
+| `academy.claim.view` | View academy ownership claim workflow access. | academy/platform |
+| `academy.verify` | Verify academy records. | platform |
+| `academy.unverify` | Remove academy verification. | platform |
+| `academy.audit.view` | View academy audit history. | academy/platform |
 
 ### Academy Profile
 
@@ -274,6 +282,7 @@ Academy membership permissions control domain membership records only. They do n
 | Permission | Purpose | Typical Scope |
 | --- | --- | --- |
 | `academy.member.read` | View academy owners/admins/coaches/members. | academy |
+| `academy.member.add` | Add a user to academy membership through the current Academy Service endpoint. | academy |
 | `academy.member.assign` | Add a user to academy membership. | academy |
 | `academy.member.update` | Change academy member role/status. | academy |
 | `academy.member.remove` | Remove a user from academy membership. | academy |
@@ -363,20 +372,27 @@ These permissions only control academy-facing reads/actions that proxy to Paymen
 | --- | --- |
 | `POST /v1/academies` | `academy.create` |
 | `GET /v1/academies` | `academy.search` |
-| `GET /v1/academies/{academy_id}` | `academy.read` |
-| `PUT /v1/academies/{academy_id}` | `academy.update` |
+| `GET /v1/academies/{academy_id}` | `academy.view` |
+| `PATCH /v1/academies/{academy_id}` | `academy.edit` |
+| `DELETE /v1/academies/{academy_id}` | `academy.delete` |
+| `GET /v1/academies/{academy_id}/members` | `academy.member.read` |
+| `POST /v1/academies/{academy_id}/members` | `academy.member.add` |
+| `DELETE /v1/academies/{academy_id}/members/{user_id}` | `academy.member.remove` |
+| `GET /v1/memberships` | `academy.membership.read` |
 | `POST /v1/academies/{academy_id}/archive` | `academy.archive` |
+| `POST /v1/academies/{academy_id}/activate` | `academy.activate` |
 | `POST /v1/academies/{academy_id}/publish` | `academy.publish` |
+| `POST /v1/academies/{academy_id}/public/enable` | `academy.public.enabled` |
 | `POST /v1/academies/{academy_id}/unpublish` | `academy.unpublish` |
 | `POST /v1/academies/{academy_id}/suspend` | `academy.suspend` |
 | `POST /v1/academies/{academy_id}/restore` | `academy.restore` |
-| `DELETE /v1/academies/{academy_id}` | `academy.delete` |
+| `POST /v1/academies/{academy_id}/verify` | `academy.verify` |
+| `POST /v1/academies/{academy_id}/unverify` | `academy.unverify` |
+| `GET /v1/academies/{academy_id}/audit` | `academy.audit.view` |
 | `GET /v1/academies/{academy_id}/profile` | `academy.profile.read` |
 | `PUT /v1/academies/{academy_id}/profile` | `academy.profile.update` |
 | `GET /v1/academies/{academy_id}/social-links` | `academy.social.read` |
 | `PUT /v1/academies/{academy_id}/social-links` | `academy.social.update` |
-| `GET /v1/academies/{academy_id}/members` | `academy.member.read` |
-| `POST /v1/academies/{academy_id}/members` | `academy.member.assign` |
 | `PUT /v1/academies/{academy_id}/members/{member_id}` | `academy.member.update` |
 | `DELETE /v1/academies/{academy_id}/members/{member_id}` | `academy.member.remove` |
 | `POST /v1/academies/{academy_id}/claims` | `academy.claim.submit` |
