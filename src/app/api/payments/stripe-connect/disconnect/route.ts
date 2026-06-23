@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
+import { disconnectStripePaymentAccountSetting } from "@/lib/payments";
 import { browserUrl, getPaymentAccountOwner, paymentSettingsHref } from "@/lib/stripe-connect";
 
 export async function POST(request: Request) {
@@ -18,18 +18,11 @@ export async function POST(request: Request) {
     return redirectToSettings(request, { stripeConnectError: "Platform payment account access is required." });
   }
 
-  await prisma.paymentAccountSetting.updateMany({
-    data: {
-      chargesEnabled: false,
-      payoutsEnabled: false,
-      providerAccountId: null,
-      status: "disconnected",
-    },
-    where: {
-      ownerId: owner.ownerId,
-      ownerType: owner.ownerType,
-      provider: "stripe",
-    },
+  await disconnectStripePaymentAccountSetting({
+    actorUserId: user.id,
+    organisationId: user.academyId,
+    ownerId: owner.ownerId,
+    ownerType: owner.ownerType,
   });
 
   return redirectToSettings(request, { stripeConnect: "disconnected" });

@@ -174,8 +174,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(adminSource, /Edit Academy/);
     assert.match(academyDetailSource, /requireAcademyEditor\(id\)/);
     assert.match(academyDetailSource, /isPlatformAdminRole\(currentUser\?\.role\)/);
-    assert.match(academyDetailSource, /prisma\.analyticsEvent\.count\(\{/);
-    assert.match(academyDetailSource, /eventName:\s*"academy_profile_viewed"/);
+    assert.match(academyDetailSource, /getAcademyProfileViewCount\(id\)/);
     assert.match(academyDetailSource, /<h2 className="text-lg font-black text-stone-950">Summary<\/h2>/);
     assert.match(academyDetailSource, /<h2 className="text-lg font-black text-stone-950">Statistics<\/h2>/);
     assert.match(academyDetailSource, /showAcademyStats\s*\?\s*\(/);

@@ -21,6 +21,10 @@ function formatRoleDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(date);
 }
 
+function roleCreatorLabel(role: AuthorisationRole) {
+  return role.system_role ? "SYSTEM" : role.created_by || "SYSTEM";
+}
+
 export function SystemRolesBoard({
   canAddPrivileges,
   canCreateRoles,
@@ -179,15 +183,15 @@ export function SystemRolesBoard({
         </label>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] text-left text-sm">
+        <table className="w-full min-w-[940px] text-left text-sm">
           <thead className="bg-stone-50 text-xs font-black uppercase text-stone-500">
             <tr>
               <th className="px-5 py-3">Role ID</th>
-              <th className="px-5 py-3">Key</th>
               <th className="px-5 py-3">Name</th>
               <th className="px-5 py-3">Level</th>
               <th className="px-5 py-3">Assignable</th>
               <th className="px-5 py-3">System</th>
+              <th className="px-5 py-3">Created By</th>
               <th className="px-5 py-3">Updated</th>
             </tr>
           </thead>
@@ -195,11 +199,11 @@ export function SystemRolesBoard({
             {pagedRoles.map((role) => (
               <tr key={role.id} className="cursor-pointer hover:bg-stone-50" onDoubleClick={() => openRole(role)} title={`Double click to view ${role.name}`}>
                 <td className="px-5 py-4 font-medium text-stone-700">{role.id}</td>
-                <td className="px-5 py-4 font-black text-stone-950">{role.key}</td>
                 <td className="px-5 py-4 font-medium text-stone-800">{role.name}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{role.level}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{role.assignable ? "Yes" : "No"}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{role.system_role ? "Yes" : "No"}</td>
+                <td className="px-5 py-4 font-medium text-stone-700">{roleCreatorLabel(role)}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{formatRoleDate(role.updated_at)}</td>
               </tr>
             ))}
@@ -248,7 +252,6 @@ export function SystemRolesBoard({
             <div className="flex items-start justify-between gap-4 border-b border-stone-200 px-6 py-5">
               <div className="min-w-0">
                 <h3 className="break-words text-xl font-black text-stone-950">{selectedRole.name}</h3>
-                <p className="mt-1 break-words text-sm font-semibold text-stone-600">{selectedRole.key}</p>
               </div>
               <button type="button" onClick={() => setSelectedRole(null)} className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-stone-300 text-stone-700 hover:bg-stone-50">
                 <X size={16} aria-hidden />
@@ -272,6 +275,10 @@ export function SystemRolesBoard({
                 <div>
                   <dt className="font-black uppercase text-stone-500">System</dt>
                   <dd className="mt-1 font-medium text-stone-800">{selectedRole.system_role ? "Yes" : "No"}</dd>
+                </div>
+                <div>
+                  <dt className="font-black uppercase text-stone-500">Created By</dt>
+                  <dd className="mt-1 break-words font-medium text-stone-800">{roleCreatorLabel(selectedRole)}</dd>
                 </div>
               </dl>
               <div>

@@ -8,6 +8,7 @@ import { canDeleteAcademyRecord, canManageAcademyTeam, canViewAcademyTeam, requi
 import { academyClaimStatuses } from "@/lib/academy-domain-data";
 import { getAcademyFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
+import { getAcademyProfileViewCount } from "@/lib/analytics/profile-reporting";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
 import { AcademyForm } from "../AcademyForm";
@@ -22,11 +23,9 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
   const showAcademyStats = isPlatformAdminRole(currentUser?.role);
   const [academy, profileViewCount, eventCount, claims] = await Promise.all([
     getAcademyFromAcademyService(id),
-    prisma.analyticsEvent.count({
-      where: { academyId: id, eventName: "academy_profile_viewed" },
-    }),
-    prisma.event.count({ where: { academyId: id } }),
-    academyClaimStatuses(id),
+    showAcademyStats ? getAcademyProfileViewCount(id) : Promise.resolve(0),
+    showAcademyStats ? prisma.event.count({ where: { academyId: id } }) : Promise.resolve(0),
+    showAcademyStats ? academyClaimStatuses(id) : Promise.resolve([]),
   ]);
   if (!academy) notFound();
   const claimCount = claims.length;

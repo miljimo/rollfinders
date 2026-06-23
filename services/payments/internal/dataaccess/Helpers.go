@@ -13,3 +13,7 @@ func firstRow(rows []map[string]interface{}, err error) (map[string]interface{},
 	}
 	return rows[0], nil
 }
+
+func FirstRowForService(rows []map[string]interface{}, err error) (map[string]interface{}, error) {
+	return firstRow(rows, err)
+}

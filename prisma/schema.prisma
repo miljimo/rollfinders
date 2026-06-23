@@ -175,9 +175,6 @@ model Academy {
   invitations        AcademyInvitation[]
   claimReminders     AcademyClaimReminder[]
   socialLinks        AcademySocialLink[]
-  analyticsEvents    AnalyticsEvent[]
-  analyticsMetrics   AnalyticsDailyMetric[]
-  paymentAccounts    PaymentAccountSetting[]
 
   @@index([city])
   @@index([postcode])
@@ -188,27 +185,6 @@ model Academy {
   @@index([updatedAt])
   @@index([createdById])
   @@map("academies")
-}
-
-model PaymentAccountSetting {
-  id                String   @id @default(cuid())
-  ownerType         String   @map("owner_type")
-  ownerId           String   @map("owner_id")
-  academyId         String?  @map("academy_id")
-  provider          String   @default("stripe")
-  providerAccountId String?  @map("provider_account_id")
-  status            String   @default("pending")
-  chargesEnabled    Boolean  @default(false) @map("charges_enabled")
-  payoutsEnabled    Boolean  @default(false) @map("payouts_enabled")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  academy           Academy? @relation(fields: [academyId], references: [id], onDelete: Cascade)
-
-  @@unique([ownerType, ownerId, provider])
-  @@index([academyId])
-  @@index([ownerType, ownerId])
-  @@index([providerAccountId])
-  @@map("payment_account_settings")
 }
 
 model PaymentPlatformSetting {
@@ -267,8 +243,6 @@ model Event {
   createdAt          DateTime               @default(now()) @map("created_at")
   academy            Academy                @relation(fields: [academyId], references: [id], onDelete: Cascade)
   activities         CourseActivity[]
-  analyticsEvents    AnalyticsEvent[]
-  analyticsMetrics   AnalyticsDailyMetric[]
 
   @@index([eventDate])
   @@index([academyId])
@@ -430,69 +404,4 @@ model PlatformAdminActivityEvent {
   @@index([actionType, occurredAt])
   @@index([sourceType, sourceId])
   @@map("platform_admin_activity_events")
-}
-
-model AnalyticsVisitor {
-  id             String           @id @map("visitor_id")
-  lastSessionId  String?          @map("last_session_id")
-  ipHash         String?          @map("ip_hash")
-  userAgentHash  String?          @map("user_agent_hash")
-  firstSeenAt    DateTime         @default(now()) @map("first_seen_at")
-  lastSeenAt     DateTime         @default(now()) @map("last_seen_at")
-  sessionSeenAt  DateTime?        @map("session_seen_at")
-  metadata       Json?
-  events         AnalyticsEvent[]
-
-  @@index([lastSeenAt])
-  @@index([lastSessionId])
-  @@map("analytics_visitors")
-}
-
-model AnalyticsEvent {
-  id        String            @id @default(cuid())
-  eventName String            @map("event_name")
-  visitorId String?           @map("visitor_id")
-  sessionId String?           @map("session_id")
-  ipHash    String?           @map("ip_hash")
-  academyId String?           @map("academy_id")
-  openMatId String?           @map("open_mat_id")
-  countryCode String?          @map("country_code")
-  countryName String?          @map("country_name")
-  source    String
-  metadata  Json?
-  createdAt DateTime          @default(now()) @map("created_at")
-  visitor   AnalyticsVisitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
-  academy   Academy?          @relation(fields: [academyId], references: [id], onDelete: SetNull)
-  openMat   Event?            @relation(fields: [openMatId], references: [id], onDelete: SetNull)
-
-  @@index([eventName, createdAt])
-  @@index([visitorId, createdAt])
-  @@index([academyId, createdAt])
-  @@index([openMatId, createdAt])
-  @@index([countryCode, createdAt])
-  @@index([createdAt])
-  @@map("analytics_events")
-}
-
-model AnalyticsDailyMetric {
-  id           String    @id @default(cuid())
-  metricDate   DateTime  @map("metric_date") @db.Date
-  metricName   String    @map("metric_name")
-  source       String?
-  academyId    String?   @map("academy_id")
-  openMatId    String?   @map("open_mat_id")
-  dimensionKey String    @default("global") @map("dimension_key")
-  dimensions   Json?
-  value        Int       @default(0)
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-  academy      Academy?  @relation(fields: [academyId], references: [id], onDelete: SetNull)
-  openMat      Event?    @relation(fields: [openMatId], references: [id], onDelete: SetNull)
-
-  @@unique([metricDate, metricName, dimensionKey])
-  @@index([metricDate])
-  @@index([metricName, metricDate])
-  @@index([academyId, metricDate])
-  @@index([openMatId, metricDate])
-  @@map("analytics_daily_metrics")
 }

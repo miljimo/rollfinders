@@ -1,6 +1,6 @@
-import { prisma } from "@/lib/prisma";
 import { listManagedUsers } from "@/lib/users-service";
 import type { AnalyticsCountrySignal, AnalyticsDailyMetric, AnalyticsDailyVisit, AnalyticsLoggedInUsers } from "./types";
+import { analyticsFetch } from "./service";
 
 const activeLoginWindowMinutes = 30;
 
@@ -53,121 +53,17 @@ export async function getFounderAnalyticsReport(days = 30) {
   };
 
   try {
-    const [dailyRows, rawRows, uniqueRows, countryRows, dailyVisitRows, managedUsersResult] = await Promise.all([
-      prisma.$queryRaw<Array<{ metric_name: string; value: number; metric_date: Date; dimensions: unknown }>>`
-      SELECT metric_name, value, metric_date, dimensions
-      FROM analytics_daily_metrics
-      WHERE metric_date >= (CURRENT_DATE - (${boundedDays}::int - 1))
-      ORDER BY metric_date ASC, metric_name ASC
-      `,
-      prisma.$queryRaw<Array<{ event_name: string; value: number }>>`
-        SELECT event_name, COUNT(*)::int AS value
-        FROM analytics_events
-        WHERE created_at >= (CURRENT_DATE - (${boundedDays}::int - 1))
-        GROUP BY event_name
-      `,
-      prisma.$queryRaw<Array<{ unique_visitors: number; unique_sessions: number }>>`
-        SELECT
-          COUNT(DISTINCT visitor_id)::int AS unique_visitors,
-          COUNT(DISTINCT session_id)::int AS unique_sessions
-        FROM analytics_events
-        WHERE created_at >= (CURRENT_DATE - (${boundedDays}::int - 1))
-      `,
-      prisma.$queryRaw<Array<{ country_code: string | null; country_name: string | null; event_count: number; visitor_count: number }>>`
-        SELECT
-          country_code,
-          COALESCE(country_name, 'Unknown') AS country_name,
-          COUNT(*)::int AS event_count,
-          COUNT(DISTINCT visitor_id)::int AS visitor_count
-        FROM analytics_events
-        WHERE created_at >= (CURRENT_DATE - (${boundedDays}::int - 1))
-        GROUP BY country_code, country_name
-        ORDER BY COUNT(*) DESC, COALESCE(country_name, 'Unknown') ASC
-        LIMIT 8
-      `,
-      prisma.$queryRaw<Array<{ visit_date: Date; unique_visitors: number; unique_sessions: number; event_count: number }>>`
-        SELECT
-          created_at::date AS visit_date,
-          COUNT(DISTINCT visitor_id)::int AS unique_visitors,
-          COUNT(DISTINCT session_id)::int AS unique_sessions,
-          COUNT(*)::int AS event_count
-        FROM analytics_events
-        WHERE created_at >= (CURRENT_DATE - (${boundedDays}::int - 1))
-        GROUP BY created_at::date
-        ORDER BY created_at::date DESC
-      `,
+    const [analyticsResponse, managedUsersResult] = await Promise.all([
+      analyticsFetch(`/v1/reports/founder-summary?days=${boundedDays}`).then((response) => response.ok ? response.json() : null),
       listManagedUsers(
         { id: "analytics-reporting", role: "SUPER_ADMIN", email: "analytics@rollfinders.internal", privileges: ["users.admin.access"] },
         "status=ACTIVE&pageSize=100",
       ),
     ]);
-
-    for (const row of dailyRows) {
-      addMetric(summary, row.metric_name, Number(row.value));
-      trends.push({
-        metricName: row.metric_name,
-        metricValue: Number(row.value),
-        metricDate: row.metric_date.toISOString().slice(0, 10),
-        metadata: {},
-      });
-    }
-
-    const rawMetricMap: Record<string, keyof typeof summary.search | keyof typeof summary.profile | keyof typeof summary.commercial | keyof typeof summary.claim | keyof typeof summary.supply> = {
-      academy_search_submitted: "academySearches",
-      open_mat_search_submitted: "openMatSearches",
-      course_search_submitted: "courseSearches",
-      academy_profile_viewed: "academyProfileViews",
-      open_mat_viewed: "openMatViews",
-      course_viewed: "courseViews",
-      commercial_intent_clicked: "commercialIntentClicks",
-      claim_profile_started: "claimStarts",
-      claim_profile_submitted: "claimSubmissions",
-      claim_approved: "claimsApproved",
-      claim_rejected: "claimsRejected",
-      academy_created: "academiesCreated",
-      open_mat_created: "openMatsCreated",
-      course_created: "coursesCreated",
-      recurring_course_created: "recurringCoursesCreated",
-    };
-
-    for (const row of rawRows) {
-      const value = Number(row.value);
-      const key = rawMetricMap[row.event_name];
-      if (!key) continue;
-      if (key === "academySearches") summary.search.academySearches = Math.max(summary.search.academySearches, value);
-      if (key === "openMatSearches") summary.search.openMatSearches = Math.max(summary.search.openMatSearches, value);
-      if (key === "courseSearches") summary.search.courseSearches = Math.max(summary.search.courseSearches, value);
-      if (key === "academyProfileViews") summary.profile.academyProfileViews = Math.max(summary.profile.academyProfileViews, value);
-      if (key === "openMatViews") summary.profile.openMatViews = Math.max(summary.profile.openMatViews, value);
-      if (key === "courseViews") summary.profile.courseViews = Math.max(summary.profile.courseViews, value);
-      if (key === "commercialIntentClicks") summary.commercial.commercialIntentClicks = Math.max(summary.commercial.commercialIntentClicks, value);
-      if (key === "claimStarts") summary.claim.claimStarts = Math.max(summary.claim.claimStarts, value);
-      if (key === "claimSubmissions") summary.claim.claimSubmissions = Math.max(summary.claim.claimSubmissions, value);
-      if (key === "claimsApproved") summary.claim.claimsApproved = Math.max(summary.claim.claimsApproved, value);
-      if (key === "claimsRejected") summary.claim.claimsRejected = Math.max(summary.claim.claimsRejected, value);
-      if (key === "academiesCreated") summary.supply.academiesCreated = Math.max(summary.supply.academiesCreated, value);
-      if (key === "openMatsCreated") summary.supply.openMatsCreated = Math.max(summary.supply.openMatsCreated, value);
-      if (key === "coursesCreated") summary.supply.coursesCreated = Math.max(summary.supply.coursesCreated, value);
-      if (key === "recurringCoursesCreated") summary.supply.recurringCoursesCreated = Math.max(summary.supply.recurringCoursesCreated, value);
-    }
-
-    summary.visitor.uniqueVisitors = Math.max(summary.visitor.uniqueVisitors, Number(uniqueRows[0]?.unique_visitors ?? 0));
-    summary.visitor.uniqueSessions = Math.max(summary.visitor.uniqueSessions, Number(uniqueRows[0]?.unique_sessions ?? 0));
-    const anonymousActivity = summary.search.academySearches + summary.search.openMatSearches + summary.search.courseSearches + summary.profile.academyProfileViews + summary.profile.openMatViews + summary.profile.courseViews;
-    summary.marketplace.visitorCount = Math.max(summary.visitor.uniqueVisitors, anonymousActivity);
-    summary.marketplace.sessionCount = Math.max(summary.visitor.uniqueSessions, summary.marketplace.visitorCount);
-    countries = countryRows.map((row) => ({
-      countryCode: row.country_code,
-      countryName: row.country_name ?? "Unknown",
-      eventCount: Number(row.event_count),
-      visitorCount: Number(row.visitor_count),
-    }));
-    dailyVisits = dailyVisitRows.map((row) => ({
-      date: row.visit_date.toISOString().slice(0, 10),
-      uniqueVisitors: Number(row.unique_visitors),
-      uniqueSessions: Number(row.unique_sessions),
-      eventCount: Number(row.event_count),
-    }));
+    if (analyticsResponse?.summary) Object.assign(summary, analyticsResponse.summary);
+    if (Array.isArray(analyticsResponse?.trends)) trends.push(...analyticsResponse.trends);
+    if (Array.isArray(analyticsResponse?.countries)) countries = analyticsResponse.countries;
+    if (Array.isArray(analyticsResponse?.dailyVisits)) dailyVisits = analyticsResponse.dailyVisits;
     const now = new Date();
     const activeWindowStart = new Date(now.getTime() - activeLoginWindowMinutes * 60 * 1000);
     const todayStart = new Date(now);

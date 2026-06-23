@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -81,6 +82,19 @@ type stripeAdapter struct {
 	context    string
 }
 
+type stripeAccount struct {
+	ChargesEnabled   bool              `json:"charges_enabled"`
+	Created          int64             `json:"created"`
+	DetailsSubmitted bool              `json:"details_submitted"`
+	ID               string            `json:"id"`
+	Metadata         map[string]string `json:"metadata"`
+	PayoutsEnabled   bool              `json:"payouts_enabled"`
+}
+
+type stripeAccountLink struct {
+	URL string `json:"url"`
+}
+
 func (a stripeAdapter) CreatePayment(req createPaymentRequest, key string) (providerResult, error) {
 	if a.secret.configured() && req.Metadata["payment_checkout_success_url"] != "" && req.Metadata["payment_checkout_cancel_url"] != "" {
 		return a.createCheckoutSession(req, key)
@@ -102,6 +116,133 @@ func (a stripeAdapter) CreatePayment(req createPaymentRequest, key string) (prov
 		action["provider_credentials"] = "configured"
 	}
 	return providerResult{ProviderID: "pi_" + shortKey(key), Status: status, RawStatus: raw, NextAction: action}, nil
+}
+
+func (a stripeAdapter) CreateConnectedAccount(email string, owner PaymentAccountOwner) (stripeAccount, error) {
+	form := url.Values{}
+	form.Set("business_profile[product_description]", "RollFinders booking and event payments")
+	form.Set("capabilities[card_payments][requested]", "true")
+	form.Set("capabilities[transfers][requested]", "true")
+	form.Set("country", "GB")
+	form.Set("email", email)
+	form.Set("metadata[owner_id]", owner.OwnerID)
+	form.Set("metadata[owner_type]", owner.OwnerType)
+	form.Set("type", "express")
+	var account stripeAccount
+	if err := a.stripeRequest(http.MethodPost, "/v1/accounts", form, &account); err != nil {
+		return stripeAccount{}, err
+	}
+	return account, nil
+}
+
+func (a stripeAdapter) RetrieveConnectedAccount(accountID string) (stripeAccount, error) {
+	var account stripeAccount
+	if err := a.stripeRequest(http.MethodGet, "/v1/accounts/"+url.PathEscape(accountID), nil, &account); err != nil {
+		return stripeAccount{}, err
+	}
+	return account, nil
+}
+
+func (a stripeAdapter) FindReusableConnectedAccount(owner PaymentAccountOwner) (stripeAccount, bool, error) {
+	var response struct {
+		Data []stripeAccount `json:"data"`
+	}
+	if err := a.stripeRequest(http.MethodGet, "/v1/accounts?limit=100", nil, &response); err != nil {
+		return stripeAccount{}, false, err
+	}
+	accounts := make([]stripeAccount, 0, len(response.Data))
+	for _, account := range response.Data {
+		if account.Metadata["owner_id"] == owner.OwnerID && account.Metadata["owner_type"] == owner.OwnerType {
+			accounts = append(accounts, account)
+		}
+	}
+	sort.Slice(accounts, func(i, j int) bool {
+		return accounts[i].Created > accounts[j].Created
+	})
+	for _, account := range accounts {
+		if account.DetailsSubmitted && account.ChargesEnabled && account.PayoutsEnabled {
+			return account, true, nil
+		}
+	}
+	for _, account := range accounts {
+		if account.DetailsSubmitted {
+			return account, true, nil
+		}
+	}
+	if len(accounts) == 0 {
+		return stripeAccount{}, false, nil
+	}
+	return accounts[0], true, nil
+}
+
+func (a stripeAdapter) DeleteDuplicateConnectedAccounts(owner PaymentAccountOwner, retainedAccountID string) error {
+	var response struct {
+		Data []stripeAccount `json:"data"`
+	}
+	if err := a.stripeRequest(http.MethodGet, "/v1/accounts?limit=100", nil, &response); err != nil {
+		return err
+	}
+	for _, account := range response.Data {
+		if account.ID == retainedAccountID || account.Metadata["owner_id"] != owner.OwnerID || account.Metadata["owner_type"] != owner.OwnerType {
+			continue
+		}
+		var deleted struct {
+			ID      string `json:"id"`
+			Deleted bool   `json:"deleted"`
+		}
+		if err := a.stripeRequest(http.MethodDelete, "/v1/accounts/"+url.PathEscape(account.ID), nil, &deleted); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a stripeAdapter) CreateAccountLink(accountID, refreshURL, returnURL string) (stripeAccountLink, error) {
+	form := url.Values{}
+	form.Set("account", accountID)
+	form.Set("refresh_url", refreshURL)
+	form.Set("return_url", returnURL)
+	form.Set("type", "account_onboarding")
+	var link stripeAccountLink
+	if err := a.stripeRequest(http.MethodPost, "/v1/account_links", form, &link); err != nil {
+		return stripeAccountLink{}, err
+	}
+	return link, nil
+}
+
+func (a stripeAdapter) stripeRequest(method string, path string, form url.Values, target any) error {
+	if !a.secret.configured() {
+		return errors.New("Stripe API key is not configured")
+	}
+	var body io.Reader
+	if form != nil {
+		body = strings.NewReader(form.Encode())
+	}
+	req, err := http.NewRequest(method, "https://api.stripe.com"+path, body)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(a.secret.value(), "")
+	if form != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	a.setRequestHeaders(req)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+	responseBody, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if err != nil {
+		return err
+	}
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return fmt.Errorf("stripe connect request failed: status=%d body=%s", res.StatusCode, redactStripeError(responseBody))
+	}
+	if target == nil {
+		return nil
+	}
+	return json.Unmarshal(responseBody, target)
 }
 
 func (a stripeAdapter) createCheckoutSession(req createPaymentRequest, key string) (providerResult, error) {

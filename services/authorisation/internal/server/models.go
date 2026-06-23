@@ -39,6 +39,7 @@ type Role struct {
 	Level       int       `json:"level"`
 	Assignable  bool      `json:"assignable"`
 	SystemRole  bool      `json:"system_role"`
+	CreatedBy   string    `json:"created_by,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }

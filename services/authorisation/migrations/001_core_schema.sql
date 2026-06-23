@@ -17,6 +17,8 @@ SET search_path TO authorisation, public;
 \ir procedures/001_seedAuthorisationCatalog.sql
 
 CALL "seedAuthorisationCatalog"();
+\ir 014_role_generated_ids.sql
+\ir 015_role_created_by.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_core_schema')
 ON CONFLICT (version) DO NOTHING;

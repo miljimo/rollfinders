@@ -196,10 +196,10 @@ func (r *repository) createResource(ctx context.Context, resource Resource, acto
 
 func (r *repository) createRole(ctx context.Context, role Role, actor, requestID string) (Role, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO roles (id, key, name, description, level, assignable, system_role)
-		VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7)
-		RETURNING id, key, name, COALESCE(description, ''), level, assignable, system_role, created_at, updated_at`,
-		role.ID, role.Key, role.Name, role.Description, role.Level, role.Assignable, role.SystemRole)
+		INSERT INTO roles (id, key, name, description, level, assignable, system_role, created_by)
+		VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, NULLIF($8, ''))
+		RETURNING id, key, name, COALESCE(description, ''), level, assignable, system_role, COALESCE(created_by, ''), created_at, updated_at`,
+		role.ID, role.Key, role.Name, role.Description, role.Level, role.Assignable, role.SystemRole, roleCreator(actor))
 	created, err := scanRole(row)
 	if err != nil {
 		return Role{}, err
@@ -214,7 +214,7 @@ func (r *repository) updateRole(ctx context.Context, role Role, actor, requestID
 		UPDATE roles
 		SET key = $2, name = $3, description = NULLIF($4, ''), level = $5, assignable = $6, system_role = $7, updated_at = now()
 		WHERE id = $1
-		RETURNING id, key, name, COALESCE(description, ''), level, assignable, system_role, created_at, updated_at`,
+		RETURNING id, key, name, COALESCE(description, ''), level, assignable, system_role, COALESCE(created_by, ''), created_at, updated_at`,
 		role.ID, role.Key, role.Name, role.Description, role.Level, role.Assignable, role.SystemRole)
 	updated, err := scanRole(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -228,7 +228,7 @@ func (r *repository) updateRole(ctx context.Context, role Role, actor, requestID
 }
 
 func (r *repository) listRoles(ctx context.Context) ([]Role, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, key, name, COALESCE(description, ''), level, assignable, system_role, created_at, updated_at FROM roles ORDER BY level DESC, key`)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, key, name, COALESCE(description, ''), level, assignable, system_role, COALESCE(created_by, ''), created_at, updated_at FROM roles ORDER BY level DESC, key`)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (r *repository) listRoles(ctx context.Context) ([]Role, error) {
 }
 
 func (r *repository) getRole(ctx context.Context, id string) (Role, error) {
-	role, err := scanRole(r.db.QueryRowContext(ctx, `SELECT id, key, name, COALESCE(description, ''), level, assignable, system_role, created_at, updated_at FROM roles WHERE id = $1`, id))
+	role, err := scanRole(r.db.QueryRowContext(ctx, `SELECT id, key, name, COALESCE(description, ''), level, assignable, system_role, COALESCE(created_by, ''), created_at, updated_at FROM roles WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Role{}, errNotFound
 	}
@@ -254,8 +254,15 @@ func (r *repository) getRole(ctx context.Context, id string) (Role, error) {
 
 func scanRole(scanner interface{ Scan(dest ...any) error }) (Role, error) {
 	var role Role
-	err := scanner.Scan(&role.ID, &role.Key, &role.Name, &role.Description, &role.Level, &role.Assignable, &role.SystemRole, &role.CreatedAt, &role.UpdatedAt)
+	err := scanner.Scan(&role.ID, &role.Key, &role.Name, &role.Description, &role.Level, &role.Assignable, &role.SystemRole, &role.CreatedBy, &role.CreatedAt, &role.UpdatedAt)
 	return role, err
+}
+
+func roleCreator(actor string) string {
+	if cleanString(actor) == "" {
+		return "SYSTEM"
+	}
+	return cleanString(actor)
 }
 
 func (r *repository) addRolePermission(ctx context.Context, roleID, permissionID, actor, requestID string) error {

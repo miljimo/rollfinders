@@ -21,7 +21,7 @@ import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { listOrganisationApplications, listOrganisations } from "@/lib/organisation-service";
 import { calculatePlatformFeeMinor, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
-import { listCourseOccurrencePayments, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
+import { getStripePaymentAccountSetting, listCourseOccurrencePayments, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
@@ -84,7 +84,7 @@ type AdminSearchParams = Record<string, string | string[] | undefined>;
 type PaymentAccountSettingView = {
   chargesEnabled: boolean;
   payoutsEnabled: boolean;
-  providerAccountId: string | null;
+  providerAccountId?: string | null;
   status: string;
 };
 
@@ -480,8 +480,8 @@ export default async function AdminDashboardWorkspace({
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
   const paymentAccountOwner = academyAdmin && currentUser.academyId
-    ? { ownerId: currentUser.academyId, ownerType: "academy" }
-    : { ownerId: "rollfinders", ownerType: "platform" };
+    ? { ownerId: currentUser.academyId, ownerType: "academy" as const }
+    : { ownerId: "rollfinders", ownerType: "platform" as const };
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -662,14 +662,11 @@ export default async function AdminDashboardWorkspace({
       : Promise.resolve(null),
     panel === "payments" ? getDashboardPayments(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ payments: [] }),
     panel === "payments"
-      ? prisma.paymentAccountSetting.findUnique({
-          where: {
-            ownerType_ownerId_provider: {
-              ownerId: paymentAccountOwner.ownerId,
-              ownerType: paymentAccountOwner.ownerType,
-              provider: "stripe",
-            },
-          },
+      ? getStripePaymentAccountSetting({
+          actorUserId: currentUser.id,
+          organisationId: currentUser.academyId,
+          ownerId: paymentAccountOwner.ownerId,
+          ownerType: paymentAccountOwner.ownerType,
         }).then((setting) => setting ?? (academyAdmin ? null : rollfindersPlatformPaymentAccountStatus()))
       : Promise.resolve(null),
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
-import { browserUrl, getPaymentAccountOwner, paymentSettingsHref, retrieveStripeConnectedAccount, upsertPaymentAccountFromStripe } from "@/lib/stripe-connect";
+import { refreshStripePaymentAccountSetting } from "@/lib/payments";
+import { browserUrl, getPaymentAccountOwner, paymentSettingsHref } from "@/lib/stripe-connect";
 
 export async function GET(request: Request) {
   const user = await getCurrentUser();
@@ -19,21 +19,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const setting = await prisma.paymentAccountSetting.findUnique({
-      where: {
-        ownerType_ownerId_provider: {
-          ownerId: owner.ownerId,
-          ownerType: owner.ownerType,
-          provider: "stripe",
-        },
-      },
+    await refreshStripePaymentAccountSetting({
+      actorUserId: user.id,
+      organisationId: user.academyId,
+      ownerId: owner.ownerId,
+      ownerType: owner.ownerType,
     });
-    if (!setting?.providerAccountId) {
-      return redirectToSettings(request, { stripeConnectError: "Stripe account setup has not been started." });
-    }
-
-    const account = await retrieveStripeConnectedAccount(setting.providerAccountId, owner);
-    await upsertPaymentAccountFromStripe(owner, account);
 
     return redirectToSettings(request, {
       stripeConnect: requestUrl.searchParams.get("complete") ? "connected" : "refreshed",

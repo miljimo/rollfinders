@@ -3,6 +3,7 @@ include:
   - path: ./services/payments/compose.yml
   - path: ./services/booking/compose.yml
   - path: ./services/notification/compose.yml
+  - path: ./services/analytics/compose.yml
   - path: ./services/academy/compose.yml
   - path: ./services/users/compose.yml
   - path: ./services/courses/compose.yml
@@ -16,6 +17,7 @@ services:
       - academy
       - booking
       - notification
+      - analytics
       - courses
       - db
       - app
@@ -49,6 +51,7 @@ services:
       - booking
       - courses
       - notification
+      - analytics
       - app
       - seed
     environment:
@@ -107,6 +110,8 @@ services:
       API_PUBLIC_BASE_URL: http://api:8080
       NOTIFICATION_SERVICE_BASE_URL: http://notification:8080
       NOTIFICATION_API_KEY: ${NOTIFICATION_API_KEY:-local-notification-api-key}
+      ANALYTICS_SERVICE_BASE_URL: http://analytics:8080
+      ANALYTICS_API_KEY: ${ANALYTICS_API_KEY:-local-analytics-api-key}
       AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
@@ -120,6 +125,8 @@ services:
       api:
         condition: service_healthy
       notification:
+        condition: service_healthy
+      analytics:
         condition: service_healthy
     networks:
       - frontend

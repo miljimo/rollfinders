@@ -44,6 +44,7 @@ export type AuthorisationRole = {
   level: number;
   assignable: boolean;
   system_role: boolean;
+  created_by?: string;
   created_at: string;
   updated_at: string;
 };

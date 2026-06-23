@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"payments/internal/dataaccess"
 	"payments/internal/databases"
 )
 
@@ -228,6 +229,22 @@ func newStore(databaseURL ...string) *store {
 		idem:      map[string]idempotencyRecord{},
 		idemWait:  map[string]chan struct{}{},
 		events:    map[providerEvent]struct{}{},
+	}
+}
+
+func paymentAccountSettingFromDataAccess(setting dataaccess.PaymentAccountSetting) PaymentAccountSetting {
+	return PaymentAccountSetting{
+		ID:                setting.ID,
+		OwnerType:         setting.OwnerType,
+		OwnerID:           setting.OwnerID,
+		AcademyID:         setting.AcademyID,
+		Provider:          setting.Provider,
+		ProviderAccountID: setting.ProviderAccountID,
+		Status:            setting.Status,
+		ChargesEnabled:    setting.ChargesEnabled,
+		PayoutsEnabled:    setting.PayoutsEnabled,
+		CreatedAt:         setting.CreatedAt,
+		UpdatedAt:         setting.UpdatedAt,
 	}
 }
 

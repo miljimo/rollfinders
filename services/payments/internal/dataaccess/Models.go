@@ -115,3 +115,17 @@ type PayoutRequest struct {
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
 }
+
+type PaymentAccountSetting struct {
+	ID                string
+	OwnerType         string
+	OwnerID           string
+	AcademyID         string
+	Provider          string
+	ProviderAccountID string
+	Status            string
+	ChargesEnabled    bool
+	PayoutsEnabled    bool
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}

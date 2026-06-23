@@ -92,6 +92,10 @@ func protectedRoutes() []RouteDefinition {
 		{Method: http.MethodGet, Path: "/v1/payments/{paymentId}", Service: "payment-service", Permission: "payment.read", ResourceType: "payment", ResourceIDParam: "paymentId"},
 		{Method: http.MethodPost, Path: "/v1/checkouts", Service: "payment-service", Permission: "payment.checkout.create"},
 		{Method: http.MethodPost, Path: "/v1/refunds", Service: "payment-service", Permission: "payment.refund.create"},
+		{Method: http.MethodGet, Path: "/v1/payment-accounts/stripe", Service: "payment-service", Permission: "payment.account.read"},
+		{Method: http.MethodPost, Path: "/v1/payment-accounts/stripe/connect", Service: "payment-service", Permission: "payment.account.connect"},
+		{Method: http.MethodPost, Path: "/v1/payment-accounts/stripe/refresh", Service: "payment-service", Permission: "payment.account.connect"},
+		{Method: http.MethodPost, Path: "/v1/payment-accounts/stripe/disconnect", Service: "payment-service", Permission: "payment.account.disconnect"},
 		{Method: http.MethodGet, Path: "/v1/payout", Service: "payment-service", Permission: "payout.request.read"},
 		{Method: http.MethodPost, Path: "/v1/payout", Service: "payment-service", Permission: "payout.request.create"},
 	}

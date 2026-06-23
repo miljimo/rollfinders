@@ -144,5 +144,6 @@ func isPublicCatalogRoute(path string) bool {
 		path == "/v1/courses" ||
 		strings.HasPrefix(path, "/v1/courses/") ||
 		path == "/v1/course-types" ||
-		strings.HasPrefix(path, "/v1/course-types/")
+		strings.HasPrefix(path, "/v1/course-types/") ||
+		path == "/v1/payment-accounts/stripe"
 }

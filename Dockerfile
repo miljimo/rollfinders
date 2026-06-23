@@ -30,6 +30,7 @@ COPY services/booking/migrations ./services/booking/migrations
 COPY services/academy/migrations ./services/academy/migrations
 COPY services/authorisation/migrations ./services/authorisation/migrations
 COPY services/notification/migrations ./services/notification/migrations
+COPY services/analytics/migrations ./services/analytics/migrations
 COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
@@ -61,6 +62,7 @@ COPY --chown=nextjs:nodejs services/booking/migrations ./services/booking/migrat
 COPY --chown=nextjs:nodejs services/academy/migrations ./services/academy/migrations
 COPY --chown=nextjs:nodejs services/authorisation/migrations ./services/authorisation/migrations
 COPY --chown=nextjs:nodejs services/notification/migrations ./services/notification/migrations
+COPY --chown=nextjs:nodejs services/analytics/migrations ./services/analytics/migrations
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
 COPY --chown=nextjs:nodejs src/lib/prisma-pg-pool.ts ./src/lib/prisma-pg-pool.ts

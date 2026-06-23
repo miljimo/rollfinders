@@ -43,11 +43,14 @@ describe("analytics feature contracts", () => {
 
   it("records analytics events through a best-effort service without leaking sensitive metadata", () => {
     const source = readSource("src/lib/analytics/service.ts");
+    const serviceSource = readSource("services/analytics/internal/server/repository.go");
 
-    matchAny(source, [/analyticsEvent\.(?:create|createMany)/, /INSERT INTO analytics_events/], "analytics service must persist immutable event records");
-    assert.match(source, /country_code/);
-    assert.match(source, /country_name/);
-    matchAny(source, [/try\s*\{[\s\S]*(?:analyticsEvent\.(?:create|createMany)|INSERT INTO analytics_events)[\s\S]*\}\s*catch/, /\.catch\(/], "analytics writes must be best-effort");
+    assert.match(source, /\/v1\/events/);
+    assert.match(source, /ANALYTICS_SERVICE_BASE_URL/);
+    assert.match(serviceSource, /INSERT INTO analytics\.events/);
+    assert.match(serviceSource, /country_code/);
+    assert.match(serviceSource, /country_name/);
+    matchAny(source, [/try\s*\{[\s\S]*analyticsFetch[\s\S]*\}\s*catch/, /\.catch\(/], "analytics writes must be best-effort");
     matchAny(source, [/console\.(?:error|warn)/, /logger\.(?:error|warn)/], "analytics persistence failures should be logged server-side");
     assert.doesNotMatch(source, /\bthrow\s+error\b|\bthrow\s+err\b/);
     assert.doesNotMatch(source, /\bpassword\b|\bresetToken\b|\brawIp\b|\bipAddress\b|\bevidenceText\b|\bemailBody\b/i);
@@ -67,19 +70,18 @@ describe("analytics feature contracts", () => {
   });
 
   it("stores and reports country attribution only as aggregate analytics", () => {
-    const schemaSource = readSource("prisma/schema.prisma");
+    const schemaSource = readSource("services/analytics/migrations/tables/002_events.sql");
     const countrySource = readSource("src/lib/analytics/country.ts");
     const reportingSource = readSource("src/lib/analytics/reporting.ts");
     const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
-    assert.match(schemaSource, /countryCode\s+String\?\s+@map\("country_code"\)/);
-    assert.match(schemaSource, /countryName\s+String\?\s+@map\("country_name"\)/);
+    assert.match(schemaSource, /country_code text/);
+    assert.match(schemaSource, /country_name text/);
     for (const header of ["x-vercel-ip-country", "cf-ipcountry", "cloudfront-viewer-country"]) {
       assert.match(countrySource, new RegExp(header));
     }
     assert.match(countrySource, /Intl\.DisplayNames/);
-    assert.match(reportingSource, /GROUP BY country_code, country_name/);
-    assert.match(reportingSource, /COUNT\(DISTINCT visitor_id\)::int AS visitor_count/);
+    assert.match(reportingSource, /\/v1\/reports\/founder-summary/);
     assert.match(reportingSource, /countries/);
     assert.match(dashboardSource, /Country attribution/);
     assert.match(dashboardSource, /FounderAnalyticsPanel/);
@@ -101,14 +103,16 @@ describe("analytics feature contracts", () => {
 
   it("aggregates daily analytics idempotently without deleting raw events", () => {
     const source = readSource("src/lib/analytics/aggregation.ts");
+    const serviceSource = readSource("services/analytics/internal/server/repository.go");
 
-    matchAny(source, [/analyticsDailyMetric\.upsert/, /ON CONFLICT\s*\(\s*metric_name,\s*metric_date\s*\)/], "daily metrics must be upserted idempotently");
-    matchAny(source, [/where:\s*\{[\s\S]*(date|metricDate)/, /created_at\s*>=\s*\$1::date[\s\S]*created_at\s*<\s*\(\$1::date \+ INTERVAL '1 day'\)/], "aggregation must scope metrics to one day");
-    matchAny(source, [/update:\s*\{[\s\S]*create:\s*\{/, /DO UPDATE SET/], "daily metric reruns must update existing rows");
+    assert.match(source, /\/v1\/aggregate/);
+    matchAny(serviceSource, [/ON CONFLICT\s*\(\s*metric_date,\s*metric_name,\s*dimension_key\s*\)/], "daily metrics must be upserted idempotently");
+    matchAny(serviceSource, [/created_at\s*>=\s*\$1::date[\s\S]*created_at\s*<\s*\(\$1::date \+ INTERVAL '1 day'\)/], "aggregation must scope metrics to one day");
+    matchAny(serviceSource, [/DO UPDATE SET/], "daily metric reruns must update existing rows");
     assert.doesNotMatch(source, /analyticsEvent\.(?:delete|deleteMany)/);
 
     for (const metric of ["academy_profile_viewed", "academy_search_submitted", "open_mat_search_submitted", "open_mat_viewed", "claim_profile_submitted", "academy_created", "open_mat_created"]) {
-      assert.match(source, new RegExp(metric));
+      assert.match(serviceSource, new RegExp(metric));
     }
   });
 
@@ -135,14 +139,16 @@ describe("analytics feature contracts", () => {
 
   it("reports daily visitor trends by date for unique visitors and sessions", () => {
     const reportingSource = readSource("src/lib/analytics/reporting.ts");
+    const serviceSource = readSource("services/analytics/internal/server/repository.go");
     const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
 
     assert.match(reportingSource, /trends:\s*AnalyticsDailyMetric\[\]/);
-    assert.match(reportingSource, /metric_date/);
-    assert.match(reportingSource, /ORDER BY metric_date ASC, metric_name ASC/);
-    assert.match(reportingSource, /metricDate:\s*row\.metric_date\.toISOString\(\)\.slice\(0,\s*10\)/);
-    assert.match(reportingSource, /metricName:\s*row\.metric_name/);
-    assert.match(reportingSource, /metricValue:\s*Number\(row\.value\)/);
+    assert.match(reportingSource, /\/v1\/reports\/founder-summary/);
+    assert.match(serviceSource, /metric_date/);
+    assert.match(serviceSource, /ORDER BY metric_date ASC, metric_name ASC/);
+    assert.match(serviceSource, /MetricDate/);
+    assert.match(serviceSource, /MetricName/);
+    assert.match(serviceSource, /MetricValue/);
 
     for (const metric of ["unique_visitors", "unique_sessions"]) {
       assert.match(reportingSource, new RegExp(`metricName\\s*===\\s*["']${metric}["']|["']${metric}["']`));

@@ -73,6 +73,10 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/payout-requests/{id}/release", []string{http.MethodPost}, s.releasePayoutRequest, auth)
 	mustHandle("/v1/payout-requests/{id}/mark-paid", []string{http.MethodPost}, s.markPayoutRequestPaid, auth)
 	mustHandle("/v1/payout-requests/{id}/cancel", []string{http.MethodPost}, s.cancelPayoutRequest, auth)
+	mustHandle("/v1/payment-accounts/stripe", []string{http.MethodGet}, s.getPaymentAccountSetting, auth)
+	mustHandle("/v1/payment-accounts/stripe/connect", []string{http.MethodPost}, s.createStripeConnectAccountLink, auth)
+	mustHandle("/v1/payment-accounts/stripe/refresh", []string{http.MethodPost}, s.refreshStripeConnectAccount, auth)
+	mustHandle("/v1/payment-accounts/stripe/disconnect", []string{http.MethodPost}, s.disconnectStripeConnectAccount, auth)
 	mustHandle("/v1/webhooks/{provider}", []string{http.MethodPost}, s.webhook)
 	mustHandle("/internal/outbox/dispatch", []string{http.MethodPost}, s.dispatchOutbox)
 

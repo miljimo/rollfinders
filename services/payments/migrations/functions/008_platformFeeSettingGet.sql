@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS "platformFeeSettingGet"();
+
 CREATE OR REPLACE FUNCTION "platformFeeSettingGet"()
 RETURNS TABLE (
     platform_fee_basis_points integer,

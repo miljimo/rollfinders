@@ -161,9 +161,8 @@ describe("course payment service integration", () => {
     const actionSource = readSource("src/app/courses/[id]/payment-actions.ts");
 
     assert.match(helperSource, /import\s+["']server-only["']/);
-    assert.match(helperSource, /prisma\.paymentAccountSetting\.findFirst/);
+    assert.match(helperSource, /getStripePaymentAccountSetting/);
     assert.match(helperSource, /ownerType:\s*"academy"/);
-    assert.match(helperSource, /provider:\s*"stripe"/);
     assert.match(helperSource, /connected && chargesEnabled && payoutsEnabled && status === "verified"/);
 
     for (const source of [coursePageSource, openMatPageSource, actionSource]) {
@@ -206,12 +205,13 @@ describe("course payment service integration", () => {
     const setupSource = readSource("src/components/PaymentAccountSetup/PaymentAccountSetup.tsx");
     const setupTypesSource = readSource("src/components/PaymentAccountSetup/types.ts");
     const stripeConnectSource = readSource("src/lib/stripe-connect.ts");
+    const providerSource = readSource("services/payments/internal/server/provider.go");
     const schemaSource = readSource("prisma/schema.prisma");
     const removeKeysMigration = readSource("prisma/migrations/20260621161500_remove_dashboard_stripe_api_keys/migration.sql");
 
     assert.match(stripeConnectSource, /process\.env\.STRIPE_SECRET_KEY/);
     assert.match(stripeConnectSource, /process\.env\.PAYMENT_GATEWAY_API_KEY/);
-    assert.match(stripeConnectSource, /Authorization:\s*`Bearer \$\{key\}`/);
+    assert.match(providerSource, /req\.SetBasicAuth\(a\.secret\.value\(\),\s*""\)/);
 
     for (const source of [dashboardSource, setupSource, setupTypesSource, schemaSource]) {
       assert.doesNotMatch(source, /apiKey|secretKey|publishableKey|clientSecret|STRIPE_SECRET_KEY|PAYMENT_GATEWAY_API_KEY/i);
@@ -237,11 +237,17 @@ describe("course payment service integration", () => {
     const refreshRouteSource = readSource("src/app/api/payments/stripe-connect/refresh/route.ts");
     const disconnectRouteSource = readSource("src/app/api/payments/stripe-connect/disconnect/route.ts");
     const dashboardSource = readSource("src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const paymentsClientSource = readSource("src/lib/payments.ts");
     const schemaSource = readSource("prisma/schema.prisma");
+    const serviceMigrationSource = readSource("services/payments/migrations/tables/013_paymentAccountSettings.sql");
+    const serviceEndpointSource = readSource("services/payments/internal/server/EndpointStripeConnect.go");
+    const servicePersistenceSource = readSource("services/payments/internal/server/StorePersistence.go");
+    const serviceProviderSource = readSource("services/payments/internal/server/provider.go");
 
-    assert.match(schemaSource, /model PaymentAccountSetting \{[\s\S]*academyId\s+String\?/);
-    assert.match(schemaSource, /academy\s+Academy\?\s+@relation\(fields:\s*\[academyId\]/);
-    assert.match(schemaSource, /@@unique\(\[ownerType,\s*ownerId,\s*provider\]\)/);
+    assert.doesNotMatch(schemaSource, /model PaymentAccountSetting \{/);
+    assert.match(serviceMigrationSource, /CREATE TABLE IF NOT EXISTS payment_account_settings/);
+    assert.match(serviceMigrationSource, /CONSTRAINT payment_account_settings_owner_key UNIQUE \(owner_type, owner_id, provider\)/);
+    assert.match(serviceMigrationSource, /FROM public\.payment_account_settings/);
 
     assert.match(stripeConnectSource, /ownerType:\s*"academy"\s*\|\s*"platform"/);
     assert.match(stripeConnectSource, /requestedOwner === "academy"/);
@@ -249,28 +255,30 @@ describe("course payment service integration", () => {
     assert.match(stripeConnectSource, /ownerId:\s*"rollfinders",\s*ownerType:\s*"platform"/);
     assert.match(stripeConnectSource, /export function rollfindersPlatformPaymentAccountStatus/);
     assert.match(stripeConnectSource, /providerAccountId:\s*"rollfinders-stripe-platform"/);
-    assert.match(stripeConnectSource, /academyId:\s*owner\.ownerType === "academy" \? owner\.ownerId : null/);
-    assert.match(stripeConnectSource, /ownerType_ownerId_provider:\s*\{\s*\n\s*ownerId:\s*owner\.ownerId,\s*\n\s*ownerType:\s*owner\.ownerType,\s*\n\s*provider:\s*"stripe"/);
-    assert.match(stripeConnectSource, /"metadata\[owner_id\]":\s*owner\.ownerId/);
-    assert.match(stripeConnectSource, /"metadata\[owner_type\]":\s*owner\.ownerType/);
-    assert.match(stripeConnectSource, /findReusableStripeConnectedAccount/);
-    assert.match(stripeConnectSource, /accountMatchesOwner\(account,\s*owner\)/);
-    assert.match(stripeConnectSource, /sortedAccounts\.find\(isReadyStripeAccount\)/);
-    assert.match(stripeConnectSource, /deleteDuplicateStripeConnectedAccounts/);
-    assert.match(stripeConnectSource, /account\.id !== retainedAccountId/);
-    assert.match(stripeConnectSource, /deleteStripeConnectedAccount\(account\.id,\s*owner\)/);
-    assert.match(connectRouteSource, /findReusableStripeConnectedAccount\(owner\)/);
-    assert.match(connectRouteSource, /deleteDuplicateStripeConnectedAccounts\(owner,\s*account\.id\)/);
 
-    for (const source of [connectRouteSource, refreshRouteSource, dashboardSource]) {
-      assert.match(source, /ownerType_ownerId_provider:\s*\{\s*\n\s*ownerId:\s*owner\.ownerId|ownerId:\s*paymentAccountOwner\.ownerId/);
-      assert.match(source, /provider:\s*"stripe"/);
-    }
+    assert.match(paymentsClientSource, /\/v1\/payment-accounts\/stripe/);
+    assert.match(paymentsClientSource, /createStripeConnectAccountLink/);
+    assert.match(paymentsClientSource, /refreshStripePaymentAccountSetting/);
+    assert.match(paymentsClientSource, /disconnectStripePaymentAccountSetting/);
+    assert.match(connectRouteSource, /createStripeConnectAccountLink/);
+    assert.match(refreshRouteSource, /refreshStripePaymentAccountSetting/);
+    assert.match(disconnectRouteSource, /disconnectStripePaymentAccountSetting/);
+
+    assert.match(serviceProviderSource, /metadata\[owner_id\]/);
+    assert.match(serviceProviderSource, /metadata\[owner_type\]/);
+    assert.match(serviceProviderSource, /FindReusableConnectedAccount/);
+    assert.match(serviceProviderSource, /DeleteDuplicateConnectedAccounts/);
+    assert.match(serviceEndpointSource, /upsertPaymentAccountSettingDB/);
+    assert.match(serviceEndpointSource, /DeleteDuplicateConnectedAccounts/);
+    assert.match(serviceEndpointSource, /CreateAccountLink/);
+    assert.match(dashboardSource, /getStripePaymentAccountSetting/);
+    assert.match(dashboardSource, /ownerId:\s*paymentAccountOwner\.ownerId/);
+    assert.match(dashboardSource, /ownerType:\s*paymentAccountOwner\.ownerType/);
     assert.match(disconnectRouteSource, /ownerId:\s*owner\.ownerId/);
     assert.match(disconnectRouteSource, /ownerType:\s*owner\.ownerType/);
     assert.match(disconnectRouteSource, /export async function POST/);
     assert.doesNotMatch(disconnectRouteSource, /export async function GET/);
-    assert.match(stripeConnectSource, /account\.details_submitted && chargesEnabled && payoutsEnabled \? "verified" : "verification_required"/);
+    assert.match(servicePersistenceSource, /account\.DetailsSubmitted && chargesEnabled && payoutsEnabled/);
     assert.match(dashboardSource, /rollfindersPlatformPaymentAccountStatus/);
     assert.match(dashboardSource, /setting \?\? \(academyAdmin \? null : rollfindersPlatformPaymentAccountStatus\(\)\)/);
     assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);

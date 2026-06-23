@@ -83,6 +83,20 @@ export type PaymentRefundRecord = {
   updatedAt: string;
 };
 
+export type PaymentAccountSetting = {
+  id: string;
+  ownerType: "academy" | "platform";
+  ownerId: string;
+  academyId?: string;
+  provider: string;
+  providerAccountId?: string;
+  status: string;
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CheckoutResponse = {
   checkout_session_id: string;
   client_id: string;
@@ -130,6 +144,25 @@ type PaymentRefundRecordResponse = {
   provider_refund_id?: string;
   created_at: string;
   updated_at: string;
+};
+
+type PaymentAccountSettingResponse = {
+  id: string;
+  owner_type: "academy" | "platform";
+  owner_id: string;
+  academy_id?: string;
+  provider: string;
+  provider_account_id?: string;
+  status: string;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type StripeConnectResponse = {
+  account: PaymentAccountSettingResponse;
+  redirect_url: string;
 };
 
 const paymentServiceUrl = apiGatewayUrl;
@@ -312,6 +345,84 @@ export async function createPaymentRefund(input: CreatePaymentRefundInput): Prom
   };
 }
 
+type PaymentServiceActor = {
+  actorUserId?: string;
+  organisationId?: string | null;
+};
+
+export async function getStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting | null> {
+  const params = new URLSearchParams({
+    owner_type: owner.ownerType,
+    owner_id: owner.ownerId,
+  });
+  const response = await fetch(`${paymentServiceUrl()}/v1/payment-accounts/stripe?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: paymentServiceHeaders(owner),
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment account request failed with status ${response.status}.`, response.status, error.code);
+  }
+  return mapPaymentAccountSetting((await response.json()) as PaymentAccountSettingResponse);
+}
+
+export async function createStripeConnectAccountLink(input: {
+  ownerType: "academy" | "platform";
+  ownerId: string;
+  email: string;
+  refreshUrl: string;
+  returnUrl: string;
+} & PaymentServiceActor): Promise<{ account: PaymentAccountSetting; redirectUrl: string }> {
+  const response = await fetch(`${paymentServiceUrl()}/v1/payment-accounts/stripe/connect`, {
+    method: "POST",
+    cache: "no-store",
+    headers: paymentServiceHeaders(input, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      owner_type: input.ownerType,
+      owner_id: input.ownerId,
+      email: input.email,
+      refresh_url: input.refreshUrl,
+      return_url: input.returnUrl,
+    }),
+  });
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Stripe Connect request failed with status ${response.status}.`, response.status, error.code);
+  }
+  const payload = (await response.json()) as StripeConnectResponse;
+  return {
+    account: mapPaymentAccountSetting(payload.account),
+    redirectUrl: payload.redirect_url,
+  };
+}
+
+export async function refreshStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting> {
+  return postStripePaymentAccountMutation("/v1/payment-accounts/stripe/refresh", owner);
+}
+
+export async function disconnectStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting> {
+  return postStripePaymentAccountMutation("/v1/payment-accounts/stripe/disconnect", owner);
+}
+
+async function postStripePaymentAccountMutation(path: string, owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting> {
+  const response = await fetch(`${paymentServiceUrl()}${path}`, {
+    method: "POST",
+    cache: "no-store",
+    headers: paymentServiceHeaders(owner, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      owner_type: owner.ownerType,
+      owner_id: owner.ownerId,
+    }),
+  });
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment account update failed with status ${response.status}.`, response.status, error.code);
+  }
+  return mapPaymentAccountSetting((await response.json()) as PaymentAccountSettingResponse);
+}
+
 async function readPaymentServiceError(response: Response): Promise<{ code?: string; message?: string }> {
   try {
     const body = (await response.json()) as ErrorResponse;
@@ -327,4 +438,27 @@ async function readPaymentServiceError(response: Response): Promise<{ code?: str
 function isProviderBackedPaymentRecord(payment: PaymentRecord) {
   if (payment.provider !== "stripe") return true;
   return typeof payment.providerPaymentId === "string" && payment.providerPaymentId.startsWith("cs_");
+}
+
+function mapPaymentAccountSetting(setting: PaymentAccountSettingResponse): PaymentAccountSetting {
+  return {
+    id: setting.id,
+    ownerType: setting.owner_type,
+    ownerId: setting.owner_id,
+    academyId: setting.academy_id,
+    provider: setting.provider,
+    providerAccountId: setting.provider_account_id,
+    status: setting.status,
+    chargesEnabled: setting.charges_enabled,
+    payoutsEnabled: setting.payouts_enabled,
+    createdAt: setting.created_at,
+    updatedAt: setting.updated_at,
+  };
+}
+
+function paymentServiceHeaders(actor: PaymentServiceActor, base: Record<string, string> = {}) {
+  const headers = { ...base };
+  if (actor.actorUserId) headers["X-Actor-User-ID"] = actor.actorUserId;
+  if (actor.organisationId) headers["X-Organisation-ID"] = actor.organisationId;
+  return headers;
 }

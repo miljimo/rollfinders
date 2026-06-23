@@ -279,6 +279,80 @@ func (s *store) getPayoutRequestDB(id string) (PayoutRequest, error) {
 	return payoutRequestFromDataAccess(payout), nil
 }
 
+func (s *store) getPaymentAccountSettingDB(ownerType, ownerID, provider string) (PaymentAccountSetting, error) {
+	rows, err := s.db.Query(context.Background(), `
+		SELECT id, owner_type, owner_id, academy_id, provider, provider_account_id, status,
+		       charges_enabled, payouts_enabled, created_at, updated_at
+		FROM payments.payment_account_settings
+		WHERE owner_type = $1 AND owner_id = $2 AND provider = $3
+		LIMIT 1
+	`, ownerType, ownerID, provider)
+	row, err := dataaccess.FirstRowForService(rows, err)
+	if errors.Is(err, dataaccess.ErrNotFound) {
+		return PaymentAccountSetting{}, errNotFound
+	}
+	if err != nil {
+		return PaymentAccountSetting{}, err
+	}
+	return paymentAccountSettingFromDataAccess(dataaccess.PaymentAccountSettingFromRow(row)), nil
+}
+
+func (s *store) upsertPaymentAccountSettingDB(owner PaymentAccountOwner, account stripeAccount) (PaymentAccountSetting, error) {
+	chargesEnabled := account.ChargesEnabled
+	payoutsEnabled := account.PayoutsEnabled
+	status := "verification_required"
+	if account.DetailsSubmitted && chargesEnabled && payoutsEnabled {
+		status = "verified"
+	}
+	academyID := ""
+	if owner.OwnerType == "academy" {
+		academyID = owner.OwnerID
+	}
+	rows, err := s.db.Query(context.Background(), `
+		INSERT INTO payments.payment_account_settings (
+			id, owner_type, owner_id, academy_id, provider, provider_account_id, status,
+			charges_enabled, payouts_enabled, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, NULLIF($4, ''), 'stripe', $5, $6, $7, $8, now(), now())
+		ON CONFLICT (owner_type, owner_id, provider) DO UPDATE
+		SET academy_id = EXCLUDED.academy_id,
+		    provider_account_id = EXCLUDED.provider_account_id,
+		    status = EXCLUDED.status,
+		    charges_enabled = EXCLUDED.charges_enabled,
+		    payouts_enabled = EXCLUDED.payouts_enabled,
+		    updated_at = now()
+		RETURNING id, owner_type, owner_id, academy_id, provider, provider_account_id, status,
+		          charges_enabled, payouts_enabled, created_at, updated_at
+	`, randomID("pa"), owner.OwnerType, owner.OwnerID, academyID, account.ID, status, chargesEnabled, payoutsEnabled)
+	row, err := dataaccess.FirstRowForService(rows, err)
+	if err != nil {
+		return PaymentAccountSetting{}, err
+	}
+	return paymentAccountSettingFromDataAccess(dataaccess.PaymentAccountSettingFromRow(row)), nil
+}
+
+func (s *store) disconnectPaymentAccountSettingDB(owner PaymentAccountOwner) (PaymentAccountSetting, error) {
+	rows, err := s.db.Query(context.Background(), `
+		UPDATE payments.payment_account_settings
+		SET provider_account_id = NULL,
+		    status = 'disconnected',
+		    charges_enabled = false,
+		    payouts_enabled = false,
+		    updated_at = now()
+		WHERE owner_type = $1 AND owner_id = $2 AND provider = 'stripe'
+		RETURNING id, owner_type, owner_id, academy_id, provider, provider_account_id, status,
+		          charges_enabled, payouts_enabled, created_at, updated_at
+	`, owner.OwnerType, owner.OwnerID)
+	row, err := dataaccess.FirstRowForService(rows, err)
+	if errors.Is(err, dataaccess.ErrNotFound) {
+		return PaymentAccountSetting{}, errNotFound
+	}
+	if err != nil {
+		return PaymentAccountSetting{}, err
+	}
+	return paymentAccountSettingFromDataAccess(dataaccess.PaymentAccountSettingFromRow(row)), nil
+}
+
 func (s *store) transitionPayoutRequestDB(id, nextStatus string, req payoutTransitionPayload) (PayoutRequest, error) {
 	if err := dataaccess.TransitionPayoutRequest(
 		context.Background(),
