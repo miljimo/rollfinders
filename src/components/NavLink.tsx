@@ -10,7 +10,7 @@ function isActivePath(pathname: string, href: string) {
 }
 
 export function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
   const active = isActivePath(pathname, href);
 
   return (

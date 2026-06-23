@@ -362,6 +362,7 @@ BEGIN
     FROM roles r
     JOIN permissions p ON p.code IN (
         'academy.view', 'academy.read', 'academy.search',
+        'academy.membership.read',
         'course.read', 'course.search', 'course.activity.read', 'course.type.read',
         'booking.create', 'booking.read', 'booking.view',
         'auth.logout', 'auth.refresh', 'auth.password.change', 'auth.session.read', 'auth.session.revoke', 'auth.mfa.setup', 'auth.mfa.verify',

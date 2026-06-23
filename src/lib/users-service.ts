@@ -117,7 +117,7 @@ export async function getUserAccount(id: string) {
     headers: headers({ id }),
   });
   const result = await parseResponse(response) as { user: { id: string; email: string; role: string; academyId: string | null; privileges: string[] } };
-  return { user: await enrichManagedUserWithRollfinderProfile(result.user, { id }) };
+  return { user: await enrichManagedUserWithRollfinderProfile(result.user, result.user) };
 }
 
 export async function logoutUserSession(refreshToken?: string | null) {

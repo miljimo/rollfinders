@@ -23,7 +23,8 @@ function locationValues(searchParams: URLSearchParams) {
 export function LocationSearchForm({ action, analyticsIntent, query = "", placeholder, autoLocate = true }: LocationSearchFormProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const currentSearchParams = useSearchParams();
+  const searchParams = new URLSearchParams(currentSearchParams?.toString());
   const { lat, lng } = locationValues(searchParams);
   const [locating, setLocating] = useState(false);
 
@@ -35,7 +36,7 @@ export function LocationSearchForm({ action, analyticsIntent, query = "", placeh
   }, [autoLocate]);
 
   function applyLocation(nextLat: string, nextLng: string) {
-    const next = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(searchParams);
     next.set("lat", nextLat);
     next.set("lng", nextLng);
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });

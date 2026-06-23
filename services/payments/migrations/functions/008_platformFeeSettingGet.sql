@@ -1,6 +1,7 @@
-DROP FUNCTION IF EXISTS "platformFeeSettingGet"();
+DROP FUNCTION IF EXISTS payments."platformFeeSettingGet"();
+DROP FUNCTION IF EXISTS public."platformFeeSettingGet"();
 
-CREATE OR REPLACE FUNCTION "platformFeeSettingGet"()
+CREATE OR REPLACE FUNCTION payments."platformFeeSettingGet"()
 RETURNS TABLE (
     platform_fee_basis_points integer,
     platform_fee_fixed_minor integer,
