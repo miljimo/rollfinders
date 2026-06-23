@@ -3,6 +3,24 @@ LANGUAGE plpgsql
 SET search_path TO authorisation, public
 AS $$
 BEGIN
+    ALTER TABLE permissions
+        ADD COLUMN IF NOT EXISTS organisation_id text;
+
+    ALTER TABLE permissions
+        ADD COLUMN IF NOT EXISTS application_id text;
+
+    ALTER TABLE permissions
+        DROP CONSTRAINT IF EXISTS permissions_code_key;
+
+    ALTER TABLE permissions
+        DROP CONSTRAINT IF EXISTS permissions_code_scope_key;
+
+    ALTER TABLE permissions
+        ADD CONSTRAINT permissions_code_scope_key
+        UNIQUE NULLS NOT DISTINCT (code, organisation_id, application_id);
+
+    CREATE INDEX IF NOT EXISTS permissions_scope_idx ON permissions (organisation_id, application_id);
+
     ALTER TABLE role_permissions
         DROP CONSTRAINT IF EXISTS role_permissions_permission_id_fkey;
 
@@ -289,7 +307,7 @@ BEGIN
     INSERT INTO permissions (id, code, name, description)
     SELECT 'permission_' || encode(gen_random_bytes(12), 'hex'), code, name, description
     FROM permissionSeed
-    ON CONFLICT (code) DO UPDATE
+    ON CONFLICT ON CONSTRAINT permissions_code_scope_key DO UPDATE
     SET name = EXCLUDED.name,
         description = EXCLUDED.description,
         updated_at = now();

@@ -170,7 +170,7 @@ func migratePermissions(ctx context.Context, usersDB *sql.DB, tx *sql.Tx) (int, 
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO permissions (id, code, name, description)
 			VALUES ($1, $2, $3, NULLIF($4, ''))
-			ON CONFLICT (code) DO UPDATE
+			ON CONFLICT ON CONSTRAINT permissions_code_scope_key DO UPDATE
 			SET name = EXCLUDED.name,
 			    description = EXCLUDED.description,
 			    updated_at = now()`,

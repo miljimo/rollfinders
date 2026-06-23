@@ -450,13 +450,57 @@ DELETE FROM role_permissions ...
 ```sql
 CREATE TABLE permissions (
     id text PRIMARY KEY,
-    code text NOT NULL UNIQUE,
+    code text NOT NULL,
     name text NOT NULL,
     description text,
+    organisation_id text,
+    application_id text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT permissions_code_scope_key UNIQUE NULLS NOT DISTINCT (code, organisation_id, application_id)
+);
+```
+
+A permission is a reusable capability definition, for example `booking.confirm` or `academy.update`.
+`organisation_id` and `application_id` define the permission definition owner. When both values are null, the permission is global and can be reused across applications that have the relevant service enabled. When one or both values are present, the permission definition only applies inside that organisation and/or application.
+
+It SHALL NOT point directly at a resource because the same permission code must be assignable across many academies, bookings, courses, organisations, or applications.
+Resource scoping belongs on role/user assignments.
+
+### resources
+
+```sql
+CREATE TABLE resources (
+    id text PRIMARY KEY,
+    resource_type text NOT NULL,
+    display_name text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 ```
+
+`resources.id` is the canonical resource identifier used by scoped assignments. Examples:
+
+```text
+resource_type=academy, resource_id=academy_123
+resource_type=course, resource_id=course_456
+resource_type=booking, resource_id=booking_789
+```
+
+### application_service_permissions
+
+```sql
+CREATE TABLE application_service_permissions (
+    application_id text NOT NULL,
+    service_key text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (application_id, service_key)
+);
+```
+
+Service-owned permission prefixes are not global. A permission with a service prefix such as `payment.*`, `booking.*`, or `course.*` is only effective when the requested `application_id` has that `service_key` enabled in `application_service_permissions`.
+
+For RollFinders this means `app_rollfinders` can enable the `academy`, `booking`, `course`, `payment`, `user`, `organisation`, and `authorisation` services. A different application must be explicitly enabled before those service permissions evaluate as allowed for that application.
 
 ### roles
 
@@ -479,7 +523,7 @@ CREATE TABLE roles (
 ```sql
 CREATE TABLE role_permissions (
     role_id text NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id text NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    permission_id text NOT NULL REFERENCES permissions(id) ON UPDATE CASCADE ON DELETE CASCADE,
     created_at timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (role_id, permission_id)
 );
@@ -494,8 +538,7 @@ CREATE TABLE user_roles (
     role_id text NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     organisation_id text,
     application_id text,
-    resource_type text,
-    resource_id text,
+    resource_id text REFERENCES resources(id) ON UPDATE CASCADE ON DELETE CASCADE,
     assigned_by text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -507,12 +550,11 @@ CREATE TABLE user_roles (
 CREATE TABLE user_permissions (
     id text PRIMARY KEY,
     user_id text NOT NULL,
-    permission_id text NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    permission_id text NOT NULL REFERENCES permissions(id) ON UPDATE CASCADE ON DELETE CASCADE,
     effect text NOT NULL,
     organisation_id text,
     application_id text,
-    resource_type text,
-    resource_id text,
+    resource_id text REFERENCES resources(id) ON UPDATE CASCADE ON DELETE CASCADE,
     assigned_by text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
 );

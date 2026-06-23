@@ -26,6 +26,7 @@ test("Authorisation migration follows the service migration folder structure", (
   assert.match(migration, /\\ir\s+tables\/007_resources\.sql/);
   assert.match(migration, /\\ir\s+tables\/008_applicationServicePermissions\.sql/);
   assert.match(migration, /\\ir\s+009_resource_scope_table\.sql/);
+  assert.match(migration, /\\ir\s+010_permission_definition_scope\.sql/);
   assert.match(migration, /\\ir\s+functions\/001_scopeMatches\.sql/);
   assert.match(migration, /\\ir\s+functions\/002_permissionApplicationEnabled\.sql/);
   assert.match(migration, /\\ir\s+procedures\/001_seedAuthorisationCatalog\.sql/);
@@ -42,12 +43,24 @@ test("Authorisation permissions are capability codes without numeric levels", ()
   assert.doesNotMatch(repository, /permissions\.level|p\.level|permission\.Level/);
 });
 
+test("Authorisation permission definitions can be global or scoped to organisation and application", () => {
+  assert.match(permissionsTable, /\borganisation_id\s+text\b/);
+  assert.match(permissionsTable, /\bapplication_id\s+text\b/);
+  assert.match(permissionsTable, /UNIQUE\s+NULLS\s+NOT\s+DISTINCT\s+\(code,\s+organisation_id,\s+application_id\)/i);
+  assert.doesNotMatch(permissionsTable, /\bcode\s+text\s+NOT\s+NULL\s+UNIQUE\b/i);
+  assert.match(seedCatalog, /ON CONFLICT ON CONSTRAINT permissions_code_scope_key DO UPDATE/);
+  assert.match(repository, /organisation_id = NULLIF\(\$5, ''\)/);
+  assert.match(repository, /application_id = NULLIF\(\$6, ''\)/);
+  assert.match(repository, /p\.organisation_id IS NULL OR p\.organisation_id = \$2/);
+  assert.match(repository, /p\.application_id IS NULL OR p\.application_id = \$3/);
+});
+
 test("Authorisation permission IDs are generated and not semantic permission codes", () => {
   const endpoints = readFileSync("services/authorisation/internal/server/endpoints.go", "utf8");
 
   assert.doesNotMatch(seedCatalog, /'perm_[a-z0-9_]+',/);
   assert.doesNotMatch(seedCatalog, /ON CONFLICT \(id\)/);
-  assert.match(seedCatalog, /ON CONFLICT \(code\)/);
+  assert.match(seedCatalog, /ON CONFLICT ON CONSTRAINT permissions_code_scope_key/);
   assert.match(seedCatalog, /gen_random_bytes\(12\)/);
   assert.doesNotMatch(endpoints, /newID\("perm"\)/);
   assert.match(endpoints, /newID\("permission"\)/);

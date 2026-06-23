@@ -11,6 +11,7 @@ SET search_path TO authorisation, public;
 \ir tables/005_user_permissions.sql
 \ir tables/006_authorisation_audit_events.sql
 \ir 009_resource_scope_table.sql
+\ir 010_permission_definition_scope.sql
 \ir functions/001_scopeMatches.sql
 \ir functions/002_permissionApplicationEnabled.sql
 \ir procedures/001_seedAuthorisationCatalog.sql

@@ -7,9 +7,11 @@ import (
 )
 
 type permissionRequest struct {
-	Code        string `json:"code"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Code           string `json:"code"`
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	OrganisationID string `json:"organisation_id"`
+	ApplicationID  string `json:"application_id"`
 }
 
 func (s *server) createPermission(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +75,14 @@ func permissionFromRequest(id string, req permissionRequest) (Permission, bool) 
 	if !validatePermissionCode(code) || cleanString(req.Name) == "" {
 		return Permission{}, false
 	}
-	return Permission{ID: id, Code: code, Name: cleanString(req.Name), Description: cleanString(req.Description)}, true
+	return Permission{
+		ID:             id,
+		Code:           code,
+		Name:           cleanString(req.Name),
+		Description:    cleanString(req.Description),
+		OrganisationID: cleanString(req.OrganisationID),
+		ApplicationID:  cleanString(req.ApplicationID),
+	}, true
 }
 
 type roleRequest struct {
