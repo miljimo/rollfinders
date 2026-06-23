@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { PageShell } from "@/components/PageShell";
 import { requireOpenMatAccess } from "@/lib/academy-access";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
+import { listAcademiesForActorFromAcademyService } from "@/lib/academyService";
+import { getCurrentUser } from "@/lib/admin";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
 import { getInstructorUserOptions, instructorUserAcademyWhere } from "@/lib/instructor-users";
 import { prisma } from "@/lib/prisma";
@@ -19,14 +20,8 @@ export default async function NewOpenMatPage({ searchParams }: { searchParams: P
   }
   const params = await searchParams;
 
-  const academyWhere = isAcademyAdminRole(user.role)
-    ? { id: user.academyId ?? "__missing_academy__" }
-    : isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } };
   const [academies, cloneSource] = await Promise.all([
-    prisma.academy.findMany({
-      where: academyWhere,
-      orderBy: { name: "asc" },
-    }),
+    listAcademiesForActorFromAcademyService(user),
     params.cloneFrom
       ? prisma.event.findUnique({
           where: { id: params.cloneFrom },

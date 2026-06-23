@@ -1,5 +1,6 @@
 import { CourseActivityType, CourseType, EventAudience, EventPricingType, GiType, RecurrenceType, type CourseActivity, type Event } from "@prisma/client";
 import { courseActivityTypeLabels, minutesFromTime } from "./course-activities";
+import { apiGatewayUrl } from "./apiGateway";
 import { getEnvVariable } from "./environments";
 
 if (typeof window !== "undefined") {
@@ -82,7 +83,7 @@ export class CourseServiceError extends Error {
   }
 }
 
-const courseServiceUrl = () => getEnvVariable("COURSE_PUBLIC_BASE_URL", "http://localhost:3004").replace(/\/+$/, "");
+const courseServiceUrl = apiGatewayUrl;
 const courseServiceRequired = () => getEnvVariable("COURSE_SERVICE_REQUIRED", "false").toLowerCase() === "true";
 
 function headers() {

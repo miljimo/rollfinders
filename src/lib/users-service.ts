@@ -1,5 +1,6 @@
-import { getEnvVariable } from "./environments";
+import { apiGatewayUrl } from "./apiGateway";
 import { listEffectiveUserPermissions, replaceUserAuthorisationRole, type AuthorisationPermission, type AuthorisationScope } from "./authorisation-service";
+import { getEnvVariable } from "./environments";
 import {
   enrichManagedUserWithRollfinderProfile,
   enrichManagedUsersWithRollfinderProfiles,
@@ -64,7 +65,7 @@ export class UserServiceError extends Error {
   }
 }
 
-const userServiceUrl = () => getEnvVariable("USER_PUBLIC_BASE_URL", "http://localhost:3003").replace(/\/+$/, "");
+const userServiceUrl = apiGatewayUrl;
 
 function headers(actor?: ActorContext) {
   return {

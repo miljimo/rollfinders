@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { InvitationStatus } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canManageAcademyTeam, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
+import { listPendingAcademyInvitations } from "@/lib/academy-domain-data";
 import { getAcademyFromAcademyService } from "@/lib/academyService";
-import { prisma } from "@/lib/prisma";
 import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { formatDate } from "@/lib/utils";
 import { cancelAcademyInvitation, inviteAcademyAdmin, removeAcademyMember, resendAcademyInvitation } from "../../actions";
@@ -16,7 +15,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
   const access = await requireAcademyTeamViewer(id);
   const [academy, invitations] = await Promise.all([
     getAcademyFromAcademyService(id),
-    prisma.academyInvitation.findMany({ where: { academyId: id, status: InvitationStatus.PENDING }, orderBy: { createdAt: "desc" } }),
+    listPendingAcademyInvitations(id),
   ]);
 
   if (!academy || !canViewAcademyTeam(access)) return null;

@@ -56,10 +56,10 @@ func (r *repository) close() error {
 
 func (r *repository) createPermission(ctx context.Context, p Permission, actor, requestID string) (Permission, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO permissions (id, code, name, description, organisation_id, application_id)
-		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''))
-		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), created_at, updated_at`,
-		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID)
+		INSERT INTO permissions (id, code, name, description, organisation_id, application_id, created_by)
+		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''))
+		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at`,
+		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID, actor)
 	created, err := scanPermission(row)
 	if err != nil {
 		return Permission{}, err
@@ -79,7 +79,7 @@ func (r *repository) updatePermission(ctx context.Context, p Permission, actor, 
 		    application_id = NULLIF($6, ''),
 		    updated_at = now()
 		WHERE id = $1
-		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), created_at, updated_at`,
+		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at`,
 		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID)
 	updated, err := scanPermission(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -94,7 +94,7 @@ func (r *repository) updatePermission(ctx context.Context, p Permission, actor, 
 
 func (r *repository) listPermissions(ctx context.Context) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), created_at, updated_at
+		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at
 		FROM permissions
 		ORDER BY code, organisation_id NULLS FIRST, application_id NULLS FIRST`)
 	if err != nil {
@@ -114,7 +114,7 @@ func (r *repository) listPermissions(ctx context.Context) ([]Permission, error) 
 
 func (r *repository) getPermission(ctx context.Context, id string) (Permission, error) {
 	p, err := scanPermission(r.db.QueryRowContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), created_at, updated_at
+		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at
 		FROM permissions
 		WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -125,7 +125,7 @@ func (r *repository) getPermission(ctx context.Context, id string) (Permission, 
 
 func (r *repository) permissionByCode(ctx context.Context, code string, scope Scope) (Permission, error) {
 	p, err := scanPermission(r.db.QueryRowContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), created_at, updated_at
+		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at
 		FROM permissions
 		WHERE code = $1
 		  AND (organisation_id IS NULL OR organisation_id = NULLIF($2, ''))
@@ -143,7 +143,7 @@ func (r *repository) permissionByCode(ctx context.Context, code string, scope Sc
 
 func scanPermission(scanner interface{ Scan(dest ...any) error }) (Permission, error) {
 	var p Permission
-	err := scanner.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.CreatedAt, &p.UpdatedAt)
+	err := scanner.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
@@ -233,7 +233,7 @@ func (r *repository) removeRolePermission(ctx context.Context, roleID, permissio
 
 func (r *repository) rolePermissions(ctx context.Context, roleID string) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), p.created_at, p.updated_at
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
 		FROM permissions p
 		JOIN role_permissions rp ON rp.permission_id = p.id
 		WHERE rp.role_id = $1
@@ -462,7 +462,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 	allowed := map[string]Permission{}
 	denied := map[string]Permission{}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), p.created_at, p.updated_at
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
 		FROM user_roles ur
 		JOIN role_permissions rp ON rp.role_id = ur.role_id
 		JOIN permissions p ON p.id = rp.permission_id
@@ -470,8 +470,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 		WHERE ur.user_id = $1
 		  AND scope_matches(ur.organisation_id, ur.application_id, res.resource_type, ur.resource_id, $2, $3, $4, $5)
 		  AND (p.organisation_id IS NULL OR p.organisation_id = $2)
-		  AND (p.application_id IS NULL OR p.application_id = $3)
-		  AND permission_application_enabled(p.code, $3)`,
+		  AND (p.application_id IS NULL OR p.application_id = $3)`,
 		userID, nullable(scope.OrganisationID), nullable(scope.ApplicationID), nullable(scope.ResourceType), nullable(scope.ResourceID))
 	if err != nil {
 		return effectiveSet{}, err
@@ -488,15 +487,14 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 		return effectiveSet{}, err
 	}
 	rows, err = r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), p.created_at, p.updated_at, up.effect
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at, up.effect
 		FROM user_permissions up
 		JOIN permissions p ON p.id = up.permission_id
 		LEFT JOIN resources res ON res.id = up.resource_id
 		WHERE up.user_id = $1
 		  AND scope_matches(up.organisation_id, up.application_id, res.resource_type, up.resource_id, $2, $3, $4, $5)
 		  AND (p.organisation_id IS NULL OR p.organisation_id = $2)
-		  AND (p.application_id IS NULL OR p.application_id = $3)
-		  AND permission_application_enabled(p.code, $3)`,
+		  AND (p.application_id IS NULL OR p.application_id = $3)`,
 		userID, nullable(scope.OrganisationID), nullable(scope.ApplicationID), nullable(scope.ResourceType), nullable(scope.ResourceID))
 	if err != nil {
 		return effectiveSet{}, err
@@ -505,7 +503,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 	for rows.Next() {
 		var p Permission
 		var effect string
-		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.CreatedAt, &p.UpdatedAt, &effect); err != nil {
+		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt, &effect); err != nil {
 			return effectiveSet{}, err
 		}
 		if effect == "DENY" {

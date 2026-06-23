@@ -334,20 +334,6 @@ BEGIN
         system_role = EXCLUDED.system_role,
         updated_at = now();
 
-    INSERT INTO application_service_permissions (application_id, service_key)
-    VALUES
-        ('app_rollfinders', 'academy'),
-        ('app_rollfinders', 'account'),
-        ('app_rollfinders', 'auth'),
-        ('app_rollfinders', 'authorisation'),
-        ('app_rollfinders', 'booking'),
-        ('app_rollfinders', 'course'),
-        ('app_rollfinders', 'organisation'),
-        ('app_rollfinders', 'payment'),
-        ('app_rollfinders', 'payout'),
-        ('app_rollfinders', 'user')
-    ON CONFLICT DO NOTHING;
-
     INSERT INTO role_permissions (role_id, permission_id)
     SELECT r.id, p.id
     FROM roles r

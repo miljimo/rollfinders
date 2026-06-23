@@ -29,6 +29,7 @@ export function UserForm({
   assignableFeatures = [],
   cancelHref = "/admin/users",
   mode,
+  initialTab = "details",
   returnTo,
   superAdmin,
   user,
@@ -40,6 +41,7 @@ export function UserForm({
   assignableFeatures?: AssignableUserFeature[];
   cancelHref?: string;
   mode: "create" | "edit";
+  initialTab?: "details" | "permissions";
   returnTo?: string;
   superAdmin: boolean;
   user?: UserFormUser;
@@ -147,6 +149,7 @@ export function UserForm({
   return (
     <UserFormTabs
       detailsPanel={detailsForm}
+      initialTab={initialTab}
       permissionsPanel={<PermissionPanel features={assignableFeatures} userId={user.id} />}
     />
   );

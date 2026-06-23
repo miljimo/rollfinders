@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { ClaimStatus, type Prisma } from "@prisma/client";
+import { ClaimStatus } from "@prisma/client";
+import { listAcademyClaims } from "@/lib/academy-domain-data";
 import { getCurrentUser, requirePlatformAdminApi } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
 
 const supportedPageSizes = [20, 50, 100];
 
@@ -40,53 +40,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid claim status" }, { status: 400 });
   }
 
-  const where: Prisma.ClaimRequestWhereInput = {
-    ...(status ? { status } : {}),
-    ...(search
-      ? {
-          OR: [
-            { requesterName: { contains: search, mode: "insensitive" } },
-            { requesterEmail: { contains: search, mode: "insensitive" } },
-            { academy: { name: { contains: search, mode: "insensitive" } } },
-          ],
-        }
-      : {}),
-  };
-
-  const totalItems = await prisma.claimRequest.count({ where });
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const claims = await prisma.claimRequest.findMany({
-    where,
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    orderBy: [{ createdAt: "desc" }],
-    select: {
-      id: true,
-      academyId: true,
-      requesterName: true,
-      requesterEmail: true,
-      requesterRole: true,
-      status: true,
-      createdAt: true,
-      academy: { select: { id: true, name: true, slug: true, city: true, postcode: true } },
-    },
-  });
+  const result = await listAcademyClaims({ page, pageSize, search, status });
 
   return NextResponse.json({
-    claims: claims.map((claim) => ({
+    claims: result.claims.map((claim) => {
+      const academy = result.academyById.get(claim.academyId);
+      return {
       id: claim.id,
       academyId: claim.academyId,
-      academy: claim.academy,
+      academy: academy ? { id: academy.id, name: academy.name, slug: academy.slug, city: academy.city, postcode: academy.postcode } : null,
       requesterName: claim.requesterName,
       requesterEmail: claim.requesterEmail,
       requesterRole: claim.requesterRole,
       status: claim.status,
       createdAt: claim.createdAt.toISOString(),
-    })),
-    page: currentPage,
+      };
+    }),
+    page: result.page,
     pageSize,
-    totalItems,
-    totalPages,
+    totalItems: result.totalItems,
+    totalPages: result.totalPages,
   });
 }

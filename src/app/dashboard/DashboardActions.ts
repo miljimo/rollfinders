@@ -1,9 +1,17 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+import { addAuthorisationRolePermission, authorize, createAuthorisationPermission, createUserPermissionAssignment, deleteUserPermissionAssignment, updateAuthorisationPermission, type AuthorisationPermission } from "@/lib/authorisation-service";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { isAnyAdminRole, isStandardUserRole } from "@/lib/admin";
 
 export type EditProfileState = {
+  message: string;
+  success: boolean;
+};
+
+export type PermissionMutationResult<T = unknown> = {
+  data?: T;
   message: string;
   success: boolean;
 };
@@ -24,4 +32,97 @@ export async function updateStandardUserProfile(
 
   console.warn(`Profile display name update for ${user.id} is managed by the users service. Requested name: ${name}`);
   return { success: true, message: "Profile updates are managed by the users service." };
+}
+
+export async function removeCurrentUserPermissionAssignment(assignmentId: string) {
+  const { user } = await requireDashboardUser();
+  await deleteUserPermissionAssignment(user, user.id, assignmentId);
+  revalidatePath("/dashboard");
+}
+
+export async function updatePermissionDescription(input: {
+  permissionId: string;
+  code: string;
+  name: string;
+  description: string;
+  organisationId?: string;
+  applicationId?: string;
+}): Promise<PermissionMutationResult<AuthorisationPermission>> {
+  const { user } = await requireDashboardUser();
+  const allowed = await authorize(user, "authorisation.permission.update", {
+    applicationId: input.applicationId || undefined,
+    organisationId: input.organisationId || user.academyId || undefined,
+  }) || await authorize(user, "authorisation.manage", {
+    applicationId: input.applicationId || undefined,
+    organisationId: input.organisationId || user.academyId || undefined,
+  });
+  if (!allowed) {
+    return { success: false, message: "You do not have permission to edit permission definitions." };
+  }
+
+  try {
+    const updated = await updateAuthorisationPermission(user, {
+      id: input.permissionId,
+      code: input.code,
+      name: input.name,
+      description: input.description,
+      organisation_id: input.organisationId,
+      application_id: input.applicationId,
+    });
+    revalidatePath("/dashboard");
+    return { success: true, message: `${updated.code} updated.`, data: updated };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Unable to update permission." };
+  }
+}
+
+export async function createPermissionWithOptionalAssignments(input: {
+  code: string;
+  name: string;
+  description: string;
+  organisationId?: string;
+  applicationId?: string;
+  roleId?: string;
+  userId?: string;
+}): Promise<PermissionMutationResult<AuthorisationPermission>> {
+  if (!/^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)+$/.test(input.code.trim())) {
+    return { success: false, message: "Permission code must use resource.action naming, for example academy.archive or academy.claim.approve." };
+  }
+
+  const { user } = await requireDashboardUser();
+  const scope = {
+    applicationId: input.applicationId || undefined,
+    organisationId: input.organisationId || user.academyId || undefined,
+  };
+  const canCreate = await authorize(user, "authorisation.permission.create", scope) || await authorize(user, "authorisation.manage", scope);
+  if (!canCreate) return { success: false, message: "You do not have permission to create permission definitions." };
+
+  try {
+    const permission = await createAuthorisationPermission(user, {
+      code: input.code.trim(),
+      name: input.name.trim(),
+      description: input.description.trim(),
+      organisationId: input.organisationId,
+      applicationId: input.applicationId,
+    });
+
+    if (input.roleId) {
+      const canAssignRole = await authorize(user, "authorisation.role_permission.add", scope)
+        || await authorize(user, "authorisation.role_permission.assign", scope)
+        || await authorize(user, "authorisation.manage", scope);
+      if (!canAssignRole) return { success: false, message: "Permission created, but you do not have permission to assign it to a role.", data: permission };
+      await addAuthorisationRolePermission(user, input.roleId, permission.id);
+    }
+
+    if (input.userId) {
+      const canAssignUser = await authorize(user, "authorisation.user_permission.assign", scope) || await authorize(user, "authorisation.manage", scope);
+      if (!canAssignUser) return { success: false, message: "Permission created, but you do not have permission to assign it to a user.", data: permission };
+      await createUserPermissionAssignment(user, input.userId, permission.id, "ALLOW", scope);
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, message: `${permission.code} created.`, data: permission };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Unable to create permission." };
+  }
 }

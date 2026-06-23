@@ -205,6 +205,102 @@ Easy middleware composition
 
 ---
 
+# Implemented MVP Runtime
+
+The first Go API service runtime lives in:
+
+```text
+services/api
+```
+
+Local compose exposes it on:
+
+```text
+API_PUBLIC_BASE_URL=http://localhost:3007
+```
+
+Container-to-container compose uses:
+
+```text
+API_PUBLIC_BASE_URL=http://api:8080
+```
+
+The root endpoint returns human- and machine-readable API documentation:
+
+```text
+GET /
+```
+
+Operational endpoints:
+
+```text
+GET /healthz
+GET /readyz
+```
+
+Both operational endpoints check the API gateway dependencies:
+
+```text
+Users Service
+Authorisation Service
+Academy Service
+Organisation Service
+Courses Service
+Booking Service
+Payments Service
+PostgreSQL database
+```
+
+If any dependency is unavailable, the endpoint returns `503` with the failing dependency and reason.
+
+The gateway currently provides conservative domain-service forwarding:
+
+| Gateway Route | Downstream Service | Notes |
+| --- | --- | --- |
+| `/auth/*` | Users Service | Login, logout, and password endpoints |
+| `/v1/auth/*` | Users Service | Versioned auth helper APIs |
+| `/v1/accounts/*` | Users Service | Account-owned APIs |
+| `/v1/users/*` | Users Service | User-owned APIs |
+| `/v1/authorisation/*` | Authorisation Service | Rewrites `/v1/authorisation/authorize` to `/v1/authorize` |
+| `/v1/academies/*` | Academy Service | Academy-owned APIs |
+| `/v1/organisations/*` | Organisation Service | Organisation-owned APIs |
+| `/v1/applications/*` | Organisation Service | Application registry APIs |
+| `/v1/courses/*` | Courses Service | Course-owned APIs |
+| `/v1/course-types/*` | Courses Service | Course type APIs |
+| `/v1/bookings/*` | Booking Service | Booking-owned APIs |
+| `/v1/payments/*` | Payments Service | Payment-owned APIs |
+| `/v1/checkouts/*` | Payments Service | Checkout APIs |
+| `/v1/refunds/*` | Payments Service | Refund APIs |
+| `/v1/payout*` | Payments Service | Payout APIs |
+| `/legacy/*` | Existing Next.js app | Temporary compatibility route while TypeScript orchestration is removed |
+
+This is the safe migration baseline. New cross-service workflows should be added to this service first. Existing TypeScript routes should be moved behind this gateway one workflow at a time, then deleted once the UI no longer calls them directly.
+
+## Network Boundary
+
+RollFinders frontend must call only the API service for service-owned endpoints.
+
+Infrastructure must keep the tiers separated:
+
+| Tier | Can Receive Traffic From | Can Call |
+| --- | --- | --- |
+| Frontend web | Public ALB | API service, database, public internet providers |
+| API service | Frontend web | Users, Authorisation, Academy, Organisation, Courses, Booking, Payments, database |
+| Domain services | API service only | Database and required public providers |
+
+Lower service endpoints must not be published to the public internet or attached to a security group that accepts frontend web traffic. Local Compose mirrors this with separate `frontend`, `backend`, `app_database`, and `service_database` networks.
+
+The API service does not yet replace every TypeScript API route. Remaining TypeScript orchestration is still present under:
+
+```text
+src/app/api
+src/lib
+```
+
+Those routes are migration candidates, not the desired final state.
+
+---
+
 # Acceptance Criteria
 
 * Go Orchestrator service created.

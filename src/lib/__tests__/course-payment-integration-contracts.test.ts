@@ -15,10 +15,40 @@ describe("course payment service integration", () => {
   it("calls the payment service from server-only code", () => {
     const paymentsSource = readSource("src/lib/payments.ts");
     assert.match(paymentsSource, /import\s+["']server-only["']/);
-    assert.match(paymentsSource, /PAYMENT_PUBLIC_BASE_URL/);
+    assert.match(paymentsSource, /apiGatewayUrl/);
+    assert.doesNotMatch(paymentsSource, /PAYMENT_PUBLIC_BASE_URL/);
     assert.match(paymentsSource, /\/v1\/checkouts/);
     assert.doesNotMatch(paymentsSource, /PAYMENT_SERVICE_API_KEY/);
     assert.doesNotMatch(paymentsSource, /Authorization:\s*`Bearer/);
+  });
+
+  it("routes RollFinders frontend service clients through the API gateway", () => {
+    const gatewaySource = readSource("src/lib/apiGateway.ts");
+    const serviceSources = [
+      readSource("src/lib/payments.ts"),
+      readSource("src/lib/bookings.ts"),
+      readSource("src/lib/academyService.ts"),
+      readSource("src/lib/courseService.ts"),
+      readSource("src/lib/organisation-service.ts"),
+      readSource("src/lib/users-service.ts"),
+      readSource("src/lib/authorisation-service.ts"),
+      readSource("src/app/v1/checkouts/[id]/callbacks/[result]/route.ts"),
+    ].join("\n");
+
+    assert.match(gatewaySource, /API_PUBLIC_BASE_URL/);
+    assert.match(serviceSources, /apiGatewayUrl|apiGatewayPath/);
+    assert.match(serviceSources, /\/v1\/authorisation/);
+    for (const envName of [
+      "PAYMENT_PUBLIC_BASE_URL",
+      "BOOKING_PUBLIC_BASE_URL",
+      "ACADEMY_PUBLIC_BASE_URL",
+      "COURSE_PUBLIC_BASE_URL",
+      "AUTHORISATION_PUBLIC_BASE_URL",
+      "USER_PUBLIC_BASE_URL",
+      "ORGANISATION_PUBLIC_BASE_URL",
+    ]) {
+      assert.doesNotMatch(serviceSources, new RegExp(envName));
+    }
   });
 
   it("uses a server action for paid course checkout handoff", () => {
@@ -270,7 +300,8 @@ describe("course payment service integration", () => {
     const paymentStatusSource = readSource("src/app/payments/status/page.tsx");
     const bookingSource = readSource("src/lib/bookings.ts");
 
-    assert.match(routeSource, /PAYMENT_PUBLIC_BASE_URL/);
+    assert.match(routeSource, /apiGatewayUrl/);
+    assert.doesNotMatch(routeSource, /PAYMENT_PUBLIC_BASE_URL/);
     assert.match(routeSource, /\/v1\/checkouts\/\$\{encodeURIComponent\(id\)\}\/callbacks\/\$\{encodeURIComponent\(result\)\}/);
     assert.match(routeSource, /redirect:\s*"manual"/);
     assert.match(routeSource, /metadata_booking_id/);

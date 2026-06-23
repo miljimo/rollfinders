@@ -50,7 +50,7 @@ module "ecs_security_group" {
   source           = "./modules/security_groups"
   environment_name = var.environment_name
   name             = "${var.project_name}-ecs"
-  description      = "Allow ALB traffic to RollFinders ECS tasks"
+  description      = "Allow ALB traffic to the RollFinders frontend ECS task"
   vpc_id           = module.networking.vpc_id
   inbound_rules = [
     {
@@ -66,7 +66,59 @@ module "ecs_security_group" {
       from        = 0
       to          = 0
       protocol    = "-1"
-      description = "All outbound traffic"
+      description = "Outbound traffic for public APIs, email, and API gateway access"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+}
+
+module "api_ecs_security_group" {
+  source           = "./modules/security_groups"
+  environment_name = var.environment_name
+  name             = "${var.project_name}-api-ecs"
+  description      = "Allow RollFinders frontend traffic to the API service"
+  vpc_id           = module.networking.vpc_id
+  inbound_rules = [
+    {
+      from            = 8080
+      to              = 8080
+      protocol        = "tcp"
+      description     = "API traffic from RollFinders frontend"
+      security_groups = [module.ecs_security_group.id]
+    }
+  ]
+  outbound_rules = [
+    {
+      from        = 0
+      to          = 0
+      protocol    = "-1"
+      description = "API outbound traffic to domain services, database, and public providers"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+}
+
+module "domain_service_security_group" {
+  source           = "./modules/security_groups"
+  environment_name = var.environment_name
+  name             = "${var.project_name}-domain-services"
+  description      = "Allow only the API service to reach lower RollFinders domain services"
+  vpc_id           = module.networking.vpc_id
+  inbound_rules = [
+    {
+      from            = 8080
+      to              = 8080
+      protocol        = "tcp"
+      description     = "Domain service traffic from API service only"
+      security_groups = [module.api_ecs_security_group.id]
+    }
+  ]
+  outbound_rules = [
+    {
+      from        = 0
+      to          = 0
+      protocol    = "-1"
+      description = "Domain service outbound traffic to database and external providers"
       cidr_blocks = ["0.0.0.0/0"]
     }
   ]
@@ -80,11 +132,15 @@ module "database_security_group" {
   vpc_id           = module.networking.vpc_id
   inbound_rules = [
     {
-      from            = 5432
-      to              = 5432
-      protocol        = "tcp"
-      description     = "PostgreSQL from ECS"
-      security_groups = [module.ecs_security_group.id]
+      from        = 5432
+      to          = 5432
+      protocol    = "tcp"
+      description = "PostgreSQL from RollFinders ECS tiers"
+      security_groups = [
+        module.ecs_security_group.id,
+        module.api_ecs_security_group.id,
+        module.domain_service_security_group.id
+      ]
     }
   ]
 }
@@ -186,10 +242,8 @@ module "app_secrets" {
     SMTP_PASSWORD           = var.smtp_password != "" ? var.smtp_password : "__UNSET__"
     MAILBOX_LINK            = "https://${module.email.mailbox_domain}"
     CRON_SECRET             = random_password.cron.result
-    USER_SERVICE_URL        = "http://127.0.0.1:8081"
     USER_SERVICE_API_KEY    = random_password.user_service_api_key.result
     USER_SERVICE_JWT_SECRET = random_password.user_service_jwt.result
-    PAYMENT_SERVICE_URL     = "http://127.0.0.1:8082"
     PAYMENT_SERVICE_API_KEY = random_password.payment_service_api_key.result
     PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key != "" ? var.payment_gateway_api_key : "__UNSET__"
     STRIPE_API_VERSION      = var.stripe_api_version
@@ -267,28 +321,25 @@ module "app_service" {
     container_port   = 3000
   }
 
-  task_definitions = concat([
+  task_definitions = [
     {
       name       = "web"
       image      = var.image_uri
-      cpu        = max(var.container_cpu - ((var.user_service_image_uri != "" ? 128 : 0) + (var.payment_service_image_uri != "" ? 128 : 0)), 256)
-      memory     = max(var.container_memory - ((var.user_service_image_uri != "" ? 128 : 0) + (var.payment_service_image_uri != "" ? 128 : 0)), 512)
+      cpu        = var.container_cpu
+      memory     = var.container_memory
       essential  = true
       log_region = var.aws_region
       environments = [
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = "3000" },
         { name = "HOSTNAME", value = "0.0.0.0" },
+        { name = "API_PUBLIC_BASE_URL", value = local.api_base_url },
         { name = "EMAIL_DOMAIN", value = module.email.sending_domain }
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "NEXTAUTH_SECRET", valueFrom = module.app_secrets.arn_by_key["NEXTAUTH_SECRET"] },
         { name = "NEXTAUTH_URL", valueFrom = module.app_secrets.arn_by_key["NEXTAUTH_URL"] },
-        { name = "USER_SERVICE_URL", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_URL"] },
-        { name = "USER_SERVICE_API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] },
-        { name = "PAYMENT_SERVICE_URL", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_URL"] },
-        { name = "PAYMENT_SERVICE_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_API_KEY"] },
         { name = "EMAIL_FROM", valueFrom = module.app_secrets.arn_by_key["EMAIL_FROM"] },
         { name = "EMAIL_REPLY_TO", valueFrom = module.app_secrets.arn_by_key["EMAIL_REPLY_TO"] },
         { name = "SMTP_HOST", valueFrom = module.app_secrets.arn_by_key["SMTP_HOST"] },
@@ -316,86 +367,7 @@ module "app_service" {
         startPeriod = 30
       }
     }
-    ], var.user_service_image_uri != "" ? [
-    {
-      name       = "users"
-      image      = var.user_service_image_uri
-      cpu        = 128
-      memory     = 128
-      essential  = false
-      log_region = var.aws_region
-      environments = [
-        { name = "PORT", value = "8081" },
-        { name = "DEFAULT_USER_ROLE", value = "STANDARD_USER" },
-        { name = "READ_TIMEOUT", value = "5s" },
-        { name = "WRITE_TIMEOUT", value = "10s" },
-        { name = "SHUTDOWN_TIMEOUT", value = "10s" }
-      ]
-      secrets = [
-        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
-        { name = "API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] },
-        { name = "JWT_SECRET", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_JWT_SECRET"] },
-        { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
-        { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
-        { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
-      ]
-      ports = [
-        {
-          container_port = 8081
-          host_port      = 8081
-          protocol       = "tcp"
-        }
-      ]
-      healthCheck = {
-        command     = ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/healthz || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 30
-      }
-    }
-    ] : [], var.payment_service_image_uri != "" ? [
-    {
-      name       = "payments"
-      image      = var.payment_service_image_uri
-      cpu        = 128
-      memory     = 128
-      essential  = false
-      log_region = var.aws_region
-      environments = [
-        { name = "PORT", value = "8082" },
-        { name = "PAYMENT_PUBLIC_BASE_URL", value = local.app_base_url },
-        { name = "PAYMENT_DEFAULT_CLIENT_ID", value = "rollfinders" },
-        { name = "PAYMENT_DEFAULT_CLIENT_NAME", value = "RollFinders" },
-        { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "${local.app_base_url}/payments/status" },
-        { name = "METRICS_ENABLED", value = "true" },
-        { name = "READ_TIMEOUT", value = "5s" },
-        { name = "WRITE_TIMEOUT", value = "10s" },
-        { name = "SHUTDOWN_TIMEOUT", value = "10s" },
-        { name = "STRIPE_API_VERSION", value = var.stripe_api_version }
-      ]
-      secrets = [
-        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
-        { name = "API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_SERVICE_API_KEY"] },
-        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_GATEWAY_API_KEY"] },
-        { name = "STRIPE_CONTEXT", valueFrom = module.app_secrets.arn_by_key["STRIPE_CONTEXT"] }
-      ]
-      ports = [
-        {
-          container_port = 8082
-          host_port      = 8082
-          protocol       = "tcp"
-        }
-      ]
-      healthCheck = {
-        command     = ["CMD-SHELL", "wget -qO- http://127.0.0.1:8082/healthz || exit 1"]
-        interval    = 30
-        timeout     = 5
-        retries     = 3
-        startPeriod = 30
-      }
-    }
-  ] : [])
+  ]
 
   depends_on = [
     module.alb

@@ -39,13 +39,13 @@ variable "image_uri" {
 
 variable "user_service_image_uri" {
   type        = string
-  description = "Immutable users/auth service image URI. Empty omits the sidecar."
+  description = "Legacy users/auth service image URI. Lower services must now be deployed as separate ECS services behind the API tier, not as frontend sidecars."
   default     = ""
 }
 
 variable "payment_service_image_uri" {
   type        = string
-  description = "Immutable payments service image URI. Empty omits the sidecar."
+  description = "Legacy payments service image URI. Lower services must now be deployed as separate ECS services behind the API tier, not as frontend sidecars."
   default     = ""
 }
 

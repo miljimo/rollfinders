@@ -1,14 +1,11 @@
-import { ClaimStatus, type ClaimRequest, type Prisma } from "@prisma/client";
+import { ClaimStatus } from "@prisma/client";
 import { z } from "zod";
-import { addAcademyMemberInAcademyService, listAcademyMembersFromAcademyService } from "@/lib/academyService";
+import { getAcademyFromAcademyService, addAcademyMemberInAcademyService, listAcademyMembersFromAcademyService } from "@/lib/academyService";
+import { getAcademyClaim, updateAcademyClaimDecision, type AcademyClaimRecord } from "@/lib/academy-domain-data";
 import { prisma } from "@/lib/prisma";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
 import { replaceUserAuthorisationRole } from "@/lib/authorisation-service";
-
-type ClaimWithAcademy = ClaimRequest & {
-  academy: { id: string; name: string; slug: string; city: string; postcode: string };
-};
 
 export function zodFieldErrors(error: z.ZodError) {
   return error.issues.reduce<Record<string, string[]>>((fieldErrors, issue) => {
@@ -22,7 +19,7 @@ export function nullableString(value?: string | null) {
   return value && value.trim() ? value.trim() : null;
 }
 
-export function publicClaimResponse(claim: Pick<ClaimRequest, "id" | "academyId" | "status" | "createdAt">) {
+export function publicClaimResponse(claim: Pick<AcademyClaimRecord, "id" | "academyId" | "status" | "createdAt">) {
   return {
     id: claim.id,
     academyId: claim.academyId,
@@ -40,13 +37,12 @@ export function isDuplicatePendingClaimError(error: unknown) {
   );
 }
 
-export async function isAcademyManaged(academyId: string, tx: Prisma.TransactionClient | typeof prisma = prisma) {
-  void tx;
+export async function isAcademyManaged(academyId: string) {
   const members = await listAcademyMembersFromAcademyService(academyId);
   return members.length > 0;
 }
 
-async function linkRequesterUser(_tx: Prisma.TransactionClient, claim: ClaimWithAcademy) {
+async function linkRequesterUser(claim: AcademyClaimRecord) {
   const user = {
     id: claim.linkedUserId ?? claim.requesterEmail.toLowerCase(),
     name: claim.requesterName,
@@ -58,7 +54,7 @@ async function linkRequesterUser(_tx: Prisma.TransactionClient, claim: ClaimWith
 export type ClaimDecisionResult =
   | {
       ok: true;
-      claim: Pick<ClaimRequest, "id" | "academyId" | "status" | "reviewedAt" | "linkedUserId" | "rejectionReason">;
+      claim: Pick<AcademyClaimRecord, "id" | "academyId" | "status" | "reviewedAt" | "linkedUserId" | "rejectionReason">;
       user?: { id: string; email: string; name?: string | null };
       createdUser?: boolean;
       notification?: { requesterEmail: string; requesterName: string; academyName: string };
@@ -66,33 +62,25 @@ export type ClaimDecisionResult =
   | { ok: false; status: 404 | 409; error: string };
 
 export async function approveAcademyClaim(claimId: string, actorUserId: string): Promise<ClaimDecisionResult> {
-  const existingClaim = await prisma.claimRequest.findUnique({ where: { id: claimId }, select: { academyId: true, status: true } });
+  const existingClaim = await getAcademyClaim(claimId);
   if (!existingClaim) return { ok: false, status: 404, error: "Claim not found" };
   if (existingClaim.status !== ClaimStatus.PENDING) return { ok: false, status: 409, error: "Only pending claims can be approved" };
   if (await isAcademyManaged(existingClaim.academyId)) return { ok: false, status: 409, error: "Academy is already managed" };
 
   const result: ClaimDecisionResult = await prisma.$transaction(async (tx) => {
-    const claim = await tx.claimRequest.findUnique({
-      where: { id: claimId },
-      include: { academy: { select: { id: true, name: true, slug: true, city: true, postcode: true } } },
-    });
-
-    if (!claim) return { ok: false as const, status: 404, error: "Claim not found" };
+    const claim = await getAcademyClaim(claimId);
+    const academy = claim ? await getAcademyFromAcademyService(claim.academyId) : null;
+    if (!claim || !academy) return { ok: false as const, status: 404, error: "Claim not found" };
     if (claim.status !== ClaimStatus.PENDING) return { ok: false as const, status: 409, error: "Only pending claims can be approved" };
+    const { user, createdUser } = await linkRequesterUser(claim);
 
-    const { user, createdUser } = await linkRequesterUser(tx, claim);
-
-    const reviewedAt = new Date();
-    const updatedClaim = await tx.claimRequest.update({
-      where: { id: claim.id },
-      data: {
-        status: ClaimStatus.APPROVED,
-        reviewedAt,
-        reviewedById: actorUserId,
-        linkedUserId: user.id,
-      },
-      select: { id: true, academyId: true, status: true, reviewedAt: true, linkedUserId: true, rejectionReason: true },
+    const updatedClaim = await updateAcademyClaimDecision({
+      id: claim.id,
+      status: ClaimStatus.APPROVED,
+      reviewedById: actorUserId,
+      linkedUserId: user.id,
     });
+    if (!updatedClaim) return { ok: false as const, status: 404, error: "Claim not found" };
 
     await tx.adminAuditLog.create({
       data: {
@@ -102,7 +90,7 @@ export async function approveAcademyClaim(claimId: string, actorUserId: string):
         metadata: {
           claimId: claim.id,
           academyId: claim.academyId,
-          academyName: claim.academy.name,
+          academyName: academy.name,
           requesterEmail: claim.requesterEmail,
           requesterRole: claim.requesterRole,
           linkedUserId: user.id,
@@ -122,25 +110,19 @@ export async function approveAcademyClaim(claimId: string, actorUserId: string):
 
 export async function rejectAcademyClaim(claimId: string, actorUserId: string, rejectionReason?: string | null): Promise<ClaimDecisionResult> {
   return prisma.$transaction(async (tx) => {
-    const claim = await tx.claimRequest.findUnique({
-      where: { id: claimId },
-      include: { academy: { select: { id: true, name: true, slug: true, city: true, postcode: true } } },
-    });
+    const claim = await getAcademyClaim(claimId);
+    const academy = claim ? await getAcademyFromAcademyService(claim.academyId) : null;
 
-    if (!claim) return { ok: false, status: 404, error: "Claim not found" };
+    if (!claim || !academy) return { ok: false, status: 404, error: "Claim not found" };
     if (claim.status !== ClaimStatus.PENDING) return { ok: false, status: 409, error: "Only pending claims can be rejected" };
 
-    const reviewedAt = new Date();
-    const updatedClaim = await tx.claimRequest.update({
-      where: { id: claim.id },
-      data: {
-        status: ClaimStatus.REJECTED,
-        reviewedAt,
-        reviewedById: actorUserId,
-        rejectionReason: rejectionReason ?? null,
-      },
-      select: { id: true, academyId: true, status: true, reviewedAt: true, linkedUserId: true, rejectionReason: true },
+    const updatedClaim = await updateAcademyClaimDecision({
+      id: claim.id,
+      status: ClaimStatus.REJECTED,
+      reviewedById: actorUserId,
+      rejectionReason: rejectionReason ?? null,
     });
+    if (!updatedClaim) return { ok: false, status: 404, error: "Claim not found" };
 
     await tx.adminAuditLog.create({
       data: {
@@ -149,7 +131,7 @@ export async function rejectAcademyClaim(claimId: string, actorUserId: string, r
         metadata: {
           claimId: claim.id,
           academyId: claim.academyId,
-          academyName: claim.academy.name,
+          academyName: academy.name,
           requesterEmail: claim.requesterEmail,
           requesterRole: claim.requesterRole,
           rejectionReason: rejectionReason ?? null,
@@ -163,7 +145,7 @@ export async function rejectAcademyClaim(claimId: string, actorUserId: string, r
       notification: {
         requesterEmail: claim.requesterEmail,
         requesterName: claim.requesterName,
-        academyName: claim.academy.name,
+        academyName: academy.name,
       },
     };
   });

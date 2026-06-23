@@ -47,7 +47,7 @@ export function AutoCompleteTextField({
   }
 
   return (
-    <div className={`grid ${size === "lg" ? "gap-2" : "gap-1"}`}>
+    <div className={`grid min-w-0 ${size === "lg" ? "gap-2" : "gap-1"}`}>
       <label htmlFor={inputId} className={labelClassName}>{label}</label>
       <input name={name} type="hidden" value={selectedOptionId} />
       <input
@@ -94,7 +94,7 @@ export function AutoCompleteTextField({
         aria-controls={listId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className={`border border-stone-300 font-normal aria-invalid:border-red-500 ${inputClassName} ${open ? "rounded-md rounded-b-none" : "rounded-md"}`}
+        className={`min-w-0 border border-stone-300 font-normal aria-invalid:border-red-500 ${inputClassName} ${open ? "rounded-md rounded-b-none" : "rounded-md"}`}
       />
       {open ? (
         <div id={listId} role="listbox" className="-mt-1 max-h-48 overflow-auto rounded-b-md border border-t-0 border-stone-300 bg-white shadow-sm">

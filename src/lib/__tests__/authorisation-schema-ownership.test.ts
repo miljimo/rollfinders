@@ -9,8 +9,8 @@ const userRolesTable = readFileSync("services/authorisation/migrations/tables/00
 const userPermissionsTable = readFileSync("services/authorisation/migrations/tables/005_user_permissions.sql", "utf8");
 const auditEventsTable = readFileSync("services/authorisation/migrations/tables/006_authorisation_audit_events.sql", "utf8");
 const resourcesTable = readFileSync("services/authorisation/migrations/tables/007_resources.sql", "utf8");
-const applicationServicePermissionsTable = readFileSync("services/authorisation/migrations/tables/008_applicationServicePermissions.sql", "utf8");
 const resourceScopeMigration = readFileSync("services/authorisation/migrations/009_resource_scope_table.sql", "utf8");
+const removeApplicationServicePermissionsMigration = readFileSync("services/authorisation/migrations/011_remove_application_service_permissions.sql", "utf8");
 const seedCatalog = readFileSync("services/authorisation/migrations/procedures/001_seedAuthorisationCatalog.sql", "utf8");
 const repository = readFileSync("services/authorisation/internal/server/repository.go", "utf8");
 const migrationCommand = readFileSync("services/authorisation/cmd/migrate-users-authorisation/main.go", "utf8");
@@ -24,11 +24,11 @@ test("Authorisation migration follows the service migration folder structure", (
   assert.match(migration, /\\ir\s+schema\/001_authorisation_schema\.sql/);
   assert.match(migration, /\\ir\s+tables\/001_permissions\.sql/);
   assert.match(migration, /\\ir\s+tables\/007_resources\.sql/);
-  assert.match(migration, /\\ir\s+tables\/008_applicationServicePermissions\.sql/);
+  assert.doesNotMatch(migration, /applicationServicePermissions/i);
   assert.match(migration, /\\ir\s+009_resource_scope_table\.sql/);
   assert.match(migration, /\\ir\s+010_permission_definition_scope\.sql/);
   assert.match(migration, /\\ir\s+functions\/001_scopeMatches\.sql/);
-  assert.match(migration, /\\ir\s+functions\/002_permissionApplicationEnabled\.sql/);
+  assert.doesNotMatch(migration, /permissionApplicationEnabled/i);
   assert.match(migration, /\\ir\s+procedures\/001_seedAuthorisationCatalog\.sql/);
 });
 
@@ -80,13 +80,12 @@ test("Authorisation scopes use a resource table for resource identifiers", () =>
   assert.doesNotMatch(repository, /INSERT\s+INTO\s+user_roles\s+\([^)]*resource_type[^)]*\)/);
 });
 
-test("Authorisation service permissions are enabled per application", () => {
-  assert.match(applicationServicePermissionsTable, /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+application_service_permissions/i);
-  assert.match(applicationServicePermissionsTable, /PRIMARY\s+KEY\s+\(application_id,\s+service_key\)/i);
-  assert.match(seedCatalog, /INSERT INTO application_service_permissions \(application_id, service_key\)/);
-  assert.match(seedCatalog, /\('app_rollfinders', 'payment'\)/);
-  assert.match(seedCatalog, /\('app_rollfinders', 'booking'\)/);
-  assert.match(repository, /permission_application_enabled\(p\.code,\s+\$3\)/);
+test("Authorisation does not own application-service enablement", () => {
+  assert.doesNotMatch(migration, /application_service_permissions/i);
+  assert.doesNotMatch(seedCatalog, /application_service_permissions/i);
+  assert.doesNotMatch(repository, /permission_application_enabled|permissionApplicationEnabled/i);
+  assert.match(removeApplicationServicePermissionsMigration, /DROP TABLE IF EXISTS application_service_permissions/i);
+  assert.match(removeApplicationServicePermissionsMigration, /DROP FUNCTION IF EXISTS permission_application_enabled\(text, text\)/i);
 });
 
 test("Authorisation seed keeps platform payment revenue separate from academy payment metrics", () => {

@@ -20,6 +20,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - service_database
   authorisation-api:
     build: .
     profiles:
@@ -28,11 +30,12 @@ services:
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-rollfinder}?sslmode=disable
-    ports:
-      - "127.0.0.1:${AUTHORISATION_SERVICE_PORT:-8085}:8080"
     depends_on:
       authorisation-migrate:
         condition: service_completed_successfully
+    networks:
+      - backend
+      - service_database
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 5s

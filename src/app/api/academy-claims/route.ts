@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { ClaimStatus } from "@prisma/client";
+import { getAcademyFromAcademyService } from "@/lib/academyService";
+import { createAcademyClaim, findPendingAcademyClaim } from "@/lib/academy-domain-data";
 import { analyticsCountryFromRequest } from "@/lib/analytics/country";
 import { analyticsIdentityFromRequest, hashRequestIp } from "@/lib/analytics/identity";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { isAcademyManaged, isDuplicatePendingClaimError, nullableString, publicClaimResponse, zodFieldErrors } from "@/lib/claim-requests";
-import { prisma } from "@/lib/prisma";
 import { claimRequestSchema } from "@/lib/validators";
 
 const maxBodyBytes = 12_000;
@@ -25,43 +26,29 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
-  const academy = await prisma.academy.findUnique({
-    where: { id: data.academyId },
-    select: { id: true },
-  });
+  const academy = await getAcademyFromAcademyService(data.academyId);
   if (!academy) return NextResponse.json({ error: "Academy not found" }, { status: 404 });
 
   if (await isAcademyManaged(data.academyId)) {
     return NextResponse.json({ error: "Academy is already managed" }, { status: 409 });
   }
 
-  const duplicatePendingClaim = await prisma.claimRequest.findFirst({
-    where: {
-      academyId: data.academyId,
-      requesterEmail: data.requesterEmail,
-      status: ClaimStatus.PENDING,
-    },
-    select: { id: true },
-  });
+  const duplicatePendingClaim = await findPendingAcademyClaim(data.academyId, data.requesterEmail);
   if (duplicatePendingClaim) {
     return NextResponse.json({ error: "A pending claim already exists for this academy and email" }, { status: 409 });
   }
 
   try {
-    const claim = await prisma.claimRequest.create({
-      data: {
-        academyId: data.academyId,
-        requesterName: data.requesterName,
-        requesterEmail: data.requesterEmail,
-        requesterPhone: nullableString(data.requesterPhone),
-        requesterRole: data.requesterRole,
-        requesterBeltRank: data.requesterBeltRank ?? null,
-        requesterBeltStripes: data.requesterBeltStripes ?? null,
-        verificationNotes: data.verificationNotes,
-        publicProofLink: nullableString(data.publicProofLink),
-        status: ClaimStatus.PENDING,
-      },
-      select: { id: true, academyId: true, status: true, createdAt: true },
+    const claim = await createAcademyClaim({
+      academyId: data.academyId,
+      requesterName: data.requesterName,
+      requesterEmail: data.requesterEmail,
+      requesterPhone: nullableString(data.requesterPhone),
+      requesterRole: data.requesterRole,
+      requesterBeltRank: data.requesterBeltRank ?? null,
+      requesterBeltStripes: data.requesterBeltStripes ?? null,
+      verificationNotes: data.verificationNotes,
+      publicProofLink: nullableString(data.publicProofLink),
     });
     const identity = analyticsIdentityFromRequest(request);
     const country = analyticsCountryFromRequest(request);

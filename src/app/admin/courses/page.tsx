@@ -4,7 +4,7 @@ import { CourseType, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { TableRow } from "@/components/Table";
-import { listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
+import { listAcademiesForActorFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { selectableCourseTypeOptions } from "@/lib/course-types";
 import { coursePriceLabel, courseTypeLabel, recurrenceLabel } from "@/lib/courses";
@@ -34,19 +34,24 @@ export default async function AdminCoursesPage({ searchParams }: { searchParams:
   const courseType = selectedCourseType(params.courseType);
   const status = params.status === "active" || params.status === "inactive" ? params.status : "all";
   const platformAdmin = isPlatformAdminRole(user.role);
+  const availableAcademies = await listAcademiesForActorFromAcademyService(user);
   const academyMemberships = platformAdmin ? [] : await listAcademyMembershipsForUserFromAcademyService(user.id);
   const academyIds = academyMemberships.map((membership) => membership.academyId);
+  const academyIdsMatchingSearch = q
+    ? availableAcademies.filter((academy) => academy.name.toLowerCase().includes(q.toLowerCase())).map((academy) => academy.id)
+    : [];
+  const academyNameById = new Map(availableAcademies.map((academy) => [academy.id, academy.name]));
   const accessWhere: Prisma.EventWhereInput = !platformAdmin
     ? { OR: [...(academyIds.length ? [{ academyId: { in: academyIds } }] : []), { createdById: user.id }, ...(isAcademyAdminRole(user.role) && user.academyId ? [{ academyId: user.academyId }] : [])] }
     : {};
   const where: Prisma.EventWhereInput = {
     ...accessWhere,
-    ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { academy: { name: { contains: q, mode: "insensitive" } } }] } : {}),
+    ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, ...(academyIdsMatchingSearch.length ? [{ academyId: { in: academyIdsMatchingSearch } }] : [])] } : {}),
     ...(courseType ? { courseType } : {}),
     ...(status === "active" ? { active: true } : {}),
     ...(status === "inactive" ? { active: false } : {}),
   };
-  const courses = await prisma.event.findMany({ where, include: { academy: true }, orderBy: [{ eventDate: "asc" }, { startTime: "asc" }], take: 100 });
+  const courses = await prisma.event.findMany({ where, orderBy: [{ eventDate: "asc" }, { startTime: "asc" }], take: 100 });
 
   return (
     <PageShell>
@@ -95,7 +100,7 @@ export default async function AdminCoursesPage({ searchParams }: { searchParams:
                 <TableRow key={course.id} href={courseHref}>
                   <LinkedTableCell href={courseHref} className="font-bold text-stone-950">{course.title}</LinkedTableCell>
                   <LinkedTableCell href={courseHref}>{courseTypeLabel(course.courseType)}</LinkedTableCell>
-                  <LinkedTableCell href={courseHref}>{course.academy.name}</LinkedTableCell>
+                  <LinkedTableCell href={courseHref}>{academyNameById.get(course.academyId) ?? "Unknown academy"}</LinkedTableCell>
                   <LinkedTableCell href={courseHref}>{formatDate(course.eventDate)} · {course.startTime}-{course.endTime}<br /><span className="text-xs text-stone-500">{recurrenceLabel(course)}</span></LinkedTableCell>
                   <LinkedTableCell href={courseHref}>{course.active ? "Active" : "Inactive"}</LinkedTableCell>
                   <LinkedTableCell href={courseHref}>{coursePriceLabel(course)}</LinkedTableCell>

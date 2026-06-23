@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
+import { listAcademiesForActorFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
 import { createManagedUser } from "../actions";
 import { UserForm } from "../UserForm";
 
@@ -12,10 +12,7 @@ export default async function NewUserPage() {
   const currentUser = await getCurrentUser();
   const superAdmin = isSuperAdminRole(currentUser?.role);
   const academyAdmin = isAcademyAdminRole(currentUser?.role);
-  const academies = await prisma.academy.findMany({
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
+  const academies = currentUser ? await listAcademiesForActorFromAcademyService(currentUser) : [];
 
   return (
     <PageShell>

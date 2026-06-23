@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { getAcademyClaim } from "@/lib/academy-domain-data";
+import { getAcademyFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, requirePlatformAdminApi } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const forbidden = await requirePlatformAdminApi();
@@ -9,48 +10,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!actor) return NextResponse.json({ error: "Platform admin access required" }, { status: 403 });
 
   const { id } = await params;
-  const claim = await prisma.claimRequest.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      academyId: true,
-      requesterName: true,
-      requesterEmail: true,
-      requesterPhone: true,
-      requesterRole: true,
-      requesterBeltRank: true,
-      requesterBeltStripes: true,
-      verificationNotes: true,
-      publicProofLink: true,
-      status: true,
-      reviewedAt: true,
-      reviewedById: true,
-      rejectionReason: true,
-      linkedUserId: true,
-      createdAt: true,
-      academy: {
-        select: {
-          id: true,
-          name: true,
-          slug: true,
-          website: true,
-          email: true,
-          phone: true,
-          address: true,
-          city: true,
-          postcode: true,
-          verificationStatus: true,
-          verified: true,
-        },
-      },
-    },
-  });
+  const claim = await getAcademyClaim(id);
 
   if (!claim) return NextResponse.json({ error: "Claim not found" }, { status: 404 });
+  const academy = await getAcademyFromAcademyService(claim.academyId);
 
   return NextResponse.json({
     claim: {
       ...claim,
+      academy: academy ? {
+        id: academy.id,
+        name: academy.name,
+        slug: academy.slug,
+        website: academy.website,
+        email: academy.email,
+        phone: academy.phone,
+        address: academy.address,
+        city: academy.city,
+        postcode: academy.postcode,
+        verificationStatus: academy.verificationStatus,
+        verified: academy.verified,
+      } : null,
       reviewedBy: claim.reviewedById ? { id: claim.reviewedById, email: claim.reviewedById } : null,
       linkedUser: claim.linkedUserId ? { id: claim.linkedUserId } : null,
       createdAt: claim.createdAt.toISOString(),

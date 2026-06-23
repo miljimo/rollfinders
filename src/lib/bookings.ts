@@ -1,6 +1,6 @@
 // import "server-only";
 
-import { getEnvVariable } from "./environments";
+import { apiGatewayUrl } from "./apiGateway";
 
 if (typeof window !== "undefined") {
   throw new Error("Booking service calls are server-only.");
@@ -58,7 +58,7 @@ type BookingListResponse = {
   count: number;
 };
 
-const bookingServiceUrl = () => getEnvVariable("BOOKING_PUBLIC_BASE_URL", "http://localhost:3005").replace(/\/+$/, "");
+const bookingServiceUrl = apiGatewayUrl;
 
 export class BookingServiceError extends Error {
   constructor(

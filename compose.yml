@@ -1,10 +1,12 @@
 include:
+  - path: ./services/api/compose.yml
   - path: ./services/payments/compose.yml
   - path: ./services/booking/compose.yml
   - path: ./services/academy/compose.yml
   - path: ./services/users/compose.yml
   - path: ./services/courses/compose.yml
   - path: ./services/authorisation/compose.yml
+  - path: ./services/organisation/compose.yml
 
 services:
   db:
@@ -16,6 +18,8 @@ services:
       - db
       - app
       - seed
+      - organisation
+      - api
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -25,6 +29,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./services/payments/migrations:/docker-entrypoint-initdb.d:ro
+    networks:
+      - app_database
+      - service_database
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 5s
@@ -50,6 +57,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - app_database
 
   seed:
     build:
@@ -67,6 +76,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    networks:
+      - app_database
 
   app:
     build:
@@ -78,11 +89,6 @@ services:
         NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
     profiles:
       - app
-    env_file:
-      - path: .env.local
-        required: false
-      - path: .env
-        required: false
     environment:
       DB_NAME: ${DB_NAME:-rollfinder}
       DB_USER: ${DB_USER:-postgres}
@@ -95,14 +101,9 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
-      PAYMENT_PUBLIC_BASE_URL: http://payments:8080
-      BOOKING_PUBLIC_BASE_URL: http://booking:8080
-      USER_PUBLIC_BASE_URL: http://users:8080
-      AUTHORISATION_PUBLIC_BASE_URL: http://authorisation-api:8080
+      API_PUBLIC_BASE_URL: http://api:8080
       AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
-      COURSE_PUBLIC_BASE_URL: http://courses:8080
-      ACADEMY_PUBLIC_BASE_URL: http://academy:8080
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
     ports:
       - "3000:3000"
@@ -111,18 +112,17 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-      users:
+      api:
         condition: service_healthy
-      authorisation-api:
-        condition: service_healthy
-      courses:
-        condition: service_healthy
-      payments:
-        condition: service_healthy
-      booking:
-        condition: service_healthy
-      academy:
-        condition: service_healthy
+    networks:
+      - frontend
+      - app_database
 
 volumes:
   postgres_data:
+
+networks:
+  frontend:
+  backend:
+  app_database:
+  service_database:

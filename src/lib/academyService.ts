@@ -1,5 +1,6 @@
-import { AcademyVerificationStatus, type Academy, type AcademySocialLink, type ClaimStatus } from "@prisma/client";
-import { getEnvVariable } from "./environments";
+import { AcademyVerificationStatus, ClaimStatus, type Academy, type AcademySocialLink } from "@prisma/client";
+import { apiGatewayUrl } from "./apiGateway";
+import type { AcademySocialLinkInput } from "./academy-social-links";
 
 if (typeof window !== "undefined") {
   throw new Error("Academy service calls are server-only.");
@@ -103,9 +104,10 @@ export type AcademyWriteInput = {
   featured?: boolean | null;
   verified?: boolean | null;
   createdById?: string | null;
+  socialLinks?: AcademySocialLinkInput[];
 };
 
-const academyServiceUrl = () => getEnvVariable("ACADEMY_PUBLIC_BASE_URL", "http://localhost:3006").replace(/\/+$/, "");
+const academyServiceUrl = apiGatewayUrl;
 
 function serviceHeaders() {
   return { "Content-Type": "application/json" };
@@ -194,8 +196,32 @@ function legacySettings(input: AcademyWriteInput) {
       verified: input.verified ?? input.verificationStatus === AcademyVerificationStatus.VERIFIED,
       createdById: input.createdById ?? null,
       xUrl: input.xUrl ?? null,
+      socialLinks: input.socialLinks ?? [],
     },
   };
+}
+
+function socialLinksFromSettings(settings: Record<string, unknown>, academyId: string, updatedAt: Date) {
+  const legacy = settings.legacy;
+  const legacyRecord = legacy && typeof legacy === "object" ? legacy as Record<string, unknown> : {};
+  const value = settings.socialLinks ?? legacyRecord.socialLinks;
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is { platform: string; url: string } =>
+      typeof item === "object"
+      && item !== null
+      && typeof (item as { platform?: unknown }).platform === "string"
+      && typeof (item as { url?: unknown }).url === "string",
+    )
+    .map((link, index) => ({
+      id: `${academyId}-social-${index}`,
+      academyId,
+      platform: link.platform as AcademySocialLink["platform"],
+      url: link.url,
+      createdAt: updatedAt,
+      updatedAt,
+    }));
 }
 
 function academyFromService(item: AcademyServiceAcademy, members: AcademyMembershipRecord[] = []): AcademyServiceRecord {
@@ -239,7 +265,7 @@ function academyFromService(item: AcademyServiceAcademy, members: AcademyMembers
     createdById: stringSetting(settings, "createdById") || null,
     members: members.map((member) => ({ id: member.id, academyId: member.academyId, userId: member.userId })),
     claims: [],
-    socialLinks: [],
+    socialLinks: socialLinksFromSettings(settings, item.id, updatedAt),
   };
 }
 
@@ -285,6 +311,36 @@ export async function listAcademiesFromAcademyService({ q, limit = 100, offset =
   return (response.academies ?? []).map((academy) => academyFromService(academy));
 }
 
+export async function listAllAcademiesFromAcademyService({ q, batchSize = 100 }: { q?: string; batchSize?: number } = {}) {
+  const academies: AcademyServiceRecord[] = [];
+  let offset = 0;
+  while (true) {
+    const batch = await listAcademiesFromAcademyService({ q, limit: batchSize, offset });
+    academies.push(...batch);
+    if (batch.length < batchSize) break;
+    offset += batchSize;
+  }
+  return academies;
+}
+
+export function academyMatchesSearch(academy: AcademyServiceRecord, search: string) {
+  const value = search.trim().toLowerCase();
+  if (!value) return true;
+  return [
+    academy.name,
+    academy.slug,
+    academy.city,
+    academy.postcode,
+    academy.email ?? "",
+    academy.phone ?? "",
+    academy.website ?? "",
+  ].some((field) => field.toLowerCase().includes(value));
+}
+
+export function academyClaimPlaceholder(status: ClaimStatus) {
+  return { status };
+}
+
 export async function getAcademyFromAcademyService(id: string) {
   try {
     const [academy, members] = await Promise.all([
@@ -300,7 +356,8 @@ export async function getAcademyFromAcademyService(id: string) {
 
 export async function findAcademyBySlugFromAcademyService(slug: string) {
   const academies = await listAcademiesFromAcademyService({ q: slug, limit: 100 });
-  return academies.find((academy) => academy.slug === slug) ?? null;
+  const academy = academies.find((item) => item.slug === slug);
+  return academy ?? null;
 }
 
 export async function createAcademyInAcademyService(input: AcademyWriteInput) {
@@ -319,6 +376,13 @@ export async function updateAcademyInAcademyService(id: string, input: AcademyWr
   return academyFromService(academy);
 }
 
+export async function deleteAcademyInAcademyService(id: string) {
+  const academy = await request(`/v1/academies/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  }) as AcademyServiceAcademy;
+  return academyFromService(academy);
+}
+
 export async function listAcademyMembersFromAcademyService(academyId: string) {
   const response = await request(`/v1/academies/${encodeURIComponent(academyId)}/members`) as { members?: AcademyServiceMember[] };
   return (response.members ?? []).map(membershipFromService);
@@ -327,6 +391,19 @@ export async function listAcademyMembersFromAcademyService(academyId: string) {
 export async function listAcademyMembershipsForUserFromAcademyService(userId: string) {
   const response = await request(`/v1/memberships?user_id=${encodeURIComponent(userId)}`) as { memberships?: AcademyServiceMember[] };
   return (response.memberships ?? []).map(membershipFromService);
+}
+
+export async function listAcademiesForActorFromAcademyService(actor: { id: string; role?: string; academyId?: string | null }) {
+  if (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN" || actor.role === "PLATFORM_ADMIN") {
+    return listAllAcademiesFromAcademyService();
+  }
+  if ((actor.role === "ACADEMY_ADMIN" || actor.role === "ACADEMY_OWNER") && actor.academyId) {
+    const academy = await getAcademyFromAcademyService(actor.academyId);
+    return academy ? [academy] : [];
+  }
+  const memberships = await listAcademyMembershipsForUserFromAcademyService(actor.id);
+  const academies = await Promise.all(memberships.map((membership) => getAcademyFromAcademyService(membership.academyId)));
+  return academies.filter((academy): academy is AcademyServiceRecord => Boolean(academy));
 }
 
 export async function addAcademyMemberInAcademyService(academyId: string, userId: string) {

@@ -37,6 +37,7 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/academies", []string{http.MethodGet}, s.listAcademies)
 	mustHandle("/v1/academies/{academy_id}", []string{http.MethodGet}, s.getAcademy)
 	mustHandle("/v1/academies/{academy_id}", []string{http.MethodPatch}, s.updateAcademyProfile)
+	mustHandle("/v1/academies/{academy_id}", []string{http.MethodDelete}, s.deleteAcademy)
 	mustHandle("/v1/academies/{academy_id}/members", []string{http.MethodGet}, s.listAcademyMembers)
 	mustHandle("/v1/academies/{academy_id}/members", []string{http.MethodPost}, s.addAcademyMember)
 	mustHandle("/v1/academies/{academy_id}/members/{user_id}", []string{http.MethodDelete}, s.removeAcademyMember)

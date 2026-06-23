@@ -5,12 +5,14 @@ import { useState } from "react";
 
 export function UserFormTabs({
   detailsPanel,
+  initialTab = "details",
   permissionsPanel,
 }: {
   detailsPanel: ReactNode;
+  initialTab?: "details" | "permissions";
   permissionsPanel: ReactNode;
 }) {
-  const [activeTab, setActiveTab] = useState<"details" | "permissions">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "permissions">(initialTab);
 
   return (
     <div className="mt-8">

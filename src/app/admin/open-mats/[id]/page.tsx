@@ -4,7 +4,8 @@ import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
 import { PageShell } from "@/components/PageShell";
 import { requireOpenMatAccess } from "@/lib/academy-access";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
+import { listAcademiesForActorFromAcademyService } from "@/lib/academyService";
+import { getCurrentUser } from "@/lib/admin";
 import { getInstructorUserOptions, instructorUserAcademyWhere } from "@/lib/instructor-users";
 import { prisma } from "@/lib/prisma";
 import { deleteCourse, updateCourse } from "../../courses/actions";
@@ -37,12 +38,7 @@ export default async function EditOpenMatPage({
   }
   const [event, academies] = await Promise.all([
     prisma.event.findUnique({ where: { id }, include: { activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } } }),
-    prisma.academy.findMany({
-      where: isAcademyAdminRole(user.role)
-        ? { id: user.academyId ?? "__missing_academy__" }
-        : isPlatformAdminRole(user.role) ? undefined : { members: { some: { userId: user.id } } },
-      orderBy: { name: "asc" },
-    }),
+    listAcademiesForActorFromAcademyService(user),
   ]);
 
   if (!event) notFound();

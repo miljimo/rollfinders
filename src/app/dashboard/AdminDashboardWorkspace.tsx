@@ -6,9 +6,11 @@ import { clsx } from "clsx";
 import { Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, Filter, Globe2, Info, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "@/components/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
+import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-domain-data";
+import { academyMatchesSearch, getAcademyFromAcademyService, listAcademyMembersFromAcademyService, listAllAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
-import { academyScopedAcademyWhere, academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
-import { authorize, listAuthorisationRoles, listEffectiveUserPermissions, listUserPermissionAssignments, type AuthorisationRole } from "@/lib/authorisation-service";
+import { academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
+import { authorize, listAuthorisationPermissions, listAuthorisationRolePermissions, listAuthorisationRoles, listEffectiveUserPermissions, listUserAuthorisationRoles, listUserPermissionAssignments, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
 import { BookingServiceError, listBookings, type BookingRecord } from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
@@ -16,6 +18,7 @@ import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, 
 import { getMapItems } from "@/lib/data";
 import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
+import { listOrganisationApplications, listOrganisations } from "@/lib/organisation-service";
 import { calculatePlatformFeeMinor, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { listCourseOccurrencePayments, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
@@ -23,7 +26,7 @@ import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
-import { canSeeRole } from "@/lib/role-hierarchy";
+import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
 import { getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
@@ -55,6 +58,7 @@ import { fetchAcademyClaims, type AcademyClaimListItem } from "../admin/academy-
 import { EmailOperationsPanel } from "../admin/EmailOperationsPanel";
 import { EditProfileForm } from "./EditProfileForm";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
+import { SystemRolesBoard } from "./SystemRolesBoard";
 import { UserPermissionsBoard } from "./UserPermissionsBoard";
 import { updatePlatformPaymentFees } from "./paymentSettingsActions";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookingActions";
@@ -92,8 +96,8 @@ function pageFromParams(searchParams: AdminSearchParams, key: string) {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 1;
 }
 
-function clampPage(page: number, totalItems: number) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+function clampPage(page: number, totalItems: number, itemsPerPage = pageSize) {
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
   return Math.min(page, totalPages);
 }
 
@@ -109,6 +113,56 @@ function platformAdminCreatedAcademyWhere(extra: Prisma.AcademyWhereInput = {}):
       extra,
     ],
   };
+}
+
+function academyCreatedById(academy: AcademyServiceRecord) {
+  return academy.createdById ?? null;
+}
+
+function academyForEvent(academies: AcademyServiceRecord[], academyId: string) {
+  return academies.find((academy) => academy.id === academyId) ?? null;
+}
+
+function academyMatchesDashboardSearch(academy: AcademyServiceRecord, search: string, verificationSearch: AcademyVerificationStatus | null) {
+  if (verificationSearch && academy.verificationStatus === verificationSearch) return true;
+  return academyMatchesSearch(academy, search);
+}
+
+function academyMatchesPlatformSearch(academy: AcademyServiceRecord, search: string) {
+  return academyMatchesSearch(academy, search);
+}
+
+function academyMatchesReminderFilter(
+  academy: AcademyServiceRecord,
+  reminders: { status: string; createdAt: Date }[],
+  cooldownStart: Date,
+  filter: string,
+) {
+  if (filter === "all") return true;
+  const hasEmail = Boolean(academy.email?.trim());
+  const hasMembers = academy.members.length > 0;
+  const hasBlockingClaim = academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED || claim.status === ClaimStatus.PENDING);
+  const hasRecentQueuedReminder = reminders.some((reminder) => reminder.status === "QUEUED" && reminder.createdAt >= cooldownStart);
+  if (filter === "eligible") return hasEmail && !hasMembers && !hasBlockingClaim && !hasRecentQueuedReminder;
+  if (filter === "recently-sent") return hasRecentQueuedReminder;
+  if (filter === "unavailable") return !hasEmail || hasMembers || hasBlockingClaim;
+  return true;
+}
+
+async function attachAcademyOperationalMetadata(academies: AcademyServiceRecord[]) {
+  if (!academies.length) return [];
+  const academyIds = academies.map((academy) => academy.id);
+  const [claimPairs, reminders, memberPairs] = await Promise.all([
+    Promise.all(academyIds.map(async (academyId) => ({ academyId, claims: await academyClaimStatuses(academyId).catch(() => []) }))),
+    listAcademyClaimReminders(academyIds),
+    Promise.all(academyIds.map(async (academyId) => ({ academyId, members: await listAcademyMembersFromAcademyService(academyId).catch(() => []) }))),
+  ]);
+  return academies.map((academy) => ({
+    ...academy,
+    claims: claimPairs.find((pair) => pair.academyId === academy.id)?.claims ?? [],
+    claimReminders: reminders.filter((reminder) => reminder.academyId === academy.id),
+    members: memberPairs.find((pair) => pair.academyId === academy.id)?.members.map((member) => ({ id: member.id, academyId: member.academyId, userId: member.userId })) ?? academy.members,
+  }));
 }
 
 function selectedPanel(value: string | undefined) {
@@ -431,6 +485,7 @@ export default async function AdminDashboardWorkspace({
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
   const userPage = pageFromParams(params, "usersPage");
+  const payoutsPage = pageFromParams(params, "payoutsPage");
   const platformAcademyPage = pageFromParams(params, "platformAcademiesPage");
   const claimPage = pageFromParams(params, "claimsPage");
   const emailPage = pageFromParams(params, "emailPage");
@@ -446,62 +501,6 @@ export default async function AdminDashboardWorkspace({
   const monthStart = startOfMonth(new Date());
   const weekStart = startOfWeek(new Date());
 
-  const academySearchWhere: Prisma.AcademyWhereInput = search
-    ? {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { city: { contains: search, mode: "insensitive" } },
-          { borough: { contains: search, mode: "insensitive" } },
-          { postcode: { contains: search, mode: "insensitive" } },
-          ...(academyVerificationSearch ? [{ verificationStatus: academyVerificationSearch }] : []),
-        ],
-      }
-    : {};
-  const platformAdminAcademySearchWhere: Prisma.AcademyWhereInput = platformAcademiesSearch
-    ? {
-        OR: [
-          { name: { contains: platformAcademiesSearch, mode: "insensitive" } },
-          { city: { contains: platformAcademiesSearch, mode: "insensitive" } },
-          { borough: { contains: platformAcademiesSearch, mode: "insensitive" } },
-          { postcode: { contains: platformAcademiesSearch, mode: "insensitive" } },
-        ],
-      }
-    : {};
-  const academyReminderWhere: Prisma.AcademyWhereInput =
-    academyReminderFilter === "eligible"
-      ? {
-          email: { not: null },
-          members: { none: {} },
-          claims: { none: { status: { in: [ClaimStatus.APPROVED, ClaimStatus.PENDING] } } },
-          claimReminders: { none: { status: "QUEUED", createdAt: { gte: reminderCooldownStart } } },
-        }
-      : academyReminderFilter === "recently-sent"
-        ? { claimReminders: { some: { status: "QUEUED", createdAt: { gte: reminderCooldownStart } } } }
-        : academyReminderFilter === "unavailable"
-          ? {
-              OR: [
-                { email: null },
-                { email: "" },
-                { members: { some: {} } },
-                { claims: { some: { status: { in: [ClaimStatus.APPROVED, ClaimStatus.PENDING] } } } },
-              ],
-            }
-          : {};
-  const academyScopeWhere = academyScopedAcademyWhere(currentUser);
-  const eventScopeWhere = academyScopedEventWhere(currentUser);
-  const academyWhere: Prisma.AcademyWhereInput = { AND: [academyScopeWhere, academySearchWhere, elevatedAdmin ? academyReminderWhere : {}] };
-  const eventFilterWhere: Prisma.EventWhereInput = search
-    ? {
-        OR: [
-          { title: { contains: search, mode: "insensitive" } },
-          { description: { contains: search, mode: "insensitive" } },
-          { startTime: { contains: search, mode: "insensitive" } },
-          { endTime: { contains: search, mode: "insensitive" } },
-          { academy: { name: { contains: search, mode: "insensitive" } } },
-        ],
-      }
-    : {};
-  const eventWhere: Prisma.EventWhereInput = { AND: [eventScopeWhere, { active: true }, eventFilterWhere] };
   const userQueryParams = new URLSearchParams({
     page: String(userPage),
     pageSize: String(usersPageSize),
@@ -510,7 +509,37 @@ export default async function AdminDashboardWorkspace({
   if (roleSearch) userQueryParams.set("role", roleSearch);
   if (userStatusSearch) userQueryParams.set("status", userStatusSearch);
   const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString());
-  const platformAdminAcademiesWhere = platformAdminCreatedAcademyWhere(platformAdminAcademySearchWhere);
+  const allAcademyRecords = await attachAcademyOperationalMetadata(
+    academyAdmin && currentUser.academyId
+      ? (await getAcademyFromAcademyService(currentUser.academyId).then((academy) => academy ? [academy] : []))
+      : await listAllAcademiesFromAcademyService(),
+  );
+  const scopedAcademyRecords = academyAdmin && currentUser.academyId
+    ? allAcademyRecords.filter((academy) => academy.id === currentUser.academyId)
+    : allAcademyRecords;
+  const academyIdsMatchingSearch = search
+    ? scopedAcademyRecords.filter((academy) => academyMatchesSearch(academy, search)).map((academy) => academy.id)
+    : [];
+  const eventScopeWhere = academyScopedEventWhere(currentUser);
+  const eventFilterWhere: Prisma.EventWhereInput = search
+    ? {
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { description: { contains: search, mode: "insensitive" } },
+          { startTime: { contains: search, mode: "insensitive" } },
+          { endTime: { contains: search, mode: "insensitive" } },
+          ...(academyIdsMatchingSearch.length > 0 ? [{ academyId: { in: academyIdsMatchingSearch } }] : []),
+        ],
+      }
+    : {};
+  const eventWhere: Prisma.EventWhereInput = { AND: [eventScopeWhere, { active: true }, eventFilterWhere] };
+  const filteredAcademyRecords = scopedAcademyRecords.filter((academy) =>
+    academyMatchesDashboardSearch(academy, search, academyVerificationSearch)
+    && (!elevatedAdmin || academyMatchesReminderFilter(academy, academy.claimReminders, reminderCooldownStart, academyReminderFilter)),
+  );
+  const platformAdminAcademyRecords = allAcademyRecords
+    .filter((academy) => academyCreatedById(academy))
+    .filter((academy) => academyMatchesPlatformSearch(academy, platformAcademiesSearch));
 
   const [
     academyCount,
@@ -533,21 +562,21 @@ export default async function AdminDashboardWorkspace({
     emailOperations,
     founderAnalyticsReport,
   ] = await Promise.all([
-    prisma.academy.count({ where: academyWhere }),
-    prisma.academy.count({ where: academyScopeWhere }),
-    prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED }] } }),
-    prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.PENDING }] } }),
-    prisma.academy.count({ where: { AND: [academyScopeWhere, { members: { some: {} } }] } }),
+    Promise.resolve(filteredAcademyRecords.length),
+    Promise.resolve(scopedAcademyRecords.length),
+    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.VERIFIED).length),
+    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.PENDING).length),
+    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.members.length > 0).length),
     managedUsersPagePromise.then((result) => result.totalItems),
     prisma.event.count({ where: eventWhere }),
     managedUsersPagePromise.then((result) => result.totalItems),
-    superAdmin ? prisma.academy.count({ where: platformAdminAcademiesWhere }) : Promise.resolve(0),
-    superAdmin ? prisma.academy.count({ where: platformAdminCreatedAcademyWhere({ verificationStatus: AcademyVerificationStatus.VERIFIED }) }) : Promise.resolve(0),
-    superAdmin ? prisma.academy.count({ where: platformAdminCreatedAcademyWhere({ verificationStatus: AcademyVerificationStatus.PENDING }) }) : Promise.resolve(0),
+    superAdmin ? Promise.resolve(platformAdminAcademyRecords.length) : Promise.resolve(0),
+    superAdmin ? Promise.resolve(platformAdminAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.VERIFIED).length) : Promise.resolve(0),
+    superAdmin ? Promise.resolve(platformAdminAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.PENDING).length) : Promise.resolve(0),
     Promise.resolve(0),
-    superAdmin ? prisma.academy.count({ where: platformAdminCreatedAcademyWhere({ createdAt: { gte: monthStart } }) }) : Promise.resolve(0),
-    prisma.academy.count({ where: { AND: [academyScopeWhere, { createdAt: { gte: monthStart } }] } }),
-    prisma.academy.count({ where: { AND: [academyScopeWhere, { verificationStatus: AcademyVerificationStatus.VERIFIED, updatedAt: { gte: monthStart } }] } }),
+    superAdmin ? Promise.resolve(platformAdminAcademyRecords.filter((academy) => academy.createdAt >= monthStart).length) : Promise.resolve(0),
+    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.createdAt >= monthStart).length),
+    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.VERIFIED && academy.updatedAt >= monthStart).length),
     Promise.resolve(0),
     prisma.event.count({ where: { ...eventWhere, createdAt: { gte: weekStart } } }),
     elevatedAdmin ? getEmailQueueOperationsSummary() : Promise.resolve(emptyEmailOperationsSummary()),
@@ -556,7 +585,7 @@ export default async function AdminDashboardWorkspace({
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
   const currentEventPage = clampPage(eventPage, activeEventCount);
-  const currentUserPage = clampPage(userPage, userCount);
+  const currentUserPage = clampPage(userPage, userCount, usersPageSize);
   const currentPlatformAcademyPage = clampPlatformAcademyPage(platformAcademyPage, platformAdminAcademyCount);
   const claimResult = panel === "academy-claims"
     ? await fetchAcademyClaims(claimApiParams({ page: claimPage, pageSize: claimPageSize, search, status: claimStatus }))
@@ -579,35 +608,30 @@ export default async function AdminDashboardWorkspace({
     paymentMetricVisibility,
     bookingResult,
     authorisationRoles,
+    currentUserAuthorisationRoles,
     currentUserEffectivePermissions,
+    authorisationPermissionCatalog,
     currentUserPermissionAssignments,
+    organisationOptions,
+    applicationOptions,
   ] = await Promise.all([
-    prisma.academy.findMany({
-      where: academyWhere,
-      skip: (currentAcademyPage - 1) * pageSize,
-      take: pageSize,
-      orderBy: { name: "asc" },
-      include: {
-        claims: { select: { status: true } },
-        members: { select: { id: true }, take: 1 },
-        claimReminders: { orderBy: { createdAt: "desc" }, take: 1 },
-      },
-    }),
+    Promise.resolve(filteredAcademyRecords.slice((currentAcademyPage - 1) * pageSize, currentAcademyPage * pageSize)),
     superAdmin
-      ? prisma.academy.findMany({
-          where: platformAdminAcademiesWhere,
-          skip: (currentPlatformAcademyPage - 1) * platformAdminAcademyPageSize,
-          take: platformAdminAcademyPageSize,
-          orderBy: [{ createdAt: "desc" }, { name: "asc" }],
-        })
+      ? Promise.resolve(platformAdminAcademyRecords.slice((currentPlatformAcademyPage - 1) * platformAdminAcademyPageSize, currentPlatformAcademyPage * platformAdminAcademyPageSize))
       : Promise.resolve([]),
     prisma.event.findMany({
       skip: (currentEventPage - 1) * pageSize,
       take: pageSize,
       where: eventWhere,
-      include: { academy: true },
       orderBy: { eventDate: "asc" },
-    }),
+    }).then((rows) =>
+      rows
+        .map((event) => {
+          const academy = academyForEvent(scopedAcademyRecords, event.academyId);
+          return academy ? { ...event, academy } : null;
+        })
+        .filter((event): event is DashboardEventListItem => Boolean(event)),
+    ),
     managedUsersPagePromise.then((result) =>
       enrichUsersWithAcademyNames(result.users.map((user) => ({
         ...user,
@@ -622,14 +646,16 @@ export default async function AdminDashboardWorkspace({
       orderBy: { createdAt: "desc" },
     }),
     panel === "maps" ? getMapItems() : Promise.resolve([]),
-    prisma.academy.findMany({ where: academyScopeWhere, orderBy: { name: "asc" } }),
+    Promise.resolve(scopedAcademyRecords.slice().sort((left, right) => left.name.localeCompare(right.name))),
     Promise.resolve([]),
     elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
     academyAdmin && currentUser.academyId
-      ? prisma.academy.findUnique({
-          where: { id: currentUser.academyId },
-          include: { events: true, claims: true, members: true, socialLinks: { orderBy: { platform: "asc" } } },
-        })
+      ? (async () => {
+          const academy = scopedAcademyRecords.find((item) => item.id === currentUser.academyId);
+          if (!academy) return null;
+          const events = await prisma.event.findMany({ where: { academyId: academy.id, active: true }, orderBy: { eventDate: "asc" } });
+          return { ...academy, events };
+        })()
       : Promise.resolve(null),
     panel === "payments" ? getDashboardPayments(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ payments: [] }),
     panel === "payments"
@@ -646,38 +672,41 @@ export default async function AdminDashboardWorkspace({
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
-    panel === "users" && usersView === "roles" ? listAuthorisationRoles() : Promise.resolve([]),
+    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationRoles() : Promise.resolve([]),
+    panel === "users" && usersView === "roles" ? listUserAuthorisationRoles(currentUser.id) : Promise.resolve([]),
     panel === "users" ? listEffectiveUserPermissions(currentUser.id, {
       organisationId: currentUser.academyId ?? undefined,
       applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
     }) : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listAuthorisationPermissions() : Promise.resolve([]),
     panel === "users" ? listUserPermissionAssignments(currentUser.id) : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listOrganisations() : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listOrganisationApplications() : Promise.resolve([]),
   ]);
+  const rolePermissionAssociations = panel === "users" && (usersView === "roles" || usersView === "permissions")
+    ? await Promise.all(authorisationRoles.map(async (role) => ({
+        role,
+        permissions: await listAuthorisationRolePermissions(role.id),
+      })))
+    : [];
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
   const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
     ? await prisma.event.findFirst({
         where: { AND: [eventScopeWhere, { id: eventDialogId, active: true }] },
-        include: {
-          academy: {
-            include: {
-              claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
-              members: { select: { id: true }, take: 1 },
-            },
-          },
-          activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] },
-        },
+        include: { activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } },
+      }).then((event) => {
+        if (!event) return null;
+        const academy = academyForEvent(scopedAcademyRecords, event.academyId);
+        return academy ? { ...event, academy } : null;
       })
     : null;
   const selectedDialogAcademy = panel === "academies" && (dialog === "view-academy" || dialog === "edit-academy") && academyDialogId
-    ? await prisma.academy.findFirst({
-        where: { AND: [academyScopeWhere, { id: academyDialogId }] },
-        include: {
-          claims: true,
-          events: { where: { active: true }, orderBy: { eventDate: "asc" }, take: 5 },
-          members: true,
-          socialLinks: { orderBy: { platform: "asc" } },
-        },
-      })
+    ? await (async () => {
+        const academy = scopedAcademyRecords.find((item) => item.id === academyDialogId);
+        if (!academy) return null;
+        const events = await prisma.event.findMany({ where: { academyId: academy.id, active: true }, orderBy: { eventDate: "asc" }, take: 5 });
+        return { ...academy, events };
+      })()
     : null;
   const cloneSourceEvent = panel === "open-mats" && dialog === "create-course" && cloneFromEventId
     ? await prisma.event.findFirst({
@@ -686,17 +715,12 @@ export default async function AdminDashboardWorkspace({
       })
     : null;
   const selectedReminderAcademy = academyDialogId
-    ? await prisma.academy.findUnique({
-        where: { id: academyDialogId },
-        select: { id: true, name: true, email: true },
-      })
+    ? scopedAcademyRecords.find((academy) => academy.id === academyDialogId) ?? null
     : null;
   const selectedBulkReminderAcademies = selectedAcademyIds.length
-    ? await prisma.academy.findMany({
-        where: { id: { in: selectedAcademyIds } },
-        select: { id: true, name: true, email: true },
-        orderBy: { name: "asc" },
-      })
+    ? scopedAcademyRecords
+        .filter((academy) => selectedAcademyIds.includes(academy.id))
+        .sort((left, right) => left.name.localeCompare(right.name))
     : [];
   const adminNavigationItems: SidePanelItem[] = [
     { active: !firstParam(params.panel), href: "/dashboard", icon: "dashboard", label: "Dashboard" },
@@ -1020,7 +1044,7 @@ export default async function AdminDashboardWorkspace({
         <section className="px-4 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-slate-950">{panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "User's Boards" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <h1 className="text-3xl font-black text-slate-950">{panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
               <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
@@ -1126,8 +1150,10 @@ export default async function AdminDashboardWorkspace({
                 paymentAccountSetting={paymentAccountSetting}
                 paymentPlatformSettings={paymentPlatformSettings ?? undefined}
                 period={paymentsPeriod}
+                payoutsPage={payoutsPage}
                 result={paymentResult}
                 search={paymentsSearch}
+                searchParams={params}
                 stripeConnectError={stripeConnectError}
                 stripeConnectMessage={stripeConnectMessage}
                 paymentSettingsError={paymentSettingsError}
@@ -1184,9 +1210,29 @@ export default async function AdminDashboardWorkspace({
               title={usersView === "roles" ? "Roles" : usersView === "permissions" ? "Permissions" : usersView === "access-keys" ? "Access Keys" : usersView === "mfa" ? "MFA" : "Users & Roles"}
             >
               {usersView === "roles" ? (
-                <SystemRolesPanel actorRole={currentUser.role} roles={authorisationRoles} />
+                <SystemRolesPanel
+                  actorRole={currentUser.role}
+                  actorRoleKeys={currentUserAuthorisationRoles.map((assignment) => assignment.role_key ?? "")}
+                  rolePermissions={rolePermissionAssociations.map(({ role, permissions }) => ({
+                    roleId: role.id,
+                    permissions,
+                  }))}
+                  roles={authorisationRoles}
+                />
               ) : usersView === "permissions" ? (
-                <UserPermissionsBoard directAssignments={currentUserPermissionAssignments} permissions={currentUserEffectivePermissions} />
+                <UserPermissionsBoard
+                  directAssignments={currentUserPermissionAssignments}
+                  permissions={authorisationPermissionCatalog}
+                  roles={authorisationRoles}
+                  applications={applicationOptions.map((application) => ({ id: application.id, name: application.name, slug: application.slug }))}
+                  organisations={organisationOptions.map((organisation) => ({ id: organisation.id, name: organisation.name, slug: organisation.slug }))}
+                  rolePermissions={rolePermissionAssociations.map(({ role, permissions }) => ({
+                    role: { id: role.id, key: role.key, name: role.name },
+                    permissionIds: permissions.map((permission) => permission.id),
+                    permissionCodes: permissions.map((permission) => permission.code),
+                  }))}
+                  users={users.map((user) => ({ id: user.id, name: user.name, email: user.email }))}
+                />
               ) : usersView === "access-keys" ? (
                 <UnavailableUserSecurityPanel title="Access Keys" description="Access key management is not available in the current Users or Authorisation service contracts yet." />
               ) : usersView === "mfa" ? (
@@ -1195,7 +1241,7 @@ export default async function AdminDashboardWorkspace({
                 <>
                   <UserResult params={params} />
                   <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} params={params} users={users} />
-                  <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
+                  <Pagination currentPage={currentUserPage} itemsPerPage={usersPageSize} totalItems={userCount} pageKey="usersPage" searchParams={params} />
                 </>
               )}
             </AdminPanel>
@@ -1239,26 +1285,13 @@ export default async function AdminDashboardWorkspace({
   );
 }
 
-type DashboardEventDetail = Prisma.EventGetPayload<{
-  include: {
-    academy: {
-      include: {
-        claims: { select: { status: true } };
-        members: { select: { id: true } };
-      };
-    };
-    activities: true;
-  };
-}>;
+type DashboardEventListItem = Prisma.EventGetPayload<{}> & { academy: AcademyServiceRecord };
 
-type DashboardAcademyDetail = Prisma.AcademyGetPayload<{
-  include: {
-    claims: true;
-    events: true;
-    members: true;
-    socialLinks: true;
-  };
-}>;
+type DashboardEventDetail = Prisma.EventGetPayload<{
+  include: { activities: true };
+}> & { academy: AcademyServiceRecord };
+
+type DashboardAcademyDetail = AcademyServiceRecord & { events: Prisma.EventGetPayload<{}>[] };
 
 function ViewAcademyDialog({ academy, closeHref, showAcademyStats }: { academy: DashboardAcademyDetail; closeHref: string; showAcademyStats: boolean }) {
   const claimState = academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)
@@ -1642,52 +1675,28 @@ function UserResult({ params }: { params: AdminSearchParams }) {
   );
 }
 
-function SystemRolesPanel({ actorRole, roles }: { actorRole: string; roles: AuthorisationRole[] }) {
-  const visibleRoles = roles.filter((role) => canSeeRole(actorRole, role.key, role.level));
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
-      <div className="border-b border-stone-100 px-5 py-4">
-        <h3 className="text-lg font-black text-stone-950">System Roles</h3>
-        <p className="mt-1 text-sm text-stone-600">These are the role bundles configured in the Authorisation service.</p>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[920px] text-left text-sm">
-          <thead className="bg-stone-50 text-xs font-black uppercase text-stone-500">
-            <tr>
-              <th className="px-5 py-3">Role ID</th>
-              <th className="px-5 py-3">Key</th>
-              <th className="px-5 py-3">Name</th>
-              <th className="px-5 py-3">Level</th>
-              <th className="px-5 py-3">Assignable</th>
-              <th className="px-5 py-3">System</th>
-              <th className="px-5 py-3">Updated</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {visibleRoles.map((role) => (
-              <tr key={role.id}>
-                <td className="px-5 py-4 font-medium text-stone-700">{role.id}</td>
-                <td className="px-5 py-4 font-black text-stone-950">{role.key}</td>
-                <td className="px-5 py-4 font-medium text-stone-800">{role.name}</td>
-                <td className="px-5 py-4 font-medium text-stone-700">{role.level}</td>
-                <td className="px-5 py-4 font-medium text-stone-700">{role.assignable ? "Yes" : "No"}</td>
-                <td className="px-5 py-4 font-medium text-stone-700">{role.system_role ? "Yes" : "No"}</td>
-                <td className="px-5 py-4 font-medium text-stone-700">{formatDate(new Date(role.updated_at))}</td>
-              </tr>
-            ))}
-            {!visibleRoles.length ? (
-              <tr>
-                <td className="px-5 py-8 text-center font-semibold text-stone-600" colSpan={7}>
-                  No Authorisation roles were returned.
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </table>
-      </div>
-    </div>
+function SystemRolesPanel({
+  actorRole,
+  actorRoleKeys,
+  rolePermissions,
+  roles,
+}: {
+  actorRole: string;
+  actorRoleKeys: string[];
+  rolePermissions: { roleId: string; permissions: AuthorisationPermission[] }[];
+  roles: AuthorisationRole[];
+}) {
+  const roleLevelByKey = new Map(roles.map((role) => [role.key, role.level]));
+  const actorMaxLevel = Math.max(
+    roleLevel(actorRole),
+    ...actorRoleKeys
+      .map((roleKey) => roleLevelByKey.get(roleKey) ?? roleLevel(roleKey))
+      .filter((level) => level > 0),
   );
+  const visibleRoles = roles.filter((role) => role.level <= actorMaxLevel);
+  const visibleRoleIds = new Set(visibleRoles.map((role) => role.id));
+
+  return <SystemRolesBoard rolePermissions={rolePermissions.filter((item) => visibleRoleIds.has(item.roleId))} roles={visibleRoles} />;
 }
 
 function UnavailableUserSecurityPanel({ description, title }: { description: string; title: string }) {
@@ -1754,7 +1763,7 @@ type DashboardCloneSourceEvent = Prisma.EventGetPayload<{
   include: { activities: true };
 }>;
 
-function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { academies: Awaited<ReturnType<typeof prisma.academy.findMany>>; cloneSource?: DashboardCloneSourceEvent | null; instructorUsers: Awaited<ReturnType<typeof getInstructorUserOptions>> }) {
+function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { academies: AcademyServiceRecord[]; cloneSource?: DashboardCloneSourceEvent | null; instructorUsers: Awaited<ReturnType<typeof getInstructorUserOptions>> }) {
   const clonedEvent = cloneSource && academies.some((academy) => academy.id === cloneSource.academyId) ? cloneEventForCourseForm(cloneSource) : undefined;
   const cloning = Boolean(clonedEvent);
   return (
@@ -2728,6 +2737,7 @@ function PaymentDashboardTable<T>({
   emptyMessage,
   getRowId,
   getRowHref,
+  pagination,
   title,
   viewAllLabel = "View all",
 }: {
@@ -2737,6 +2747,15 @@ function PaymentDashboardTable<T>({
   emptyMessage: string;
   getRowId: (row: T, index: number) => string;
   getRowHref?: (row: T, index: number) => string | undefined;
+  pagination?: {
+    currentPage: number;
+    end: number;
+    nextHref: string;
+    previousHref: string;
+    start: number;
+    totalItems: number;
+    totalPages: number;
+  };
   title: string;
   viewAllLabel?: string;
 }) {
@@ -2785,6 +2804,20 @@ function PaymentDashboardTable<T>({
             {emptyIcon}
           </div>
           <p className="mt-4 text-sm font-semibold text-slate-500">{emptyMessage}</p>
+        </div>
+      ) : null}
+      {pagination ? (
+        <div className="flex flex-col gap-3 border-t border-stone-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p className="font-semibold text-slate-600">
+            Showing {pagination.start}-{pagination.end} of {pagination.totalItems}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <PaginationLink disabled={pagination.currentPage <= 1} href={pagination.previousHref}>Previous</PaginationLink>
+            <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-600">
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </span>
+            <PaginationLink disabled={pagination.currentPage >= pagination.totalPages} href={pagination.nextHref}>Next</PaginationLink>
+          </div>
         </div>
       ) : null}
     </section>
@@ -3234,7 +3267,6 @@ type PayoutDashboardRow = {
 function payoutRows(payments: PaymentRecord[], settings: PaymentPlatformSettings): PayoutDashboardRow[] {
   return payments
     .filter((payment) => payment.status === "succeeded")
-    .slice(0, 5)
     .map((payment, index) => {
       const paidAt = new Date(payment.createdAt);
       const arrivalDate = Number.isNaN(paidAt.getTime()) ? payment.createdAt : new Date(paidAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
@@ -3248,22 +3280,36 @@ function payoutRows(payments: PaymentRecord[], settings: PaymentPlatformSettings
     });
 }
 
-function PaymentsPayoutsView({ currency, payments, paymentPlatformSettings, period }: { currency: string; payments: PaymentRecord[]; paymentPlatformSettings: PaymentPlatformSettings; period: PaymentOverviewPeriod }) {
+const payoutsPageSize = 10;
+
+function PaymentsPayoutsView({
+  currency,
+  payments,
+  paymentPlatformSettings,
+  payoutsPage,
+  searchParams,
+}: {
+  currency: string;
+  payments: PaymentRecord[];
+  paymentPlatformSettings: PaymentPlatformSettings;
+  payoutsPage: number;
+  searchParams: AdminSearchParams;
+}) {
   const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
   const rows = payoutRows(payments, paymentPlatformSettings);
   const totalPayouts = successfulPayments.reduce((sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings), 0);
   const pendingPayouts = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + Math.max(0, payment.amount - platformFeeAmount(payment.amount, paymentPlatformSettings)), 0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / payoutsPageSize));
+  const currentPage = Math.min(payoutsPage, totalPages);
+  const start = rows.length === 0 ? 0 : (currentPage - 1) * payoutsPageSize + 1;
+  const end = Math.min(currentPage * payoutsPageSize, rows.length);
+  const pagedRows = rows.slice((currentPage - 1) * payoutsPageSize, currentPage * payoutsPageSize);
   const summaryCards: PaymentSummaryCard[] = [
     { changeClassName: "text-emerald-700", changeLabel: "↑ 15.4% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "total-payouts", label: "Total Payouts", value: formatMinorCurrency(totalPayouts, currency) },
     { changeClassName: "text-emerald-700", changeLabel: `${rows.length.toLocaleString()} payouts`, icon: <Wallet size={27} aria-hidden />, id: "payouts-sent", label: "Payouts Sent", value: formatMinorCurrency(totalPayouts, currency) },
     { changeClassName: "text-orange-600", changeLabel: `${pendingPayouts > 0 ? 1 : 0} payout`, icon: <Download size={27} aria-hidden />, iconClassName: "bg-orange-50 text-orange-700 ring-orange-100", id: "pending-payouts", label: "Pending Payouts", value: formatMinorCurrency(pendingPayouts, currency) },
     { changeClassName: "text-emerald-700", changeLabel: "Estimated", icon: <CalendarDays size={28} aria-hidden />, id: "next-payout", label: "Next Payout", value: "Jun 24, 2026" },
     { changeClassName: "text-emerald-700", changeLabel: "Excellent", icon: <BarChart3 size={28} aria-hidden />, id: "average-payout-time", label: "Avg. Payout Time", value: "2.3 days" },
-  ];
-  const payoutMetrics: PaymentOverviewMetric[] = [
-    { colorClassName: "bg-teal-700", id: "total-payouts", label: "Total Payouts", value: formatMinorCurrency(totalPayouts, currency) },
-    { colorClassName: "bg-emerald-400", id: "payouts-sent", label: "Payouts Sent", value: rows.length.toLocaleString() },
-    { colorClassName: "bg-orange-400", id: "pending-payouts", label: "Pending Payouts", value: formatMinorCurrency(pendingPayouts, currency) },
   ];
 
   return (
@@ -3274,51 +3320,31 @@ function PaymentsPayoutsView({ currency, payments, paymentPlatformSettings, peri
         <span className="text-slate-800">Payouts</span>
       </div>
       <PaymentMetricCards cards={summaryCards} />
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1.45fr)]">
-        <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-black text-slate-950">Payouts Over Time</h3>
-              <Info size={17} className="text-slate-400" aria-hidden />
-            </div>
-            <span className="inline-flex min-h-11 items-center rounded-md border border-stone-200 px-4 text-sm font-black text-slate-700 shadow-sm">Daily</span>
-          </div>
-          <LineOverviewChart
-            className="mt-4"
-            formatValue={(value) => new Intl.NumberFormat("en-GB", { currency, maximumFractionDigits: 0, style: "currency" }).format(value / 100)}
-            id="payouts-over-time-chart"
-            maxTicks={5}
-            maxValue={75000}
-            points={paymentOverviewChartPoints(successfulPayments, period)}
-            title="Payouts Over Time"
-          />
-          <dl className="mt-4 grid gap-4 sm:grid-cols-3">
-            {payoutMetrics.map((metric) => (
-              <div key={metric.id} className="grid grid-cols-[auto_1fr] gap-x-3">
-                <dt className="col-start-2 text-sm font-bold text-slate-500">{metric.label}</dt>
-                <dd className="col-start-2 row-start-1 text-xl font-black text-slate-950">{metric.value}</dd>
-                <span className={clsx("row-span-2 mt-2 h-2.5 w-2.5 rounded-full", metric.colorClassName)} aria-hidden />
-              </div>
-            ))}
-          </dl>
-        </section>
-        <PaymentDashboardTable
-          columns={[
-            { key: "id", title: "Payout ID", render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#{row.id}</span> },
-            { key: "date", title: "Payout Date", render: (row) => formatPaymentDate(row.date) },
-            { key: "amount", title: "Amount", render: (row) => <span className="font-black text-slate-950">{formatMinorCurrency(row.amount, currency)}</span> },
-            { key: "status", title: "Status", render: (row) => <span className="inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">{row.status}</span> },
-            { key: "arrival", title: "Est. Arrival", render: (row) => formatPaymentDate(row.arrivalDate) },
-            { key: "actions", title: "Actions", render: () => <Download size={17} className="text-slate-600" aria-hidden /> },
-          ]}
-          data={rows}
-          emptyIcon={<Wallet size={28} aria-hidden />}
-          emptyMessage="No payouts have been recorded yet."
-          getRowId={(row) => row.id}
-          title="Recent Payouts"
-          viewAllLabel="View all"
-        />
-      </div>
+      <PaymentDashboardTable
+        columns={[
+          { key: "id", title: "Payout ID", render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#{row.id}</span> },
+          { key: "date", title: "Payout Date", render: (row) => formatPaymentDate(row.date) },
+          { key: "amount", title: "Amount", render: (row) => <span className="font-black text-slate-950">{formatMinorCurrency(row.amount, currency)}</span> },
+          { key: "status", title: "Status", render: (row) => <span className="inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">{row.status}</span> },
+          { key: "arrival", title: "Est. Arrival", render: (row) => formatPaymentDate(row.arrivalDate) },
+          { key: "actions", title: "Actions", render: () => <Download size={17} className="text-slate-600" aria-hidden /> },
+        ]}
+        data={pagedRows}
+        emptyIcon={<Wallet size={28} aria-hidden />}
+        emptyMessage="No payouts have been recorded yet."
+        getRowId={(row) => row.id}
+        pagination={{
+          currentPage,
+          end,
+          nextHref: pageHref(searchParams, "payoutsPage", currentPage + 1),
+          previousHref: pageHref(searchParams, "payoutsPage", currentPage - 1),
+          start,
+          totalItems: rows.length,
+          totalPages,
+        }}
+        title="Recent Payouts"
+        viewAllLabel={`Showing ${start}-${end} of ${rows.length.toLocaleString()} payouts`}
+      />
     </div>
   );
 }
@@ -3493,8 +3519,10 @@ function PaymentsPanel({
   paymentSettingsError,
   paymentSettingsMessage,
   period,
+  payoutsPage,
   result,
   search,
+  searchParams,
   stripeConnectError,
   stripeConnectMessage,
   view,
@@ -3506,8 +3534,10 @@ function PaymentsPanel({
   paymentSettingsError?: string;
   paymentSettingsMessage?: string;
   period: PaymentOverviewPeriod;
+  payoutsPage: number;
   result: DashboardPaymentsResult;
   search: string;
+  searchParams: AdminSearchParams;
   stripeConnectError?: string;
   stripeConnectMessage?: string;
   view: string;
@@ -3564,7 +3594,7 @@ function PaymentsPanel({
   }
 
   if (view === "payouts") {
-    return <PaymentsPayoutsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} period={period} />;
+    return <PaymentsPayoutsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} payoutsPage={payoutsPage} searchParams={searchParams} />;
   }
 
   if (view === "settings") {
@@ -3630,9 +3660,7 @@ type AcademyRow = {
   claimReminders: { status: string; skipReason: string | null; createdAt: Date; recipientEmail: string | null }[];
 };
 
-type AcademyProfilePanelAcademy = Prisma.AcademyGetPayload<{
-  include: { events: true; claims: true; members: true; socialLinks: true };
-}>;
+type AcademyProfilePanelAcademy = AcademyServiceRecord & { events: Prisma.EventGetPayload<{}>[] };
 
 type PlatformAdminAcademyRow = {
   id: string;
@@ -4380,18 +4408,20 @@ function Badge({ children }: { children: React.ReactNode }) {
 
 function Pagination({
   currentPage,
+  itemsPerPage = pageSize,
   totalItems,
   pageKey,
   searchParams,
 }: {
   currentPage: number;
+  itemsPerPage?: number;
   totalItems: number;
   pageKey: string;
   searchParams: AdminSearchParams;
 }) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const end = Math.min(currentPage * pageSize, totalItems);
+  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+  const start = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const end = Math.min(currentPage * itemsPerPage, totalItems);
 
   return (
     <div className="mt-4 flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">

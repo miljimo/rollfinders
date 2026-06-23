@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { AcademyVerificationStatus, type Prisma } from "@prisma/client";
-import { academyScopedAcademyWhere, getCurrentUser, isPlatformAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { AcademyVerificationStatus } from "@prisma/client";
+import { createAcademyInAcademyService, listAcademiesForActorFromAcademyService } from "@/lib/academyService";
+import { getCurrentUser, isPlatformAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy } from "@/lib/academy-social-links";
 import { recordAcademyCreatedActivity } from "@/lib/platform-admin-activity";
-import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
 const supportedPageSizes = [20, 50, 100];
@@ -29,14 +29,12 @@ function parseVerificationStatus(value: string) {
 }
 
 async function academyExists(name: string, address: string, postcode: string) {
-  return prisma.academy.findFirst({
-    where: {
-      name: { equals: name.trim(), mode: "insensitive" },
-      address: { equals: address.trim(), mode: "insensitive" },
-      postcode: { equals: postcode.trim(), mode: "insensitive" },
-    },
-    select: { id: true },
-  });
+  const normalized = { name: name.trim().toLowerCase(), address: address.trim().toLowerCase(), postcode: postcode.trim().toLowerCase() };
+  return (await listAcademiesForActorFromAcademyService({ id: "__system__", role: "SUPER_ADMIN" })).find((academy) =>
+    academy.name.trim().toLowerCase() === normalized.name
+    && academy.address.trim().toLowerCase() === normalized.address
+    && academy.postcode.trim().toLowerCase() === normalized.postcode,
+  );
 }
 
 function toNullable(value: string | null | undefined) {
@@ -62,25 +60,18 @@ export async function GET(request: Request) {
   const city = param(url, "city");
   const postcode = param(url, "postcode");
 
-  const where: Prisma.AcademyWhereInput = {
-    ...academyScopedAcademyWhere(actor),
-    ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
-    ...(verificationStatus ? { verificationStatus } : {}),
-    ...(featured === "featured" ? { featured: true } : {}),
-    ...(featured === "not-featured" ? { featured: false } : {}),
-    ...(city ? { city: { contains: city, mode: "insensitive" } } : {}),
-    ...(postcode ? { postcode: { contains: postcode, mode: "insensitive" } } : {}),
-  };
-
-  const totalItems = await prisma.academy.count({ where });
+  const matchingAcademies = (await listAcademiesForActorFromAcademyService(actor))
+    .filter((academy) => !search || academy.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((academy) => !verificationStatus || academy.verificationStatus === verificationStatus)
+    .filter((academy) => featured !== "featured" || academy.featured)
+    .filter((academy) => featured !== "not-featured" || !academy.featured)
+    .filter((academy) => !city || academy.city.toLowerCase().includes(city.toLowerCase()))
+    .filter((academy) => !postcode || academy.postcode.toLowerCase().includes(postcode.toLowerCase()))
+    .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime() || left.name.localeCompare(right.name));
+  const totalItems = matchingAcademies.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const items = await prisma.academy.findMany({
-    where,
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    orderBy: [{ updatedAt: "desc" }, { name: "asc" }],
-  });
+  const items = matchingAcademies.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return NextResponse.json({
     items,
@@ -112,39 +103,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const academy = await prisma.academy.create({
-    data: {
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      affiliation: data.affiliation,
-      address: data.address,
-      city: data.city,
-      postcode: data.postcode,
-      country: data.country,
-      latitude: data.latitude,
-      longitude: data.longitude,
-      phone: data.phone,
-      giAvailable: data.giAvailable,
-      nogiAvailable: data.nogiAvailable,
-      beginnerFriendly: data.beginnerFriendly,
-      competitionFocused: data.competitionFocused,
-      verificationStatus: data.verificationStatus,
-      featured: data.featured,
-      borough: toNullable(data.borough),
-      website: toNullable(data.website),
-      email: toNullable(data.email),
-      logoUrl: toNullable(data.logoUrl),
-      coverImageUrl: toNullable(data.coverImageUrl),
-      categories: toNullable(data.categories),
-      facebookUrl: toNullable(legacySocialUrls.facebookUrl || data.facebookUrl),
-      instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
-      xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
-      dropInPrice: toNullableNumber(data.dropInPrice),
-      verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
-      createdById: actor.id,
-      socialLinks: socialLinks.length ? { create: socialLinks } : undefined,
-    },
+  const academy = await createAcademyInAcademyService({
+    name: data.name,
+    slug: data.slug,
+    description: data.description,
+    affiliation: data.affiliation,
+    address: data.address,
+    city: data.city,
+    postcode: data.postcode,
+    country: data.country,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    phone: data.phone,
+    giAvailable: data.giAvailable,
+    nogiAvailable: data.nogiAvailable,
+    beginnerFriendly: data.beginnerFriendly,
+    competitionFocused: data.competitionFocused,
+    verificationStatus: data.verificationStatus,
+    featured: data.featured,
+    borough: toNullable(data.borough),
+    website: toNullable(data.website),
+    email: toNullable(data.email),
+    logoUrl: toNullable(data.logoUrl),
+    coverImageUrl: toNullable(data.coverImageUrl),
+    categories: toNullable(data.categories),
+    facebookUrl: toNullable(legacySocialUrls.facebookUrl || data.facebookUrl),
+    instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
+    xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
+    dropInPrice: toNullableNumber(data.dropInPrice),
+    socialLinks,
+    verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
+    createdById: actor.id,
   });
   await writeAdminAuditLog({
     actorUserId: actor.id,

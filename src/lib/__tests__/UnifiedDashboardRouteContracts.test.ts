@@ -374,7 +374,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /panel === "open-mats" \? "Course\/Events Dashboard"/);
     assert.match(source, /panel === "bookings" \? "Bookings"/);
     assert.match(source, /panel === "payments" \? "Payment Dashboard"/);
-    assert.match(source, /panel === "users" \? "User's Boards"/);
+    assert.match(source, /panel === "users" \? "Identity Access Management"/);
     assert.match(source, /const hideSharedDashboardSections = \["academies", "open-mats", "bookings", "payments", "users"\]\.includes\(panel\)/);
     assert.match(source, /\{!hideSharedDashboardSections \? \(/);
     assert.match(source, /getRowHref=\{\(booking\) => bookingEventHref\(booking\)\}/);

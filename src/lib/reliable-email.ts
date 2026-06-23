@@ -1,5 +1,6 @@
 import { EmailDeliveryJobRunStatus, OutboundEmailStatus, type Prisma } from "@prisma/client";
 import nodemailer from "nodemailer";
+import { listAllAcademiesFromAcademyService } from "@/lib/academyService";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
 import { prisma } from "@/lib/prisma";
 
@@ -379,10 +380,11 @@ export async function getEmailQueueOperationsSummary() {
   );
   const [matchedAcademies, recentOutboundEmails] = recipientEmails.length
     ? await Promise.all([
-        prisma.academy.findMany({
-          where: { email: { in: recipientEmails } },
-          select: { id: true, name: true, email: true, slug: true },
-        }),
+        listAllAcademiesFromAcademyService().then((academies) =>
+          academies
+            .filter((academy) => academy.email && recipientEmails.includes(academy.email))
+            .map((academy) => ({ id: academy.id, name: academy.name, email: academy.email, slug: academy.slug })),
+        ),
         prisma.outboundEmail.findMany({
           where: { recipientEmail: { in: recipientEmails } },
           orderBy: [{ updatedAt: "desc" }],

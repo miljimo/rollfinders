@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { canAssignManagedUserRole, getCurrentUser, requireAdminPage } from "@/lib/admin";
+import { updateUserAuthorisationPermissions } from "@/lib/authorisation-service";
+import { getEnvVariable } from "@/lib/environments";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
 import { requestPasswordResetForEmail } from "@/lib/password-reset";
 import {
   createManagedUser as createUserInService,
   deleteManagedUser as deleteUserInService,
-  updateManagedUserPrivileges as updateUserPrivilegesInService,
   getManagedUser,
   mutateManagedUser,
   updateManagedUser as updateUserInService,
@@ -106,7 +107,10 @@ export async function updateManagedUser(userId: string, formData: FormData) {
 
 export async function applyManagedUserPrivileges(userId: string, input: { feature: string; grant: string[]; revoke: string[] }) {
   const actor = await requireUserManager();
-  await updateUserPrivilegesInService(actor, userId, input);
+  await updateUserAuthorisationPermissions(actor, userId, input, {
+    applicationId: getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders"),
+    organisationId: actor.academyId ?? undefined,
+  });
   revalidateUserSurfaces();
 }
 

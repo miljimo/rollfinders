@@ -5,6 +5,7 @@ import { AnalyticsClickTracker, AnalyticsViewTracker } from "@/components/Analyt
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canDeleteAcademyRecord, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
+import { academyClaimStatuses } from "@/lib/academy-domain-data";
 import { getAcademyFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
@@ -19,17 +20,16 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
   const currentUser = await getCurrentUser();
   const academyAdmin = isAcademyAdminRole(currentUser?.role);
   const showAcademyStats = isPlatformAdminRole(currentUser?.role);
-  const [serviceAcademy, profileViewCount, eventCount, claimCount, socialLinks] = await Promise.all([
+  const [academy, profileViewCount, eventCount, claims] = await Promise.all([
     getAcademyFromAcademyService(id),
     prisma.analyticsEvent.count({
       where: { academyId: id, eventName: "academy_profile_viewed" },
     }),
     prisma.event.count({ where: { academyId: id } }),
-    prisma.claimRequest.count({ where: { academyId: id } }),
-    prisma.academySocialLink.findMany({ where: { academyId: id }, orderBy: { platform: "asc" } }),
+    academyClaimStatuses(id),
   ]);
-  if (!serviceAcademy) notFound();
-  const academy = { ...serviceAcademy, socialLinks };
+  if (!academy) notFound();
+  const claimCount = claims.length;
 
   return (
     <PageShell>

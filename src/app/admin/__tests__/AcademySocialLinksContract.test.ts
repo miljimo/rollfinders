@@ -6,8 +6,9 @@ function readSource(path: string) {
   return readFileSync(path, "utf8");
 }
 
-test("academy social links migration creates relation and backfills legacy fields", () => {
+test("academy social links are backfilled into academy service settings before public detail tables are dropped", () => {
   const migration = readSource("prisma/migrations/20260611171000_academy_social_links/migration.sql");
+  const removalMigration = readSource("prisma/migrations/20260623123000_remove_public_academy_detail_tables/migration.sql");
   const schema = readSource("prisma/schema.prisma");
 
   assert.match(schema, /model AcademySocialLink \{[\s\S]*academyId String\s+@map\("academy_id"\)[\s\S]*platform\s+AcademySocialPlatform[\s\S]*url\s+String[\s\S]*@@unique\(\[academyId, platform\]\)/);
@@ -17,9 +18,13 @@ test("academy social links migration creates relation and backfills legacy field
   assert.match(migration, /SELECT 'legacy-facebook-' \|\| "id", "id", 'FACEBOOK'::"AcademySocialPlatform", "facebook_url"/);
   assert.match(migration, /SELECT 'legacy-instagram-' \|\| "id", "id", 'INSTAGRAM'::"AcademySocialPlatform", "instagram_url"/);
   assert.match(migration, /SELECT 'legacy-x-' \|\| "id", "id", 'X'::"AcademySocialPlatform", "x_url"/);
+  assert.match(removalMigration, /'socialLinks', COALESCE\(\(/);
+  assert.match(removalMigration, /DROP TABLE IF EXISTS public\.academy_social_links/);
+  assert.match(removalMigration, /DROP TABLE IF EXISTS public\.academy_members/);
+  assert.match(removalMigration, /DROP TABLE IF EXISTS public\.academies/);
 });
 
-test("academy create and update persist relational social links plus legacy-compatible fields", () => {
+test("academy create and update send social links to the academy service payload", () => {
   const actions = readSource("src/app/admin/academies/actions.ts");
   const createApi = readSource("src/app/api/admin/academies/route.ts");
   const updateApi = readSource("src/app/api/admin/academies/[id]/route.ts");
@@ -33,12 +38,14 @@ test("academy create and update persist relational social links plus legacy-comp
     assert.match(source, /xUrl: toNullable\(legacySocialUrls\.xUrl \|\| data\.xUrl\)/);
   }
 
-  assert.match(actions, /socialLinks: socialLinks\.length \? \{ create: socialLinks \} : undefined/);
-  assert.match(createApi, /socialLinks: socialLinks\.length \? \{ create: socialLinks \} : undefined/);
-  assert.match(actions, /academySocialLink\.deleteMany\(\{ where: \{ academyId: id \} \}\)/);
-  assert.match(actions, /academySocialLink\.createMany\(\{[\s\S]*data: socialLinks\.map\(\(link\) => \(\{ \.\.\.link, academyId: id \}\)\)/);
-  assert.match(updateApi, /academySocialLink\.deleteMany\(\{ where: \{ academyId: id \} \}\)/);
-  assert.match(updateApi, /academySocialLink\.createMany\(\{[\s\S]*data: socialLinks\.map\(\(link\) => \(\{ \.\.\.link, academyId: id \}\)\)/);
+  assert.match(actions, /createAcademyInAcademyService/);
+  assert.match(createApi, /createAcademyInAcademyService/);
+  assert.match(actions, /socialLinks,/);
+  assert.match(createApi, /socialLinks,/);
+  assert.match(updateApi, /socialLinks,/);
+  assert.doesNotMatch(actions, /academySocialLink\.(createMany|deleteMany)/);
+  assert.doesNotMatch(createApi, /academySocialLink\.(createMany|deleteMany)/);
+  assert.doesNotMatch(updateApi, /academySocialLink\.(createMany|deleteMany)/);
 });
 
 test("academy social links UI provides selector, URI input, and three-item pagination", () => {
@@ -55,8 +62,11 @@ test("academy social links UI provides selector, URI input, and three-item pagin
 
 test("public academy profile renders relational social links as external anchors", () => {
   const page = readSource("src/app/academies/[slug]/page.tsx");
+  const academyService = readSource("src/lib/academyService.ts");
 
-  assert.match(page, /socialLinks: \{ orderBy: \{ platform: "asc" \} \}/);
+  assert.match(academyService, /socialLinksFromSettings/);
+  assert.match(academyService, /socialLinks: socialLinksFromSettings\(settings, item\.id, updatedAt\)/);
+  assert.doesNotMatch(academyService, /prisma\.academySocialLink/);
   assert.match(page, /academy\.socialLinks\.map\(\(link\) =>/);
   assert.match(page, /href=\{link\.url\} target="_blank" rel="noreferrer"/);
   assert.match(page, /academySocialPlatformLabels\[link\.platform\]/);

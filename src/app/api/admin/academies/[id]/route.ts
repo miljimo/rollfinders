@@ -1,20 +1,18 @@
 import { NextResponse } from "next/server";
 import { AcademyVerificationStatus } from "@prisma/client";
+import { deleteAcademyInAcademyService, getAcademyFromAcademyService, listAcademiesForActorFromAcademyService, updateAcademyInAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
-import { prisma } from "@/lib/prisma";
 import { academySchema } from "@/lib/validators";
 
 async function academyExists(id: string, name: string, address: string, postcode: string) {
-  return prisma.academy.findFirst({
-    where: {
-      id: { not: id },
-      name: { equals: name.trim(), mode: "insensitive" },
-      address: { equals: address.trim(), mode: "insensitive" },
-      postcode: { equals: postcode.trim(), mode: "insensitive" },
-    },
-    select: { id: true },
-  });
+  const normalized = { name: name.trim().toLowerCase(), address: address.trim().toLowerCase(), postcode: postcode.trim().toLowerCase() };
+  return (await listAcademiesForActorFromAcademyService({ id: "__system__", role: "SUPER_ADMIN" })).find((academy) =>
+    academy.id !== id
+    && academy.name.trim().toLowerCase() === normalized.name
+    && academy.address.trim().toLowerCase() === normalized.address
+    && academy.postcode.trim().toLowerCase() === normalized.postcode,
+  );
 }
 
 function toNullable(value: string | null | undefined) {
@@ -67,6 +65,7 @@ function academyData(data: ReturnType<typeof academySchema.parse>, socialLinks: 
     instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
     xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
     dropInPrice: toNullableNumber(data.dropInPrice),
+    socialLinks,
     verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
   };
 }
@@ -78,10 +77,7 @@ function canAccessAcademy(actor: { role?: string; academyId?: string | null } | 
 async function canDeleteAcademy(actor: { id: string; role?: string } | null, academyId: string) {
   if (!actor || !isPlatformAdminRole(actor.role)) return false;
   if (isSuperAdminRole(actor.role)) return true;
-  const academy = await prisma.academy.findUnique({
-    where: { id: academyId },
-    select: { createdById: true },
-  });
+  const academy = await getAcademyFromAcademyService(academyId);
   return academy?.createdById === actor.id;
 }
 
@@ -92,7 +88,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
-  const academy = await prisma.academy.findUnique({ where: { id }, include: { socialLinks: { orderBy: { platform: "asc" } } } });
+  const academy = await getAcademyFromAcademyService(id);
   if (!academy) return NextResponse.json({ error: "Academy not found" }, { status: 404 });
 
   return NextResponse.json(academy);
@@ -118,29 +114,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const existingAcademy = isAcademyAdminRole(actor?.role)
-    ? await prisma.academy.findUnique({
-        where: { id },
-        select: { verificationStatus: true, featured: true },
-      })
-    : null;
-  const academy = await prisma.$transaction(async (tx) => {
-    const updated = await tx.academy.update({
-      where: { id },
-      data: {
-        ...academyData(data, socialLinks),
-        verificationStatus: existingAcademy?.verificationStatus ?? data.verificationStatus,
-        featured: existingAcademy?.featured ?? data.featured,
-        verified: (existingAcademy?.verificationStatus ?? data.verificationStatus) === AcademyVerificationStatus.VERIFIED,
-      },
-    });
-    await tx.academySocialLink.deleteMany({ where: { academyId: id } });
-    if (socialLinks.length) {
-      await tx.academySocialLink.createMany({
-        data: socialLinks.map((link) => ({ ...link, academyId: id })),
-      });
-    }
-    return updated;
+  const existingAcademy = isAcademyAdminRole(actor?.role) ? await getAcademyFromAcademyService(id) : null;
+  const nextVerificationStatus = existingAcademy?.verificationStatus ?? data.verificationStatus;
+  const academy = await updateAcademyInAcademyService(id, {
+    ...academyData(data, socialLinks),
+    verificationStatus: nextVerificationStatus,
+    featured: existingAcademy?.featured ?? data.featured,
+    verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
   });
   if (actor) {
     await writeAdminAuditLog({
@@ -157,7 +137,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const { id } = await params;
   const actor = await getCurrentUser();
   if (!(await canDeleteAcademy(actor, id))) return NextResponse.json({ error: "Academy delete access denied" }, { status: 403 });
-  const academy = await prisma.academy.delete({ where: { id } });
+  const academy = await deleteAcademyInAcademyService(id);
   if (actor) {
     await writeAdminAuditLog({
       actorUserId: actor.id,
@@ -181,7 +161,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (formData.get("_method") === "DELETE") {
     const actor = await getCurrentUser();
     if (!(await canDeleteAcademy(actor, id))) return NextResponse.json({ error: "Academy delete access denied" }, { status: 403 });
-    const academy = await prisma.academy.delete({ where: { id } });
+    const academy = await deleteAcademyInAcademyService(id);
     if (actor) {
       await writeAdminAuditLog({
         actorUserId: actor.id,
@@ -202,29 +182,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const existingAcademy = isAcademyAdminRole(actor?.role)
-    ? await prisma.academy.findUnique({
-        where: { id },
-        select: { verificationStatus: true, featured: true },
-      })
-    : null;
-  const academy = await prisma.$transaction(async (tx) => {
-    const updated = await tx.academy.update({
-      where: { id },
-      data: {
-        ...academyData(data, socialLinks),
-        verificationStatus: existingAcademy?.verificationStatus ?? data.verificationStatus,
-        featured: existingAcademy?.featured ?? data.featured,
-        verified: (existingAcademy?.verificationStatus ?? data.verificationStatus) === AcademyVerificationStatus.VERIFIED,
-      },
-    });
-    await tx.academySocialLink.deleteMany({ where: { academyId: id } });
-    if (socialLinks.length) {
-      await tx.academySocialLink.createMany({
-        data: socialLinks.map((link) => ({ ...link, academyId: id })),
-      });
-    }
-    return updated;
+  const existingAcademy = isAcademyAdminRole(actor?.role) ? await getAcademyFromAcademyService(id) : null;
+  const nextVerificationStatus = existingAcademy?.verificationStatus ?? data.verificationStatus;
+  const academy = await updateAcademyInAcademyService(id, {
+    ...academyData(data, socialLinks),
+    verificationStatus: nextVerificationStatus,
+    featured: existingAcademy?.featured ?? data.featured,
+    verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
   });
   if (actor) {
     await writeAdminAuditLog({

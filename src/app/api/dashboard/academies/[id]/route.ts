@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
+import { getAcademyFromAcademyService } from "@/lib/academyService";
 import { requireStandardDashboardUser } from "@/lib/standard-dashboard";
-import { prisma } from "@/lib/prisma";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { academy } = await requireStandardDashboardUser();
@@ -9,10 +9,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const record = await prisma.academy.findUnique({
-    where: { id },
-    select: { id: true, name: true, slug: true, city: true, postcode: true, borough: true, verified: true },
-  });
+  const record = await getAcademyFromAcademyService(id);
   if (!record) return NextResponse.json({ error: "Academy not found" }, { status: 404 });
   return NextResponse.json({ academy: record });
 }

@@ -5,7 +5,7 @@ import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { StatIndicator } from "@/components/StatIndicator";
 import { TableRow } from "@/components/Table";
-import { listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
+import { listAcademiesForActorFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { coursePriceLabel } from "@/lib/courses";
 import { occurrenceStatus, recurrenceLabel } from "@/lib/open-mat-occurrences";
@@ -108,6 +108,7 @@ export default async function OpenMatManagementPage({
   }
   const params = await searchParams;
   const platformAdmin = isPlatformAdminRole(user.role);
+  const availableAcademies = await listAcademiesForActorFromAcademyService(user);
   const academyMemberships = platformAdmin
     ? []
     : await listAcademyMembershipsForUserFromAcademyService(user.id);
@@ -125,6 +126,10 @@ export default async function OpenMatManagementPage({
   const pageSize = selectedPageSize(firstParam(params.pageSize));
   const search = (firstParam(params.search) ?? "").trim();
   const academy = (firstParam(params.academy) ?? "").trim();
+  const academyIdsMatchingSearch = academy
+    ? availableAcademies.filter((item) => item.name.toLowerCase().includes(academy.toLowerCase())).map((item) => item.id)
+    : [];
+  const academyNameById = new Map(availableAcademies.map((item) => [item.id, item.name]));
   const giType = selectedGiType(firstParam(params.giType));
   const status = selectedStatus(firstParam(params.status));
   const dateFrom = (firstParam(params.dateFrom) ?? "").trim();
@@ -134,7 +139,7 @@ export default async function OpenMatManagementPage({
     ...accessWhere,
     courseType: CourseType.OPEN_MAT,
     ...(search ? { title: { contains: search, mode: "insensitive" } } : {}),
-    ...(academy ? { academy: { name: { contains: academy, mode: "insensitive" } } } : {}),
+    ...(academy ? { academyId: { in: academyIdsMatchingSearch.length ? academyIdsMatchingSearch : ["__missing_academy__"] } } : {}),
     ...(giType !== "all" ? { giType: giType as GiType } : {}),
     ...(status === "active" ? { active: true } : {}),
     ...(status === "inactive" ? { active: false } : {}),
@@ -174,7 +179,6 @@ export default async function OpenMatManagementPage({
     where,
     skip: (currentPage - 1) * pageSize,
     take: pageSize,
-    include: { academy: true },
     orderBy: [{ eventDate: "asc" }, { startTime: "asc" }],
   });
 
@@ -273,7 +277,7 @@ export default async function OpenMatManagementPage({
                   return (
                   <TableRow key={event.id} href={eventHref}>
                     <LinkedTableCell href={eventHref} className="font-semibold text-stone-950">{event.title}</LinkedTableCell>
-                    <LinkedTableCell href={eventHref} className="text-stone-700">{event.academy.name}</LinkedTableCell>
+                    <LinkedTableCell href={eventHref} className="text-stone-700">{academyNameById.get(event.academyId) ?? "Unknown academy"}</LinkedTableCell>
                     <LinkedTableCell href={eventHref} className="text-stone-600">{formatDate(event.eventDate)}</LinkedTableCell>
                     <LinkedTableCell href={eventHref} className="text-stone-600">{event.startTime}-{event.endTime}</LinkedTableCell>
                     <LinkedTableCell href={eventHref}><Badge>{event.giType.replace("_", "-")}</Badge></LinkedTableCell>

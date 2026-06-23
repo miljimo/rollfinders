@@ -1,5 +1,6 @@
 import { ClaimStatus, type ClaimRequesterRole } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { getAcademyClaim, listAcademyClaims } from "@/lib/academy-domain-data";
+import { getAcademyFromAcademyService } from "@/lib/academyService";
 
 export type AcademyClaimListItem = {
   id: string;
@@ -75,89 +76,59 @@ export async function fetchAcademyClaims(params: URLSearchParams): Promise<Admin
     return { ok: false, status: 400, message: "Invalid claim status." };
   }
 
-  const where = {
-    ...(status ? { status } : {}),
-    ...(search
-      ? {
-          OR: [
-            { requesterName: { contains: search, mode: "insensitive" as const } },
-            { requesterEmail: { contains: search, mode: "insensitive" as const } },
-            { academy: { name: { contains: search, mode: "insensitive" as const } } },
-          ],
-        }
-      : {}),
-  };
-  const totalItems = await prisma.claimRequest.count({ where });
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
-  const currentPage = Math.min(page, totalPages);
-  const claims = await prisma.claimRequest.findMany({
-    where,
-    skip: (currentPage - 1) * pageSize,
-    take: pageSize,
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      requesterName: true,
-      requesterEmail: true,
-      requesterRole: true,
-      status: true,
-      createdAt: true,
-      academy: { select: { id: true, name: true, city: true, postcode: true } },
-    },
-  });
+  const result = await listAcademyClaims({ page, pageSize, search, status });
 
   return {
     ok: true,
     data: {
-      items: claims.map((claim) => ({
-        id: claim.id,
-        academy: claim.academy,
-        requester: {
-          name: claim.requesterName,
-          email: claim.requesterEmail,
-          role: claim.requesterRole,
-        },
-        status: claim.status,
-        createdAt: claim.createdAt.toISOString(),
-      })),
-      page: currentPage,
+      items: result.claims.map((claim) => {
+        const academy = result.academyById.get(claim.academyId);
+        return {
+          id: claim.id,
+          academy: {
+            id: academy?.id ?? claim.academyId,
+            name: academy?.name ?? "Unknown academy",
+            city: academy?.city ?? null,
+            postcode: academy?.postcode ?? null,
+          },
+          requester: {
+            name: claim.requesterName,
+            email: claim.requesterEmail,
+            role: claim.requesterRole,
+          },
+          status: claim.status,
+          createdAt: claim.createdAt.toISOString(),
+        };
+      }),
+      page: result.page,
       pageSize,
-      totalItems,
-      totalPages,
+      totalItems: result.totalItems,
+      totalPages: result.totalPages,
     },
   };
 }
 
 export async function fetchAcademyClaim(id: string): Promise<AdminApiResult<AcademyClaimDetail>> {
-  const claim = await prisma.claimRequest.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      requesterName: true,
-      requesterEmail: true,
-      requesterPhone: true,
-      requesterRole: true,
-      requesterBeltRank: true,
-      requesterBeltStripes: true,
-      verificationNotes: true,
-      publicProofLink: true,
-      status: true,
-      reviewedAt: true,
-      reviewedById: true,
-      rejectionReason: true,
-      linkedUserId: true,
-      createdAt: true,
-      academy: { select: { id: true, name: true, slug: true, address: true, city: true, postcode: true, website: true, email: true, phone: true } },
-    },
-  });
+  const claim = await getAcademyClaim(id);
 
   if (!claim) return { ok: false, status: 404, message: "Claim request was not found." };
+  const academy = await getAcademyFromAcademyService(claim.academyId);
 
   return {
     ok: true,
     data: {
       id: claim.id,
-      academy: claim.academy,
+      academy: {
+        id: academy?.id ?? claim.academyId,
+        name: academy?.name ?? "Unknown academy",
+        slug: academy?.slug ?? null,
+        address: academy?.address ?? null,
+        city: academy?.city ?? null,
+        postcode: academy?.postcode ?? null,
+        website: academy?.website ?? null,
+        email: academy?.email ?? null,
+        phone: academy?.phone ?? null,
+      },
       requester: {
         name: claim.requesterName,
         email: claim.requesterEmail,

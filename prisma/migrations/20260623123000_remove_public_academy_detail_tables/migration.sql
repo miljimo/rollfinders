@@ -1,6 +1,17 @@
+-- Academy data is owned by the academy service schema. This migration removes
+-- the legacy public academy detail tables after copying any remaining rows.
+
+CREATE SCHEMA IF NOT EXISTS academy;
+
+CREATE TABLE IF NOT EXISTS public.academy_social_links (
+  academy_id TEXT,
+  platform TEXT,
+  url TEXT
+);
+
 DO $$
 BEGIN
-  IF to_regclass('public.academies') IS NOT NULL THEN
+  IF to_regclass('academy.academies') IS NOT NULL AND to_regclass('public.academies') IS NOT NULL THEN
     INSERT INTO academy.academies (
       id,
       organisation_id,
@@ -66,7 +77,12 @@ BEGIN
           'competitionFocused', a.competition_focused,
           'verified', a.verified,
           'createdById', a.created_by_id,
-          'xUrl', a.x_url
+          'xUrl', a.x_url,
+          'socialLinks', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object('platform', s.platform::TEXT, 'url', s.url) ORDER BY s.platform::TEXT)
+            FROM public.academy_social_links s
+            WHERE s.academy_id = a.id
+          ), '[]'::jsonb)
         )
       ),
       a.created_at,
@@ -96,7 +112,7 @@ BEGIN
       updated_at = GREATEST(academy.academies.updated_at, EXCLUDED.updated_at);
   END IF;
 
-  IF to_regclass('public.academy_members') IS NOT NULL THEN
+  IF to_regclass('academy.academy_members') IS NOT NULL AND to_regclass('public.academy_members') IS NOT NULL THEN
     INSERT INTO academy.academy_members (
       id,
       academy_id,
@@ -120,3 +136,41 @@ BEGIN
       updated_at = GREATEST(academy.academy_members.updated_at, EXCLUDED.updated_at);
   END IF;
 END $$;
+
+DO $$
+DECLARE
+  constraint_drop RECORD;
+BEGIN
+  FOR constraint_drop IN
+    SELECT *
+    FROM (
+      VALUES
+        ('events', 'events_academy_id_fkey'),
+        ('claim_requests', 'claim_requests_academy_id_fkey'),
+        ('academy_invitations', 'academy_invitations_academy_id_fkey'),
+        ('academy_claim_reminders', 'academy_claim_reminders_academy_id_fkey'),
+        ('analytics_events', 'analytics_events_academy_id_fkey'),
+        ('analytics_daily_metrics', 'analytics_daily_metrics_academy_id_fkey'),
+        ('payment_account_settings', 'payment_account_settings_academy_id_fkey')
+    ) AS values(table_name, constraint_name)
+  LOOP
+    IF EXISTS (
+      SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = constraint_drop.table_name
+        AND c.relkind IN ('r', 'p')
+    ) THEN
+      EXECUTE format(
+        'ALTER TABLE IF EXISTS public.%I DROP CONSTRAINT IF EXISTS %I',
+        constraint_drop.table_name,
+        constraint_drop.constraint_name
+      );
+    END IF;
+  END LOOP;
+END $$;
+
+DROP TABLE IF EXISTS public.academy_social_links;
+DROP TABLE IF EXISTS public.academy_members;
+DROP TABLE IF EXISTS public.academies;

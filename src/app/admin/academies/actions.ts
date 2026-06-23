@@ -6,7 +6,17 @@ import { AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prism
 import { randomBytes } from "crypto";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
-import { addAcademyMemberInAcademyService, createAcademyInAcademyService, removeAcademyMemberInAcademyService, updateAcademyInAcademyService } from "@/lib/academyService";
+import { addAcademyMemberInAcademyService, createAcademyInAcademyService, getAcademyFromAcademyService, listAcademyMembersFromAcademyService, listAcademiesForActorFromAcademyService, removeAcademyMemberInAcademyService, updateAcademyInAcademyService } from "@/lib/academyService";
+import {
+  acceptAcademyInvitationRecord,
+  academyClaimStatuses,
+  createAcademyClaimReminder,
+  createAcademyInvitation,
+  findAcademyInvitationByToken,
+  findRecentQueuedAcademyClaimReminder,
+  resendAcademyInvitationRecord,
+  updateAcademyInvitationStatus,
+} from "@/lib/academy-domain-data";
 import { replaceUserAuthorisationRole } from "@/lib/authorisation-service";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
@@ -73,6 +83,7 @@ function baseAcademyData(data: ReturnType<typeof academySchema.parse>, socialLin
     instagramUrl: toNullable(legacySocialUrls.instagramUrl || data.instagramUrl),
     xUrl: toNullable(legacySocialUrls.xUrl || data.xUrl),
     dropInPrice: toNullableNumber(data.dropInPrice),
+    socialLinks,
   };
 }
 
@@ -128,15 +139,13 @@ async function findDuplicateAcademy({
   address: string;
   postcode: string;
 }) {
-  return prisma.academy.findFirst({
-    where: {
-      ...(id ? { id: { not: id } } : {}),
-      name: { equals: name.trim(), mode: "insensitive" },
-      address: { equals: address.trim(), mode: "insensitive" },
-      postcode: { equals: postcode.trim(), mode: "insensitive" },
-    },
-    select: { id: true },
-  });
+  const normalized = { name: name.trim().toLowerCase(), address: address.trim().toLowerCase(), postcode: postcode.trim().toLowerCase() };
+  return (await listAcademiesForActorFromAcademyService({ id: "__system__", role: "SUPER_ADMIN" })).find((academy) =>
+    academy.id !== id
+    && academy.name.trim().toLowerCase() === normalized.name
+    && academy.address.trim().toLowerCase() === normalized.address
+    && academy.postcode.trim().toLowerCase() === normalized.postcode,
+  );
 }
 
 export async function createAcademy(_state: AcademyFormState, formData: FormData): Promise<AcademyFormState> {
@@ -166,11 +175,6 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
       verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
       createdById: actor.id,
     });
-    if (socialLinks.length) {
-      await prisma.academySocialLink.createMany({
-        data: socialLinks.map((link) => ({ ...link, academyId: academy.id })),
-      });
-    }
     if (actor) {
       await writeAdminAuditLog({
         actorUserId: actor.id,
@@ -235,10 +239,7 @@ export async function updateAcademy(
   }
 
   const existingAcademy = isAcademyAdminRole(actor?.role)
-    ? await prisma.academy.findUnique({
-        where: { id },
-        select: { verificationStatus: true, featured: true },
-      })
+    ? await getAcademyFromAcademyService(id)
     : null;
   let academy: { id: string; name: string };
   try {
@@ -248,14 +249,6 @@ export async function updateAcademy(
       verificationStatus: nextVerificationStatus,
       featured: existingAcademy?.featured ?? data.featured,
       verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
-    });
-    await prisma.$transaction(async (tx) => {
-      await tx.academySocialLink.deleteMany({ where: { academyId: id } });
-      if (socialLinks.length) {
-        await tx.academySocialLink.createMany({
-          data: socialLinks.map((link) => ({ ...link, academyId: id })),
-        });
-      }
     });
     if (actor) {
       await writeAdminAuditLog({
@@ -418,57 +411,41 @@ async function createReminderAudit({
 }
 
 async function recordSkippedReminder(actorUserId: string, academyId: string, reason: string, email: string | null | undefined, academyName: string | undefined, source: ClaimInvitationSource) {
-  await prisma.academyClaimReminder.create({
-    data: {
-      academyId,
-      actorUserId,
-      recipientEmail: email ?? null,
-      status: "SKIPPED",
-      skipReason: reason,
-      source,
-    },
+  await createAcademyClaimReminder({
+    academyId,
+    actorUserId,
+    recipientEmail: email ?? null,
+    status: "SKIPPED",
+    skipReason: reason,
+    source,
   });
   await createReminderAudit({ actorUserId, academyId, academyName, email, outcome: "skipped", reason, source });
   return { status: "skipped", academyId, reason, email } satisfies ReminderOutcome;
 }
 
 async function sendReminderForAcademy(actorUserId: string, academyId: string, source: ClaimInvitationSource = "admin_academies"): Promise<ReminderOutcome> {
-  const academy = await prisma.academy.findUnique({
-    where: { id: academyId },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      email: true,
-      claims: { select: { status: true } },
-      members: { select: { id: true }, take: 1 },
-    },
-  });
+  const [academy, claims, members] = await Promise.all([
+    getAcademyFromAcademyService(academyId),
+    academyClaimStatuses(academyId),
+    listAcademyMembersFromAcademyService(academyId),
+  ]);
 
   if (!academy) {
     await createReminderAudit({ actorUserId, academyId, outcome: "skipped", reason: "not_found", source });
     return { status: "skipped", academyId, reason: "not_found" };
   }
   const email = academy.email ? normalizeEmail(academy.email) : null;
-  if (academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)) {
+  if (members.length > 0 || claims.some((claim) => claim.status === ClaimStatus.APPROVED)) {
     return recordSkippedReminder(actorUserId, academy.id, "managed", email, academy.name, source);
   }
-  if (academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)) {
+  if (claims.some((claim) => claim.status === ClaimStatus.PENDING)) {
     return recordSkippedReminder(actorUserId, academy.id, "pending_claim", email, academy.name, source);
   }
   if (!email) return recordSkippedReminder(actorUserId, academy.id, "missing_email", null, academy.name, source);
   if (!isValidEmail(email)) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name, source);
   const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { email } });
   if (invalidEmail) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name, source);
-  const recentReminder = await prisma.academyClaimReminder.findFirst({
-    where: {
-      academyId: academy.id,
-      recipientEmail: email,
-      status: "QUEUED",
-      createdAt: { gte: reminderCooldownStart() },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const recentReminder = await findRecentQueuedAcademyClaimReminder(academy.id, email, reminderCooldownStart());
   if (recentReminder) return recordSkippedReminder(actorUserId, academy.id, "recently_sent", email, academy.name, source);
 
   try {
@@ -477,29 +454,25 @@ async function sendReminderForAcademy(actorUserId: string, academyId: string, so
       academySlug: academy.slug,
       recipientEmail: email,
     });
-    await prisma.academyClaimReminder.create({
-      data: {
-        academyId: academy.id,
-        actorUserId,
-        recipientEmail: email,
-        outboundEmailId: outboundEmail.id,
-        status: "QUEUED",
-        source,
-      },
+    await createAcademyClaimReminder({
+      academyId: academy.id,
+      actorUserId,
+      recipientEmail: email,
+      outboundEmailId: outboundEmail.id,
+      status: "QUEUED",
+      source,
     });
     await createReminderAudit({ actorUserId, academyId: academy.id, academyName: academy.name, email, outcome: "queued", source });
     return { status: "queued", academyId: academy.id, email, outboundEmailId: outboundEmail.id };
   } catch (error) {
     const reason = error instanceof Error ? error.message : "Reminder could not be queued.";
-    await prisma.academyClaimReminder.create({
-      data: {
-        academyId: academy.id,
-        actorUserId,
-        recipientEmail: email,
-        status: "FAILED",
-        skipReason: reason,
-        source,
-      },
+    await createAcademyClaimReminder({
+      academyId: academy.id,
+      actorUserId,
+      recipientEmail: email,
+      status: "FAILED",
+      skipReason: reason,
+      source,
     });
     await createReminderAudit({ actorUserId, academyId: academy.id, academyName: academy.name, email, outcome: "failed", reason, source });
     return { status: "failed", academyId: academy.id, reason, email };
@@ -530,19 +503,17 @@ export async function inviteAcademyAdmin(academyId: string, formData: FormData) 
   const invitedEmail = String(formData.get("invitedEmail") ?? "").trim().toLowerCase();
   if (!invitedEmail || !invitedEmail.includes("@")) redirect(`/admin/academies/${academyId}/team?error=invalid-email`);
 
-  const invitation = await prisma.academyInvitation.create({
-    data: {
-      academyId,
-      invitedEmail,
-      invitedById: access.userId,
-      token: invitationToken(),
-      expiresAt: invitationExpiry(),
-    },
-    include: { academy: true },
+  const invitation = await createAcademyInvitation({
+    academyId,
+    invitedEmail,
+    invitedById: access.userId,
+    token: invitationToken(),
+    expiresAt: invitationExpiry(),
   });
+  const academy = await getAcademyFromAcademyService(academyId);
   await queueAcademyInvitationEmail({
     invitedEmail,
-    academyName: invitation.academy.name,
+    academyName: academy?.name ?? "this academy",
     token: invitation.token,
   });
 
@@ -552,23 +523,18 @@ export async function inviteAcademyAdmin(academyId: string, formData: FormData) 
 
 export async function cancelAcademyInvitation(academyId: string, invitationId: string) {
   await requireAcademyOwner(academyId);
-  await prisma.academyInvitation.update({
-    where: { id: invitationId, academyId },
-    data: { status: InvitationStatus.CANCELLED },
-  });
+  await updateAcademyInvitationStatus(invitationId, academyId, InvitationStatus.CANCELLED);
   revalidatePath(`/admin/academies/${academyId}/team`);
 }
 
 export async function resendAcademyInvitation(academyId: string, invitationId: string) {
   await requireAcademyOwner(academyId);
-  const invitation = await prisma.academyInvitation.update({
-    where: { id: invitationId, academyId },
-    data: { token: invitationToken(), status: InvitationStatus.PENDING, expiresAt: invitationExpiry() },
-    include: { academy: true },
-  });
+  const invitation = await resendAcademyInvitationRecord(invitationId, academyId, invitationToken(), invitationExpiry());
+  if (!invitation) return;
+  const academy = await getAcademyFromAcademyService(academyId);
   await queueAcademyInvitationEmail({
     invitedEmail: invitation.invitedEmail,
-    academyName: invitation.academy.name,
+    academyName: academy?.name ?? "this academy",
     token: invitation.token,
   });
   revalidatePath(`/admin/academies/${academyId}/team`);
@@ -611,7 +577,7 @@ export async function sendBulkAcademyClaimReminders(formData: FormData) {
 
 export async function removeAcademyMember(academyId: string, memberId: string) {
   await requireAcademyOwner(academyId);
-  const member = await prisma.academyMember.findUnique({ where: { id: memberId } });
+  const member = (await listAcademyMembersFromAcademyService(academyId)).find((item) => item.id === memberId);
   if (!member || member.academyId !== academyId) return;
 
   await removeAcademyMemberInAcademyService(academyId, member.userId);
@@ -622,7 +588,7 @@ export async function acceptAcademyInvitation(token: string) {
   const user = await getCurrentUser();
   if (!user) redirect(`/login`);
 
-  const invitation = await prisma.academyInvitation.findUnique({ where: { token } });
+  const invitation = await findAcademyInvitationByToken(token);
   if (!invitation || invitation.status !== InvitationStatus.PENDING || invitation.expiresAt < new Date()) {
     redirect("/admin?error=invalid-invitation");
   }
@@ -631,10 +597,7 @@ export async function acceptAcademyInvitation(token: string) {
   }
 
   await addAcademyMemberInAcademyService(invitation.academyId, user.id);
-  await prisma.academyInvitation.update({
-      where: { id: invitation.id },
-      data: { status: InvitationStatus.ACCEPTED },
-  });
+  await acceptAcademyInvitationRecord(invitation.id, user.id);
   await replaceUserAuthorisationRole(user, user.id, "ACADEMY_ADMIN", { organisationId: invitation.academyId });
 
   redirect(`/admin/academies/${invitation.academyId}`);

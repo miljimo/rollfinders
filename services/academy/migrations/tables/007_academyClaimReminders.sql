@@ -1,8 +1,14 @@
 CREATE TABLE IF NOT EXISTS academy.academy_claim_reminders (
   id TEXT PRIMARY KEY,
   academy_id TEXT NOT NULL REFERENCES academy.academies(id) ON DELETE CASCADE,
-  recipient_email TEXT NOT NULL,
+  recipient_email TEXT,
   sent_by TEXT,
+  actor_user_id TEXT,
+  outbound_email_id TEXT,
+  idempotency_key TEXT,
+  status TEXT NOT NULL DEFAULT 'QUEUED',
+  skip_reason TEXT,
+  source TEXT NOT NULL DEFAULT 'admin_academies',
   sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

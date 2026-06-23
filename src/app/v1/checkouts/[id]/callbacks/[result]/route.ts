@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { markBookingPaymentReceived } from "@/lib/bookings";
-import { getEnvVariable } from "@/lib/environments";
+import { apiGatewayUrl } from "@/lib/apiGateway";
 
 export const dynamic = "force-dynamic";
 
-const paymentServiceUrl = () => getEnvVariable("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002").replace(/\/+$/, "");
+const paymentServiceUrl = apiGatewayUrl;
 
 function successfulPayment(result: string, status: string | null) {
   return result === "success" && ["paid", "succeeded", "completed"].includes(String(status ?? "").toLowerCase());

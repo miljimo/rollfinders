@@ -487,21 +487,6 @@ resource_type=course, resource_id=course_456
 resource_type=booking, resource_id=booking_789
 ```
 
-### application_service_permissions
-
-```sql
-CREATE TABLE application_service_permissions (
-    application_id text NOT NULL,
-    service_key text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (application_id, service_key)
-);
-```
-
-Service-owned permission prefixes are not global. A permission with a service prefix such as `payment.*`, `booking.*`, or `course.*` is only effective when the requested `application_id` has that `service_key` enabled in `application_service_permissions`.
-
-For RollFinders this means `app_rollfinders` can enable the `academy`, `booking`, `course`, `payment`, `user`, `organisation`, and `authorisation` services. A different application must be explicitly enabled before those service permissions evaluate as allowed for that application.
-
 ### roles
 
 ```sql

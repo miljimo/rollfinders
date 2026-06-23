@@ -1,6 +1,6 @@
-// import "server-only";
+import "server-only";
 
-import { getEnvVariable } from "./environments";
+import { apiGatewayUrl } from "./apiGateway";
 
 if (typeof window !== "undefined") {
   throw new Error("Payment service calls are server-only.");
@@ -132,7 +132,7 @@ type PaymentRefundRecordResponse = {
   updated_at: string;
 };
 
-const paymentServiceUrl = () => getEnvVariable("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002").replace(/\/+$/, "");
+const paymentServiceUrl = apiGatewayUrl;
 
 export class PaymentServiceError extends Error {
   constructor(

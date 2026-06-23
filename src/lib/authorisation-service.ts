@@ -1,3 +1,4 @@
+import { apiGatewayPath } from "./apiGateway";
 import { getEnvVariable } from "./environments";
 
 export type AuthorisationActor = {
@@ -52,6 +53,9 @@ export type AuthorisationPermission = {
   code: string;
   name: string;
   description?: string;
+  organisation_id?: string;
+  application_id?: string;
+  created_by?: string;
   created_at: string;
   updated_at: string;
 };
@@ -82,7 +86,7 @@ export class AuthorisationServiceError extends Error {
   }
 }
 
-const authorisationServiceUrl = () => getEnvVariable("AUTHORISATION_PUBLIC_BASE_URL", "http://localhost:8085").replace(/\/+$/, "");
+const authorisationServiceUrl = () => apiGatewayPath("/v1/authorisation");
 const compatibilityFallbackEnabled = () => getEnvVariable("AUTHORISATION_COMPATIBILITY_FALLBACK", "false").toLowerCase() === "true";
 
 function headers(actor?: AuthorisationActor | null) {
@@ -112,7 +116,7 @@ export async function authorize(
   if (!actor?.id) return false;
 
   try {
-    const response = await fetch(`${authorisationServiceUrl()}/v1/authorize`, {
+    const response = await fetch(`${authorisationServiceUrl()}/authorize`, {
       method: "POST",
       cache: "no-store",
       headers: headers(),
@@ -148,7 +152,7 @@ const roleIdsByKey: Record<string, string> = {
 
 export async function listUserAuthorisationRoles(userId: string) {
   try {
-    const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/roles`, {
+    const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/roles`, {
       method: "GET",
       cache: "no-store",
       headers: headers(),
@@ -163,7 +167,7 @@ export async function listUserAuthorisationRoles(userId: string) {
 
 export async function listAuthorisationRoles() {
   try {
-    const response = await fetch(`${authorisationServiceUrl()}/v1/roles`, {
+    const response = await fetch(`${authorisationServiceUrl()}/roles`, {
       method: "GET",
       cache: "no-store",
       headers: headers(),
@@ -176,6 +180,80 @@ export async function listAuthorisationRoles() {
   }
 }
 
+export async function listAuthorisationRolePermissions(roleId: string) {
+  try {
+    const response = await fetch(`${authorisationServiceUrl()}/roles/${encodeURIComponent(roleId)}/permissions`, {
+      method: "GET",
+      cache: "no-store",
+      headers: headers(),
+    });
+    const result = await parseResponse(response) as { permissions?: AuthorisationPermission[] };
+    return result.permissions ?? [];
+  } catch (error) {
+    if (error instanceof AuthorisationServiceError) return [];
+    throw error;
+  }
+}
+
+export async function listAuthorisationPermissions() {
+  try {
+    const response = await fetch(`${authorisationServiceUrl()}/permissions`, {
+      method: "GET",
+      cache: "no-store",
+      headers: headers(),
+    });
+    const result = await parseResponse(response) as { permissions?: AuthorisationPermission[] };
+    return result.permissions ?? [];
+  } catch (error) {
+    if (error instanceof AuthorisationServiceError) return [];
+    throw error;
+  }
+}
+
+export async function createAuthorisationPermission(
+  actor: AuthorisationActor | null | undefined,
+  input: {
+    code: string;
+    name: string;
+    description?: string;
+    organisationId?: string;
+    applicationId?: string;
+  },
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/permissions`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify({
+      code: input.code,
+      name: input.name,
+      description: input.description ?? "",
+      organisation_id: input.organisationId ?? undefined,
+      application_id: input.applicationId ?? undefined,
+    }),
+  });
+  return parseResponse(response) as Promise<AuthorisationPermission>;
+}
+
+export async function updateAuthorisationPermission(
+  actor: AuthorisationActor | null | undefined,
+  permission: Pick<AuthorisationPermission, "id" | "code" | "name"> & Partial<Pick<AuthorisationPermission, "description" | "organisation_id" | "application_id">>,
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/permissions/${encodeURIComponent(permission.id)}`, {
+    method: "PUT",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify({
+      code: permission.code,
+      name: permission.name,
+      description: permission.description ?? "",
+      organisation_id: permission.organisation_id ?? undefined,
+      application_id: permission.application_id ?? undefined,
+    }),
+  });
+  return parseResponse(response) as Promise<AuthorisationPermission>;
+}
+
 export async function listEffectiveUserPermissions(userId: string, scope: AuthorisationScope = {}) {
   const params = new URLSearchParams();
   if (scope.organisationId) params.set("organisation_id", scope.organisationId);
@@ -185,7 +263,7 @@ export async function listEffectiveUserPermissions(userId: string, scope: Author
 
   try {
     const query = params.toString();
-    const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/effective-permissions${query ? `?${query}` : ""}`, {
+    const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/effective-permissions${query ? `?${query}` : ""}`, {
       method: "GET",
       cache: "no-store",
       headers: headers(),
@@ -200,7 +278,7 @@ export async function listEffectiveUserPermissions(userId: string, scope: Author
 
 export async function listUserPermissionAssignments(userId: string) {
   try {
-    const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/permissions`, {
+    const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/permissions`, {
       method: "GET",
       cache: "no-store",
       headers: headers(),
@@ -211,6 +289,125 @@ export async function listUserPermissionAssignments(userId: string) {
     if (error instanceof AuthorisationServiceError) return [];
     throw error;
   }
+}
+
+function scopeValue(value?: string | null) {
+  return value?.trim() || "";
+}
+
+function sameScope(left: AuthorisationScope = {}, right: AuthorisationScope = {}) {
+  return scopeValue(left.organisationId) === scopeValue(right.organisationId)
+    && scopeValue(left.applicationId) === scopeValue(right.applicationId)
+    && scopeValue(left.resourceType) === scopeValue(right.resourceType)
+    && scopeValue(left.resourceId) === scopeValue(right.resourceId);
+}
+
+export async function createUserPermissionAssignment(
+  actor: AuthorisationActor | null | undefined,
+  userId: string,
+  permissionId: string,
+  effect: "ALLOW" | "DENY",
+  scope: AuthorisationScope,
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/permissions`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify({
+      permission_id: permissionId,
+      effect,
+      organisation_id: scope.organisationId ?? undefined,
+      application_id: scope.applicationId ?? undefined,
+      resource_type: scope.resourceType ?? undefined,
+      resource_id: scope.resourceId ?? undefined,
+      assigned_by: actor?.id ?? "system",
+    }),
+  });
+  return parseResponse(response) as Promise<AuthorisationPermissionAssignment>;
+}
+
+export async function addAuthorisationRolePermission(
+  actor: AuthorisationActor | null | undefined,
+  roleId: string,
+  permissionId: string,
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/roles/${encodeURIComponent(roleId)}/permissions`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify({ permission_id: permissionId }),
+  });
+  await parseResponse(response);
+}
+
+export async function deleteUserPermissionAssignment(
+  actor: AuthorisationActor | null | undefined,
+  userId: string,
+  assignmentId: string,
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/permissions/${encodeURIComponent(assignmentId)}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  if (!response.ok && response.status !== 404) await parseResponse(response);
+}
+
+export async function updateUserAuthorisationPermissions(
+  actor: AuthorisationActor | null | undefined,
+  userId: string,
+  input: { grant: string[]; revoke: string[] },
+  scope: AuthorisationScope = {},
+) {
+  const applicationId = scope.applicationId ?? getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders");
+  const assignmentScope = { ...scope, applicationId };
+  const [permissions, assignments] = await Promise.all([
+    listAuthorisationPermissions(),
+    listUserPermissionAssignments(userId),
+  ]);
+  const permissionIdByCode = new Map(permissions.map((permission) => [permission.code, permission.id]));
+  const directAssignments = assignments.filter((assignment) => sameScope({
+    applicationId: assignment.scope?.application_id,
+    organisationId: assignment.scope?.organisation_id,
+    resourceId: assignment.scope?.resource_id,
+    resourceType: assignment.scope?.resource_type,
+  }, assignmentScope));
+  const directAllows = directAssignments.filter((assignment) => assignment.effect === "ALLOW");
+  const directDenies = directAssignments.filter((assignment) => assignment.effect === "DENY");
+
+  const granted: string[] = [];
+  for (const code of [...new Set(input.grant)]) {
+    const permissionId = permissionIdByCode.get(code);
+    if (!permissionId) continue;
+    for (const assignment of directDenies.filter((item) => item.permission_code === code)) {
+      await deleteUserPermissionAssignment(actor, userId, assignment.id);
+    }
+    if (directAllows.some((assignment) => assignment.permission_code === code)) continue;
+    await createUserPermissionAssignment(actor, userId, permissionId, "ALLOW", assignmentScope);
+    granted.push(code);
+  }
+
+  const revoked: string[] = [];
+  const revokeCodes = new Set(input.revoke);
+  for (const assignment of directAllows) {
+    if (!assignment.permission_code || !revokeCodes.has(assignment.permission_code)) continue;
+    await deleteUserPermissionAssignment(actor, userId, assignment.id);
+    revoked.push(assignment.permission_code);
+  }
+  const remainingEffectiveCodes = new Set(
+    revokeCodes.size > 0
+      ? (await listEffectiveUserPermissions(userId, assignmentScope)).map((permission) => permission.code)
+      : [],
+  );
+  for (const code of revokeCodes) {
+    const permissionId = permissionIdByCode.get(code);
+    if (!permissionId || !remainingEffectiveCodes.has(code)) continue;
+    if (directDenies.some((assignment) => assignment.permission_code === code)) continue;
+    await createUserPermissionAssignment(actor, userId, permissionId, "DENY", assignmentScope);
+    if (!revoked.includes(code)) revoked.push(code);
+  }
+
+  return { status: "updated", granted, revoked };
 }
 
 export async function replaceUserAuthorisationRole(
@@ -247,7 +444,7 @@ export async function replaceUserAuthorisationRole(
     return;
   }
 
-  const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/roles`, {
+  const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/roles`, {
     method: "POST",
     cache: "no-store",
     headers: headers(actor),
@@ -264,7 +461,7 @@ export async function replaceUserAuthorisationRole(
 }
 
 async function deleteUserAuthorisationRole(actor: AuthorisationActor | null | undefined, userId: string, assignmentId: string) {
-  const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(assignmentId)}`, {
+  const response = await fetch(`${authorisationServiceUrl()}/users/${encodeURIComponent(userId)}/roles/${encodeURIComponent(assignmentId)}`, {
     method: "DELETE",
     cache: "no-store",
     headers: headers(actor),

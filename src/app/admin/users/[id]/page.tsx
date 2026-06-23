@@ -9,9 +9,17 @@ import { UserForm } from "../UserForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function EditUserPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditUserPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
   await requireAdminPage();
   const { id } = await params;
+  const query = await searchParams;
+  const initialTab = query.tab === "permissions" ? "permissions" : "details";
   const currentUser = await getCurrentUser();
   const superAdmin = isSuperAdminRole(currentUser?.role);
   const platformAdmin = isPlatformAdminRole(currentUser?.role);
@@ -41,6 +49,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
           assignableFeatures={assignableFeatures}
           academyAdmin={academyAdmin}
           actorRole={currentUser.role}
+          initialTab={initialTab}
           mode="edit"
           superAdmin={superAdmin}
           user={{ ...user, role: user.role as Role, status: user.status as UserStatus }}

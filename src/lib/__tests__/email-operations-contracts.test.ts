@@ -72,8 +72,8 @@ describe("email operations contracts", () => {
     assert.match(cooldownSource, /claimReminderCooldownDays\s*=\s*7/);
     assert.match(source, /import\s+\{\s*claimReminderCooldownDays\s*\}\s+from\s+"@\/lib\/academy-claim-reminders"/);
     assert.match(dashboardSource, /import\s+\{\s*claimReminderCooldownDays\s*\}\s+from\s+"@\/lib\/academy-claim-reminders"/);
-    assert.match(source, /const\s+recentReminder\s*=\s*await\s+prisma\.academyClaimReminder\.findFirst\(/);
-    assert.match(source, /recipientEmail:\s*email/);
+    assert.match(source, /const\s+recentReminder\s*=\s*await\s+findRecentQueuedAcademyClaimReminder\(academy\.id,\s*email,\s*reminderCooldownStart\(\)\)/);
+    assert.match(source, /createAcademyClaimReminder\(\{[\s\S]*recipientEmail:\s*email/);
     assert.match(source, /status:\s*"QUEUED"/);
     assert.match(source, /recently_sent/);
   });

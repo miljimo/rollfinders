@@ -78,6 +78,16 @@ output "ecs_security_group_id" {
   value       = module.ecs_security_group.id
 }
 
+output "api_ecs_security_group_id" {
+  description = "Security group used by the API service ECS task."
+  value       = module.api_ecs_security_group.id
+}
+
+output "domain_service_security_group_id" {
+  description = "Security group used by lower domain service ECS tasks."
+  value       = module.domain_service_security_group.id
+}
+
 output "private_subnet_ids" {
   description = "Private subnet IDs used by ECS tasks."
   value       = module.networking.private_subnet_ids
