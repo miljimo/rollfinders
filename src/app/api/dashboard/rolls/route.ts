@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GiType, type Prisma } from "@prisma/client";
+import { listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isStandardUserRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 
@@ -42,11 +43,7 @@ function rollSearchWhere(academyId: string, query: string): Prisma.EventWhereInp
 
 async function assignedAcademyId(user: { id: string; academyId?: string | null }) {
   if (user.academyId) return user.academyId;
-  const membership = await prisma.academyMember.findFirst({
-    where: { userId: user.id },
-    select: { academyId: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const membership = (await listAcademyMembershipsForUserFromAcademyService(user.id))[0];
   return membership?.academyId ?? null;
 }
 

@@ -3,12 +3,12 @@
 
 import { type ReactNode } from "react";
 import { Building2, CalendarDays, CreditCard,
-     ClipboardCheck, HelpCircle, Home, LogOut, Map, Menu, Settings, Users, X } from "lucide-react";
+     ClipboardCheck, HelpCircle, Home, KeyRound, LockKeyhole, LogOut, Map, Settings, ShieldCheck, UserCog, Users } from "lucide-react";
 
 
 
 export type SidePanelIcon = "academies" | "claims"
-    | "bookings" | "dashboard" | "events" | "help" | "logout" | "map" | "payments" | "settings" | "users";
+    | "accessKeys" | "bookings" | "dashboard" | "events" | "help" | "logout" | "map" | "mfa" | "payments" | "permissions" | "roles" | "settings" | "users";
 
 
 
@@ -28,6 +28,7 @@ export const Icon = ({ name, size = 20, className = "shrink-0", ariaHidden = tru
 
     const icons: Record<SidePanelIcon, ReactNode> = {
         academies: <Building2 {...iconProps} />,
+        accessKeys: <KeyRound {...iconProps} />,
         bookings: <ClipboardCheck {...iconProps} />,
         claims: <ClipboardCheck {...iconProps} />,
         dashboard: <Home {...iconProps} />,
@@ -35,7 +36,10 @@ export const Icon = ({ name, size = 20, className = "shrink-0", ariaHidden = tru
         help: <HelpCircle {...iconProps} />,
         logout: <LogOut {...iconProps} />,
         map: <Map {...iconProps} />,
+        mfa: <ShieldCheck {...iconProps} />,
         payments: <CreditCard {...iconProps} />,
+        permissions: <LockKeyhole {...iconProps} />,
+        roles: <UserCog {...iconProps} />,
         settings: <Settings {...iconProps} />,
         users: <Users {...iconProps} />,
     };

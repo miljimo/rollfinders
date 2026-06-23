@@ -180,8 +180,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(academyDetailSource, /<h2 className="text-lg font-black text-stone-950">Statistics<\/h2>/);
     assert.match(academyDetailSource, /showAcademyStats\s*\?\s*\(/);
     assert.match(academyDetailSource, /<Info label="Profile views" value=\{profileViewCount\.toString\(\)\} \/>/);
-    assert.match(academyDetailSource, /<Info label="Open mats" value=\{academy\.events\.length\.toString\(\)\} \/>/);
-    assert.match(academyDetailSource, /<Info label="Admins" value=\{academy\.members\.length\.toString\(\)\} \/>/);
+    assert.match(academyDetailSource, /getAcademyFromAcademyService\(id\)/);
+    assert.match(academyDetailSource, /<Info label="Open mats" value=\{eventCount\.toString\(\)\} \/>/);
+    assert.match(academyDetailSource, /<Info label="Admins" value=\{\(academy\.members\?\.length \?\? 0\)\.toString\(\)\} \/>/);
     assert.doesNotMatch(standardSource, /Academy Profile Summary|Profile Summary|\/admin\/academies\/\$\{currentUser\.academyId\}/);
   });
 
@@ -236,7 +237,7 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(profileSource, /AcademyMemberRole|memberRole|member_role/);
     assert.doesNotMatch(profileSource, /roleForAcademyMember|profileRole/);
     assert.doesNotMatch(profileSource, /prisma\.user|tx\.user/);
-    assert.match(profileSource, /academyMember\.create/);
+    assert.match(profileSource, /addAcademyMemberInAcademyService/);
     assert.doesNotMatch(schemaSource, /enum AcademyMemberRole|role\s+AcademyMemberRole/);
     assert.doesNotMatch(schemaSource, /model User \{/);
   });
@@ -268,7 +269,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(memberPage, /member\.user\?\.name\s*\?\?\s*member\.user\?\.email/);
     assert.match(memberApi, /academyMemberProfiles\(academy\.id,\s*q\)/);
     assert.match(academyTeamPage, /academyMemberProfiles\(academy\.id\)/);
-    assert.match(profileHelper, /prisma\.academyMember\.findMany/);
+    assert.match(profileHelper, /listAcademyMembersFromAcademyService/);
     assert.doesNotMatch(profileHelper, /prisma\.user|tx\.user/);
   });
 

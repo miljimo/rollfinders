@@ -8,9 +8,9 @@ import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { coursePriceLabel, courseTypeLabel, getCourseDiscovery, recurrenceLabel } from "@/lib/courses";
 import { academySocialPlatformLabels } from "@/lib/academy-social-links";
-import { prisma } from "@/lib/prisma";
+import { findAcademyBySlugFromAcademyService } from "@/lib/academyService";
 import { formatDate, formatMoney } from "@/lib/utils";
-import { ClaimStatus, CourseType } from "@prisma/client";
+import { CourseType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -45,14 +45,7 @@ export default async function AcademyPage({
 }) {
   const { slug } = await params;
   const query = await searchParams;
-  const academy = await prisma.academy.findUnique({
-    where: { slug },
-    include: {
-      claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
-      members: { select: { id: true } },
-      socialLinks: { orderBy: { platform: "asc" } },
-    },
-  });
+  const academy = await findAcademyBySlugFromAcademyService(slug);
 
   if (!academy) notFound();
   const courses = await getCourseDiscovery({ academyId: academy.id });

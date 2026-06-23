@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
+import { listAcademyMembershipsForUserFromAcademyService } from "./academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole } from "./admin";
-import { prisma } from "./prisma";
 
 export type AcademyAccess = {
   userId: string;
@@ -28,9 +28,7 @@ export async function getAcademyAccess(academyId: string): Promise<AcademyAccess
     };
   }
 
-  const member = await prisma.academyMember.findUnique({
-    where: { academyId_userId: { academyId, userId: user.id } },
-  });
+  const member = (await listAcademyMembershipsForUserFromAcademyService(user.id)).find((membership) => membership.academyId === academyId);
 
   if (!member) return null;
   return { userId: user.id, platformAdmin: false, superAdmin: false, academyAdmin: false, academyOwner: false };

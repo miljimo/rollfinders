@@ -1,13 +1,13 @@
 import { Role, UserStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
+import { getAcademyFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "./academyService";
 import { getCurrentUser, isStandardUserRole } from "./admin";
-import { prisma } from "./prisma";
 
 type ServiceUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
 export async function getDashboardShadowAccount(user: ServiceUser) {
   const academy = user.academyId
-    ? await prisma.academy.findUnique({ where: { id: user.academyId } })
+    ? await getAcademyFromAcademyService(user.academyId)
     : null;
   return {
     id: user.id,
@@ -30,13 +30,10 @@ export async function requireDashboardUser() {
 
   const fallbackMembership = account.academy
     ? null
-    : await prisma.academyMember.findFirst({
-        where: { userId: account.id },
-        include: { academy: true },
-        orderBy: { createdAt: "asc" },
-      });
+    : (await listAcademyMembershipsForUserFromAcademyService(account.id))[0];
+  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId) : null;
 
-  return { user: account, academy: account.academy ?? fallbackMembership?.academy ?? null };
+  return { user: account, academy: account.academy ?? fallbackAcademy };
 }
 
 export async function requireStandardDashboardUser() {
@@ -48,12 +45,9 @@ export async function requireStandardDashboardUser() {
 
   const fallbackMembership = account.academy
     ? null
-    : await prisma.academyMember.findFirst({
-        where: { userId: account.id },
-        include: { academy: true },
-        orderBy: { createdAt: "asc" },
-      });
-  const academy = account.academy ?? fallbackMembership?.academy;
+    : (await listAcademyMembershipsForUserFromAcademyService(account.id))[0];
+  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId) : null;
+  const academy = account.academy ?? fallbackAcademy;
   if (!academy) redirect("/login");
 
   return { user: account, academy };

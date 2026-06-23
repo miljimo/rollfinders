@@ -5,6 +5,7 @@ import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { StatIndicator } from "@/components/StatIndicator";
 import { TableRow } from "@/components/Table";
+import { listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { coursePriceLabel } from "@/lib/courses";
 import { occurrenceStatus, recurrenceLabel } from "@/lib/open-mat-occurrences";
@@ -109,10 +110,7 @@ export default async function OpenMatManagementPage({
   const platformAdmin = isPlatformAdminRole(user.role);
   const academyMemberships = platformAdmin
     ? []
-    : await prisma.academyMember.findMany({
-        where: { userId: user.id },
-        select: { academyId: true },
-      });
+    : await listAcademyMembershipsForUserFromAcademyService(user.id);
   const academyIds = academyMemberships.map((membership) => membership.academyId);
   const accessWhere: Prisma.EventWhereInput = !platformAdmin
     ? {

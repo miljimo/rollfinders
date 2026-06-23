@@ -5,6 +5,7 @@ import { AnalyticsClickTracker, AnalyticsViewTracker } from "@/components/Analyt
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canDeleteAcademyRecord, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
+import { getAcademyFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { updateAcademy } from "../actions";
@@ -18,16 +19,17 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
   const currentUser = await getCurrentUser();
   const academyAdmin = isAcademyAdminRole(currentUser?.role);
   const showAcademyStats = isPlatformAdminRole(currentUser?.role);
-  const [academy, profileViewCount] = await Promise.all([
-    prisma.academy.findUnique({
-      where: { id },
-      include: { events: true, claims: true, members: true, socialLinks: { orderBy: { platform: "asc" } } },
-    }),
+  const [serviceAcademy, profileViewCount, eventCount, claimCount, socialLinks] = await Promise.all([
+    getAcademyFromAcademyService(id),
     prisma.analyticsEvent.count({
       where: { academyId: id, eventName: "academy_profile_viewed" },
     }),
+    prisma.event.count({ where: { academyId: id } }),
+    prisma.claimRequest.count({ where: { academyId: id } }),
+    prisma.academySocialLink.findMany({ where: { academyId: id }, orderBy: { platform: "asc" } }),
   ]);
-  if (!academy) notFound();
+  if (!serviceAcademy) notFound();
+  const academy = { ...serviceAcademy, socialLinks };
 
   return (
     <PageShell>
@@ -81,11 +83,11 @@ export default async function EditAcademyPage({ params }: { params: Promise<{ id
               <h2 className="text-lg font-black text-stone-950">Statistics</h2>
               <div className="mt-3 grid gap-3">
                 <Info label="Profile views" value={profileViewCount.toString()} />
-                <Info label="Enquiries" value={academy.claims.length.toString()} />
+                <Info label="Enquiries" value={claimCount.toString()} />
                 <Info label="Reviews" value="0" />
                 <Info label="Average rating" value="Not rated" />
-                <Info label="Open mats" value={academy.events.length.toString()} />
-                <Info label="Admins" value={academy.members.length.toString()} />
+                <Info label="Open mats" value={eventCount.toString()} />
+                <Info label="Admins" value={(academy.members?.length ?? 0).toString()} />
               </div>
             </section>
           ) : null}

@@ -8,7 +8,7 @@ import { AcademyMap } from "@/components/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedAcademyWhere, academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
-import { authorize } from "@/lib/authorisation-service";
+import { authorize, listAuthorisationRoles, listEffectiveUserPermissions, listUserPermissionAssignments, type AuthorisationRole } from "@/lib/authorisation-service";
 import { BookingServiceError, listBookings, type BookingRecord } from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
@@ -24,7 +24,7 @@ import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
-import { listManagedUsers } from "@/lib/users-service";
+import { getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -54,6 +54,7 @@ import { fetchAcademyClaims, type AcademyClaimListItem } from "../admin/academy-
 import { EmailOperationsPanel } from "../admin/EmailOperationsPanel";
 import { EditProfileForm } from "./EditProfileForm";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
+import { UserPermissionsBoard } from "./UserPermissionsBoard";
 import { updatePlatformPaymentFees } from "./paymentSettingsActions";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookingActions";
 import { BookingActionSubmitButton } from "./BookingActionSubmitButton";
@@ -164,6 +165,7 @@ function selectedSettingsAction(value: string | undefined) {
 
 type PaymentOverviewPeriod = "daily" | "weekly" | "monthly" | "yearly";
 type PaymentsDashboardView = "overview" | "transactions" | "earnings" | "refunds" | "payouts" | "settings";
+type UsersDashboardView = "overview" | "roles" | "permissions" | "access-keys" | "mfa";
 
 function selectedPaymentOverviewPeriod(value: string | undefined): PaymentOverviewPeriod {
   if (value === "weekly" || value === "monthly" || value === "yearly") return value;
@@ -176,6 +178,14 @@ function selectedPaymentsDashboardView(value: string | undefined): PaymentsDashb
   if (value === "refund" || value === "refunds") return "refunds";
   if (value === "payout" || value === "payouts") return "payouts";
   if (value === "setting" || value === "settings") return "settings";
+  return "overview";
+}
+
+function selectedUsersDashboardView(value: string | undefined): UsersDashboardView {
+  if (value === "role" || value === "roles") return "roles";
+  if (value === "permission" || value === "permissions") return "permissions";
+  if (value === "access-key" || value === "access-keys" || value === "keys") return "access-keys";
+  if (value === "mfa") return "mfa";
   return "overview";
 }
 
@@ -402,6 +412,7 @@ export default async function AdminDashboardWorkspace({
   const paymentsSearch = (firstParam(params.paymentsSearch) ?? "").trim();
   const paymentsView = selectedPaymentsDashboardView(firstParam(params.paymentsView));
   const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
+  const usersView = selectedUsersDashboardView(firstParam(params.usersView));
   const stripeConnectMessage = firstParam(params.stripeConnect);
   const stripeConnectError = firstParam(params.stripeConnectError);
   const paymentSettingsMessage = firstParam(params.paymentSettingsMessage);
@@ -566,6 +577,9 @@ export default async function AdminDashboardWorkspace({
     paymentPlatformSettings,
     paymentMetricVisibility,
     bookingResult,
+    authorisationRoles,
+    currentUserEffectivePermissions,
+    currentUserPermissionAssignments,
   ] = await Promise.all([
     prisma.academy.findMany({
       where: academyWhere,
@@ -631,6 +645,12 @@ export default async function AdminDashboardWorkspace({
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [] }),
+    panel === "users" && usersView === "roles" ? listAuthorisationRoles() : Promise.resolve([]),
+    panel === "users" ? listEffectiveUserPermissions(currentUser.id, {
+      organisationId: currentUser.academyId ?? undefined,
+      applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    }) : Promise.resolve([]),
+    panel === "users" ? listUserPermissionAssignments(currentUser.id) : Promise.resolve([]),
   ]);
   const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
   const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
@@ -718,6 +738,12 @@ export default async function AdminDashboardWorkspace({
     { href: "/dashboard?panel=payments&paymentsView=payouts", label: "Payouts", active: panel === "payments" && paymentsView === "payouts" },
     { href: "/dashboard?panel=payments&paymentsView=settings", label: "Payment Settings", active: panel === "payments" && paymentsView === "settings" },
   ];
+  const userNavigationSections = [
+    { href: dashboardUsersHref(params, { usersView: "roles", usersPage: undefined }), icon: "roles", label: "Roles", active: panel === "users" && usersView === "roles" },
+    { href: dashboardUsersHref(params, { usersView: "permissions", usersPage: undefined }), icon: "permissions", label: "Permissions", active: panel === "users" && usersView === "permissions" },
+    { href: dashboardUsersHref(params, { usersView: "access-keys", usersPage: undefined }), icon: "accessKeys", label: "Access Keys", active: panel === "users" && usersView === "access-keys" },
+    { href: dashboardUsersHref(params, { usersView: "mfa", usersPage: undefined }), icon: "mfa", label: "MFA", active: panel === "users" && usersView === "mfa" },
+  ] satisfies SidePanelItem["children"];
   const dashboardServiceNavigationItems = adminNavigationItems
     .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
     .map((item) => item.href === "/dashboard?panel=academies" ? { ...item, label: "Academies" } : item);
@@ -725,6 +751,8 @@ export default async function AdminDashboardWorkspace({
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard?panel=payments"
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
+    : activeServiceNavigationItem?.href === "/dashboard?panel=users"
+      ? { ...activeServiceNavigationItem, children: userNavigationSections }
     : activeServiceNavigationItem;
   const serviceNavigationItems: SidePanelItem[] = [
     ...(activeServicePanelNavigationItem &&
@@ -1135,20 +1163,40 @@ export default async function AdminDashboardWorkspace({
           ) : null}
           {panel === "users" ? (
             <AdminPanel
-              action={(
+              action={usersView === "overview" ? (
                 <Button href="/dashboard?panel=users&dialog=new-user" variant="primary" className="min-h-12 shadow-sm">
                   <Plus size={18} aria-hidden />
                   New User
                 </Button>
-              )}
-              description="Newest operational slice of user records and role assignments."
+              ) : null}
+              description={usersView === "roles"
+                ? "Roles configured in the Authorisation system."
+                : usersView === "permissions"
+                  ? "Effective permissions available to your account."
+                  : usersView === "access-keys"
+                    ? "Access key management for your account."
+                    : usersView === "mfa"
+                      ? "Multi-factor authentication settings for your account."
+                      : "Newest operational slice of user records and role assignments."}
               id="users"
-              search={<PanelSearch panel={panel} search={search} />}
-              title="Users & Roles"
+              search={usersView === "overview" ? <PanelSearch panel={panel} search={search} /> : null}
+              title={usersView === "roles" ? "Roles" : usersView === "permissions" ? "Permissions" : usersView === "access-keys" ? "Access Keys" : usersView === "mfa" ? "MFA" : "Users & Roles"}
             >
-              <UserResult params={params} />
-              <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} params={params} users={users} />
-              <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
+              {usersView === "roles" ? (
+                <SystemRolesPanel roles={authorisationRoles} />
+              ) : usersView === "permissions" ? (
+                <UserPermissionsBoard directAssignments={currentUserPermissionAssignments} permissions={currentUserEffectivePermissions} />
+              ) : usersView === "access-keys" ? (
+                <UnavailableUserSecurityPanel title="Access Keys" description="Access key management is not available in the current Users or Authorisation service contracts yet." />
+              ) : usersView === "mfa" ? (
+                <UnavailableUserSecurityPanel title="MFA" description="MFA management is not available in the current dashboard contract yet." />
+              ) : (
+                <>
+                  <UserResult params={params} />
+                  <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} params={params} users={users} />
+                  <Pagination currentPage={currentUserPage} totalItems={userCount} pageKey="usersPage" searchParams={params} />
+                </>
+              )}
             </AdminPanel>
           ) : null}
           </div>
@@ -1163,7 +1211,7 @@ export default async function AdminDashboardWorkspace({
         <ViewUserDialog user={selectedDialogUser} />
       ) : null}
       {panel === "users" && dialog === "edit-user" && selectedDialogUser ? (
-        <EditUserDialog academies={academyOptions} academyAdmin={academyAdmin} superAdmin={superAdmin} user={selectedDialogUser} />
+        <EditUserDialog actor={currentUser} academies={academyOptions} academyAdmin={academyAdmin} superAdmin={superAdmin} user={selectedDialogUser} />
       ) : null}
       {panel === "academies" && dialog === "new-academy" && platformAdmin ? (
         <NewAcademyDialog />
@@ -1419,18 +1467,36 @@ function ViewUserDialog({ user }: { user: UserRow }) {
   );
 }
 
-function EditUserDialog({ academies, academyAdmin, superAdmin, user }: { academies: { id: string; name: string }[]; academyAdmin: boolean; superAdmin: boolean; user: UserRow }) {
+async function EditUserDialog({
+  academies,
+  academyAdmin,
+  actor,
+  superAdmin,
+  user,
+}: {
+  academies: { id: string; name: string }[];
+  academyAdmin: boolean;
+  actor: Pick<ManagedUser, "id" | "role" | "email" | "academyId"> & { privileges?: string[] };
+  superAdmin: boolean;
+  user: UserRow;
+}) {
+  const assignableFeatures = await getUserPermissionPanelModel(actor, user.id, {
+    organisationId: user.academyId ?? undefined,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+  }).catch(() => []);
+
   return (
-    <DialogShell closeHref="/dashboard?panel=users" description="Edit this user's details, role, status, and academy access." title="Edit User">
+    <DialogShell closeHref="/dashboard?panel=users" description="Update user details, role, status and permissions." maxWidthClass="max-w-[96rem]" title="Edit User">
       <UserForm
         academies={academies}
         action={updateManagedUser.bind(null, user.id)}
+        assignableFeatures={assignableFeatures}
         cancelHref="/dashboard?panel=users"
         mode="edit"
         returnTo="/dashboard?panel=users"
         academyAdmin={academyAdmin}
         superAdmin={superAdmin}
-        user={{ name: user.name, email: user.email, role: user.role, status: user.status, academyId: user.academyId }}
+        user={{ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, status: user.status, academyId: user.academyId }}
       />
     </DialogShell>
   );
@@ -1570,6 +1636,61 @@ function UserResult({ params }: { params: AdminSearchParams }) {
   return (
     <div className={`mt-4 rounded-md border px-4 py-3 text-sm font-semibold ${success ? "border-teal-100 bg-teal-50 text-teal-900" : "border-red-100 bg-red-50 text-red-800"}`}>
       {message}
+    </div>
+  );
+}
+
+function SystemRolesPanel({ roles }: { roles: AuthorisationRole[] }) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-stone-200 bg-white">
+      <div className="border-b border-stone-100 px-5 py-4">
+        <h3 className="text-lg font-black text-stone-950">System Roles</h3>
+        <p className="mt-1 text-sm text-stone-600">These are the role bundles configured in the Authorisation service.</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[920px] text-left text-sm">
+          <thead className="bg-stone-50 text-xs font-black uppercase text-stone-500">
+            <tr>
+              <th className="px-5 py-3">Role ID</th>
+              <th className="px-5 py-3">Key</th>
+              <th className="px-5 py-3">Name</th>
+              <th className="px-5 py-3">Level</th>
+              <th className="px-5 py-3">Assignable</th>
+              <th className="px-5 py-3">System</th>
+              <th className="px-5 py-3">Updated</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100">
+            {roles.map((role) => (
+              <tr key={role.id}>
+                <td className="px-5 py-4 font-medium text-stone-700">{role.id}</td>
+                <td className="px-5 py-4 font-black text-stone-950">{role.key}</td>
+                <td className="px-5 py-4 font-medium text-stone-800">{role.name}</td>
+                <td className="px-5 py-4 font-medium text-stone-700">{role.level}</td>
+                <td className="px-5 py-4 font-medium text-stone-700">{role.assignable ? "Yes" : "No"}</td>
+                <td className="px-5 py-4 font-medium text-stone-700">{role.system_role ? "Yes" : "No"}</td>
+                <td className="px-5 py-4 font-medium text-stone-700">{formatDate(new Date(role.updated_at))}</td>
+              </tr>
+            ))}
+            {!roles.length ? (
+              <tr>
+                <td className="px-5 py-8 text-center font-semibold text-stone-600" colSpan={7}>
+                  No Authorisation roles were returned.
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function UnavailableUserSecurityPanel({ description, title }: { description: string; title: string }) {
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white px-5 py-8">
+      <h3 className="text-lg font-black text-stone-950">{title}</h3>
+      <p className="mt-2 max-w-2xl text-sm font-medium text-stone-600">{description}</p>
     </div>
   );
 }
@@ -3561,6 +3682,7 @@ type UserRow = {
   id: string;
   name: string | null;
   email: string;
+  phone?: string | null;
   role: Role;
   status: UserStatus;
   disabled: boolean;

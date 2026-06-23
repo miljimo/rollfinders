@@ -6,6 +6,7 @@ import { AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prism
 import { randomBytes } from "crypto";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
 import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
+import { addAcademyMemberInAcademyService, createAcademyInAcademyService, removeAcademyMemberInAcademyService, updateAcademyInAcademyService } from "@/lib/academyService";
 import { replaceUserAuthorisationRole } from "@/lib/authorisation-service";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
@@ -160,15 +161,16 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
 
   let academy: { id: string; name: string };
   try {
-    academy = await prisma.academy.create({
-      data: {
-        ...baseAcademyData(data, socialLinks),
-        verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
-        createdById: actor.id,
-        socialLinks: socialLinks.length ? { create: socialLinks } : undefined,
-      },
-      select: { id: true, name: true },
+    academy = await createAcademyInAcademyService({
+      ...baseAcademyData(data, socialLinks),
+      verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
+      createdById: actor.id,
     });
+    if (socialLinks.length) {
+      await prisma.academySocialLink.createMany({
+        data: socialLinks.map((link) => ({ ...link, academyId: academy.id })),
+      });
+    }
     if (actor) {
       await writeAdminAuditLog({
         actorUserId: actor.id,
@@ -240,24 +242,20 @@ export async function updateAcademy(
     : null;
   let academy: { id: string; name: string };
   try {
-    academy = await prisma.$transaction(async (tx) => {
-      const updated = await tx.academy.update({
-        where: { id },
-        data: {
-          ...baseAcademyData(data, socialLinks),
-          verificationStatus: existingAcademy?.verificationStatus ?? data.verificationStatus,
-          featured: existingAcademy?.featured ?? data.featured,
-          verified: (existingAcademy?.verificationStatus ?? data.verificationStatus) === AcademyVerificationStatus.VERIFIED,
-        },
-        select: { id: true, name: true },
-      });
+    const nextVerificationStatus = existingAcademy?.verificationStatus ?? data.verificationStatus;
+    academy = await updateAcademyInAcademyService(id, {
+      ...baseAcademyData(data, socialLinks),
+      verificationStatus: nextVerificationStatus,
+      featured: existingAcademy?.featured ?? data.featured,
+      verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
+    });
+    await prisma.$transaction(async (tx) => {
       await tx.academySocialLink.deleteMany({ where: { academyId: id } });
       if (socialLinks.length) {
         await tx.academySocialLink.createMany({
           data: socialLinks.map((link) => ({ ...link, academyId: id })),
         });
       }
-      return updated;
     });
     if (actor) {
       await writeAdminAuditLog({
@@ -616,7 +614,7 @@ export async function removeAcademyMember(academyId: string, memberId: string) {
   const member = await prisma.academyMember.findUnique({ where: { id: memberId } });
   if (!member || member.academyId !== academyId) return;
 
-  await prisma.academyMember.delete({ where: { id: memberId } });
+  await removeAcademyMemberInAcademyService(academyId, member.userId);
   revalidatePath(`/admin/academies/${academyId}/team`);
 }
 
@@ -632,17 +630,11 @@ export async function acceptAcademyInvitation(token: string) {
     redirect("/admin?error=wrong-invitation-user");
   }
 
-  await prisma.$transaction([
-    prisma.academyMember.upsert({
-      where: { academyId_userId: { academyId: invitation.academyId, userId: user.id } },
-      update: {},
-      create: { academyId: invitation.academyId, userId: user.id },
-    }),
-    prisma.academyInvitation.update({
+  await addAcademyMemberInAcademyService(invitation.academyId, user.id);
+  await prisma.academyInvitation.update({
       where: { id: invitation.id },
       data: { status: InvitationStatus.ACCEPTED },
-    }),
-  ]);
+  });
   await replaceUserAuthorisationRole(user, user.id, "ACADEMY_ADMIN", { organisationId: invitation.academyId });
 
   redirect(`/admin/academies/${invitation.academyId}`);

@@ -1,6 +1,6 @@
 import { AcademyVerificationStatus, ClaimStatus, CourseType, Prisma } from "@prisma/client";
+import { listAcademiesFromAcademyService } from "./academyService";
 import { combineDateAndTime } from "./open-mat-occurrences";
-import { prisma } from "./prisma";
 import { distanceMiles } from "./utils";
 export { getCourseDiscovery, getCourseOccurrence, getCourses, searchCourses } from "./courses";
 import { getCourseDiscovery, getCourseOccurrence } from "./courses";
@@ -78,11 +78,6 @@ function selectTopCandidates<T>(items: T[], limit: number, score: (item: T) => n
     .slice(0, limit);
 }
 
-const academyTrustInclude = {
-  members: { select: { id: true } },
-  claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
-} satisfies Prisma.AcademyInclude;
-
 function addAcademyDistances<T extends { latitude: number; longitude: number; verified?: boolean; verificationStatus?: AcademyVerificationStatus; members?: unknown[]; claims?: { status: ClaimStatus }[]; name?: string }>(items: T[], location?: LocationInput) {
   const origin = searchLocation(location);
   return items
@@ -108,25 +103,7 @@ export async function searchAcademies(query = "", location?: LocationInput) {
   const q = query.trim();
   const lower = q.toLowerCase();
   const [academies, events] = await Promise.all([
-    prisma.academy.findMany({
-      where: q
-        ? {
-            OR: [
-              { name: { contains: q, mode: "insensitive" } },
-              { city: { contains: q, mode: "insensitive" } },
-              { borough: { contains: q, mode: "insensitive" } },
-              { postcode: { contains: q, mode: "insensitive" } },
-              { affiliation: { contains: q, mode: "insensitive" } },
-              ...(lower.includes("no-gi") || lower.includes("nogi") ? [{ nogiAvailable: true }] : []),
-              ...(lower.includes("gi") && !lower.includes("no-gi") && !lower.includes("nogi") ? [{ giAvailable: true }] : []),
-              ...(lower.includes("beginner") ? [{ beginnerFriendly: true }] : []),
-              ...(lower.includes("competition") ? [{ competitionFocused: true }] : []),
-            ],
-          }
-        : undefined,
-      include: academyTrustInclude,
-      orderBy: { name: "asc" },
-    }),
+    listAcademiesFromAcademyService({ q, limit: 100 }),
     getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude }),
   ]);
   const eventsByAcademy = new Map<string, typeof events>();
@@ -137,7 +114,20 @@ export async function searchAcademies(query = "", location?: LocationInput) {
     }
   }
 
-  return addAcademyDistances(academies.map((academy) => ({
+  const locallyFilteredAcademies = academies.filter((academy) => (
+    !q
+    || academy.name.toLowerCase().includes(lower)
+    || academy.city.toLowerCase().includes(lower)
+    || (academy.borough ?? "").toLowerCase().includes(lower)
+    || academy.postcode.toLowerCase().includes(lower)
+    || (academy.affiliation ?? "").toLowerCase().includes(lower)
+    || ((lower.includes("no-gi") || lower.includes("nogi")) && academy.nogiAvailable)
+    || (lower.includes("gi") && !lower.includes("no-gi") && !lower.includes("nogi") && academy.giAvailable)
+    || (lower.includes("beginner") && academy.beginnerFriendly)
+    || (lower.includes("competition") && academy.competitionFocused)
+  ));
+
+  return addAcademyDistances(locallyFilteredAcademies.map((academy) => ({
     ...academy,
     events: eventsByAcademy.get(academy.id) ?? [],
   })), location);
@@ -166,7 +156,7 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
 
 export async function getMapItems() {
   const [academies, events] = await Promise.all([
-    prisma.academy.findMany({ include: academyTrustInclude, orderBy: { name: "asc" } }),
+    listAcademiesFromAcademyService({ limit: 100 }),
     getOpenMatRadar(),
   ]);
   const eventsByAcademy = new Map<string, typeof events>();

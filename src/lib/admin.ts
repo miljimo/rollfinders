@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { Role, type Prisma } from "@prisma/client";
 import { authOptions } from "./auth";
+import { listAcademyMembershipsForUserFromAcademyService } from "./academyService";
 import { authorize } from "./authorisation-service";
 import { prisma } from "./prisma";
 import { getUserAccount, UserServiceError } from "./users-service";
@@ -15,11 +16,7 @@ export async function getCurrentUser() {
     const account = await getUserAccount(user.id);
     if (account.user.academyId) return account.user;
 
-    const membership = await prisma.academyMember.findFirst({
-      where: { userId: account.user.id },
-      select: { academyId: true },
-      orderBy: { createdAt: "asc" },
-    });
+    const membership = (await listAcademyMembershipsForUserFromAcademyService(account.user.id))[0];
 
     return { ...account.user, academyId: membership?.academyId ?? null };
   } catch (error) {

@@ -1,6 +1,12 @@
 import { Role, UserStatus } from "@prisma/client";
+import {
+  addAcademyMemberInAcademyService,
+  getAcademyFromAcademyService,
+  listAcademyMembersFromAcademyService,
+  listAcademyMembershipsForUserFromAcademyService,
+  removeAcademyMemberInAcademyService,
+} from "./academyService";
 import { listUserAuthorisationRoles } from "./authorisation-service";
-import { prisma } from "./prisma";
 
 type RollfinderUserInput = {
   id: string;
@@ -62,25 +68,17 @@ async function authorisationProfileRole(userId: string, serviceRole: Role) {
 
 async function validAcademyId(academyId: string | null | undefined) {
   if (!academyId) return null;
-  const academy = await prisma.academy.findUnique({ where: { id: academyId }, select: { id: true } });
+  const academy = await getAcademyFromAcademyService(academyId);
   return academy?.id ?? null;
 }
 
 export async function localUserAcademyId(userId: string) {
-  const membership = await prisma.academyMember.findFirst({
-    where: { userId },
-    select: { academyId: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId))[0];
   return membership?.academyId ?? null;
 }
 
 async function localUserAcademyProfile(userId: string) {
-  const membership = await prisma.academyMember.findFirst({
-    where: { userId },
-    select: { academyId: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId))[0];
   return membership ?? null;
 }
 
@@ -88,23 +86,16 @@ export async function syncRollfinderUserProfile(user: RollfinderUserInput, acade
   const existingAcademyId = academyIdOverride === undefined ? await localUserAcademyId(user.id) : null;
   const academyId = await validAcademyId(academyIdOverride === undefined ? existingAcademyId ?? user.academyId ?? null : academyIdOverride);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.academyMember.deleteMany({ where: { userId: user.id } });
-    if (academyId) {
-      await tx.academyMember.create({
-        data: {
-          academyId,
-          userId: user.id,
-        },
-      });
-    }
-  });
+  const existingMemberships = await listAcademyMembershipsForUserFromAcademyService(user.id);
+  await Promise.all(existingMemberships.map((membership) => removeAcademyMemberInAcademyService(membership.academyId, user.id)));
+  if (academyId) await addAcademyMemberInAcademyService(academyId, user.id);
 
   return { ...user, academyId };
 }
 
 export async function removeRollfinderUserProfile(userId: string) {
-  await prisma.academyMember.deleteMany({ where: { userId } });
+  const memberships = await listAcademyMembershipsForUserFromAcademyService(userId);
+  await Promise.all(memberships.map((membership) => removeAcademyMemberInAcademyService(membership.academyId, userId)));
 }
 
 export async function enrichManagedUserWithRollfinderProfile<T extends RollfinderUserInput>(user: T): Promise<T & { academyId: string | null }> {
@@ -125,11 +116,7 @@ export async function enrichManagedUserWithRollfinderProfile<T extends Rollfinde
 export async function enrichManagedUsersWithRollfinderProfiles<T extends RollfinderUserInput>(users: T[]) {
   if (!users.length) return [] as Array<T & { academyId: string | null }>;
   const ids = users.map((user) => user.id);
-  const memberships = await prisma.academyMember.findMany({
-    where: { userId: { in: ids } },
-    select: { userId: true, academyId: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const memberships = (await Promise.all(ids.map((id) => listAcademyMembershipsForUserFromAcademyService(id)))).flat();
   const membershipByUserId = new Map<string, { academyId: string }>();
   for (const membership of memberships) {
     if (!membershipByUserId.has(membership.userId)) membershipByUserId.set(membership.userId, { academyId: membership.academyId });
@@ -159,13 +146,9 @@ export async function academyMemberProfiles(academyId: string, query = ""): Prom
   user: AcademyMemberProfileUser | null;
 }>> {
   const search = query.trim();
-  const members = await prisma.academyMember.findMany({
-    where: {
-      academyId,
-      ...(search ? { userId: { contains: search, mode: "insensitive" } } : {}),
-    },
-    orderBy: [{ createdAt: "desc" }],
-  });
+  const members = (await listAcademyMembersFromAcademyService(academyId))
+    .filter((member) => !search || member.userId.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
   if (!members.length) return [];
 
   return members.map((member) => ({
@@ -178,10 +161,8 @@ export async function enrichUsersWithAcademyNames<T extends { academyId: string 
   const academyIds = [...new Set(users.map((user) => user.academyId).filter((academyId): academyId is string => Boolean(academyId)))];
   if (!academyIds.length) return users.map((user) => ({ ...user, academy: null }));
 
-  const academies = await prisma.academy.findMany({
-    where: { id: { in: academyIds } },
-    select: { id: true, name: true },
-  });
+  const academies = (await Promise.all(academyIds.map((academyId) => getAcademyFromAcademyService(academyId))))
+    .filter((academy): academy is NonNullable<typeof academy> => Boolean(academy));
   const academyById = new Map(academies.map((academy) => [academy.id, { name: academy.name }]));
 
   return users.map((user) => ({

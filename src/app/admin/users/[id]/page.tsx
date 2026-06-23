@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { PageShell } from "@/components/PageShell";
 import { getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
-import { getManagedUser } from "@/lib/users-service";
+import { getManagedUser, getUserPermissionPanelModel } from "@/lib/users-service";
 import { updateManagedUser } from "../actions";
 import { UserForm } from "../UserForm";
 
@@ -23,14 +23,25 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const protectedUser = isProtectedSuperAdmin(user);
   const canManage = superAdmin || (platformAdmin && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
   if (!canManage) redirect("/admin/users");
+  const assignableFeatures = await getUserPermissionPanelModel(currentUser, id, {
+    organisationId: user.academyId ?? undefined,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+  }).catch(() => []);
 
   return (
     <PageShell>
-      <section className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <section className="mx-auto max-w-[96rem] px-4 py-8 sm:px-6">
         <Link href="/admin/users" className="text-sm font-bold text-teal-800">User Management</Link>
         <h1 className="mt-2 text-5xl font-black text-stone-950">Edit User</h1>
-        <p className="mt-3 break-all text-stone-700">{user.email}</p>
-        <UserForm academies={[]} action={updateManagedUser.bind(null, user.id)} mode="edit" superAdmin={superAdmin} user={{ ...user, role: user.role as Role, status: user.status as UserStatus }} />
+        <p className="mt-3 break-all text-stone-700">Update user details, role, status and permissions.</p>
+        <UserForm
+          academies={[]}
+          action={updateManagedUser.bind(null, user.id)}
+          assignableFeatures={assignableFeatures}
+          mode="edit"
+          superAdmin={superAdmin}
+          user={{ ...user, role: user.role as Role, status: user.status as UserStatus }}
+        />
       </section>
     </PageShell>
   );

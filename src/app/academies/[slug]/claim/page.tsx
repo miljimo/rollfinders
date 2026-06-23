@@ -2,32 +2,20 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
+import { findAcademyBySlugFromAcademyService } from "@/lib/academyService";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
-import { prisma } from "@/lib/prisma";
 import { AcademyClaimForm } from "./AcademyClaimForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function AcademyClaimPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const academy = await prisma.academy.findUnique({
-    where: { slug },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-      affiliation: true,
-      verified: true,
-      _count: {
-        select: { members: true },
-      },
-    },
-  });
+  const academy = await findAcademyBySlugFromAcademyService(slug);
 
   if (!academy) notFound();
 
-  const academyIsManaged = academy._count.members > 0;
+  const academyIsManaged = (academy.members?.length ?? 0) > 0;
 
   if (!academyIsManaged) {
     const country = analyticsCountryFromHeaders(await headers());

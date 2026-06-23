@@ -4,6 +4,7 @@ import { CourseType, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { TableRow } from "@/components/Table";
+import { listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { selectableCourseTypeOptions } from "@/lib/course-types";
 import { coursePriceLabel, courseTypeLabel, recurrenceLabel } from "@/lib/courses";
@@ -33,7 +34,7 @@ export default async function AdminCoursesPage({ searchParams }: { searchParams:
   const courseType = selectedCourseType(params.courseType);
   const status = params.status === "active" || params.status === "inactive" ? params.status : "all";
   const platformAdmin = isPlatformAdminRole(user.role);
-  const academyMemberships = platformAdmin ? [] : await prisma.academyMember.findMany({ where: { userId: user.id }, select: { academyId: true } });
+  const academyMemberships = platformAdmin ? [] : await listAcademyMembershipsForUserFromAcademyService(user.id);
   const academyIds = academyMemberships.map((membership) => membership.academyId);
   const accessWhere: Prisma.EventWhereInput = !platformAdmin
     ? { OR: [...(academyIds.length ? [{ academyId: { in: academyIds } }] : []), { createdById: user.id }, ...(isAcademyAdminRole(user.role) && user.academyId ? [{ academyId: user.academyId }] : [])] }

@@ -2,8 +2,13 @@
 set -eu
 
 if [ -z "${DATABASE_URL:-}" ]; then
-  echo "DATABASE_URL is required for service SQL migrations."
-  exit 1
+  if [ -n "${DB_HOST:-}" ] && [ -n "${DB_NAME:-}" ]; then
+    DATABASE_URL="postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}?sslmode=disable"
+    export DATABASE_URL
+  else
+    echo "DATABASE_URL or DB_HOST/DB_NAME is required for service SQL migrations."
+    exit 1
+  fi
 fi
 
 cd /app
@@ -28,6 +33,17 @@ if [ -d services/booking/migrations ]; then
   for dir in schema types tables procedures functions; do
     if [ -d "services/booking/migrations/${dir}" ]; then
       for file in services/booking/migrations/${dir}/*.sql; do
+        [ -f "${file}" ] || continue
+        psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
+      done
+    fi
+  done
+fi
+
+if [ -d services/academy/migrations ]; then
+  for dir in schema types tables procedures functions; do
+    if [ -d "services/academy/migrations/${dir}" ]; then
+      for file in services/academy/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
       done

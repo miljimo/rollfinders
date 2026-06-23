@@ -9,6 +9,7 @@ import { requestPasswordResetForEmail } from "@/lib/password-reset";
 import {
   createManagedUser as createUserInService,
   deleteManagedUser as deleteUserInService,
+  updateManagedUserPrivileges as updateUserPrivilegesInService,
   getManagedUser,
   mutateManagedUser,
   updateManagedUser as updateUserInService,
@@ -74,6 +75,7 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   const actor = await requireUserManager();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const phone = String(formData.get("phone") ?? "").trim() || null;
   const role = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const status = normalizeStatus(String(formData.get("status") ?? UserStatus.ACTIVE));
   const academyId = String(formData.get("academyId") ?? "").trim() || null;
@@ -86,7 +88,7 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   }
 
   try {
-    await updateUserInService(actor, userId, { name, email, role, status, academyId });
+    await updateUserInService(actor, userId, { name, email, phone, role, status, academyId });
   } catch (error) {
     if (typeof error === "object" && error !== null && "status" in error && error.status === 409) {
       const url = new URL(redirectTo, "http://localhost");
@@ -99,6 +101,12 @@ export async function updateManagedUser(userId: string, formData: FormData) {
 
   revalidateUserSurfaces();
   redirect(redirectTo);
+}
+
+export async function applyManagedUserPrivileges(userId: string, input: { feature: string; grant: string[]; revoke: string[] }) {
+  const actor = await requireUserManager();
+  await updateUserPrivilegesInService(actor, userId, input);
+  revalidateUserSurfaces();
 }
 
 export async function toggleManagedUserDisabled(userId: string) {

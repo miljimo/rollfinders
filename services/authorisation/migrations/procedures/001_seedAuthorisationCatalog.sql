@@ -65,6 +65,16 @@ BEGIN
     SELECT r.id, p.id
     FROM roles r
     JOIN permissions p ON p.code IN (
+        'academy.read',
+        'booking.view'
+    )
+    WHERE r.key IN ('USER', 'STANDARD_USER')
+    ON CONFLICT DO NOTHING;
+
+    INSERT INTO role_permissions (role_id, permission_id)
+    SELECT r.id, p.id
+    FROM roles r
+    JOIN permissions p ON p.code IN (
         'academy.create', 'academy.read', 'academy.update', 'academy.claim.approve',
         'course.create', 'course.update', 'course.delete',
         'booking.view', 'booking.cancel',

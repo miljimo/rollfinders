@@ -35,6 +35,43 @@ export type AuthorisationRoleAssignment = {
   created_at: string;
 };
 
+export type AuthorisationRole = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string;
+  level: number;
+  assignable: boolean;
+  system_role: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AuthorisationPermission = {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AuthorisationPermissionAssignment = {
+  id: string;
+  user_id: string;
+  permission_id: string;
+  permission_code?: string;
+  effect: "ALLOW" | "DENY";
+  scope?: {
+    organisation_id?: string;
+    application_id?: string;
+    resource_type?: string;
+    resource_id?: string;
+  };
+  assigned_by: string;
+  created_at: string;
+};
+
 export class AuthorisationServiceError extends Error {
   constructor(
     message: string,
@@ -118,6 +155,58 @@ export async function listUserAuthorisationRoles(userId: string) {
     });
     const result = await parseResponse(response) as { role_assignments?: AuthorisationRoleAssignment[] };
     return result.role_assignments ?? [];
+  } catch (error) {
+    if (error instanceof AuthorisationServiceError) return [];
+    throw error;
+  }
+}
+
+export async function listAuthorisationRoles() {
+  try {
+    const response = await fetch(`${authorisationServiceUrl()}/v1/roles`, {
+      method: "GET",
+      cache: "no-store",
+      headers: headers(),
+    });
+    const result = await parseResponse(response) as { roles?: AuthorisationRole[] };
+    return result.roles ?? [];
+  } catch (error) {
+    if (error instanceof AuthorisationServiceError) return [];
+    throw error;
+  }
+}
+
+export async function listEffectiveUserPermissions(userId: string, scope: AuthorisationScope = {}) {
+  const params = new URLSearchParams();
+  if (scope.organisationId) params.set("organisation_id", scope.organisationId);
+  if (scope.applicationId) params.set("application_id", scope.applicationId);
+  if (scope.resourceType) params.set("resource_type", scope.resourceType);
+  if (scope.resourceId) params.set("resource_id", scope.resourceId);
+
+  try {
+    const query = params.toString();
+    const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/effective-permissions${query ? `?${query}` : ""}`, {
+      method: "GET",
+      cache: "no-store",
+      headers: headers(),
+    });
+    const result = await parseResponse(response) as { permissions?: AuthorisationPermission[] };
+    return result.permissions ?? [];
+  } catch (error) {
+    if (error instanceof AuthorisationServiceError) return [];
+    throw error;
+  }
+}
+
+export async function listUserPermissionAssignments(userId: string) {
+  try {
+    const response = await fetch(`${authorisationServiceUrl()}/v1/users/${encodeURIComponent(userId)}/permissions`, {
+      method: "GET",
+      cache: "no-store",
+      headers: headers(),
+    });
+    const result = await parseResponse(response) as { permission_assignments?: AuthorisationPermissionAssignment[] };
+    return result.permission_assignments ?? [];
   } catch (error) {
     if (error instanceof AuthorisationServiceError) return [];
     throw error;

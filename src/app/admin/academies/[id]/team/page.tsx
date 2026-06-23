@@ -3,6 +3,7 @@ import { InvitationStatus } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/PageShell";
 import { canManageAcademyTeam, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
+import { getAcademyFromAcademyService } from "@/lib/academyService";
 import { prisma } from "@/lib/prisma";
 import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { formatDate } from "@/lib/utils";
@@ -13,13 +14,10 @@ export const dynamic = "force-dynamic";
 export default async function AcademyTeamPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const access = await requireAcademyTeamViewer(id);
-  const academy = await prisma.academy.findUnique({
-    where: { id },
-    include: {
-      members: { orderBy: [{ createdAt: "asc" }] },
-      invitations: { where: { status: InvitationStatus.PENDING }, orderBy: { createdAt: "desc" } },
-    },
-  });
+  const [academy, invitations] = await Promise.all([
+    getAcademyFromAcademyService(id),
+    prisma.academyInvitation.findMany({ where: { academyId: id, status: InvitationStatus.PENDING }, orderBy: { createdAt: "desc" } }),
+  ]);
 
   if (!academy || !canViewAcademyTeam(access)) return null;
   const canManageTeam = canManageAcademyTeam(access);
@@ -69,7 +67,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
           <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
             <h2 className="text-xl font-black text-stone-950">Pending Invitations</h2>
             <div className="mt-3">
-              {academy.invitations.map((invitation) => (
+              {invitations.map((invitation) => (
                 <div key={invitation.id} className="border-b border-stone-100 py-3">
                   <p className="font-semibold text-stone-950">{invitation.invitedEmail}</p>
                   <p className="text-sm text-stone-600">Invited by {invitation.invitedById} · expires {formatDate(invitation.expiresAt)}</p>
@@ -84,7 +82,7 @@ export default async function AcademyTeamPage({ params }: { params: Promise<{ id
                   </div>
                 </div>
               ))}
-              {academy.invitations.length === 0 ? <p className="py-3 text-sm text-stone-600">No pending invitations.</p> : null}
+              {invitations.length === 0 ? <p className="py-3 text-sm text-stone-600">No pending invitations.</p> : null}
             </div>
           </section>
           ) : null}

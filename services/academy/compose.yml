@@ -1,0 +1,27 @@
+services:
+  academy:
+    build:
+      context: .
+    profiles:
+      - academy
+      - app
+    environment:
+      PORT: "8080"
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
+      READ_TIMEOUT: 5s
+      WRITE_TIMEOUT: 10s
+      SHUTDOWN_TIMEOUT: 10s
+    ports:
+      - "127.0.0.1:${ACADEMY_SERVICE_PORT:-3006}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

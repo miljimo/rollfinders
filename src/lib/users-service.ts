@@ -1,5 +1,5 @@
 import { getEnvVariable } from "./environments";
-import { replaceUserAuthorisationRole } from "./authorisation-service";
+import { listEffectiveUserPermissions, replaceUserAuthorisationRole, type AuthorisationPermission, type AuthorisationScope } from "./authorisation-service";
 import {
   enrichManagedUserWithRollfinderProfile,
   enrichManagedUsersWithRollfinderProfiles,
@@ -31,6 +31,21 @@ export type ManagedUser = {
   emailStatus: string;
   lastLoginAt: string | null;
   createdAt: string;
+};
+
+export type AssignableUserPermission = {
+  code: string;
+  name: string;
+  description?: string | null;
+  assigned: boolean;
+  assignable?: boolean;
+  source?: "assignable" | "role";
+};
+
+export type AssignableUserFeature = {
+  key: string;
+  name: string;
+  permissions: AssignableUserPermission[];
 };
 
 type AuthTokens = {
@@ -194,6 +209,159 @@ export async function getManagedUser(actor: ActorContext, id: string) {
   });
   const result = await parseResponse(response) as { user: ManagedUser };
   return { user: await enrichManagedUserWithRollfinderProfile(result.user) as ManagedUser };
+}
+
+export async function listAssignableUserFeatures(actor: ActorContext, id: string, search = "") {
+  const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
+  const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}/assignable-features${query}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  return parseResponse(response) as Promise<{ features: { key: string; name: string }[] }>;
+}
+
+export async function getAssignableUserFeaturePrivileges(actor: ActorContext, id: string, featureKey: string) {
+  const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}/assignable-features/${encodeURIComponent(featureKey)}/privileges`, {
+    method: "GET",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  return parseResponse(response) as Promise<{ feature: string; privileges: AssignableUserPermission[] }>;
+}
+
+export async function getAssignableUserPermissionModel(actor: ActorContext, id: string) {
+  const { features } = await listAssignableUserFeatures(actor, id);
+  const settled = await Promise.allSettled(
+    features.map(async (feature) => {
+      const result = await getAssignableUserFeaturePrivileges(actor, id, feature.key);
+      return { key: feature.key, name: feature.name, permissions: result.privileges };
+    }),
+  );
+
+  return settled.flatMap((result) => result.status === "fulfilled" ? [result.value] : []);
+}
+
+function permissionFeatureKey(code: string) {
+  return code.split(".")[0]?.trim() || "permissions";
+}
+
+function formatFeatureName(key: string) {
+  const knownNames: Record<string, string> = {
+    academy: "Academy Management",
+    authorisation: "Authorisation",
+    booking: "Bookings",
+    bookings: "Bookings",
+    course: "Courses",
+    courses: "Courses",
+    payment: "Payments",
+    payments: "Payments",
+    stripe: "Stripe Connect",
+    user: "User Management",
+    users: "User Management",
+    withdrawal: "Withdrawals",
+    withdrawals: "Withdrawals",
+  };
+  return knownNames[key] ?? key.split(/[-_.\s]+/).filter(Boolean).map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`).join(" ");
+}
+
+function rolePermissionFeatureModel(permissions: AuthorisationPermission[]) {
+  const features = new Map<string, AssignableUserFeature>();
+  for (const permission of permissions) {
+    const key = permissionFeatureKey(permission.code);
+    const feature = features.get(key) ?? { key, name: formatFeatureName(key), permissions: [] };
+    feature.permissions.push({
+      code: permission.code,
+      name: permission.name,
+      description: permission.description ?? null,
+      assigned: true,
+      assignable: false,
+      source: "role",
+    });
+    features.set(key, feature);
+  }
+
+  return Array.from(features.values()).map((feature) => ({
+    ...feature,
+    permissions: feature.permissions.sort((left, right) => left.code.localeCompare(right.code)),
+  })).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+function mergePermissionModels(assignableFeatures: AssignableUserFeature[], roleFeatures: AssignableUserFeature[]) {
+  const features = new Map<string, AssignableUserFeature>();
+  for (const feature of roleFeatures) {
+    features.set(feature.key, {
+      ...feature,
+      permissions: feature.permissions.map((permission) => ({ ...permission })),
+    });
+  }
+
+  for (const feature of assignableFeatures) {
+    const mergedFeature = features.get(feature.key) ?? { key: feature.key, name: feature.name, permissions: [] };
+    const permissions = new Map(mergedFeature.permissions.map((permission) => [permission.code, permission]));
+    for (const permission of feature.permissions) {
+      const existing = permissions.get(permission.code);
+      permissions.set(permission.code, {
+        ...existing,
+        ...permission,
+        assigned: permission.assigned || existing?.assigned === true,
+        assignable: true,
+        source: "assignable",
+      });
+    }
+    features.set(feature.key, {
+      key: feature.key,
+      name: feature.name || mergedFeature.name,
+      permissions: Array.from(permissions.values()).sort((left, right) => left.code.localeCompare(right.code)),
+    });
+  }
+
+  return Array.from(features.values()).sort((left, right) => left.name.localeCompare(right.name));
+}
+
+export async function getUserPermissionPanelModel(actor: ActorContext, id: string, scope: AuthorisationScope = {}) {
+  const applicationId = scope.applicationId ?? getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders");
+  const panelScope = { ...scope, applicationId };
+  const [apiAssignableFeatures, targetEffectivePermissions] = await Promise.all([
+    getAssignableUserPermissionModel(actor, id).catch(() => []),
+    listEffectiveUserPermissions(id, panelScope).catch(() => []),
+  ]);
+  const targetRoleFeatures = rolePermissionFeatureModel(targetEffectivePermissions);
+
+  if (apiAssignableFeatures.length) {
+    return mergePermissionModels(apiAssignableFeatures, targetRoleFeatures);
+  }
+
+  const actorEffectivePermissions = await listEffectiveUserPermissions(actor.id, {
+    ...panelScope,
+    organisationId: scope.organisationId ?? actor.academyId ?? undefined,
+  }).catch(() => []);
+  const targetAssigned = new Set(targetEffectivePermissions.map((permission) => permission.code));
+  const actorAssignableFeatures = rolePermissionFeatureModel(actorEffectivePermissions).map((feature) => ({
+    ...feature,
+    permissions: feature.permissions.map((permission) => ({
+      ...permission,
+      assigned: targetAssigned.has(permission.code),
+      assignable: true,
+      source: "assignable" as const,
+    })),
+  }));
+
+  return mergePermissionModels(actorAssignableFeatures, targetRoleFeatures);
+}
+
+export async function updateManagedUserPrivileges(
+  actor: ActorContext,
+  id: string,
+  input: { feature: string; grant: string[]; revoke: string[] },
+) {
+  const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}/privileges`, {
+    method: "PUT",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify(input),
+  });
+  return parseResponse(response) as Promise<{ status: string; feature: string; granted: string[]; revoked: string[] }>;
 }
 
 export async function updateManagedUser(actor: ActorContext, id: string, input: unknown) {

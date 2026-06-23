@@ -18,10 +18,17 @@ RUN npm run build
 
 FROM node:22-alpine AS migrator
 WORKDIR /app
+RUN apk add --no-cache postgresql-client
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY prisma ./prisma
 COPY seed ./seed
+COPY services/users/migrations ./services/users/migrations
+COPY services/payments/migrations ./services/payments/migrations
+COPY services/courses/migrations ./services/courses/migrations
+COPY services/booking/migrations ./services/booking/migrations
+COPY services/academy/migrations ./services/academy/migrations
+COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
 CMD ["npx", "prisma", "migrate", "deploy"]
@@ -49,6 +56,7 @@ COPY --chown=nextjs:nodejs services/users/migrations ./services/users/migrations
 COPY --chown=nextjs:nodejs services/payments/migrations ./services/payments/migrations
 COPY --chown=nextjs:nodejs services/courses/migrations ./services/courses/migrations
 COPY --chown=nextjs:nodejs services/booking/migrations ./services/booking/migrations
+COPY --chown=nextjs:nodejs services/academy/migrations ./services/academy/migrations
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
 COPY --chown=nextjs:nodejs src/lib/prisma-pg-pool.ts ./src/lib/prisma-pg-pool.ts

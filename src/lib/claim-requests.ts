@@ -1,5 +1,6 @@
 import { ClaimStatus, type ClaimRequest, type Prisma } from "@prisma/client";
 import { z } from "zod";
+import { addAcademyMemberInAcademyService, listAcademyMembersFromAcademyService } from "@/lib/academyService";
 import { prisma } from "@/lib/prisma";
 import { queuePasswordResetEmail } from "@/lib/password-reset";
 import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
@@ -40,8 +41,9 @@ export function isDuplicatePendingClaimError(error: unknown) {
 }
 
 export async function isAcademyManaged(academyId: string, tx: Prisma.TransactionClient | typeof prisma = prisma) {
-  const memberCount = await tx.academyMember.count({ where: { academyId } });
-  return memberCount > 0;
+  void tx;
+  const members = await listAcademyMembersFromAcademyService(academyId);
+  return members.length > 0;
 }
 
 async function linkRequesterUser(_tx: Prisma.TransactionClient, claim: ClaimWithAcademy) {
@@ -64,6 +66,11 @@ export type ClaimDecisionResult =
   | { ok: false; status: 404 | 409; error: string };
 
 export async function approveAcademyClaim(claimId: string, actorUserId: string): Promise<ClaimDecisionResult> {
+  const existingClaim = await prisma.claimRequest.findUnique({ where: { id: claimId }, select: { academyId: true, status: true } });
+  if (!existingClaim) return { ok: false, status: 404, error: "Claim not found" };
+  if (existingClaim.status !== ClaimStatus.PENDING) return { ok: false, status: 409, error: "Only pending claims can be approved" };
+  if (await isAcademyManaged(existingClaim.academyId)) return { ok: false, status: 409, error: "Academy is already managed" };
+
   const result: ClaimDecisionResult = await prisma.$transaction(async (tx) => {
     const claim = await tx.claimRequest.findUnique({
       where: { id: claimId },
@@ -72,14 +79,8 @@ export async function approveAcademyClaim(claimId: string, actorUserId: string):
 
     if (!claim) return { ok: false as const, status: 404, error: "Claim not found" };
     if (claim.status !== ClaimStatus.PENDING) return { ok: false as const, status: 409, error: "Only pending claims can be approved" };
-    if (await isAcademyManaged(claim.academyId, tx)) return { ok: false as const, status: 409, error: "Academy is already managed" };
 
     const { user, createdUser } = await linkRequesterUser(tx, claim);
-    await tx.academyMember.upsert({
-      where: { academyId_userId: { academyId: claim.academyId, userId: user.id } },
-      update: {},
-      create: { academyId: claim.academyId, userId: user.id },
-    });
 
     const reviewedAt = new Date();
     const updatedClaim = await tx.claimRequest.update({
@@ -113,6 +114,7 @@ export async function approveAcademyClaim(claimId: string, actorUserId: string):
     return { ok: true as const, claim: updatedClaim, user, createdUser };
   });
   if (result.ok === true && result.user) {
+    await addAcademyMemberInAcademyService(result.claim.academyId, result.user.id);
     await replaceUserAuthorisationRole({ id: actorUserId }, result.user.id, "ACADEMY_ADMIN", { organisationId: result.claim.academyId });
   }
   return result;

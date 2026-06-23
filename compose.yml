@@ -1,6 +1,7 @@
 include:
   - path: ./services/payments/compose.yml
   - path: ./services/booking/compose.yml
+  - path: ./services/academy/compose.yml
   - path: ./services/users/compose.yml
   - path: ./services/courses/compose.yml
   - path: ./services/authorisation/compose.yml
@@ -9,6 +10,7 @@ services:
   db:
     image: postgres:16-alpine
     profiles:
+      - academy
       - booking
       - courses
       - db
@@ -34,6 +36,7 @@ services:
       context: .
       target: migrator
     profiles:
+      - academy
       - booking
       - courses
       - app
@@ -99,6 +102,7 @@ services:
       AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
       COURSE_PUBLIC_BASE_URL: http://courses:8080
+      ACADEMY_PUBLIC_BASE_URL: http://academy:8080
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
     ports:
       - "3000:3000"
@@ -116,6 +120,8 @@ services:
       payments:
         condition: service_healthy
       booking:
+        condition: service_healthy
+      academy:
         condition: service_healthy
 
 volumes:

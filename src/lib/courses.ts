@@ -1,4 +1,4 @@
-import { ClaimStatus, CourseActivityType, CourseType, EventAudience, EventPricingType, GiType, type Academy, type Event, type Prisma } from "@prisma/client";
+import { ClaimStatus, CourseActivityType, CourseType, EventAudience, EventPricingType, GiType, type Academy, type Event } from "@prisma/client";
 import { courseActivityTypeLabels } from "./course-activities";
 import { addDays, defaultOccurrenceWindowEnd, dedupeOccurrences, expandEventOccurrences, recurrenceLabel as occurrenceRecurrenceLabel, startOfDay } from "./open-mat-occurrences";
 import { courseTypeLabels } from "./course-types";
@@ -9,7 +9,7 @@ import {
   type RollfindersCourseActivityRecord,
   type RollfindersCourseRecord,
 } from "./courseService";
-import { prisma } from "./prisma";
+import { getAcademyFromAcademyService } from "./academyService";
 import { distanceMiles } from "./utils";
 
 export { courseTypeLabel, courseTypeLabels, courseTypeOptions, selectableCourseTypeOptions } from "./course-types";
@@ -74,11 +74,6 @@ export type CourseFilters = {
 
 const defaultSearchLocation = { latitude: 51.5072, longitude: -0.1276 };
 
-const academyTrustInclude = {
-  members: { select: { id: true } },
-  claims: { where: { status: ClaimStatus.APPROVED }, select: { status: true } },
-} satisfies Prisma.AcademyInclude;
-
 function searchLocation(filters: CourseFilters) {
   return Number.isFinite(filters.latitude) && Number.isFinite(filters.longitude)
     ? { latitude: filters.latitude as number, longitude: filters.longitude as number }
@@ -136,10 +131,8 @@ function courseMatchesSearch(course: ServiceCourseWithAcademy, activities: Rollf
 async function hydrateCoursesFromService(filters: CourseFilters = {}) {
   const serviceCourses = await listRollfindersCoursesFromCourseService(filters.academyId);
   const academyIds = [...new Set(serviceCourses.map((course) => course.academyId))];
-  const academies = await prisma.academy.findMany({
-    where: academyIds.length ? { id: { in: academyIds } } : { id: { in: [] } },
-    include: academyTrustInclude,
-  });
+  const academies = (await Promise.all(academyIds.map((academyId) => getAcademyFromAcademyService(academyId))))
+    .filter((academy): academy is NonNullable<typeof academy> => Boolean(academy));
   const academyById = new Map(academies.map((academy) => [academy.id, academy as AcademyWithTrust]));
   const courses: ServiceCourseWithAcademy[] = serviceCourses
     .flatMap((course) => {
@@ -195,7 +188,7 @@ export async function getCourseOccurrence(id: string, occurrenceDateParam?: stri
   const course = await getRollfindersCourseFromCourseService(id);
   if (!course) return null;
   const [academy, activities] = await Promise.all([
-    prisma.academy.findUnique({ where: { id: course.academyId }, include: academyTrustInclude }),
+    getAcademyFromAcademyService(course.academyId),
     listRollfindersCourseActivitiesFromCourseService(course),
   ]);
   if (!academy) return null;

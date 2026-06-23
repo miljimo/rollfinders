@@ -35,6 +35,9 @@ The service SHALL NOT own roles, permissions, role assignments, or direct user p
 | `POST` | `/v1/users/{id}/enable` | Enable user |
 | `POST` | `/v1/users/{id}/promote` | Removed from Users Service; use Authorisation Service |
 | `POST` | `/v1/users/{id}/demote` | Removed from Users Service; use Authorisation Service |
+| `GET` | `/v1/users/{id}/assignable-features` | Orchestrator/Authorisation-backed assignable privilege feature search |
+| `GET` | `/v1/users/{id}/assignable-features/{featureKey}/privileges` | Orchestrator/Authorisation-backed assignable privileges for one feature |
+| `PUT` | `/v1/users/{id}/privileges` | Orchestrator/Authorisation-backed direct privilege assignment update |
 
 All routes SHALL require internal service authentication and actor context.
 
@@ -76,8 +79,13 @@ Users Service does not own permissions or roles. The Authorisation Service store
 | protected-account mutations | `user.protected.manage` plus the route permission |
 | `POST /v1/users/{id}/promote` | removed; use Authorisation Service role assignment APIs |
 | `POST /v1/users/{id}/demote` | removed; use Authorisation Service role assignment APIs |
+| `GET /v1/users/{id}/assignable-features` | `authorisation.user_permission.read` |
+| `GET /v1/users/{id}/assignable-features/{featureKey}/privileges` | `authorisation.user_permission.read` |
+| `PUT /v1/users/{id}/privileges` | `authorisation.user_permission.assign` and/or `authorisation.user_permission.remove` |
 
 Permission scope SHALL include `organisation_id`, `application_id`, and `resource_type=user` with the target user id where applicable.
+
+The product UI may use the label `privileges` for continuity with existing RollFinders language, but the target authority remains Authorisation Service permissions. Users Service SHALL NOT store or calculate assignable privileges.
 
 ---
 
@@ -289,7 +297,214 @@ Users Service SHALL NOT mutate role or permission assignment data.
 
 ---
 
-# Requirement 8: Error Shape
+# Requirement 8: User Edit Form Privilege Assignment Specification
+
+The User Edit Form SHALL include a privilege assignment section.
+
+This section allows admins to manage fine-grained access for an existing user without hardcoded frontend access rules.
+
+Existing fields must remain available:
+
+* name
+* email
+* academy assignment, where applicable
+* status, where applicable
+
+Role assignment remains removed from Users Service. Any role or direct permission assignment must be handled by Authorisation Service through the Orchestrator/API layer.
+
+## Requirement 8A: Assignable Privileges Only
+
+The frontend SHALL NOT calculate which privileges the actor can grant.
+
+The Orchestrator/API layer SHALL return only privileges the logged-in admin is allowed to assign.
+
+Assignable privilege rule:
+
+```text
+Admin can assign a privilege only if:
+- Admin already has that privilege
+- The privilege is inside the actor's permitted administration scope
+```
+
+If a future delegated authority model reintroduces grant levels, that comparison must be performed server-side by Authorisation Service. The frontend must not receive or evaluate hidden privileges.
+
+## Requirement 8B: Feature Search Control
+
+Add an autocomplete search field to the User Edit Form privilege assignment section:
+
+```text
+Search feature...
+```
+
+Example searchable features:
+
+```text
+Academy Management
+Courses
+Payments
+Bookings
+Withdrawals
+User Management
+Stripe Connect
+```
+
+Feature search results SHALL come from the Orchestrator/API layer and include only features containing at least one assignable privilege for the actor.
+
+## Requirement 8C: Privilege Checklist
+
+When a feature is selected, the UI SHALL show all assignable privileges under that feature as checkboxes.
+
+Example:
+
+```text
+Academy Management
+
+[ ] academy.read
+[ ] academy.create
+[ ] academy.update
+[ ] academy.claim.approve
+[ ] academy.verification.approve
+```
+
+Rules:
+
+* checked means the target user currently has the privilege
+* unchecked means the privilege will be revoked for that feature when applied
+* privileges not returned by the API must not appear in the UI
+* the UI must not hardcode privilege lists
+* the UI must support empty states when no assignable privileges exist
+
+## Requirement 8D: Apply Privileges
+
+The section SHALL include:
+
+```text
+Apply Privileges
+```
+
+When clicked, the UI SHALL send only the selected feature's changes to the Orchestrator/API layer.
+
+The UI SHALL display:
+
+* success message when changes are applied
+* validation or authorisation error when the API rejects the change
+* loading/disabled state while the request is in flight
+
+## Requirement 8E: Orchestrator API Contract
+
+The browser-facing route may remain a Next.js route/server action, but it must delegate to the Orchestrator/API layer. Users Service does not own this authorisation state.
+
+### Search Assignable Features
+
+```http
+GET /v1/users/{userId}/assignable-features?search=academy
+```
+
+Response:
+
+```json
+{
+  "features": [
+    {
+      "key": "academy-management",
+      "name": "Academy Management"
+    }
+  ]
+}
+```
+
+### Get Feature Privileges
+
+```http
+GET /v1/users/{userId}/assignable-features/{featureKey}/privileges
+```
+
+Response:
+
+```json
+{
+  "feature": "academy-management",
+  "privileges": [
+    {
+      "code": "academy.read",
+      "name": "View Academy",
+      "assigned": true
+    },
+    {
+      "code": "academy.update",
+      "name": "Update Academy",
+      "assigned": false
+    }
+  ]
+}
+```
+
+### Apply User Privileges
+
+```http
+PUT /v1/users/{userId}/privileges
+```
+
+Request:
+
+```json
+{
+  "feature": "academy-management",
+  "grant": [
+    "academy.update"
+  ],
+  "revoke": [
+    "academy.delete"
+  ]
+}
+```
+
+Response:
+
+```json
+{
+  "status": "updated",
+  "feature": "academy-management",
+  "granted": [
+    "academy.update"
+  ],
+  "revoked": [
+    "academy.delete"
+  ]
+}
+```
+
+## Requirement 8F: Security Rules
+
+* Frontend must not receive privileges the admin cannot assign.
+* Backend must validate every privilege before applying.
+* Admin cannot grant privileges they do not have.
+* Admin cannot grant privileges outside their organisation/application/resource scope.
+* If delegated grant levels exist in the future, admin cannot grant privileges above their level.
+* All changes must be audited by Authorisation Service or the Orchestrator audit pipeline.
+* Failed authorisation checks must fail closed.
+
+## Requirement 8G: Audit Log
+
+Privilege assignment changes SHALL record:
+
+```text
+target_user_id
+changed_by_user_id
+feature
+granted_privileges
+revoked_privileges
+organisation_id
+application_id
+resource_type
+resource_id
+timestamp
+request_id
+```
+
+---
+
+# Requirement 9: Error Shape
 
 The service SHALL return JSON errors with a stable message field:
 
@@ -311,3 +526,12 @@ Next.js MAY pass this message through to existing browser-facing route responses
 * Audit logs are written for every successful admin mutation.
 * Existing browser-facing Next.js user APIs remain compatible.
 * Service-backed routes support current admin dashboard pagination, filters, and actions.
+* User Edit Form includes a privilege assignment section.
+* Feature autocomplete works and is backed by the API.
+* Selecting a feature shows assignable privileges for that feature.
+* Admin only sees assignable privileges returned by the backend.
+* Admin can tick and untick privileges for the selected feature.
+* Apply Privileges saves changes through the Orchestrator/API layer.
+* Success and error messages are displayed.
+* Existing user edit fields still work.
+* No hardcoded privilege logic exists in the frontend.
