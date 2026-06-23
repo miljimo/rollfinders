@@ -232,6 +232,23 @@ func (r *repository) rolePermissions(ctx context.Context, roleID string) ([]Perm
 	return out, rows.Err()
 }
 
+func (r *repository) ensureResource(ctx context.Context, scope Scope) error {
+	if scope.ResourceID == "" {
+		return nil
+	}
+	if scope.ResourceType == "" {
+		return fmt.Errorf("resource_type is required when resource_id is provided")
+	}
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO resources (id, resource_type)
+		VALUES ($1, $2)
+		ON CONFLICT (id) DO UPDATE
+		SET resource_type = EXCLUDED.resource_type,
+		    updated_at = now()`,
+		scope.ResourceID, scope.ResourceType)
+	return err
+}
+
 func (r *repository) assignUserRole(ctx context.Context, a UserRoleAssignment, actor, requestID string) (UserRoleAssignment, error) {
 	role, err := r.getRole(ctx, a.RoleID)
 	if err != nil {
@@ -240,11 +257,19 @@ func (r *repository) assignUserRole(ctx context.Context, a UserRoleAssignment, a
 	if err := r.ensureAssignable(ctx, actor, role.Level); err != nil {
 		return UserRoleAssignment{}, err
 	}
+	if err := r.ensureResource(ctx, a.Scope); err != nil {
+		return UserRoleAssignment{}, err
+	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO user_roles (id, user_id, role_id, organisation_id, application_id, resource_type, resource_id, assigned_by)
-		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)
-		RETURNING id, user_id, role_id, organisation_id, application_id, resource_type, resource_id, assigned_by, created_at`,
-		a.ID, a.UserID, a.RoleID, a.Scope.OrganisationID, a.Scope.ApplicationID, a.Scope.ResourceType, a.Scope.ResourceID, a.AssignedBy)
+		WITH inserted AS (
+			INSERT INTO user_roles (id, user_id, role_id, organisation_id, application_id, resource_id, assigned_by)
+			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), $7)
+			RETURNING id, user_id, role_id, organisation_id, application_id, resource_id, assigned_by, created_at
+		)
+		SELECT inserted.id, inserted.user_id, inserted.role_id, inserted.organisation_id, inserted.application_id, res.resource_type, inserted.resource_id, inserted.assigned_by, inserted.created_at
+		FROM inserted
+		LEFT JOIN resources res ON res.id = inserted.resource_id`,
+		a.ID, a.UserID, a.RoleID, a.Scope.OrganisationID, a.Scope.ApplicationID, a.Scope.ResourceID, a.AssignedBy)
 	created, err := scanUserRole(row)
 	if err != nil {
 		return UserRoleAssignment{}, err
@@ -256,9 +281,10 @@ func (r *repository) assignUserRole(ctx context.Context, a UserRoleAssignment, a
 
 func (r *repository) listUserRoles(ctx context.Context, userID string) ([]UserRoleAssignment, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT ur.id, ur.user_id, ur.role_id, ur.organisation_id, ur.application_id, ur.resource_type, ur.resource_id, ur.assigned_by, ur.created_at, r.key
+		SELECT ur.id, ur.user_id, ur.role_id, ur.organisation_id, ur.application_id, res.resource_type, ur.resource_id, ur.assigned_by, ur.created_at, r.key
 		FROM user_roles ur
 		JOIN roles r ON r.id = ur.role_id
+		LEFT JOIN resources res ON res.id = ur.resource_id
 		WHERE ur.user_id = $1
 		ORDER BY ur.created_at DESC`, userID)
 	if err != nil {
@@ -309,11 +335,19 @@ func (r *repository) assignUserPermission(ctx context.Context, a UserPermissionA
 	if err != nil {
 		return UserPermissionAssignment{}, err
 	}
+	if err := r.ensureResource(ctx, a.Scope); err != nil {
+		return UserPermissionAssignment{}, err
+	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO user_permissions (id, user_id, permission_id, effect, organisation_id, application_id, resource_type, resource_id, assigned_by)
-		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), NULLIF($8, ''), $9)
-		RETURNING id, user_id, permission_id, effect, organisation_id, application_id, resource_type, resource_id, assigned_by, created_at`,
-		a.ID, a.UserID, a.PermissionID, a.Effect, a.Scope.OrganisationID, a.Scope.ApplicationID, a.Scope.ResourceType, a.Scope.ResourceID, a.AssignedBy)
+		WITH inserted AS (
+			INSERT INTO user_permissions (id, user_id, permission_id, effect, organisation_id, application_id, resource_id, assigned_by)
+			VALUES ($1, $2, $3, $4, NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), $8)
+			RETURNING id, user_id, permission_id, effect, organisation_id, application_id, resource_id, assigned_by, created_at
+		)
+		SELECT inserted.id, inserted.user_id, inserted.permission_id, inserted.effect, inserted.organisation_id, inserted.application_id, res.resource_type, inserted.resource_id, inserted.assigned_by, inserted.created_at
+		FROM inserted
+		LEFT JOIN resources res ON res.id = inserted.resource_id`,
+		a.ID, a.UserID, a.PermissionID, a.Effect, a.Scope.OrganisationID, a.Scope.ApplicationID, a.Scope.ResourceID, a.AssignedBy)
 	created, err := scanUserPermission(row)
 	if err != nil {
 		return UserPermissionAssignment{}, err
@@ -325,9 +359,10 @@ func (r *repository) assignUserPermission(ctx context.Context, a UserPermissionA
 
 func (r *repository) listUserPermissions(ctx context.Context, userID string) ([]UserPermissionAssignment, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT up.id, up.user_id, up.permission_id, up.effect, up.organisation_id, up.application_id, up.resource_type, up.resource_id, up.assigned_by, up.created_at, p.code
+		SELECT up.id, up.user_id, up.permission_id, up.effect, up.organisation_id, up.application_id, res.resource_type, up.resource_id, up.assigned_by, up.created_at, p.code
 		FROM user_permissions up
 		JOIN permissions p ON p.id = up.permission_id
+		LEFT JOIN resources res ON res.id = up.resource_id
 		WHERE up.user_id = $1
 		ORDER BY up.created_at DESC`, userID)
 	if err != nil {
@@ -410,7 +445,10 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 		FROM user_roles ur
 		JOIN role_permissions rp ON rp.role_id = ur.role_id
 		JOIN permissions p ON p.id = rp.permission_id
-		WHERE ur.user_id = $1 AND scope_matches(ur.organisation_id, ur.application_id, ur.resource_type, ur.resource_id, $2, $3, $4, $5)`,
+		LEFT JOIN resources res ON res.id = ur.resource_id
+		WHERE ur.user_id = $1
+		  AND scope_matches(ur.organisation_id, ur.application_id, res.resource_type, ur.resource_id, $2, $3, $4, $5)
+		  AND permission_application_enabled(p.code, $3)`,
 		userID, nullable(scope.OrganisationID), nullable(scope.ApplicationID), nullable(scope.ResourceType), nullable(scope.ResourceID))
 	if err != nil {
 		return effectiveSet{}, err
@@ -430,7 +468,10 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), p.created_at, p.updated_at, up.effect
 		FROM user_permissions up
 		JOIN permissions p ON p.id = up.permission_id
-		WHERE up.user_id = $1 AND scope_matches(up.organisation_id, up.application_id, up.resource_type, up.resource_id, $2, $3, $4, $5)`,
+		LEFT JOIN resources res ON res.id = up.resource_id
+		WHERE up.user_id = $1
+		  AND scope_matches(up.organisation_id, up.application_id, res.resource_type, up.resource_id, $2, $3, $4, $5)
+		  AND permission_application_enabled(p.code, $3)`,
 		userID, nullable(scope.OrganisationID), nullable(scope.ApplicationID), nullable(scope.ResourceType), nullable(scope.ResourceID))
 	if err != nil {
 		return effectiveSet{}, err

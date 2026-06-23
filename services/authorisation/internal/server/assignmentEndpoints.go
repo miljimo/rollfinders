@@ -21,6 +21,10 @@ func (s *server) assignUserRole(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "role_id and assigned_by are required.", nil)
 		return
 	}
+	if cleanString(req.ResourceID) != "" && cleanString(req.ResourceType) == "" {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "resource_type is required when resource_id is provided.", nil)
+		return
+	}
 	a := UserRoleAssignment{
 		ID:         newID("user_role"),
 		UserID:     handlers.Param(r, "user_id"),
@@ -74,6 +78,10 @@ func (s *server) assignUserPermission(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "permission_id and assigned_by are required.", nil)
 		return
 	}
+	if cleanString(req.ResourceID) != "" && cleanString(req.ResourceType) == "" {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "resource_type is required when resource_id is provided.", nil)
+		return
+	}
 	effect := cleanString(req.Effect)
 	if effect == "" {
 		effect = "ALLOW"
@@ -124,6 +132,10 @@ func (s *server) authorize(w http.ResponseWriter, r *http.Request) {
 	var req authorizeRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "Request body is invalid.", nil)
+		return
+	}
+	if cleanString(req.ResourceID) != "" && cleanString(req.ResourceType) == "" {
+		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "resourceType is required when resourceId is provided.", nil)
 		return
 	}
 	resp, err := s.repo.authorize(r.Context(), cleanString(req.SubjectID), cleanString(req.Permission), Scope{

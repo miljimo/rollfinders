@@ -22,5 +22,6 @@ Deployment requirements are split into smaller infrastructure PRDs by operationa
 
 ## Operations
 
-- [Environment Destruction](Operations/EnvironmentDestructionPrd.md)
-- [Resource Inventory and Cost](Operations/ResourceInventoryAndCostPrd.md)
+- [Environment Destruction](Operations/Reviewing/EnvironmentDestructionPrd.md)
+- [Resource Inventory and Cost](Operations/Reviewing/ResourceInventoryAndCostPrd.md)
+- [Billing Threshold Shutdown](Operations/Reviewing/BillingThresholdShutdownPrd.md)

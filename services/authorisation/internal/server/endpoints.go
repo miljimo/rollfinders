@@ -18,7 +18,7 @@ func (s *server) createPermission(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "Request body is invalid.", nil)
 		return
 	}
-	p, ok := permissionFromRequest(newID("perm"), req)
+	p, ok := permissionFromRequest(newID("permission"), req)
 	if !ok {
 		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "Permission code must use resource.action naming.", nil)
 		return

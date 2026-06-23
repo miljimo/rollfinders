@@ -7,7 +7,6 @@ CREATE TABLE IF NOT EXISTS authorisation_audit_events (
     permission_id text,
     organisation_id text,
     application_id text,
-    resource_type text,
     resource_id text,
     previous_value jsonb,
     new_value jsonb,
