@@ -55,7 +55,17 @@ export type AuthorisationPermission = {
   description?: string;
   organisation_id?: string;
   application_id?: string;
+  resource_id?: string;
+  resource_type?: string;
   created_by?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AuthorisationResource = {
+  id: string;
+  resource_type: string;
+  display_name?: string;
   created_at: string;
   updated_at: string;
 };
@@ -180,6 +190,33 @@ export async function listAuthorisationRoles() {
   }
 }
 
+export async function createAuthorisationRole(
+  actor: AuthorisationActor | null | undefined,
+  input: {
+    key: string;
+    name: string;
+    description?: string;
+    level: number;
+    assignable: boolean;
+    systemRole: boolean;
+  },
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/roles`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify({
+      key: input.key,
+      name: input.name,
+      description: input.description ?? "",
+      level: input.level,
+      assignable: input.assignable,
+      system_role: input.systemRole,
+    }),
+  });
+  return parseResponse(response) as Promise<AuthorisationRole>;
+}
+
 export async function listAuthorisationRolePermissions(roleId: string) {
   try {
     const response = await fetch(`${authorisationServiceUrl()}/roles/${encodeURIComponent(roleId)}/permissions`, {
@@ -210,6 +247,21 @@ export async function listAuthorisationPermissions() {
   }
 }
 
+export async function listAuthorisationResources() {
+  try {
+    const response = await fetch(`${authorisationServiceUrl()}/resources`, {
+      method: "GET",
+      cache: "no-store",
+      headers: headers(),
+    });
+    const result = await parseResponse(response) as { resources?: AuthorisationResource[] };
+    return result.resources ?? [];
+  } catch (error) {
+    if (error instanceof AuthorisationServiceError) return [];
+    throw error;
+  }
+}
+
 export async function createAuthorisationPermission(
   actor: AuthorisationActor | null | undefined,
   input: {
@@ -218,6 +270,7 @@ export async function createAuthorisationPermission(
     description?: string;
     organisationId?: string;
     applicationId?: string;
+    resourceId?: string;
   },
 ) {
   const response = await fetch(`${authorisationServiceUrl()}/permissions`, {
@@ -230,6 +283,7 @@ export async function createAuthorisationPermission(
       description: input.description ?? "",
       organisation_id: input.organisationId ?? undefined,
       application_id: input.applicationId ?? undefined,
+      resource_id: input.resourceId ?? undefined,
     }),
   });
   return parseResponse(response) as Promise<AuthorisationPermission>;
@@ -237,7 +291,7 @@ export async function createAuthorisationPermission(
 
 export async function updateAuthorisationPermission(
   actor: AuthorisationActor | null | undefined,
-  permission: Pick<AuthorisationPermission, "id" | "code" | "name"> & Partial<Pick<AuthorisationPermission, "description" | "organisation_id" | "application_id">>,
+  permission: Pick<AuthorisationPermission, "id" | "code" | "name"> & Partial<Pick<AuthorisationPermission, "description" | "organisation_id" | "application_id" | "resource_id">>,
 ) {
   const response = await fetch(`${authorisationServiceUrl()}/permissions/${encodeURIComponent(permission.id)}`, {
     method: "PUT",
@@ -249,6 +303,7 @@ export async function updateAuthorisationPermission(
       description: permission.description ?? "",
       organisation_id: permission.organisation_id ?? undefined,
       application_id: permission.application_id ?? undefined,
+      resource_id: permission.resource_id ?? undefined,
     }),
   });
   return parseResponse(response) as Promise<AuthorisationPermission>;

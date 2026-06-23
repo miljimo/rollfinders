@@ -114,7 +114,8 @@ The orchestrator SHALL:
 
 * validate the authenticated actor through Users Service or trusted session/JWT context
 * resolve `organisation_id`, `application_id`, and resource identifiers from the route/request
-* map each route to one permission code declared by the owning service PRD
+* map each exposed route to one orchestrator-owned permission code
+* register or reconcile required permission definitions with Authorisation Service
 * call Authorisation Service `POST /v1/authorize`
 * fail closed when the permission check cannot be completed
 * forward only authorised requests to downstream services
@@ -126,19 +127,21 @@ The orchestrator SHALL NOT:
 * calculate effective permissions locally
 * check hardcoded role names for access control
 
-Permission catalogs are owned as follows:
+The orchestrator owns the permission catalog for routes it exposes. Downstream services do not register permissions and do not depend on Authorisation Service for gateway access control. This keeps downstream services free from gateway permission catalog dependencies and allows route permission changes to be made in the orchestration layer.
 
-| Prefix | Declared By | Examples |
+Permission prefixes are grouped by routed domain:
+
+| Prefix | Routed Domain | Examples |
 | --- | --- | --- |
-| `academy.*` | Academy Service PRD | `academy.update`, `academy.claim.approve` |
-| `course.*` | Course Service PRD | `course.create`, `course.session.cancel` |
-| `booking.*` | Booking Service PRD | `booking.create`, `booking.attendance.record` |
-| `payment.*` | Payment Service PRD | `payment.refund.create`, `payment.payout_request.approve` |
-| `organisation.*` | Organisation Service PRD | `organisation.application.create`, `organisation.service.enable` |
-| `user.*` | Users Service PRDs | `user.create`, `user.status.disable` |
-| `authorisation.*` | Authorisation Service PRD | `authorisation.role.create`, `authorisation.assignment.grant` |
+| `academy.*` | Academy routes | `academy.update`, `academy.claim.approve` |
+| `course.*` | Course routes | `course.create`, `course.session.cancel` |
+| `booking.*` | Booking routes | `booking.create`, `booking.attendance.record` |
+| `payment.*` | Payment routes | `payment.refund.create`, `payment.payout_request.approve` |
+| `organisation.*` | Organisation routes | `organisation.application.create`, `organisation.service.enable` |
+| `user.*` | User/account routes | `user.create`, `user.status.disable` |
+| `authorisation.*` | Authorisation administration routes | `authorisation.role.create`, `authorisation.assignment.grant` |
 
-Gateway-owned permissions should be avoided unless the gateway exposes operational admin routes of its own. Domain access must use the downstream service permission code, not a generic gateway permission.
+Domain access should use domain-specific permission codes, not a generic gateway permission such as `gateway.access`.
 
 Example authorisation request:
 
@@ -218,6 +221,252 @@ Local compose exposes it on:
 ```text
 API_PUBLIC_BASE_URL=http://localhost:3007
 ```
+
+## Current Implementation Status
+
+| Capability | State | Notes |
+| --- | --- | --- |
+| Go API Orchestrator runtime | Implemented | `services/api/cmd/api` and compose service exist. |
+| Downstream proxy routing | Implemented | Routes forward to users, academy, organisation, courses, booking, payments, authorisation, and legacy Next.js targets. |
+| Explicit route registry | Implemented | `RouteDefinition` registry exists in `internal/server/routes.go`. |
+| Fail-closed route authorisation | Implemented | Protected routes require actor, route mapping, Authorisation Service allow decision, and resource resolution when configured. |
+| Resource-scoped authorisation request | Implemented | Orchestrator sends subject, permission, application, organisation, resource type, and resource id where available. |
+| Orchestrator-owned permission catalog generation | Implemented | Route-derived `PermissionDefinition` catalog exists in code. |
+| Permission catalog registration/reconciliation | Not Implemented | Orchestrator does not yet create/update missing permission records in Authorisation Service. |
+| Downstream-service permission registration | Not Required | Downstream services remain dependency-free for gateway permissions. |
+
+---
+
+# Endpoint Authorisation Enforcement
+
+The Orchestrator Handler is responsible for enforcing authorisation before any downstream service call is made.
+
+For every incoming request, the handler SHALL:
+
+1. Authenticate the user.
+2. Resolve the target endpoint.
+3. Resolve the target resource.
+4. Resolve the required permission.
+5. Call the Authorisation Service.
+6. Forward the request only when authorised.
+
+## Enforcement Flow
+
+```text
+Client Request
+       |
+       v
+Orchestrator Handler
+       |
+       +--> Authenticate User
+       |
+       +--> Resolve Endpoint
+       |
+       +--> Resolve Resource
+       |
+       +--> Resolve Permission
+       |
+       +--> Authorisation Service
+                 |
+         +-------+-------+
+         |               |
+       ALLOW          DENY
+         |               |
+         v               v
+Forward Request    Return 403
+```
+
+## Route Registration
+
+Every downstream route exposed by the orchestrator MUST have a route definition. The route definition is the orchestrator's local enforcement contract and MUST reference a permission code owned and registered by the orchestrator.
+
+```go
+type RouteDefinition struct {
+    Method          string
+    Path            string
+    Service         string
+    Permission      string
+    ResourceType    string
+    ResourceIDParam string
+}
+```
+
+The orchestrator SHALL NOT invent permissions from path prefixes or HTTP methods. If no route definition exists, the request SHALL fail closed and SHALL NOT be forwarded.
+
+Example:
+
+```go
+{
+    Method:          "POST",
+    Path:            "/v1/academies/{academyId}/search/hide",
+    Service:         "academy-service",
+    Permission:      "academy.search.hide",
+    ResourceType:    "academy",
+    ResourceIDParam: "academyId",
+}
+```
+
+## Permission Catalog Ownership
+
+The orchestrator owns the permission catalog for every route it exposes.
+
+Orchestrator responsibilities:
+
+```text
+Define permission codes for every protected endpoint
+Define resource type and resource id semantics
+Build permission definitions from the route registry
+Register or seed missing permission definitions in Authorisation Service
+Keep permission codes stable once assigned to routes
+Load route definitions
+Resolve route to permission code
+Resolve resource scope
+Call Authorisation Service
+Forward only when allowed
+Fail closed when permission mapping is absent
+```
+
+Authorisation Service responsibilities:
+
+```text
+Persist permission definitions
+Return allow/deny decisions
+Fail closed for unknown permissions
+Provide catalog seed/reconciliation endpoints or migrations
+```
+
+Downstream service responsibilities:
+
+```text
+Accept requests forwarded by the orchestrator
+Trust that gateway authentication and authorisation have completed for public client traffic
+Avoid registering gateway permission codes
+Avoid depending on Authorisation Service for orchestrator route access
+```
+
+The orchestrator SHALL treat the permission `code` as the stable identifier used in authorisation requests. If Authorisation Service also returns a permission `id`, that id may be used internally by Authorisation Service, but route definitions SHALL use the permission `code`.
+
+Examples:
+
+| Service | Route | Permission Code | Resource Type |
+| --- | --- | --- | --- |
+| Academy Service | `POST /v1/academies/{academyId}/search/hide` | `academy.search.hide` | `academy` |
+| Booking Service | `POST /v1/bookings` | `booking.create` | none |
+| Booking Service | `POST /v1/bookings/{bookingId}/cancel` | `booking.cancel` | `booking` |
+| Payments Service | `POST /v1/refunds` | `payment.refund.create` | none |
+| Courses Service | `PUT /v1/courses/{courseId}` | `course.update` | `course` |
+
+If the orchestrator exposes a new downstream endpoint, the implementation is incomplete until:
+
+```text
+Permission code exists in the orchestrator route catalog
+Orchestrator registers or reconciles the permission in Authorisation Service
+Orchestrator route definition references that permission code
+Route-level tests prove deny prevents downstream forwarding
+```
+
+## Authorisation Request
+
+Before calling the downstream service, the orchestrator SHALL send an authorisation request equivalent to:
+
+```json
+{
+  "subjectId": "user_123",
+  "permission": "academy.search.hide",
+  "organisationId": "org_123",
+  "applicationId": "rollfinders",
+  "resourceType": "academy",
+  "resourceId": "academy_456"
+}
+```
+
+## Handler Behaviour
+
+The handler SHALL NOT call the downstream service until:
+
+```text
+authorisation.allowed == true
+```
+
+If any of the following occurs:
+
+```text
+Permission mapping not found
+Resource not resolved
+Authorisation service unavailable
+Authorisation denied
+```
+
+Then:
+
+```text
+Request must not be forwarded.
+```
+
+## Fail Closed
+
+The default behaviour is:
+
+```text
+DENY
+```
+
+Never:
+
+```text
+ALLOW
+```
+
+## Example
+
+Request:
+
+```http
+POST /v1/academies/academy_456/search/hide
+```
+
+Handler resolves:
+
+```text
+Resource Type : academy
+Resource ID   : academy_456
+Permission    : academy.search.hide
+```
+
+Authorisation Service:
+
+```json
+{
+  "allowed": true
+}
+```
+
+Result:
+
+```text
+Forward request to Academy Service
+```
+
+Otherwise:
+
+```http
+403 Forbidden
+```
+
+## Design Principle
+
+The Orchestrator is the militarised enforcement layer.
+
+Downstream services should assume:
+
+```text
+Authentication completed
+Authorisation completed
+Permission validated
+Resource scope validated
+```
+
+before the request reaches them.
 
 Container-to-container compose uses:
 
@@ -310,7 +559,8 @@ Those routes are migration candidates, not the desired final state.
 * Go Orchestrator calls Authorisation Service.
 * Go Orchestrator blocks unauthorized requests.
 * Go Orchestrator does not own roles, permissions, or assignments.
-* Go Orchestrator maps routes to service-declared permission codes.
+* Go Orchestrator maps routes to orchestrator-owned permission codes.
+* Go Orchestrator registers or reconciles route permission codes with Authorisation Service.
 * Go Orchestrator can proxy legacy TypeScript endpoints.
 * Business logic is progressively removed from TypeScript.
 * Final architecture supports web, mobile, and future frontend apps.

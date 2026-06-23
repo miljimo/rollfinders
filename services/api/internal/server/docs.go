@@ -4,8 +4,8 @@ import "net/http"
 
 func (s *server) docs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":        "RollFinders API",
-		"description": "Public orchestration gateway for RollFinders web, mobile, and service clients.",
+		"name":        "API Documenetations",
+		"description": "Public orchestration gateway, mobile, and service clients.",
 		"version":     "v1",
 		"principles": []string{
 			"Frontend clients call this API instead of domain services directly.",

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-func newProxy(baseURL string, stripPrefix string, addPrefix string) http.Handler {
+func createNewProxyHandler(baseURL string, stripPrefix string, addPrefix string) http.Handler {
 	target, err := url.Parse(baseURL)
 	if err != nil {
 		panic(err)
@@ -54,6 +54,10 @@ func rewritePath(requestPath string, stripPrefix string, addPrefix string) strin
 }
 
 func (s *server) route(w http.ResponseWriter, r *http.Request) {
+	if !s.authoriseRequest(w, r) {
+		return
+	}
+
 	path := r.URL.Path
 	switch {
 	case strings.HasPrefix(path, "/v1/authorisation/"):
@@ -62,21 +66,20 @@ func (s *server) route(w http.ResponseWriter, r *http.Request) {
 		s.proxies["authorisation"].ServeHTTP(w, r)
 	case strings.HasPrefix(path, "/auth/"), strings.HasPrefix(path, "/v1/auth/"), strings.HasPrefix(path, "/v1/accounts/"):
 		s.proxies["user"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/v1/users"):
-		s.proxies["user"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/v1/academies"), strings.HasPrefix(path, "/v1/memberships"):
-		s.proxies["academy"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/v1/organisations"), strings.HasPrefix(path, "/v1/applications"):
-		s.proxies["organisation"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/v1/courses"), strings.HasPrefix(path, "/v1/course-types"):
-		s.proxies["course"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/v1/bookings"):
-		s.proxies["booking"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/v1/payments"), strings.HasPrefix(path, "/v1/checkouts"), strings.HasPrefix(path, "/v1/refunds"), strings.HasPrefix(path, "/v1/payout"):
-		s.proxies["payment"].ServeHTTP(w, r)
 	case strings.HasPrefix(path, "/legacy/"):
 		s.proxies["legacy"].ServeHTTP(w, r)
 	default:
-		writeError(w, r, http.StatusNotFound, "route_not_found", "No API route is registered for this path.", map[string]string{"path": path})
+		match, ok := resolveRoute(r.Method, path)
+		if !ok {
+			writeError(w, r, http.StatusNotFound, "route_not_found", "No API route is registered for this path.", map[string]string{"path": path})
+			return
+		}
+		proxyKey := proxyKeyForService(match.Definition.Service)
+		proxy, ok := s.proxies[proxyKey]
+		if proxyKey == "" || !ok {
+			writeError(w, r, http.StatusBadGateway, "service_not_configured", "The target service is not configured.", map[string]string{"service": match.Definition.Service})
+			return
+		}
+		proxy.ServeHTTP(w, r)
 	}
 }

@@ -109,8 +109,18 @@ export type AcademyWriteInput = {
 
 const academyServiceUrl = apiGatewayUrl;
 
-function serviceHeaders() {
-  return { "Content-Type": "application/json" };
+type ServiceActor = {
+  id: string;
+  role?: string | null;
+  email?: string | null;
+  academyId?: string | null;
+};
+
+function serviceHeaders(actor?: ServiceActor) {
+  return {
+    "Content-Type": "application/json",
+    ...(actor?.id ? { "X-Actor-User-ID": actor.id, "X-Actor": JSON.stringify(actor) } : {}),
+  };
 }
 
 async function parseResponse(response: Response) {
@@ -128,12 +138,12 @@ async function parseResponse(response: Response) {
   return body;
 }
 
-async function request(path: string, init: RequestInit = {}) {
+async function request(path: string, init: RequestInit = {}, actor?: ServiceActor) {
   const response = await fetch(`${academyServiceUrl()}${path}`, {
     ...init,
     cache: "no-store",
     headers: {
-      ...serviceHeaders(),
+      ...serviceHeaders(actor),
       ...init.headers,
     },
   });
@@ -304,18 +314,18 @@ function membershipFromService(item: AcademyServiceMember): AcademyMembershipRec
   };
 }
 
-export async function listAcademiesFromAcademyService({ q, limit = 100, offset = 0 }: { q?: string; limit?: number; offset?: number } = {}) {
+export async function listAcademiesFromAcademyService({ q, limit = 100, offset = 0, actor }: { q?: string; limit?: number; offset?: number; actor?: ServiceActor } = {}) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
   if (q?.trim()) params.set("q", q.trim());
-  const response = await request(`/v1/academies?${params.toString()}`) as { academies?: AcademyServiceAcademy[] };
+  const response = await request(`/v1/academies?${params.toString()}`, {}, actor) as { academies?: AcademyServiceAcademy[] };
   return (response.academies ?? []).map((academy) => academyFromService(academy));
 }
 
-export async function listAllAcademiesFromAcademyService({ q, batchSize = 100 }: { q?: string; batchSize?: number } = {}) {
+export async function listAllAcademiesFromAcademyService({ q, batchSize = 100, actor }: { q?: string; batchSize?: number; actor?: ServiceActor } = {}) {
   const academies: AcademyServiceRecord[] = [];
   let offset = 0;
   while (true) {
-    const batch = await listAcademiesFromAcademyService({ q, limit: batchSize, offset });
+    const batch = await listAcademiesFromAcademyService({ q, limit: batchSize, offset, actor });
     academies.push(...batch);
     if (batch.length < batchSize) break;
     offset += batchSize;
@@ -341,12 +351,10 @@ export function academyClaimPlaceholder(status: ClaimStatus) {
   return { status };
 }
 
-export async function getAcademyFromAcademyService(id: string) {
+export async function getAcademyFromAcademyService(id: string, actor?: ServiceActor) {
   try {
-    const [academy, members] = await Promise.all([
-      request(`/v1/academies/${encodeURIComponent(id)}`) as Promise<AcademyServiceAcademy>,
-      listAcademyMembersFromAcademyService(id),
-    ]);
+    const academy = await request(`/v1/academies/${encodeURIComponent(id)}`, {}, actor) as AcademyServiceAcademy;
+    const members = await listAcademyMembersFromAcademyService(id, actor);
     return academyFromService(academy, members);
   } catch (error) {
     if (error instanceof AcademyServiceError && error.status === 404) return null;
@@ -383,26 +391,32 @@ export async function deleteAcademyInAcademyService(id: string) {
   return academyFromService(academy);
 }
 
-export async function listAcademyMembersFromAcademyService(academyId: string) {
-  const response = await request(`/v1/academies/${encodeURIComponent(academyId)}/members`) as { members?: AcademyServiceMember[] };
+export async function listAcademyMembersFromAcademyService(academyId: string, actor?: ServiceActor) {
+  let response: { members?: AcademyServiceMember[] };
+  try {
+    response = await request(`/v1/academies/${encodeURIComponent(academyId)}/members`, {}, actor) as { members?: AcademyServiceMember[] };
+  } catch (error) {
+    if (error instanceof AcademyServiceError && error.status === 404) return [];
+    throw error;
+  }
   return (response.members ?? []).map(membershipFromService);
 }
 
-export async function listAcademyMembershipsForUserFromAcademyService(userId: string) {
-  const response = await request(`/v1/memberships?user_id=${encodeURIComponent(userId)}`) as { memberships?: AcademyServiceMember[] };
+export async function listAcademyMembershipsForUserFromAcademyService(userId: string, actor?: ServiceActor) {
+  const response = await request(`/v1/memberships?user_id=${encodeURIComponent(userId)}`, {}, actor) as { memberships?: AcademyServiceMember[] };
   return (response.memberships ?? []).map(membershipFromService);
 }
 
 export async function listAcademiesForActorFromAcademyService(actor: { id: string; role?: string; academyId?: string | null }) {
   if (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN" || actor.role === "PLATFORM_ADMIN") {
-    return listAllAcademiesFromAcademyService();
+    return listAllAcademiesFromAcademyService({ actor });
   }
   if ((actor.role === "ACADEMY_ADMIN" || actor.role === "ACADEMY_OWNER") && actor.academyId) {
-    const academy = await getAcademyFromAcademyService(actor.academyId);
+    const academy = await getAcademyFromAcademyService(actor.academyId, actor);
     return academy ? [academy] : [];
   }
-  const memberships = await listAcademyMembershipsForUserFromAcademyService(actor.id);
-  const academies = await Promise.all(memberships.map((membership) => getAcademyFromAcademyService(membership.academyId)));
+  const memberships = await listAcademyMembershipsForUserFromAcademyService(actor.id, actor);
+  const academies = await Promise.all(memberships.map((membership) => getAcademyFromAcademyService(membership.academyId, actor)));
   return academies.filter((academy): academy is AcademyServiceRecord => Boolean(academy));
 }
 

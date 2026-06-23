@@ -16,9 +16,19 @@ type Permission struct {
 	Description    string    `json:"description,omitempty"`
 	OrganisationID string    `json:"organisation_id,omitempty"`
 	ApplicationID  string    `json:"application_id,omitempty"`
+	ResourceID     string    `json:"resource_id,omitempty"`
+	ResourceType   string    `json:"resource_type,omitempty"`
 	CreatedBy      string    `json:"created_by,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type Resource struct {
+	ID           string    `json:"id"`
+	ResourceType string    `json:"resource_type"`
+	DisplayName  string    `json:"display_name,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type Role struct {

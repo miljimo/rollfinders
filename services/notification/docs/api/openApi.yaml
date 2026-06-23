@@ -1,0 +1,423 @@
+openapi: 3.0.3
+info:
+  title: Notification Service API
+  version: 0.1.0
+  description: Queue and inspect channel-agnostic notifications. Version 1 accepts EMAIL only.
+servers:
+  - url: /v1
+security:
+  - serviceBearerAuth: []
+  - serviceApiKeyAuth: []
+paths:
+  /notifications:
+    post:
+      summary: Queue a notification request
+      operationId: createNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateNotificationRequest"
+      responses:
+        "202":
+          description: Notification accepted and queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateNotificationResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "409":
+          $ref: "#/components/responses/ConflictError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+    get:
+      summary: Search notifications
+      operationId: listNotifications
+      parameters:
+        - $ref: "#/components/parameters/StatusFilter"
+        - $ref: "#/components/parameters/ChannelFilter"
+        - $ref: "#/components/parameters/RecipientFilter"
+        - $ref: "#/components/parameters/SourceServiceFilter"
+        - $ref: "#/components/parameters/CreatedFromFilter"
+        - $ref: "#/components/parameters/CreatedToFilter"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Matching notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListNotificationsResponse"
+        "400":
+          $ref: "#/components/responses/ValidationError"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /notifications/{notificationId}:
+    get:
+      summary: Get notification details
+      operationId: getNotification
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Notification details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationDetails"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          $ref: "#/components/responses/NotFoundError"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  securitySchemes:
+    serviceBearerAuth:
+      type: http
+      scheme: bearer
+    serviceApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  parameters:
+    StatusFilter:
+      name: status
+      in: query
+      schema:
+        $ref: "#/components/schemas/NotificationStatus"
+    ChannelFilter:
+      name: channel
+      in: query
+      schema:
+        $ref: "#/components/schemas/NotificationChannel"
+    RecipientFilter:
+      name: recipient
+      in: query
+      schema:
+        type: string
+        format: email
+    SourceServiceFilter:
+      name: sourceService
+      in: query
+      schema:
+        type: string
+    CreatedFromFilter:
+      name: createdFrom
+      in: query
+      schema:
+        type: string
+        format: date-time
+    CreatedToFilter:
+      name: createdTo
+      in: query
+      schema:
+        type: string
+        format: date-time
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    UnauthorizedError:
+      description: Missing or invalid service credentials
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    NotFoundError:
+      description: Notification was not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    ConflictError:
+      description: Notification request conflicts with an existing idempotent request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+    InternalError:
+      description: Notification request could not be completed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    NotificationChannel:
+      type: string
+      enum:
+        - EMAIL
+    NotificationPriority:
+      type: string
+      enum:
+        - CRITICAL
+        - HIGH
+        - NORMAL
+        - LOW
+        - BULK
+    NotificationStatus:
+      type: string
+      enum:
+        - CREATED
+        - QUEUED
+        - PROCESSING
+        - SENT
+        - FAILED_RETRYABLE
+        - RETRYING
+        - FAILED_PERMANENT
+        - CANCELLED
+    Contact:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+    Attachment:
+      type: object
+      required:
+        - fileName
+        - storageUrl
+      properties:
+        fileName:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+        storageUrl:
+          type: string
+          description: Storage URL for a file already owned by an approved storage backend.
+    CreateNotificationRequest:
+      type: object
+      required:
+        - channel
+        - priority
+        - subject
+        - contentText
+        - from
+        - to
+      properties:
+        channel:
+          $ref: "#/components/schemas/NotificationChannel"
+        priority:
+          $ref: "#/components/schemas/NotificationPriority"
+        subject:
+          type: string
+        contentText:
+          type: string
+        isContentHtml:
+          type: boolean
+          default: false
+        from:
+          $ref: "#/components/schemas/Contact"
+        replyTo:
+          $ref: "#/components/schemas/Contact"
+        to:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Contact"
+        cc:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        bcc:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contact"
+        attachments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Attachment"
+        metadata:
+          type: object
+          additionalProperties: true
+        idempotencyKey:
+          type: string
+          maxLength: 128
+    CreateNotificationResponse:
+      type: object
+      required:
+        - notificationId
+        - status
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/NotificationStatus"
+    NotificationSummary:
+      type: object
+      required:
+        - notificationId
+        - channel
+        - priority
+        - status
+        - subject
+        - createdAt
+        - updatedAt
+      properties:
+        notificationId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/NotificationChannel"
+        priority:
+          $ref: "#/components/schemas/NotificationPriority"
+        status:
+          $ref: "#/components/schemas/NotificationStatus"
+        subject:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    ProviderFields:
+      type: object
+      properties:
+        name:
+          type: string
+        messageId:
+          type: string
+    DeliveryAttempt:
+      type: object
+      required:
+        - attemptNumber
+        - status
+        - attemptedAt
+      properties:
+        attemptNumber:
+          type: integer
+          minimum: 1
+        status:
+          $ref: "#/components/schemas/NotificationStatus"
+        provider:
+          type: string
+        errorCode:
+          type: string
+        errorMessage:
+          type: string
+        attemptedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+    NotificationDetails:
+      allOf:
+        - $ref: "#/components/schemas/NotificationSummary"
+        - type: object
+          required:
+            - contentText
+            - isContentHtml
+            - from
+            - to
+          properties:
+            contentText:
+              type: string
+            isContentHtml:
+              type: boolean
+            from:
+              $ref: "#/components/schemas/Contact"
+            replyTo:
+              $ref: "#/components/schemas/Contact"
+            to:
+              type: array
+              items:
+                $ref: "#/components/schemas/Contact"
+            cc:
+              type: array
+              items:
+                $ref: "#/components/schemas/Contact"
+            bcc:
+              type: array
+              items:
+                $ref: "#/components/schemas/Contact"
+            attachments:
+              type: array
+              items:
+                $ref: "#/components/schemas/Attachment"
+            metadata:
+              type: object
+              additionalProperties: true
+            provider:
+              $ref: "#/components/schemas/ProviderFields"
+            attempts:
+              type: array
+              items:
+                $ref: "#/components/schemas/DeliveryAttempt"
+    ListNotificationsResponse:
+      type: object
+      required:
+        - notifications
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationSummary"
+        nextCursor:
+          type: string
+    ErrorEnvelope:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+            - request_id
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_error
+                - unauthorized
+                - not_found
+                - conflict
+                - internal_error
+            message:
+              type: string
+            request_id:
+              type: string
+            details:
+              type: object
+              additionalProperties:
+                type: string

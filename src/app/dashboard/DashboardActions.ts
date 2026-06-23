@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addAuthorisationRolePermission, authorize, createAuthorisationPermission, createUserPermissionAssignment, deleteUserPermissionAssignment, updateAuthorisationPermission, type AuthorisationPermission } from "@/lib/authorisation-service";
+import { addAuthorisationRolePermission, authorize, createAuthorisationPermission, createAuthorisationRole, createUserPermissionAssignment, deleteUserPermissionAssignment, updateAuthorisationPermission, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { isAnyAdminRole, isStandardUserRole } from "@/lib/admin";
 
@@ -47,6 +47,7 @@ export async function updatePermissionDescription(input: {
   description: string;
   organisationId?: string;
   applicationId?: string;
+  resourceId?: string;
 }): Promise<PermissionMutationResult<AuthorisationPermission>> {
   const { user } = await requireDashboardUser();
   const allowed = await authorize(user, "authorisation.permission.update", {
@@ -68,6 +69,7 @@ export async function updatePermissionDescription(input: {
       description: input.description,
       organisation_id: input.organisationId,
       application_id: input.applicationId,
+      resource_id: input.resourceId,
     });
     revalidatePath("/dashboard");
     return { success: true, message: `${updated.code} updated.`, data: updated };
@@ -82,6 +84,7 @@ export async function createPermissionWithOptionalAssignments(input: {
   description: string;
   organisationId?: string;
   applicationId?: string;
+  resourceId?: string;
   roleId?: string;
   userId?: string;
 }): Promise<PermissionMutationResult<AuthorisationPermission>> {
@@ -104,6 +107,7 @@ export async function createPermissionWithOptionalAssignments(input: {
       description: input.description.trim(),
       organisationId: input.organisationId,
       applicationId: input.applicationId,
+      resourceId: input.resourceId,
     });
 
     if (input.roleId) {
@@ -124,5 +128,74 @@ export async function createPermissionWithOptionalAssignments(input: {
     return { success: true, message: `${permission.code} created.`, data: permission };
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : "Unable to create permission." };
+  }
+}
+
+export async function createRoleWithPrivileges(input: {
+  key: string;
+  name: string;
+  description: string;
+  level: number;
+  assignable: boolean;
+  systemRole: boolean;
+  permissionIds: string[];
+}): Promise<PermissionMutationResult<AuthorisationRole>> {
+  const { user } = await requireDashboardUser();
+  const canCreate = await authorize(user, "authorisation.role.create") || await authorize(user, "authorisation.manage");
+  if (!canCreate) return { success: false, message: "You do not have permission to create role bundles." };
+
+  const cleanKey = input.key.trim().toUpperCase();
+  if (!cleanKey || !input.name.trim()) {
+    return { success: false, message: "Role key and name are required." };
+  }
+
+  try {
+    const role = await createAuthorisationRole(user, {
+      key: cleanKey,
+      name: input.name.trim(),
+      description: input.description.trim(),
+      level: input.level,
+      assignable: input.assignable,
+      systemRole: input.systemRole,
+    });
+
+    const uniquePermissionIds = [...new Set(input.permissionIds.filter(Boolean))];
+    if (uniquePermissionIds.length) {
+      const canAssign = await authorize(user, "authorisation.role_permission.add")
+        || await authorize(user, "authorisation.role_permission.assign")
+        || await authorize(user, "authorisation.manage");
+      if (!canAssign) {
+        revalidatePath("/dashboard");
+        return { success: false, message: "Role created, but you do not have permission to add privileges.", data: role };
+      }
+      for (const permissionId of uniquePermissionIds) {
+        await addAuthorisationRolePermission(user, role.id, permissionId);
+      }
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true, message: `${role.name} created.`, data: role };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Unable to create role." };
+  }
+}
+
+export async function addPrivilegeToRole(input: {
+  roleId: string;
+  permissionId: string;
+}): Promise<PermissionMutationResult> {
+  const { user } = await requireDashboardUser();
+  const canAssign = await authorize(user, "authorisation.role_permission.add")
+    || await authorize(user, "authorisation.role_permission.assign")
+    || await authorize(user, "authorisation.manage");
+  if (!canAssign) return { success: false, message: "You do not have permission to add privileges to roles." };
+  if (!input.roleId || !input.permissionId) return { success: false, message: "Select a privilege before adding it to the role." };
+
+  try {
+    await addAuthorisationRolePermission(user, input.roleId, input.permissionId);
+    revalidatePath("/dashboard");
+    return { success: true, message: "Privilege added to role." };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Unable to add privilege to role." };
   }
 }

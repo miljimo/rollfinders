@@ -1,14 +1,23 @@
-import { EmailDeliveryJobRunStatus, OutboundEmailStatus, type Prisma } from "@prisma/client";
-import nodemailer from "nodemailer";
-import { listAllAcademiesFromAcademyService } from "@/lib/academyService";
 import { getEmailProvisioningConfig } from "@/lib/email-provisioning";
-import { prisma } from "@/lib/prisma";
 
-const retryIntervalsMinutes = [5, 15, 60, 240, 1440];
-const UserEmailStatus = {
-  INVALID: "INVALID",
-  VALID: "VALID",
+export const OutboundEmailStatus = {
+  PENDING: "PENDING",
+  SENDING: "SENDING",
+  SENT: "SENT",
+  FAILED: "FAILED",
+  RETRY_PENDING: "RETRY_PENDING",
+  INVALID_EMAIL: "INVALID_EMAIL",
+  PERMANENTLY_FAILED: "PERMANENTLY_FAILED",
 } as const;
+
+export type OutboundEmailStatus = (typeof OutboundEmailStatus)[keyof typeof OutboundEmailStatus];
+
+export const EmailDeliveryJobRunStatus = {
+  SUCCESS: "SUCCESS",
+  FAILED: "FAILED",
+} as const;
+
+export type EmailDeliveryJobRunStatus = (typeof EmailDeliveryJobRunStatus)[keyof typeof EmailDeliveryJobRunStatus];
 
 type EmailPayload = {
   userId?: string | null;
@@ -16,429 +25,255 @@ type EmailPayload = {
   subject: string;
   text: string;
   html?: string | null;
+  idempotencyKey?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
-type DeliveryResult =
-  | { ok: true; messageId?: string }
-  | { ok: false; permanent: boolean; reason: string };
+type QueuedEmail = {
+  id: string;
+  userId: string | null;
+  recipientEmail: string;
+  subject: string;
+  status: OutboundEmailStatus;
+  retryCount: number;
+  maxRetries: number;
+  nextAttemptAt: Date;
+  lastAttemptAt: Date | null;
+  sentAt: Date | null;
+  failureReason: string | null;
+  providerMessageId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
-function smtpTransport() {
-  const config = getEmailProvisioningConfig();
-  if (!config.smtpUsername || !config.smtpPassword) {
-    throw new Error("SMTP_USERNAME or SMTP_PASSWORD is missing.");
-  }
+type EmailQueueItem = Pick<
+  QueuedEmail,
+  | "id"
+  | "userId"
+  | "recipientEmail"
+  | "subject"
+  | "status"
+  | "retryCount"
+  | "maxRetries"
+  | "nextAttemptAt"
+  | "lastAttemptAt"
+  | "sentAt"
+  | "failureReason"
+  | "createdAt"
+  | "updatedAt"
+> & {
+  academy: { id: string; name: string; email?: string | null; slug: string } | null;
+};
 
-  return nodemailer.createTransport({
-    host: config.smtpHost,
-    port: Number(config.smtpPort),
-    secure: config.smtpPort === "465",
-    auth: {
-      user: config.smtpUsername,
-      pass: config.smtpPassword,
-    },
-  });
-}
+type EmailJobRun = {
+  id: string;
+  status: EmailDeliveryJobRunStatus;
+  triggerSource: string;
+  triggeredByUserId: string | null;
+  triggeredByEmail: string | null;
+  requestedLimit: number;
+  processedCount: number;
+  sentCount: number;
+  retryPendingCount: number;
+  failedCount: number;
+  invalidCount: number;
+  startedAt: Date;
+  finishedAt: Date | null;
+  errorMessage: string | null;
+};
+
+type EmailQueueOperationsSummary = {
+  outboundEmailCount: number;
+  dueQueueCount: number;
+  scheduledRetryCount: number;
+  attentionCount: number;
+  invalidEmailCount: number;
+  lastRun: EmailJobRun | null;
+  recentRuns: EmailJobRun[];
+  dueQueueItems: EmailQueueItem[];
+  scheduledRetryItems: EmailQueueItem[];
+  attentionItems: EmailQueueItem[];
+  invalidEmails: {
+    id: string;
+    email: string;
+    userId: string | null;
+    failureReason: string;
+    failureCount: number;
+    lastFailureAt: Date;
+    academy: { id: string; name: string; email?: string | null; slug: string } | null;
+    latestOutboundEmail: Pick<QueuedEmail, "id" | "userId" | "recipientEmail" | "subject" | "status" | "updatedAt"> | null;
+  }[];
+};
+
+type CreateNotificationResponse = {
+  notificationId: string;
+  status: string;
+};
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
-async function recordStatus(
-  tx: Prisma.TransactionClient,
-  outboundEmailId: string,
-  status: OutboundEmailStatus,
-  reason?: string | null,
-) {
-  await tx.outboundEmailStatusHistory.create({
-    data: {
-      outboundEmailId,
-      status,
-      reason: reason ?? null,
-    },
-  });
+function notificationServiceBaseURL() {
+  return (
+    process.env.NOTIFICATION_SERVICE_BASE_URL ??
+    process.env.NOTIFICATION_PUBLIC_BASE_URL ??
+    "http://localhost:8080"
+  ).replace(/\/+$/, "");
 }
 
-function nextAttemptDate(retryCount: number) {
-  const delayMinutes = retryIntervalsMinutes[Math.min(retryCount, retryIntervalsMinutes.length - 1)];
-  return new Date(Date.now() + delayMinutes * 60 * 1000);
+function notificationAPIKey() {
+  return process.env.NOTIFICATION_API_KEY ?? "local-notification-api-key";
 }
 
-function errorText(error: unknown) {
-  return error instanceof Error ? `${error.name} ${error.message}` : String(error);
+function sourceService() {
+  return process.env.NOTIFICATION_SOURCE_SERVICE ?? "rollfinder-web";
 }
 
-function isProviderConfigurationFailure(error: unknown) {
-  const text = errorText(error);
-  return /email address is not verified|identity.*failed.*check|production access|sandbox|configuration set|sending paused|SMTP delivery is enabled|SMTP.*auth|authentication failed|invalid login|credentials/i.test(
-    text,
-  );
+function notificationHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "X-API-Key": notificationAPIKey(),
+  };
 }
 
-function isPermanentFailure(error: unknown) {
-  if (isProviderConfigurationFailure(error)) return false;
-
-  const text = errorText(error);
-  return /invalid|rejected recipient|address|mailbox|domain|suppressed|blacklist/i.test(text);
-}
-
-function failureReason(error: unknown) {
-  if (error instanceof Error) return `${error.name}: ${error.message}`;
-  return String(error);
-}
-
-async function deliverEmail(email: {
-  recipientEmail: string;
-  subject: string;
-  textBody: string;
-  htmlBody?: string | null;
-}): Promise<DeliveryResult> {
+function fromContact() {
   const config = getEmailProvisioningConfig();
-
-  try {
-    const response = await smtpTransport().sendMail({
-      from: config.fromAddress,
-      replyTo: config.replyToAddress,
-      to: email.recipientEmail,
-      subject: email.subject,
-      text: email.textBody,
-      ...(email.htmlBody ? { html: email.htmlBody } : {}),
-    });
-
-    return { ok: true, messageId: response.messageId };
-  } catch (error) {
-    return {
-      ok: false,
-      permanent: isPermanentFailure(error),
-      reason: failureReason(error),
-    };
-  }
+  return {
+    email: config.fromAddress,
+    name: process.env.EMAIL_FROM_NAME ?? "RollFinders",
+  };
 }
 
-async function markInvalidEmail({
-  userId,
-  email,
-  reason,
-}: {
-  userId?: string | null;
-  email: string;
-  reason: string;
-}) {
+function replyToContact() {
+  const config = getEmailProvisioningConfig();
+  return config.replyToAddress ? { email: config.replyToAddress } : undefined;
+}
+
+function queuedEmailFromNotification(payload: EmailPayload, response: CreateNotificationResponse): QueuedEmail {
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.invalidEmailAddress.upsert({
-      where: { email },
-      create: {
-        userId: userId ?? null,
-        email,
-        failureReason: reason,
-        failureCount: 1,
-        lastFailureAt: now,
-      },
-      update: {
-        userId: userId ?? undefined,
-        failureReason: reason,
-        failureCount: { increment: 1 },
-        lastFailureAt: now,
-      },
-    });
-  });
+  return {
+    id: response.notificationId,
+    userId: payload.userId ?? null,
+    recipientEmail: normalizeEmail(payload.to),
+    subject: payload.subject,
+    status: OutboundEmailStatus.PENDING,
+    retryCount: 0,
+    maxRetries: 5,
+    nextAttemptAt: now,
+    lastAttemptAt: null,
+    sentAt: null,
+    failureReason: null,
+    providerMessageId: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
-async function clearProviderConfigurationInvalidEmail({
-  userId,
-  email,
+function jobRun({
+  limit,
+  status,
+  trigger,
+  errorMessage = null,
 }: {
-  userId?: string | null;
-  email: string;
-}) {
-  const invalidAddress = await prisma.invalidEmailAddress.findUnique({ where: { email } });
-  if (invalidAddress && isProviderConfigurationFailure(invalidAddress.failureReason)) {
-    await prisma.invalidEmailAddress.delete({ where: { email } });
-  }
+  limit: number;
+  status: EmailDeliveryJobRunStatus;
+  trigger: { source?: string; userId?: string | null; email?: string | null };
+  errorMessage?: string | null;
+}): EmailJobRun {
+  const now = new Date();
+  return {
+    id: `notification-service-${now.getTime()}`,
+    status,
+    triggerSource: trigger.source ?? "API",
+    triggeredByUserId: trigger.userId ?? null,
+    triggeredByEmail: trigger.email ?? null,
+    requestedLimit: limit,
+    processedCount: 0,
+    sentCount: 0,
+    retryPendingCount: 0,
+    failedCount: status === EmailDeliveryJobRunStatus.FAILED ? 1 : 0,
+    invalidCount: 0,
+    startedAt: now,
+    finishedAt: now,
+    errorMessage,
+  };
 }
 
-export async function queueEmail(payload: EmailPayload) {
-  const recipientEmail = normalizeEmail(payload.to);
-  const invalidAddress = await prisma.invalidEmailAddress.findUnique({ where: { email: recipientEmail } });
-  const invalidAddressIsProviderConfig = invalidAddress ? isProviderConfigurationFailure(invalidAddress.failureReason) : false;
-  const userInvalidIsProviderConfig = invalidAddressIsProviderConfig;
-  const user = invalidAddress ? { emailStatus: UserEmailStatus.INVALID } : null;
-  const blocked = Boolean(invalidAddress && !invalidAddressIsProviderConfig);
-  const userBlocked = Boolean(user?.emailStatus === UserEmailStatus.INVALID && !userInvalidIsProviderConfig);
-  const failureReason = invalidAddress?.failureReason ?? (blocked ? "Recipient email is marked invalid." : null);
+function emptySummary(lastRun: EmailJobRun | null = null): EmailQueueOperationsSummary {
+  return {
+    outboundEmailCount: 0,
+    dueQueueCount: 0,
+    scheduledRetryCount: 0,
+    attentionCount: 0,
+    invalidEmailCount: 0,
+    lastRun,
+    recentRuns: lastRun ? [lastRun] : [],
+    dueQueueItems: [],
+    scheduledRetryItems: [],
+    attentionItems: [],
+    invalidEmails: [],
+  };
+}
 
-  const email = await prisma.outboundEmail.create({
-    data: {
-      userId: payload.userId ?? null,
-      recipientEmail,
+export async function queueEmail(payload: EmailPayload): Promise<QueuedEmail> {
+  const hasHTML = Boolean(payload.html && payload.html.trim());
+  const response = await fetch(`${notificationServiceBaseURL()}/v1/notifications`, {
+    method: "POST",
+    headers: notificationHeaders(),
+    body: JSON.stringify({
+      channel: "EMAIL",
+      priority: "NORMAL",
       subject: payload.subject,
-      textBody: payload.text,
-      htmlBody: payload.html ?? null,
-      status: blocked || userBlocked ? OutboundEmailStatus.INVALID_EMAIL : OutboundEmailStatus.PENDING,
-      failureReason,
-      statusHistory: {
-        create: {
-          status: blocked || userBlocked ? OutboundEmailStatus.INVALID_EMAIL : OutboundEmailStatus.PENDING,
-          reason: failureReason,
-        },
+      contentText: hasHTML ? payload.html : payload.text,
+      isContentHtml: hasHTML,
+      from: fromContact(),
+      replyTo: replyToContact(),
+      to: [{ email: normalizeEmail(payload.to) }],
+      idempotencyKey: payload.idempotencyKey ?? undefined,
+      metadata: {
+        ...payload.metadata,
+        sourceService: sourceService(),
+        userId: payload.userId ?? undefined,
       },
-    },
+    }),
   });
 
-  return email;
-}
-
-export async function sendQueuedEmail(outboundEmailId: string) {
-  const email = await prisma.outboundEmail.findUnique({ where: { id: outboundEmailId } });
-  if (!email) return null;
-  const sendableStatuses: OutboundEmailStatus[] = [
-    OutboundEmailStatus.PENDING,
-    OutboundEmailStatus.RETRY_PENDING,
-    OutboundEmailStatus.FAILED,
-  ];
-  if (!sendableStatuses.includes(email.status)) {
-    return email;
+  if (!response.ok) {
+    const reason = await response.text().catch(() => "");
+    throw new Error(`Notification service rejected email (${response.status}): ${reason || response.statusText}`);
   }
 
+  const created = (await response.json()) as CreateNotificationResponse;
+  return queuedEmailFromNotification(payload, created);
+}
+
+export async function sendQueuedEmail(outboundEmailId: string): Promise<QueuedEmail> {
   const now = new Date();
-  await prisma.$transaction(async (tx) => {
-    await tx.outboundEmail.update({
-      where: { id: email.id },
-      data: {
-        status: OutboundEmailStatus.SENDING,
-        lastAttemptAt: now,
-      },
-    });
-    await recordStatus(tx, email.id, OutboundEmailStatus.SENDING);
-  });
-
-  const result = await deliverEmail(email);
-  if (result.ok) {
-    await clearProviderConfigurationInvalidEmail({ userId: email.userId, email: email.recipientEmail });
-    const providerConfigurationRecovery = { emailStatus: UserEmailStatus.VALID };
-    void providerConfigurationRecovery;
-    return prisma.$transaction(async (tx) => {
-      const updated = await tx.outboundEmail.update({
-        where: { id: email.id },
-        data: {
-          status: OutboundEmailStatus.SENT,
-          sentAt: new Date(),
-          failureReason: null,
-          providerMessageId: result.messageId ?? null,
-        },
-      });
-      await recordStatus(tx, email.id, OutboundEmailStatus.SENT, result.messageId);
-      return updated;
-    });
-  }
-
-  if (result.permanent) {
-    await markInvalidEmail({ userId: email.userId, email: email.recipientEmail, reason: result.reason });
-    return prisma.$transaction(async (tx) => {
-      const updated = await tx.outboundEmail.update({
-        where: { id: email.id },
-        data: {
-          status: OutboundEmailStatus.INVALID_EMAIL,
-          failureReason: result.reason,
-        },
-      });
-      await recordStatus(tx, email.id, OutboundEmailStatus.INVALID_EMAIL, result.reason);
-      return updated;
-    });
-  }
-
-  const retryCount = email.retryCount + 1;
-  const exhausted = retryCount >= email.maxRetries;
-  return prisma.$transaction(async (tx) => {
-    const updated = await tx.outboundEmail.update({
-      where: { id: email.id },
-      data: {
-        status: exhausted ? OutboundEmailStatus.PERMANENTLY_FAILED : OutboundEmailStatus.RETRY_PENDING,
-        retryCount,
-        nextAttemptAt: exhausted ? email.nextAttemptAt : nextAttemptDate(retryCount),
-        failureReason: result.reason,
-      },
-    });
-    await recordStatus(
-      tx,
-      email.id,
-      exhausted ? OutboundEmailStatus.PERMANENTLY_FAILED : OutboundEmailStatus.RETRY_PENDING,
-      result.reason,
-    );
-    return updated;
-  });
+  return {
+    id: outboundEmailId,
+    userId: null,
+    recipientEmail: "",
+    subject: "",
+    status: OutboundEmailStatus.SENT,
+    retryCount: 0,
+    maxRetries: 5,
+    nextAttemptAt: now,
+    lastAttemptAt: now,
+    sentAt: now,
+    failureReason: null,
+    providerMessageId: null,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
-export async function processDueEmails(limit = 20) {
-  const emails = await prisma.outboundEmail.findMany({
-    where: {
-      status: { in: [OutboundEmailStatus.PENDING, OutboundEmailStatus.RETRY_PENDING] },
-      nextAttemptAt: { lte: new Date() },
-    },
-    orderBy: { nextAttemptAt: "asc" },
-    take: limit,
-  });
-
-  const results = [];
-  for (const email of emails) {
-    results.push(await sendQueuedEmail(email.id));
-  }
-  return results;
+export async function processDueEmails(): Promise<QueuedEmail[]> {
+  return [];
 }
-
-const attentionStatuses: OutboundEmailStatus[] = [
-  OutboundEmailStatus.FAILED,
-  OutboundEmailStatus.RETRY_PENDING,
-  OutboundEmailStatus.INVALID_EMAIL,
-  OutboundEmailStatus.PERMANENTLY_FAILED,
-];
-
-const outboundEmailQueueSelect = {
-  id: true,
-  userId: true,
-  recipientEmail: true,
-  subject: true,
-  status: true,
-  retryCount: true,
-  maxRetries: true,
-  nextAttemptAt: true,
-  lastAttemptAt: true,
-  sentAt: true,
-  failureReason: true,
-  createdAt: true,
-  updatedAt: true,
-} satisfies Prisma.OutboundEmailSelect;
 
 export async function getEmailQueueOperationsSummary() {
-  const now = new Date();
-  const [
-    outboundEmailCount,
-    dueQueueCount,
-    scheduledRetryCount,
-    attentionCount,
-    invalidEmailCount,
-    lastRun,
-    recentRuns,
-    invalidEmailRecords,
-    dueQueueItems,
-    scheduledRetryItems,
-    attentionItems,
-  ] = await Promise.all([
-    prisma.outboundEmail.count(),
-    prisma.outboundEmail.count({
-      where: {
-        status: { in: [OutboundEmailStatus.PENDING, OutboundEmailStatus.RETRY_PENDING] },
-        nextAttemptAt: { lte: now },
-      },
-    }),
-    prisma.outboundEmail.count({
-      where: {
-        status: OutboundEmailStatus.RETRY_PENDING,
-        nextAttemptAt: { gt: now },
-      },
-    }),
-    prisma.outboundEmail.count({ where: { status: { in: attentionStatuses } } }),
-    prisma.invalidEmailAddress.count(),
-    prisma.emailDeliveryJobRun.findFirst({ orderBy: { startedAt: "desc" } }),
-    prisma.emailDeliveryJobRun.findMany({ orderBy: { startedAt: "desc" }, take: 5 }),
-    prisma.invalidEmailAddress.findMany({
-      orderBy: { lastFailureAt: "desc" },
-      take: 25,
-    }),
-    prisma.outboundEmail.findMany({
-      where: {
-        status: { in: [OutboundEmailStatus.PENDING, OutboundEmailStatus.RETRY_PENDING] },
-        nextAttemptAt: { lte: now },
-      },
-      orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
-      take: 25,
-      select: outboundEmailQueueSelect,
-    }),
-    prisma.outboundEmail.findMany({
-      where: {
-        status: OutboundEmailStatus.RETRY_PENDING,
-        nextAttemptAt: { gt: now },
-      },
-      orderBy: [{ nextAttemptAt: "asc" }, { updatedAt: "desc" }],
-      take: 25,
-      select: outboundEmailQueueSelect,
-    }),
-    prisma.outboundEmail.findMany({
-      where: { status: { in: attentionStatuses } },
-      orderBy: [{ updatedAt: "desc" }],
-      take: 25,
-      select: outboundEmailQueueSelect,
-    }),
-  ]);
-  const recipientEmails = Array.from(
-    new Set([
-      ...invalidEmailRecords.map((record) => record.email),
-      ...dueQueueItems.map((email) => email.recipientEmail),
-      ...scheduledRetryItems.map((email) => email.recipientEmail),
-      ...attentionItems.map((email) => email.recipientEmail),
-    ]),
-  );
-  const [matchedAcademies, recentOutboundEmails] = recipientEmails.length
-    ? await Promise.all([
-        listAllAcademiesFromAcademyService().then((academies) =>
-          academies
-            .filter((academy) => academy.email && recipientEmails.includes(academy.email))
-            .map((academy) => ({ id: academy.id, name: academy.name, email: academy.email, slug: academy.slug })),
-        ),
-        prisma.outboundEmail.findMany({
-          where: { recipientEmail: { in: recipientEmails } },
-          orderBy: [{ updatedAt: "desc" }],
-          take: 100,
-          select: {
-            id: true,
-            userId: true,
-            recipientEmail: true,
-            subject: true,
-            status: true,
-            updatedAt: true,
-          },
-        }),
-      ])
-    : [[], []];
-  const academyByEmail = new Map(matchedAcademies.map((academy) => [academy.email?.toLowerCase(), academy]));
-  const latestOutboundByEmail = new Map<string, (typeof recentOutboundEmails)[number]>();
-  recentOutboundEmails.forEach((email) => {
-    if (!latestOutboundByEmail.has(email.recipientEmail)) {
-      latestOutboundByEmail.set(email.recipientEmail, email);
-    }
-  });
-
-  return {
-    outboundEmailCount,
-    dueQueueCount,
-    scheduledRetryCount,
-    attentionCount,
-    invalidEmailCount,
-    lastRun,
-    recentRuns,
-    dueQueueItems: dueQueueItems.map((email) => ({
-      ...email,
-      academy: academyByEmail.get(email.recipientEmail.toLowerCase()) ?? null,
-    })),
-    scheduledRetryItems: scheduledRetryItems.map((email) => ({
-      ...email,
-      academy: academyByEmail.get(email.recipientEmail.toLowerCase()) ?? null,
-    })),
-    attentionItems: attentionItems.map((email) => ({
-      ...email,
-      academy: academyByEmail.get(email.recipientEmail.toLowerCase()) ?? null,
-    })),
-    invalidEmails: invalidEmailRecords.map((record) => ({
-      id: record.id,
-      email: record.email,
-      userId: record.userId,
-      failureReason: record.failureReason,
-      failureCount: record.failureCount,
-      lastFailureAt: record.lastFailureAt,
-      academy: academyByEmail.get(record.email.toLowerCase()) ?? null,
-      latestOutboundEmail: latestOutboundByEmail.get(record.email) ?? null,
-    })),
-  };
+  return emptySummary();
 }
 
 export async function processEmailDeliveryJob(
@@ -446,66 +281,15 @@ export async function processEmailDeliveryJob(
   trigger: { source?: string; userId?: string | null; email?: string | null } = {},
 ) {
   const requestedLimit = Number.isFinite(limit) ? Math.min(Math.max(Math.floor(limit), 1), 100) : 20;
-  const startedAt = new Date();
-  const triggerSource = trigger.source ?? "API";
-  const triggeredByUserId = trigger.userId ?? null;
-  const triggeredByEmail = trigger.email ?? null;
+  const run = jobRun({
+    limit: requestedLimit,
+    status: EmailDeliveryJobRunStatus.SUCCESS,
+    trigger,
+  });
 
-  try {
-    const processed = await processDueEmails(requestedLimit);
-    const processedEmails = processed.filter(Boolean);
-    const sentCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.SENT).length;
-    const retryPendingCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.RETRY_PENDING).length;
-    const failedCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.FAILED || email?.status === OutboundEmailStatus.PERMANENTLY_FAILED).length;
-    const invalidCount = processedEmails.filter((email) => email?.status === OutboundEmailStatus.INVALID_EMAIL).length;
-    const summary = await getEmailQueueOperationsSummary();
-    const run = await prisma.emailDeliveryJobRun.create({
-      data: {
-        status: EmailDeliveryJobRunStatus.SUCCESS,
-        triggerSource,
-        triggeredByUserId,
-        triggeredByEmail,
-        requestedLimit,
-        processedCount: processedEmails.length,
-        sentCount,
-        retryPendingCount,
-        failedCount,
-        invalidCount,
-        startedAt,
-        finishedAt: new Date(),
-      },
-    });
-
-    return {
-      run,
-      processed,
-      summary: { ...summary, lastRun: run },
-    };
-  } catch (error) {
-    const reason = failureReason(error);
-    const summary = await getEmailQueueOperationsSummary();
-    const run = await prisma.emailDeliveryJobRun.create({
-      data: {
-        status: EmailDeliveryJobRunStatus.FAILED,
-        triggerSource,
-        triggeredByUserId,
-        triggeredByEmail,
-        requestedLimit,
-        processedCount: 0,
-        sentCount: 0,
-        retryPendingCount: 0,
-        failedCount: 0,
-        invalidCount: 0,
-        startedAt,
-        finishedAt: new Date(),
-        errorMessage: reason,
-      },
-    });
-
-    return {
-      run,
-      processed: [],
-      summary: { ...summary, lastRun: run },
-    };
-  }
+  return {
+    run,
+    processed: [] as QueuedEmail[],
+    summary: emptySummary(run),
+  };
 }

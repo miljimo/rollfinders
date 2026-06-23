@@ -143,18 +143,18 @@ Permissions are the public contract used by application and service code.
 
 ## Permission Catalog Ownership
 
-Authorisation Service is the storage and evaluation source of truth for permissions. Domain services declare their own permission codes in their PRDs because they own the protected resources and route semantics.
+Authorisation Service is the storage and evaluation source of truth for permissions. The API Orchestrator owns the permission catalog for routes it exposes and registers/reconciles those permission definitions with Authorisation Service.
 
-Authorisation Service SHALL seed, validate, expose, and evaluate the catalog, but it SHALL NOT move domain ownership into itself.
+Authorisation Service SHALL seed, validate, expose, and evaluate permission records, but it SHALL NOT require downstream domain services to register gateway permissions or depend on Authorisation Service for browser/mobile gateway access control.
 
-| Prefix | Declared By | Authorisation Responsibility |
+| Prefix | Registered By | Authorisation Responsibility |
 | --- | --- | --- |
-| `academy.*` | Academy Service | Store/evaluate academy permissions. |
-| `course.*` | Course Service | Store/evaluate course, schedule, activity, and session permissions. |
-| `booking.*` | Booking Service | Store/evaluate booking, participant, and attendance permissions. |
-| `payment.*` | Payment Service | Store/evaluate payment, refund, payee, settlement, report, and payout permissions. |
-| `organisation.*` | Organisation Service | Store/evaluate organisation, application, service-enablement, and tenant settings permissions. |
-| `user.*` | Users Service | Store/evaluate identity-management permissions. |
+| `academy.*` | API Orchestrator | Store/evaluate academy route permissions. |
+| `course.*` | API Orchestrator | Store/evaluate course route permissions. |
+| `booking.*` | API Orchestrator | Store/evaluate booking route permissions. |
+| `payment.*` | API Orchestrator | Store/evaluate payment route permissions. |
+| `organisation.*` | API Orchestrator | Store/evaluate organisation route permissions. |
+| `user.*` | API Orchestrator | Store/evaluate identity/account route permissions. |
 | `authorisation.*` | Authorisation Service | Store/evaluate permission-system administration permissions. |
 
 Permission creation APIs must reject codes outside the approved naming convention unless a platform operator explicitly extends the catalog policy.
@@ -300,7 +300,7 @@ These permissions protect Authorisation Service itself.
 | `authorisation.user_permission.read` | Read direct user permission assignments. | organisation/application/resource |
 | `authorisation.effective_permission.read` | Read a user's effective permissions. | organisation/application/resource |
 | `authorisation.delegation.manage` | Manage delegated administration limits. | platform/organisation/application |
-| `authorisation.catalog.seed` | Seed or reconcile service-declared permission catalogs. | service/platform |
+| `authorisation.catalog.seed` | Seed or reconcile orchestrator route permission catalogs. | service/platform |
 | `authorisation.audit.read` | Read authorisation audit events. | platform/organisation/application |
 
 ### Route Permission Matrix

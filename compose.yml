@@ -2,6 +2,7 @@ include:
   - path: ./services/api/compose.yml
   - path: ./services/payments/compose.yml
   - path: ./services/booking/compose.yml
+  - path: ./services/notification/compose.yml
   - path: ./services/academy/compose.yml
   - path: ./services/users/compose.yml
   - path: ./services/courses/compose.yml
@@ -14,6 +15,7 @@ services:
     profiles:
       - academy
       - booking
+      - notification
       - courses
       - db
       - app
@@ -46,6 +48,7 @@ services:
       - academy
       - booking
       - courses
+      - notification
       - app
       - seed
     environment:
@@ -102,6 +105,8 @@ services:
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
       API_PUBLIC_BASE_URL: http://api:8080
+      NOTIFICATION_SERVICE_BASE_URL: http://notification:8080
+      NOTIFICATION_API_KEY: ${NOTIFICATION_API_KEY:-local-notification-api-key}
       AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
@@ -113,6 +118,8 @@ services:
       migrate:
         condition: service_completed_successfully
       api:
+        condition: service_healthy
+      notification:
         condition: service_healthy
     networks:
       - frontend

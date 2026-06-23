@@ -5,6 +5,7 @@
 - Feature: RollFinders Authorisation Migration
 - Component: Route, action, and dashboard guard replacement
 - Priority: P1
+- Status: Partially Implemented
 - Branch: `feature/rollfinders-permission-first-guards`
 - Developer owner: RollFinders Full Stack Developer
 - Test owner: Test Engineer

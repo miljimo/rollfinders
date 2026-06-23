@@ -443,8 +443,6 @@ async function sendReminderForAcademy(actorUserId: string, academyId: string, so
   }
   if (!email) return recordSkippedReminder(actorUserId, academy.id, "missing_email", null, academy.name, source);
   if (!isValidEmail(email)) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name, source);
-  const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { email } });
-  if (invalidEmail) return recordSkippedReminder(actorUserId, academy.id, "invalid_email", email, academy.name, source);
   const recentReminder = await findRecentQueuedAcademyClaimReminder(academy.id, email, reminderCooldownStart());
   if (recentReminder) return recordSkippedReminder(actorUserId, academy.id, "recently_sent", email, academy.name, source);
 

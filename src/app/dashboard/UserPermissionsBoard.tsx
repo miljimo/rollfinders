@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
-import type { AuthorisationPermission, AuthorisationPermissionAssignment, AuthorisationRole } from "@/lib/authorisation-service";
+import type { AuthorisationPermission, AuthorisationPermissionAssignment, AuthorisationResource, AuthorisationRole } from "@/lib/authorisation-service";
 import { ActionMenu } from "../admin/ActionMenu";
 import { createPermissionWithOptionalAssignments, removeCurrentUserPermissionAssignment, updatePermissionDescription } from "./DashboardActions";
 
@@ -17,6 +17,8 @@ type PermissionRow = {
   applicationId: string;
   canRemove: boolean;
   organisationId: string;
+  resourceId: string;
+  resourceType: string;
   source: string;
   scope: string;
 };
@@ -76,6 +78,8 @@ function toRows(
       applicationId: permission.application_id ?? "",
       canRemove: Boolean(direct?.id),
       organisationId: permission.organisation_id ?? "",
+      resourceId: permission.resource_id ?? "",
+      resourceType: permission.resource_type ?? "",
       source: direct ? `Direct ${direct.effect.toLowerCase()}` : hasRoleAssociation ? "Role" : "Catalog",
       scope: direct ? scopeLabel(direct.scope) : scopeLabel({
         application_id: permission.application_id,
@@ -98,6 +102,7 @@ export function UserPermissionsBoard({
   directAssignments,
   organisations,
   permissions,
+  resources,
   rolePermissions,
   roles,
   users,
@@ -106,6 +111,7 @@ export function UserPermissionsBoard({
   directAssignments: AuthorisationPermissionAssignment[];
   organisations: ScopeOption[];
   permissions: AuthorisationPermission[];
+  resources: AuthorisationResource[];
   rolePermissions: RolePermissionAssociation[];
   roles: AuthorisationRole[];
   users: UserOption[];
@@ -117,16 +123,20 @@ export function UserPermissionsBoard({
   const [editingRow, setEditingRow] = useState<PermissionRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createCode, setCreateCode] = useState("");
+  const [createAction, setCreateAction] = useState("");
   const [createName, setCreateName] = useState("");
   const [createDescription, setCreateDescription] = useState("");
   const [createOrganisationId, setCreateOrganisationId] = useState("");
   const [createApplicationId, setCreateApplicationId] = useState("");
   const [createRoleId, setCreateRoleId] = useState("");
   const [createUserId, setCreateUserId] = useState("");
+  const [createResourceId, setCreateResourceId] = useState("");
   const [editApplicationId, setEditApplicationId] = useState("");
+  const [editAction, setEditAction] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editName, setEditName] = useState("");
   const [editOrganisationId, setEditOrganisationId] = useState("");
+  const [editResourceId, setEditResourceId] = useState("");
   const [removingAssignmentId, setRemovingAssignmentId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -162,7 +172,20 @@ export function UserPermissionsBoard({
     label: user.name || user.email,
     meta: user.email,
   }));
-  const createCodeIsValid = !createCode.trim() || isValidPermissionCode(createCode);
+  const resourceSelectOptions: AutoCompleteTextFieldOption[] = resources.map((resource) => ({
+    id: resource.id,
+    label: resource.display_name || resource.resource_type,
+    meta: resource.resource_type,
+  }));
+  const selectedCreateResource = resources.find((resource) => resource.id === createResourceId);
+  const selectedEditResource = resources.find((resource) => resource.id === editResourceId);
+  const derivedCreateCode = selectedCreateResource && createAction.trim()
+    ? `${selectedCreateResource.resource_type}.${createAction.trim().toLowerCase()}`
+    : createCode.trim();
+  const derivedEditCode = selectedEditResource && editAction.trim()
+    ? `${selectedEditResource.resource_type}.${editAction.trim().toLowerCase()}`
+    : editingRow?.code ?? "";
+  const createCodeIsValid = !derivedCreateCode || isValidPermissionCode(derivedCreateCode);
 
   function associatedRoles(row: PermissionRow) {
     return rolePermissions
@@ -197,9 +220,11 @@ export function UserPermissionsBoard({
     setMessage(null);
     setEditingRow(row);
     setEditApplicationId(row.applicationId);
+    setEditAction(row.code.split(".").at(-1) ?? "");
     setEditDescription(row.description);
     setEditName(row.name);
     setEditOrganisationId(row.organisationId);
+    setEditResourceId(row.resourceId);
   }
 
   function savePermissionDescription() {
@@ -208,12 +233,13 @@ export function UserPermissionsBoard({
     setMessage(null);
     startTransition(async () => {
       const result = await updatePermissionDescription({
-        permissionId: row.id,
-        code: row.code,
-        name: editName.trim(),
-        description: editDescription,
-        organisationId: editOrganisationId.trim() || undefined,
-        applicationId: editApplicationId.trim() || undefined,
+          permissionId: row.id,
+          code: derivedEditCode,
+          name: editName.trim(),
+          description: editDescription,
+          organisationId: editOrganisationId.trim() || undefined,
+          applicationId: editApplicationId.trim() || undefined,
+          resourceId: editResourceId.trim() || undefined,
       });
       if (!result.success) {
         setMessage({ type: "error", text: result.message });
@@ -228,6 +254,9 @@ export function UserPermissionsBoard({
           description: updated.description || updated.name,
           name: updated.name,
           organisationId: updated.organisation_id ?? "",
+          resourceId: updated.resource_id ?? "",
+          resourceType: updated.resource_type ?? "",
+          code: updated.code,
         } : current);
       }
       setMessage({ type: "success", text: result.message });
@@ -237,27 +266,30 @@ export function UserPermissionsBoard({
 
   function resetCreateForm() {
     setCreateCode("");
+    setCreateAction("");
     setCreateName("");
     setCreateDescription("");
     setCreateOrganisationId("");
     setCreateApplicationId("");
     setCreateRoleId("");
     setCreateUserId("");
+    setCreateResourceId("");
   }
 
   function saveNewPermission() {
-    if (!isValidPermissionCode(createCode)) {
+    if (!isValidPermissionCode(derivedCreateCode)) {
       setMessage({ type: "error", text: "Permission code must use resource.action naming, for example academy.archive or academy.claim.approve." });
       return;
     }
     setMessage(null);
     startTransition(async () => {
       const result = await createPermissionWithOptionalAssignments({
-        code: createCode.trim(),
+        code: derivedCreateCode,
         name: createName.trim(),
         description: createDescription.trim(),
         organisationId: createOrganisationId.trim() || undefined,
         applicationId: createApplicationId.trim() || undefined,
+        resourceId: createResourceId.trim() || undefined,
         roleId: createRoleId || undefined,
         userId: createUserId || undefined,
       });
@@ -316,7 +348,12 @@ export function UserPermissionsBoard({
           </thead>
           <tbody className="divide-y divide-stone-100">
             {pagedRows.map((row) => (
-              <tr key={row.id}>
+              <tr
+                key={row.id}
+                onDoubleClick={() => setSelectedRow(row)}
+                className="cursor-pointer hover:bg-stone-50"
+                title={`Double click to view ${row.code}`}
+              >
                 <td className="px-5 py-4 font-black text-stone-950">{row.code}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{row.description}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{row.source}</td>
@@ -480,7 +517,7 @@ export function UserPermissionsBoard({
             <div className="grid gap-5 px-6 py-5">
               <label className="grid gap-2 text-sm font-black text-stone-950">
                 Permission
-                <input value={editingRow.code} readOnly className="min-h-11 rounded-md border border-stone-200 bg-stone-50 px-3 text-sm font-semibold text-stone-700" />
+                <input value={derivedEditCode} readOnly className="min-h-11 rounded-md border border-stone-200 bg-stone-50 px-3 text-sm font-semibold text-stone-700" />
               </label>
               <label className="grid gap-2 text-sm font-black text-stone-950">
                 Name
@@ -501,6 +538,28 @@ export function UserPermissionsBoard({
                   className="min-h-32 rounded-md border border-stone-300 px-3 py-3 text-sm font-medium text-stone-950 outline-none focus:border-teal-700 disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-500"
                 />
               </label>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <AutoCompleteTextField
+                  key={`edit-resource-${editingRow.id}-${editResourceId}`}
+                  emptyMessage="No resources found."
+                  label="Resource"
+                  name="resourceId"
+                  options={resourceSelectOptions}
+                  placeholder="Search resources"
+                  selectedId={editResourceId}
+                  onSelectedIdChange={setEditResourceId}
+                />
+                <label className="grid gap-2 text-sm font-black text-stone-950">
+                  Action
+                  <input
+                    value={editAction}
+                    onChange={(event) => setEditAction(event.target.value.toLowerCase())}
+                    disabled={!canEditPermissions || pending}
+                    placeholder="view"
+                    className="min-h-11 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-950 outline-none focus:border-teal-700 disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-500"
+                  />
+                </label>
+              </div>
               <div className="grid gap-5 sm:grid-cols-2">
                 <AutoCompleteTextField
                   key={`edit-organisation-${editingRow.id}-${editOrganisationId}`}
@@ -556,18 +615,34 @@ export function UserPermissionsBoard({
             </div>
             <div className="grid gap-5 px-6 py-5">
               <div className="grid gap-5 sm:grid-cols-2">
+                <AutoCompleteTextField
+                  key={`create-resource-${createResourceId}`}
+                  emptyMessage="No resources found."
+                  label="Resource"
+                  name="resourceId"
+                  options={resourceSelectOptions}
+                  placeholder="Search resources"
+                  selectedId={createResourceId}
+                  onSelectedIdChange={setCreateResourceId}
+                />
+                <label className="grid gap-2 text-sm font-black text-stone-950">
+                  Action
+                  <input value={createAction} onChange={(event) => setCreateAction(event.target.value.toLowerCase())} placeholder="view" className="min-h-11 min-w-0 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-950 outline-none focus:border-teal-700" />
+                </label>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <label className="grid gap-2 text-sm font-black text-stone-950">
+                  Name
+                  <input value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder="Readable permission name" className="min-h-11 min-w-0 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-950 outline-none focus:border-teal-700" />
+                </label>
                 <label className="grid gap-2 text-sm font-black text-stone-950">
                   Code
-                  <input value={createCode} onChange={(event) => setCreateCode(event.target.value)} placeholder="resource.action" className="min-h-11 min-w-0 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-950 outline-none focus:border-teal-700" />
+                  <input value={derivedCreateCode} readOnly placeholder="resource.action" className="min-h-11 min-w-0 rounded-md border border-stone-200 bg-stone-50 px-3 text-sm font-semibold text-stone-700" />
                   {!createCodeIsValid ? (
                     <span className="text-xs font-semibold text-red-700">
                       Use lowercase dot-separated code, for example academy.view.profile.
                     </span>
                   ) : null}
-                </label>
-                <label className="grid gap-2 text-sm font-black text-stone-950">
-                  Name
-                  <input value={createName} onChange={(event) => setCreateName(event.target.value)} placeholder="Readable permission name" className="min-h-11 min-w-0 rounded-md border border-stone-300 px-3 text-sm font-medium text-stone-950 outline-none focus:border-teal-700" />
                 </label>
               </div>
               <label className="grid gap-2 text-sm font-black text-stone-950">
@@ -627,7 +702,7 @@ export function UserPermissionsBoard({
               <button
                 type="button"
                 onClick={saveNewPermission}
-                disabled={!canCreatePermissions || pending || !createCode.trim() || !createName.trim() || !isValidPermissionCode(createCode)}
+                disabled={!canCreatePermissions || pending || !derivedCreateCode || !createName.trim() || !isValidPermissionCode(derivedCreateCode)}
                 className="inline-flex min-h-10 items-center rounded-md bg-stone-950 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400"
               >
                 {pending ? "Creating..." : "Create Permission"}

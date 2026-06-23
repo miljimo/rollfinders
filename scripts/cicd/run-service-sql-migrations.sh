@@ -40,6 +40,10 @@ if [ -d services/booking/migrations ]; then
   done
 fi
 
+if [ -f services/notification/migrations/001_coreSchema.sql ]; then
+  (cd services/notification/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
+fi
+
 if [ -d services/academy/migrations ]; then
   for dir in schema types tables procedures functions; do
     if [ -d "services/academy/migrations/${dir}" ]; then

@@ -28,7 +28,7 @@ export async function getAcademyAccess(academyId: string): Promise<AcademyAccess
     };
   }
 
-  const member = (await listAcademyMembershipsForUserFromAcademyService(user.id)).find((membership) => membership.academyId === academyId);
+  const member = (await listAcademyMembershipsForUserFromAcademyService(user.id, user)).find((membership) => membership.academyId === academyId);
 
   if (!member) return null;
   return { userId: user.id, platformAdmin: false, superAdmin: false, academyAdmin: false, academyOwner: false };

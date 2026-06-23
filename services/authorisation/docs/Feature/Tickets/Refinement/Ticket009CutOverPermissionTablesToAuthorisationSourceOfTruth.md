@@ -5,6 +5,7 @@
 - Feature: Authorisation Service Migration
 - Component: Permission table ownership cutover
 - Priority: P1
+- Status: Partially Implemented
 - Branch: `feature/authorisation-permission-table-cutover`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer

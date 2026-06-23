@@ -320,6 +320,12 @@ export async function getRollfindersCourseFromCourseService(id: string) {
 }
 
 export async function listRollfindersCourseActivitiesFromCourseService(course: Pick<RollfindersCourseRecord, "id" | "startTime">) {
-  const body = await request(`/v1/courses/${encodeURIComponent(course.id)}/activities`) as { items?: CourseServiceActivityResponse[] };
+  let body: { items?: CourseServiceActivityResponse[] };
+  try {
+    body = await request(`/v1/courses/${encodeURIComponent(course.id)}/activities`) as { items?: CourseServiceActivityResponse[] };
+  } catch (error) {
+    if (error instanceof CourseServiceError && error.status === 404) return [];
+    throw error;
+  }
   return (body.items ?? []).map((item) => activityFromService(item, course.startTime));
 }

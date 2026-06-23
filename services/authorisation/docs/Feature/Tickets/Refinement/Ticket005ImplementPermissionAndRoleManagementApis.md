@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: Permission, role, and role-permission APIs
 - Priority: P0
+- Status: Implemented
 - Branch: `feature/authorisation-role-permission-apis`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer

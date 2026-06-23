@@ -56,10 +56,15 @@ func (r *repository) close() error {
 
 func (r *repository) createPermission(ctx context.Context, p Permission, actor, requestID string) (Permission, error) {
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO permissions (id, code, name, description, organisation_id, application_id, created_by)
-		VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''))
-		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at`,
-		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID, actor)
+		WITH inserted AS (
+			INSERT INTO permissions (id, code, name, description, organisation_id, application_id, resource_id, created_by)
+			VALUES ($1, $2, $3, NULLIF($4, ''), NULLIF($5, ''), NULLIF($6, ''), NULLIF($7, ''), NULLIF($8, ''))
+			RETURNING id, code, name, description, organisation_id, application_id, resource_id, created_by, created_at, updated_at
+		)
+		SELECT inserted.id, inserted.code, inserted.name, COALESCE(inserted.description, ''), COALESCE(inserted.organisation_id, ''), COALESCE(inserted.application_id, ''), COALESCE(inserted.resource_id, ''), COALESCE(res.resource_type, ''), COALESCE(inserted.created_by, ''), inserted.created_at, inserted.updated_at
+		FROM inserted
+		LEFT JOIN resources res ON res.id = inserted.resource_id`,
+		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID, p.ResourceID, actor)
 	created, err := scanPermission(row)
 	if err != nil {
 		return Permission{}, err
@@ -77,10 +82,11 @@ func (r *repository) updatePermission(ctx context.Context, p Permission, actor, 
 		    description = NULLIF($4, ''),
 		    organisation_id = NULLIF($5, ''),
 		    application_id = NULLIF($6, ''),
+		    resource_id = NULLIF($7, ''),
 		    updated_at = now()
 		WHERE id = $1
-		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at`,
-		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID)
+		RETURNING id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(resource_id, ''), COALESCE((SELECT resource_type FROM resources WHERE id = permissions.resource_id), ''), COALESCE(created_by, ''), created_at, updated_at`,
+		p.ID, p.Code, p.Name, p.Description, p.OrganisationID, p.ApplicationID, p.ResourceID)
 	updated, err := scanPermission(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Permission{}, errNotFound
@@ -94,9 +100,10 @@ func (r *repository) updatePermission(ctx context.Context, p Permission, actor, 
 
 func (r *repository) listPermissions(ctx context.Context) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at
-		FROM permissions
-		ORDER BY code, organisation_id NULLS FIRST, application_id NULLS FIRST`)
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.resource_id, ''), COALESCE(res.resource_type, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
+		FROM permissions p
+		LEFT JOIN resources res ON res.id = p.resource_id
+		ORDER BY p.code, p.organisation_id NULLS FIRST, p.application_id NULLS FIRST`)
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +121,10 @@ func (r *repository) listPermissions(ctx context.Context) ([]Permission, error) 
 
 func (r *repository) getPermission(ctx context.Context, id string) (Permission, error) {
 	p, err := scanPermission(r.db.QueryRowContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at
-		FROM permissions
-		WHERE id = $1`, id))
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.resource_id, ''), COALESCE(res.resource_type, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
+		FROM permissions p
+		LEFT JOIN resources res ON res.id = p.resource_id
+		WHERE p.id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Permission{}, errNotFound
 	}
@@ -125,14 +133,15 @@ func (r *repository) getPermission(ctx context.Context, id string) (Permission, 
 
 func (r *repository) permissionByCode(ctx context.Context, code string, scope Scope) (Permission, error) {
 	p, err := scanPermission(r.db.QueryRowContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), COALESCE(organisation_id, ''), COALESCE(application_id, ''), COALESCE(created_by, ''), created_at, updated_at
-		FROM permissions
-		WHERE code = $1
-		  AND (organisation_id IS NULL OR organisation_id = NULLIF($2, ''))
-		  AND (application_id IS NULL OR application_id = NULLIF($3, ''))
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.resource_id, ''), COALESCE(res.resource_type, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
+		FROM permissions p
+		LEFT JOIN resources res ON res.id = p.resource_id
+		WHERE p.code = $1
+		  AND (p.organisation_id IS NULL OR p.organisation_id = NULLIF($2, ''))
+		  AND (p.application_id IS NULL OR p.application_id = NULLIF($3, ''))
 		ORDER BY
-		  CASE WHEN organisation_id IS NULL THEN 0 ELSE 1 END DESC,
-		  CASE WHEN application_id IS NULL THEN 0 ELSE 1 END DESC
+		  CASE WHEN p.organisation_id IS NULL THEN 0 ELSE 1 END DESC,
+		  CASE WHEN p.application_id IS NULL THEN 0 ELSE 1 END DESC
 		LIMIT 1`,
 		code, scope.OrganisationID, scope.ApplicationID))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -143,8 +152,46 @@ func (r *repository) permissionByCode(ctx context.Context, code string, scope Sc
 
 func scanPermission(scanner interface{ Scan(dest ...any) error }) (Permission, error) {
 	var p Permission
-	err := scanner.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
+	err := scanner.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.ResourceID, &p.ResourceType, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
+}
+
+func (r *repository) listResources(ctx context.Context) ([]Resource, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, resource_type, COALESCE(display_name, ''), created_at, updated_at
+		FROM resources
+		ORDER BY resource_type, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Resource
+	for rows.Next() {
+		var resource Resource
+		if err := rows.Scan(&resource.ID, &resource.ResourceType, &resource.DisplayName, &resource.CreatedAt, &resource.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, resource)
+	}
+	return out, rows.Err()
+}
+
+func (r *repository) createResource(ctx context.Context, resource Resource, actor, requestID string) (Resource, error) {
+	row := r.db.QueryRowContext(ctx, `
+		INSERT INTO resources (id, resource_type, display_name)
+		VALUES ($1, $2, NULLIF($3, ''))
+		ON CONFLICT (id) DO UPDATE
+		SET resource_type = EXCLUDED.resource_type,
+		    display_name = COALESCE(EXCLUDED.display_name, resources.display_name),
+		    updated_at = now()
+		RETURNING id, resource_type, COALESCE(display_name, ''), created_at, updated_at`,
+		resource.ID, resource.ResourceType, resource.DisplayName)
+	var created Resource
+	if err := row.Scan(&created.ID, &created.ResourceType, &created.DisplayName, &created.CreatedAt, &created.UpdatedAt); err != nil {
+		return Resource{}, err
+	}
+	_ = r.audit(ctx, actor, "resource.create", "", "", created.ID, Scope{}, nil, created, requestID)
+	return created, nil
 }
 
 func (r *repository) createRole(ctx context.Context, role Role, actor, requestID string) (Role, error) {
@@ -233,9 +280,10 @@ func (r *repository) removeRolePermission(ctx context.Context, roleID, permissio
 
 func (r *repository) rolePermissions(ctx context.Context, roleID string) ([]Permission, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.resource_id, ''), COALESCE(pr.resource_type, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
 		FROM permissions p
 		JOIN role_permissions rp ON rp.permission_id = p.id
+		LEFT JOIN resources pr ON pr.id = p.resource_id
 		WHERE rp.role_id = $1
 		ORDER BY p.code`, roleID)
 	if err != nil {
@@ -462,11 +510,12 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 	allowed := map[string]Permission{}
 	denied := map[string]Permission{}
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.resource_id, ''), COALESCE(pr.resource_type, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at
 		FROM user_roles ur
 		JOIN role_permissions rp ON rp.role_id = ur.role_id
 		JOIN permissions p ON p.id = rp.permission_id
 		LEFT JOIN resources res ON res.id = ur.resource_id
+		LEFT JOIN resources pr ON pr.id = p.resource_id
 		WHERE ur.user_id = $1
 		  AND scope_matches(ur.organisation_id, ur.application_id, res.resource_type, ur.resource_id, $2, $3, $4, $5)
 		  AND (p.organisation_id IS NULL OR p.organisation_id = $2)
@@ -487,10 +536,11 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 		return effectiveSet{}, err
 	}
 	rows, err = r.db.QueryContext(ctx, `
-		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at, up.effect
+		SELECT p.id, p.code, p.name, COALESCE(p.description, ''), COALESCE(p.organisation_id, ''), COALESCE(p.application_id, ''), COALESCE(p.resource_id, ''), COALESCE(pr.resource_type, ''), COALESCE(p.created_by, ''), p.created_at, p.updated_at, up.effect
 		FROM user_permissions up
 		JOIN permissions p ON p.id = up.permission_id
 		LEFT JOIN resources res ON res.id = up.resource_id
+		LEFT JOIN resources pr ON pr.id = p.resource_id
 		WHERE up.user_id = $1
 		  AND scope_matches(up.organisation_id, up.application_id, res.resource_type, up.resource_id, $2, $3, $4, $5)
 		  AND (p.organisation_id IS NULL OR p.organisation_id = $2)
@@ -503,7 +553,7 @@ func (r *repository) effectivePermissions(ctx context.Context, userID string, sc
 	for rows.Next() {
 		var p Permission
 		var effect string
-		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt, &effect); err != nil {
+		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.OrganisationID, &p.ApplicationID, &p.ResourceID, &p.ResourceType, &p.CreatedBy, &p.CreatedAt, &p.UpdatedAt, &effect); err != nil {
 			return effectiveSet{}, err
 		}
 		if effect == "DENY" {

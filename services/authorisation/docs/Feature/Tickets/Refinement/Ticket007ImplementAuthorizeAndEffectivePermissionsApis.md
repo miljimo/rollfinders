@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: Decision engine and effective permissions
 - Priority: P0
+- Status: Implemented
 - Branch: `feature/authorisation-decision-engine`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer

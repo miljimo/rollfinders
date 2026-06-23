@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: User role assignments and direct permission assignments
 - Priority: P0
+- Status: Implemented
 - Branch: `feature/authorisation-user-assignments`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer

@@ -1,0 +1,5 @@
+.git
+Dockerfile
+compose.yml
+docs
+tmp

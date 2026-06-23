@@ -5,6 +5,7 @@
 - Feature: Service-to-service Authorisation
 - Component: Academy, Courses, Booking, Payments, and Organisation service enforcement
 - Priority: P2
+- Status: Moved To API Orchestrator
 - Branch: `feature/domain-services-authorisation-enforcement`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer
@@ -14,6 +15,10 @@
 ## Task
 
 Update domain services so sensitive reads and mutations validate permissions through Authorisation Service.
+
+## Current State
+
+Moved to API Orchestrator for public browser/mobile traffic. The API service now owns route permission mapping and fail-closed enforcement before forwarding to downstream services. Domain services may still enforce service-to-service or internal worker permissions where needed, but gateway route enforcement belongs in `services/api/docs/Feature/Tickets/Refinement`.
 
 ## Implementation Notes
 

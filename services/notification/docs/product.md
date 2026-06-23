@@ -19,6 +19,27 @@ The service must not contain business logic such as password resets, booking con
 
 Business services generate content and submit notification requests.
 
+The Notification Service is the only source of truth for notification queue state, delivery status, provider responses, attempt history, and recipient-specific delivery state. Public application schemas must not create or retain notification queue tables such as `outbound_emails`, `outbound_email_status_history`, `email_delivery_job_runs`, or `invalid_email_addresses`.
+
+---
+
+# Current Implementation Status
+
+| Capability | State | Notes |
+| --- | --- | --- |
+| Go API service foundation | Implemented | API, worker, config, Dockerfile, and compose wiring exist under `services/notification`. |
+| OpenAPI contract | Implemented | `services/notification/docs/api/openApi.yaml` exists for create/search/details. |
+| Generic notification schema | Implemented | `notification.notifications` stores channel-agnostic queue/lifecycle/provider state. |
+| Email-specific schema | Implemented | `notification.email_messages` and `notification.email_recipients` store Email subject/content/sender/reply-to/recipients. |
+| Data access layer | Implemented | Create, get, search, lock due work, status updates, and attempt history exist. |
+| Create notification endpoint | Implemented | `POST /v1/notifications` queues persisted notifications. |
+| Search/details endpoints | Implemented | `GET /v1/notifications` and `GET /v1/notifications/{notificationId}` exist. |
+| SMTP provider abstraction | Implemented | SMTP provider and provider tests exist; production storage client for attachments remains pending. |
+| Queue worker and retries | Implemented | Worker locks due rows, sends, records attempts, and applies five-attempt retry policy. |
+| Metrics and published lifecycle events | Partially Implemented | Attempt history exists; exported metrics and event publication are pending. |
+| Web app integration | Implemented | The Next.js app submits Email notifications to `POST /v1/notifications`; public Prisma email queue tables have been removed. |
+| Integration/regression suite | Partially Implemented | Unit tests, ownership scaffold, and web adapter contract tests exist; live DB, fake SMTP compose, and Booking Service integration remain pending. |
+
 ---
 
 # Objectives
@@ -215,8 +236,8 @@ Request:
   "channel": "EMAIL",
   "priority": "HIGH",
   "subject": "Booking Confirmed",
-  "htmlContent": "<html>...</html>",
-  "textContent": "Booking Confirmed",
+  "contentText": "<html>...</html>",
+  "isContentHtml": true,
 
   "from": {
     "email": "noreply@rollfinders.com",
@@ -416,12 +437,6 @@ CREATE TABLE notifications (
 
     status VARCHAR(50) NOT NULL,
 
-    subject TEXT,
-
-    html_content TEXT,
-
-    text_content TEXT,
-
     metadata JSONB,
 
     idempotency_key VARCHAR(255),
@@ -446,10 +461,34 @@ CREATE TABLE notifications (
 
 ---
 
-## notification_recipients
+## email_messages
 
 ```sql
-CREATE TABLE notification_recipients (
+CREATE TABLE email_messages (
+    notification_id UUID PRIMARY KEY,
+
+    subject TEXT NOT NULL,
+
+    content_text TEXT NOT NULL,
+
+    is_content_html BOOLEAN NOT NULL,
+
+    from_email VARCHAR(255) NOT NULL,
+
+    from_name VARCHAR(255),
+
+    reply_to_email VARCHAR(255),
+
+    reply_to_name VARCHAR(255)
+);
+```
+
+---
+
+## email_recipients
+
+```sql
+CREATE TABLE email_recipients (
     id UUID PRIMARY KEY,
 
     notification_id UUID NOT NULL,

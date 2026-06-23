@@ -30,9 +30,10 @@ export function TableRow({ children, className, href, linked = false }: { childr
   return (
     <tr
       className={clsx("border-t border-stone-100", clickable && "cursor-pointer transition hover:bg-stone-50", className)}
-      onClick={navigate}
+      onDoubleClick={navigate}
       onKeyDown={navigateFromKeyboard}
       tabIndex={href ? 0 : undefined}
+      title={href ? "Double click to view details" : undefined}
     >
       {children}
     </tr>

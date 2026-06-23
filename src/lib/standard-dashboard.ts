@@ -7,7 +7,7 @@ type ServiceUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
 export async function getDashboardShadowAccount(user: ServiceUser) {
   const academy = user.academyId
-    ? await getAcademyFromAcademyService(user.academyId)
+    ? await getAcademyFromAcademyService(user.academyId, user)
     : null;
   return {
     id: user.id,
@@ -30,8 +30,8 @@ export async function requireDashboardUser() {
 
   const fallbackMembership = account.academy
     ? null
-    : (await listAcademyMembershipsForUserFromAcademyService(account.id))[0];
-  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId) : null;
+    : (await listAcademyMembershipsForUserFromAcademyService(account.id, user))[0];
+  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId, user) : null;
 
   return { user: account, academy: account.academy ?? fallbackAcademy };
 }
@@ -45,8 +45,8 @@ export async function requireStandardDashboardUser() {
 
   const fallbackMembership = account.academy
     ? null
-    : (await listAcademyMembershipsForUserFromAcademyService(account.id))[0];
-  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId) : null;
+    : (await listAcademyMembershipsForUserFromAcademyService(account.id, user))[0];
+  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId, user) : null;
   const academy = account.academy ?? fallbackAcademy;
   if (!academy) redirect("/login");
 

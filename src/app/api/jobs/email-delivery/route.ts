@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { EmailDeliveryJobRunStatus } from "@prisma/client";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
-import { processEmailDeliveryJob } from "@/lib/reliable-email";
+import { EmailDeliveryJobRunStatus, processEmailDeliveryJob } from "@/lib/reliable-email";
 
 function hasCronAccess(request: Request) {
   const secret = process.env.CRON_SECRET;

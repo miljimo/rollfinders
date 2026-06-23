@@ -30,6 +30,14 @@ export type ApplicationServiceRecord = {
   updated_at: string;
 };
 
+type ServiceActor = {
+  id: string;
+  role?: string;
+  email?: string | null;
+  academyId?: string | null;
+  privileges?: string[];
+};
+
 export class OrganisationServiceError extends Error {
   constructor(
     message: string,
@@ -41,6 +49,13 @@ export class OrganisationServiceError extends Error {
 }
 
 const organisationServiceUrl = apiGatewayUrl;
+
+function headers(actor?: ServiceActor) {
+  return {
+    "Content-Type": "application/json",
+    ...(actor ? { "X-Actor": JSON.stringify(actor), "X-Actor-User-ID": actor.id } : {}),
+  };
+}
 
 async function parseResponse(response: Response) {
   const body = await response.json().catch(() => ({}));
@@ -54,57 +69,57 @@ async function parseResponse(response: Response) {
   return body;
 }
 
-export async function getOrganisation(organisationId: string) {
+export async function getOrganisation(organisationId: string, actor?: ServiceActor) {
   const response = await fetch(`${organisationServiceUrl()}/v1/organisations/${encodeURIComponent(organisationId)}`, {
     method: "GET",
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    headers: headers(actor),
   });
   const result = await parseResponse(response) as { organisation?: OrganisationRecord };
   return result.organisation ?? null;
 }
 
-export async function listOrganisations() {
+export async function listOrganisations(actor?: ServiceActor) {
   const response = await fetch(`${organisationServiceUrl()}/v1/organisations`, {
     method: "GET",
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    headers: headers(actor),
   });
   const result = await parseResponse(response) as { organisations?: OrganisationRecord[] };
   return result.organisations ?? [];
 }
 
-export async function getOrganisationApplication(applicationId = getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders")) {
+export async function getOrganisationApplication(applicationId = getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders"), actor?: ServiceActor) {
   const response = await fetch(`${organisationServiceUrl()}/v1/applications/${encodeURIComponent(applicationId)}`, {
     method: "GET",
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    headers: headers(actor),
   });
   const result = await parseResponse(response) as { application?: OrganisationApplicationRecord };
   return result.application ?? null;
 }
 
-export async function listOrganisationApplications() {
+export async function listOrganisationApplications(actor?: ServiceActor) {
   const response = await fetch(`${organisationServiceUrl()}/v1/applications`, {
     method: "GET",
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    headers: headers(actor),
   });
   const result = await parseResponse(response) as { applications?: OrganisationApplicationRecord[] };
   return result.applications ?? [];
 }
 
-export async function listApplicationServices(applicationId = getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders")) {
+export async function listApplicationServices(applicationId = getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders"), actor?: ServiceActor) {
   const response = await fetch(`${organisationServiceUrl()}/v1/applications/${encodeURIComponent(applicationId)}/services`, {
     method: "GET",
     cache: "no-store",
-    headers: { "Content-Type": "application/json" },
+    headers: headers(actor),
   });
   const result = await parseResponse(response) as { services?: ApplicationServiceRecord[] };
   return result.services ?? [];
 }
 
-export async function isApplicationServiceEnabled(serviceKey: string, applicationId = getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders")) {
-  const services = await listApplicationServices(applicationId);
+export async function isApplicationServiceEnabled(serviceKey: string, applicationId = getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders"), actor?: ServiceActor) {
+  const services = await listApplicationServices(applicationId, actor);
   return services.some((service) => service.service_key === serviceKey && service.enabled);
 }

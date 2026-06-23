@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS permissions (
     description text,
     organisation_id text,
     application_id text,
+    resource_id text REFERENCES resources(id) ON UPDATE CASCADE ON DELETE RESTRICT,
     created_by text,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),

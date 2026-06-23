@@ -10,7 +10,7 @@ function readSource(path: string) {
 }
 
 describe("email operations contracts", () => {
-  it("password reset emails are sent immediately after being queued", () => {
+  it("password reset emails are submitted through the notification service adapter", () => {
     const source = readSource("src/lib/password-reset.ts");
 
     assert.match(source, /const\s+outboundEmail\s*=\s*await\s+queueEmail\(/);
@@ -18,7 +18,7 @@ describe("email operations contracts", () => {
     assert.match(source, /sentEmail\?\.status\s*!==\s*OutboundEmailStatus\.SENT/);
     assert.ok(
       source.indexOf("await sendQueuedPasswordEmail(outboundEmail.id)") > source.indexOf("const outboundEmail = await queueEmail("),
-      "sendQueuedEmail must stay after the password reset email is queued",
+      "password reset flow must acknowledge the notification after it is queued",
     );
   });
 
@@ -39,7 +39,7 @@ describe("email operations contracts", () => {
     assert.match(adminSettingsAction, /await\s+queuePasswordChangedEmail\(actor\)/);
   });
 
-  it("academy claim reminder emails are sent immediately after being queued", () => {
+  it("academy claim reminder emails are submitted through the notification service adapter", () => {
     const source = readSource("src/app/admin/academies/actions.ts");
 
     assert.match(source, /async\s+function\s+queueAcademyClaimReminderEmail/);
@@ -47,11 +47,11 @@ describe("email operations contracts", () => {
     assert.match(source, /await\s+sendQueuedEmail\(outboundEmail\.id\)/);
     assert.ok(
       source.indexOf("await sendQueuedEmail(outboundEmail.id)") > source.indexOf("const outboundEmail = await queueEmail("),
-      "sendQueuedEmail must stay after the academy claim reminder email is queued",
+      "academy claim reminder flow must acknowledge the notification after it is queued",
     );
   });
 
-  it("academy admin invitation emails are sent immediately after being queued", () => {
+  it("academy admin invitation emails are submitted through the notification service adapter", () => {
     const source = readSource("src/app/admin/academies/actions.ts");
 
     assert.match(source, /async\s+function\s+queueAcademyInvitationEmail/);
@@ -60,7 +60,7 @@ describe("email operations contracts", () => {
     assert.ok(
       source.indexOf("await sendQueuedEmail(outboundEmail.id)", source.indexOf("async function queueAcademyInvitationEmail")) >
         source.indexOf("const outboundEmail = await queueEmail(", source.indexOf("async function queueAcademyInvitationEmail")),
-      "sendQueuedEmail must stay after the academy admin invitation email is queued",
+      "academy admin invitation flow must acknowledge the notification after it is queued",
     );
   });
 
@@ -90,64 +90,53 @@ describe("email operations contracts", () => {
     assert.match(source, /invalid:\s*result\.summary\.invalidEmailCount/);
   });
 
-  it("email operations dashboards count failed and retry-pending queued emails as attention items", () => {
+  it("email operations dashboards use notification-service-owned summary data", () => {
     const reliableEmail = readSource("src/lib/reliable-email.ts");
+    const schema = readSource("prisma/schema.prisma");
+    const migration = readSource("prisma/migrations/20260623190000_remove_public_notification_tables/migration.sql");
 
     assert.match(reliableEmail, /export\s+async\s+function\s+getEmailQueueOperationsSummary/);
-    assert.match(reliableEmail, /prisma\.outboundEmail\.count\(\)/);
-    assert.match(reliableEmail, /status:\s*\{\s*in:\s*\[OutboundEmailStatus\.PENDING,\s*OutboundEmailStatus\.RETRY_PENDING\]\s*\}/);
-    assert.match(reliableEmail, /status:\s*OutboundEmailStatus\.RETRY_PENDING/);
-    assert.match(reliableEmail, /nextAttemptAt:\s*\{\s*gt:\s*now\s*\}/);
-    assert.match(reliableEmail, /OutboundEmailStatus\.FAILED/);
-    assert.match(reliableEmail, /OutboundEmailStatus\.RETRY_PENDING/);
-    assert.match(reliableEmail, /OutboundEmailStatus\.INVALID_EMAIL/);
-    assert.match(reliableEmail, /OutboundEmailStatus\.PERMANENTLY_FAILED/);
-    assert.match(reliableEmail, /prisma\.invalidEmailAddress\.count\(\)/);
+    assert.match(reliableEmail, /\/v1\/notifications/);
+    assert.match(reliableEmail, /NOTIFICATION_SERVICE_BASE_URL/);
+    assert.doesNotMatch(reliableEmail, /prisma\.outboundEmail|prisma\.invalidEmailAddress|nodemailer|sendMail\(/);
+    assert.doesNotMatch(schema, /model\s+OutboundEmail|model\s+InvalidEmailAddress|model\s+EmailDeliveryJobRun|enum\s+OutboundEmailStatus|enum\s+EmailDeliveryJobRunStatus/);
+    assert.match(migration, /DROP TABLE IF EXISTS "outbound_emails"/);
+    assert.match(migration, /DROP TABLE IF EXISTS "invalid_email_addresses"/);
 
     const dashboards = ["src/app/dashboard/AdminDashboardWorkspace.tsx", "src/app/admin/settings/page.tsx"];
     for (const path of dashboards) {
       const source = readSource(path);
-      const usesSharedSummary = source.includes("getEmailQueueOperationsSummary()");
-      const usesLegacyCounts =
-        /prisma\.outboundEmail\.count\(\)/.test(source) &&
-        /status:\s*\{\s*in:\s*\["FAILED",\s*"RETRY_PENDING",\s*"INVALID_EMAIL",\s*"PERMANENTLY_FAILED"\]\s*\}/.test(source) &&
-        /prisma\.invalidEmailAddress\.count\(\)/.test(source);
-
-      assert.ok(usesSharedSummary || usesLegacyCounts, `${path} must show email operations counts from shared or equivalent queries`);
+      assert.match(source, /getEmailQueueOperationsSummary\(\)/, `${path} must use the shared notification summary adapter`);
+      assert.doesNotMatch(source, /prisma\.outboundEmail|prisma\.invalidEmailAddress/);
     }
   });
 
-  it("provider configuration failures are not classified as invalid recipient emails", () => {
+  it("notification state is not classified or persisted by the public app", () => {
     const reliableEmail = readSource("src/lib/reliable-email.ts");
 
-    assert.match(reliableEmail, /function\s+isProviderConfigurationFailure/);
-    assert.match(reliableEmail, /email address is not verified/);
-    assert.match(reliableEmail, /identity\.\*failed\.\*check/);
-    assert.match(reliableEmail, /if\s*\(\s*isProviderConfigurationFailure\(error\)\s*\)\s*return\s+false/);
-    assert.match(reliableEmail, /invalidAddressIsProviderConfig/);
-    assert.match(reliableEmail, /userInvalidIsProviderConfig/);
-    assert.match(reliableEmail, /user\?\.emailStatus\s*===\s*UserEmailStatus\.INVALID\s*&&\s*!userInvalidIsProviderConfig/);
-    assert.match(reliableEmail, /async\s+function\s+clearProviderConfigurationInvalidEmail/);
-    assert.match(reliableEmail, /await\s+clearProviderConfigurationInvalidEmail\(\{\s*userId:\s*email\.userId,\s*email:\s*email\.recipientEmail\s*\}\)/);
-    assert.match(reliableEmail, /emailStatus:\s*UserEmailStatus\.VALID/);
+    assert.match(reliableEmail, /fetch\(`\$\{notificationServiceBaseURL\(\)\}\/v1\/notifications`/);
+    assert.match(reliableEmail, /"X-API-Key":\s*notificationAPIKey\(\)/);
+    assert.doesNotMatch(reliableEmail, /isPermanentFailure|markInvalidEmail|InvalidEmailAddress|invalidEmailAddress/);
   });
 
-  it("uses SMTP-only delivery in application and production infrastructure", () => {
+  it("uses SMTP-only delivery in notification service and production infrastructure", () => {
     const provisioning = readSource("src/lib/email-provisioning.ts");
     const reliableEmail = readSource("src/lib/reliable-email.ts");
+    const notificationSmtp = readSource("services/notification/internal/providers/smtp.go");
     const terraform = readSource("terraform/main.tf");
     const variables = readSource("terraform/variables.tf");
     const packageJson = readSource("package.json");
 
     assert.doesNotMatch(provisioning, /EMAIL_DELIVERY_PROVIDER|provider:|region:/);
     assert.doesNotMatch(reliableEmail, /@aws-sdk\/client-ses|SendEmailCommand|SESClient|config\.provider/);
+    assert.doesNotMatch(reliableEmail, /import\s+nodemailer|sendMail\(/);
     assert.match(provisioning, /const\s+smtpUsername\s*=\s*getEnvVariable\("SMTP_USERNAME"/);
     assert.match(provisioning, /const\s+smtpPassword\s*=\s*getEnvVariable\("SMTP_PASSWORD"/);
     assert.match(provisioning, /smtpUsername:\s*smtpUsername\s*===\s*unsetSentinel\s*\?\s*""\s*:\s*smtpUsername/);
     assert.match(provisioning, /smtpPassword:\s*smtpPassword\s*===\s*unsetSentinel\s*\?\s*""\s*:\s*smtpPassword/);
-    assert.match(reliableEmail, /import\s+nodemailer\s+from\s+"nodemailer"/);
-    assert.match(reliableEmail, /function\s+smtpTransport/);
-    assert.match(reliableEmail, /sendMail\(/);
+    assert.match(notificationSmtp, /"net\/smtp"/);
+    assert.match(notificationSmtp, /smtp\.NewClient/);
+    assert.match(notificationSmtp, /type\s+SMTPConfig\s+struct/);
     assert.doesNotMatch(packageJson, /@aws-sdk\/client-ses/);
     assert.doesNotMatch(variables, /variable\s+"email_delivery_provider"/);
     assert.match(variables, /variable\s+"smtp_username"/);

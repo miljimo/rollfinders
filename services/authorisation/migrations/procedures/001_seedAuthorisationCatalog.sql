@@ -303,13 +303,28 @@ BEGIN
         ('authorisation.catalog.seed', 'Seed authorisation catalog', 'Allows seeding or reconciling service permission catalogs.'),
         ('authorisation.audit.read', 'Read authorisation audit', 'Allows reading authorisation audit events.'),
         ('authorisation.manage', 'Manage authorisation', 'Allows managing roles, permissions, and assignments.')
+    ),
+    permissionResources AS (
+    INSERT INTO resources (id, resource_type, display_name)
+    SELECT DISTINCT
+        regexp_replace(code, '\.[^.]+$', ''),
+        regexp_replace(code, '\.[^.]+$', ''),
+        initcap(replace(regexp_replace(code, '\.[^.]+$', ''), '.', ' '))
+    FROM permissionSeed
+    ON CONFLICT (id) DO UPDATE
+    SET resource_type = EXCLUDED.resource_type,
+        display_name = COALESCE(resources.display_name, EXCLUDED.display_name),
+        updated_at = now()
+    RETURNING id
     )
-    INSERT INTO permissions (id, code, name, description)
-    SELECT 'permission_' || encode(gen_random_bytes(12), 'hex'), code, name, description
+
+    INSERT INTO permissions (id, code, name, description, resource_id)
+    SELECT 'permission_' || encode(gen_random_bytes(12), 'hex'), code, name, description, regexp_replace(code, '\.[^.]+$', '')
     FROM permissionSeed
     ON CONFLICT ON CONSTRAINT permissions_code_scope_key DO UPDATE
     SET name = EXCLUDED.name,
         description = EXCLUDED.description,
+        resource_id = EXCLUDED.resource_id,
         updated_at = now();
 
     INSERT INTO roles (id, key, name, description, level, assignable, system_role)

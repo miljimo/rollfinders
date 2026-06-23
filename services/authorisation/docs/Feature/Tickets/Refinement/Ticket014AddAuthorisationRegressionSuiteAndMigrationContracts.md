@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: Regression, migration, and static contract tests
 - Priority: P1
+- Status: Partially Implemented
 - Branch: `feature/authorisation-regression-suite`
 - Developer owner: Test Engineer
 - Test owner: Test Engineer

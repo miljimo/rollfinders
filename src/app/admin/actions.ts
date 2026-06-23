@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { requirePlatformAdminPage, requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
 import { processEmailDeliveryJob } from "@/lib/reliable-email";
 
 export async function toggleUserDisabled(userId: string) {
@@ -25,16 +24,11 @@ export async function updateUserRole(userId: string, formData: FormData) {
 
 export async function deleteInvalidEmailRecord(invalidEmailId: string) {
   const actor = await requireSuperAdminPage();
-  const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { id: invalidEmailId } });
-  if (!invalidEmail) return;
-
-  await prisma.invalidEmailAddress.delete({ where: { id: invalidEmailId } });
-
   await writeAdminAuditLog({
     actorUserId: actor.id,
-    targetUserId: invalidEmail.userId,
-    action: "INVALID_EMAIL_RECORD_DELETED",
-    metadata: { email: invalidEmail.email },
+    targetUserId: null,
+    action: "INVALID_EMAIL_RECORD_DELETE_SKIPPED",
+    metadata: { invalidEmailId, reason: "notification_service_owns_email_state" },
   });
 
   revalidatePath("/admin");
@@ -42,14 +36,11 @@ export async function deleteInvalidEmailRecord(invalidEmailId: string) {
 
 export async function deleteInvalidEmailUser(invalidEmailId: string) {
   const actor = await requireSuperAdminPage();
-  const invalidEmail = await prisma.invalidEmailAddress.findUnique({ where: { id: invalidEmailId } });
-  if (!invalidEmail?.userId) return;
-
   await writeAdminAuditLog({
     actorUserId: actor.id,
-    targetUserId: invalidEmail.userId,
-    action: "INVALID_EMAIL_USER_DELETED",
-    metadata: { email: invalidEmail.email, deletedUserId: invalidEmail.userId, skipped: "managed_by_users_service" },
+    targetUserId: null,
+    action: "INVALID_EMAIL_USER_DELETE_SKIPPED",
+    metadata: { invalidEmailId, reason: "notification_service_owns_email_state" },
   });
 
   revalidatePath("/admin");

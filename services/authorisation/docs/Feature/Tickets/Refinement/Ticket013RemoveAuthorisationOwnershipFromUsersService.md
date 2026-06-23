@@ -5,6 +5,7 @@
 - Feature: Users Service Authorisation Migration
 - Component: Authorisation removal and compatibility cleanup
 - Priority: P2
+- Status: Partially Implemented
 - Branch: `feature/users-service-remove-authorisation`
 - Developer owner: Users Backend Developer
 - Test owner: Test Engineer

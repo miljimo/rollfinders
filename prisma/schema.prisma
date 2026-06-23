@@ -21,21 +21,6 @@ enum UserStatus {
   DISABLED
 }
 
-enum OutboundEmailStatus {
-  PENDING
-  SENDING
-  SENT
-  FAILED
-  RETRY_PENDING
-  INVALID_EMAIL
-  PERMANENTLY_FAILED
-}
-
-enum EmailDeliveryJobRunStatus {
-  SUCCESS
-  FAILED
-}
-
 enum GiType {
   GI
   NO_GI
@@ -445,78 +430,6 @@ model PlatformAdminActivityEvent {
   @@index([actionType, occurredAt])
   @@index([sourceType, sourceId])
   @@map("platform_admin_activity_events")
-}
-
-model OutboundEmail {
-  id                String                       @id @default(cuid())
-  userId            String?                      @map("user_id")
-  recipientEmail    String                       @map("recipient_email")
-  subject           String
-  textBody          String                       @map("text_body")
-  htmlBody          String?                      @map("html_body")
-  status            OutboundEmailStatus          @default(PENDING)
-  retryCount        Int                          @default(0) @map("retry_count")
-  maxRetries        Int                          @default(5) @map("max_retries")
-  nextAttemptAt     DateTime                     @default(now()) @map("next_attempt_at")
-  lastAttemptAt     DateTime?                    @map("last_attempt_at")
-  sentAt            DateTime?                    @map("sent_at")
-  failureReason     String?                      @map("failure_reason")
-  providerMessageId String?                      @map("provider_message_id")
-  createdAt         DateTime                     @default(now()) @map("created_at")
-  updatedAt         DateTime                     @updatedAt @map("updated_at")
-  statusHistory     OutboundEmailStatusHistory[]
-
-  @@index([status, nextAttemptAt])
-  @@index([recipientEmail])
-  @@index([userId])
-  @@map("outbound_emails")
-}
-
-model OutboundEmailStatusHistory {
-  id              String              @id @default(cuid())
-  outboundEmailId String              @map("outbound_email_id")
-  status          OutboundEmailStatus
-  reason          String?
-  createdAt       DateTime            @default(now()) @map("created_at")
-  outboundEmail   OutboundEmail       @relation(fields: [outboundEmailId], references: [id], onDelete: Cascade)
-
-  @@index([outboundEmailId])
-  @@index([status])
-  @@map("outbound_email_status_history")
-}
-
-model EmailDeliveryJobRun {
-  id                String                    @id @default(cuid())
-  status            EmailDeliveryJobRunStatus
-  triggerSource     String                    @map("trigger_source")
-  triggeredByUserId String?                   @map("triggered_by_user_id")
-  triggeredByEmail  String?                   @map("triggered_by_email")
-  requestedLimit    Int                       @map("requested_limit")
-  processedCount    Int                       @default(0) @map("processed_count")
-  sentCount         Int                       @default(0) @map("sent_count")
-  retryPendingCount Int                       @default(0) @map("retry_pending_count")
-  failedCount       Int                       @default(0) @map("failed_count")
-  invalidCount      Int                       @default(0) @map("invalid_count")
-  startedAt         DateTime                  @default(now()) @map("started_at")
-  finishedAt        DateTime?                 @map("finished_at")
-  errorMessage      String?                   @map("error_message")
-
-  @@index([startedAt])
-  @@index([status, startedAt])
-  @@index([triggeredByUserId])
-  @@map("email_delivery_job_runs")
-}
-
-model InvalidEmailAddress {
-  id            String   @id @default(cuid())
-  userId        String?  @map("user_id")
-  email         String   @unique
-  failureReason String   @map("failure_reason")
-  failureCount  Int      @default(1) @map("failure_count")
-  lastFailureAt DateTime @default(now()) @map("last_failure_at")
-  createdAt     DateTime @default(now()) @map("created_at")
-  @@index([userId])
-  @@map("invalid_email_addresses")
 }
 
 model AnalyticsVisitor {

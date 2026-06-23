@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: Go service scaffold, config, health, and local runtime
 - Priority: P0
+- Status: Implemented
 - Branch: `feature/authorisation-service-bootstrap`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer

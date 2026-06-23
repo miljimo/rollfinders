@@ -70,7 +70,7 @@ const userServiceUrl = apiGatewayUrl;
 function headers(actor?: ActorContext) {
   return {
     "Content-Type": "application/json",
-    ...(actor ? { "X-Actor": JSON.stringify(actor) } : {}),
+    ...(actor ? { "X-Actor": JSON.stringify(actor), "X-Actor-User-ID": actor.id } : {}),
   };
 }
 
@@ -114,10 +114,10 @@ export async function getUserAccount(id: string) {
   const response = await fetch(`${userServiceUrl()}/v1/accounts/${encodeURIComponent(id)}`, {
     method: "GET",
     cache: "no-store",
-    headers: headers(),
+    headers: headers({ id }),
   });
   const result = await parseResponse(response) as { user: { id: string; email: string; role: string; academyId: string | null; privileges: string[] } };
-  return { user: await enrichManagedUserWithRollfinderProfile(result.user) };
+  return { user: await enrichManagedUserWithRollfinderProfile(result.user, { id }) };
 }
 
 export async function logoutUserSession(refreshToken?: string | null) {
@@ -183,7 +183,7 @@ export async function listManagedUsers(actor: ActorContext, query: string) {
     headers: headers(actor),
   });
   const result = await parseResponse(response) as { users: ManagedUser[]; page: number; pageSize: number; totalItems: number; totalPages: number };
-  return { ...result, users: await enrichManagedUsersWithRollfinderProfiles(result.users) };
+  return { ...result, users: await enrichManagedUsersWithRollfinderProfiles(result.users, actor) };
 }
 
 export async function createManagedUser(actor: ActorContext, input: unknown) {
@@ -195,11 +195,11 @@ export async function createManagedUser(actor: ActorContext, input: unknown) {
     body: JSON.stringify(serviceInput),
   });
   const result = await parseResponse(response) as { user: ManagedUser };
-  const user = await syncRollfinderUserProfile(result.user, academyId);
+  const user = await syncRollfinderUserProfile(result.user, academyId, actor);
   if (role) {
     await replaceUserAuthorisationRole(actor, result.user.id, role, { organisationId: academyId ?? undefined });
   }
-  return { user: await enrichManagedUserWithRollfinderProfile(user) as ManagedUser };
+  return { user: await enrichManagedUserWithRollfinderProfile(user, actor) as ManagedUser };
 }
 
 export async function getManagedUser(actor: ActorContext, id: string) {
@@ -209,7 +209,7 @@ export async function getManagedUser(actor: ActorContext, id: string) {
     headers: headers(actor),
   });
   const result = await parseResponse(response) as { user: ManagedUser };
-  return { user: await enrichManagedUserWithRollfinderProfile(result.user) as ManagedUser };
+  return { user: await enrichManagedUserWithRollfinderProfile(result.user, actor) as ManagedUser };
 }
 
 export async function listAssignableUserFeatures(actor: ActorContext, id: string, search = "") {

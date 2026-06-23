@@ -50,10 +50,15 @@ func New(opts Options) http.Handler {
 
 	mustHandle("/healthz", []string{http.MethodGet}, s.health)
 	mustHandle("/readyz", []string{http.MethodGet}, s.ready)
+	// Permissions
 	mustHandle("/v1/permissions", []string{http.MethodPost}, s.createPermission, s.requireAuth)
 	mustHandle("/v1/permissions", []string{http.MethodGet}, s.listPermissions, s.requireAuth)
 	mustHandle("/v1/permissions/{permission_id}", []string{http.MethodGet}, s.getPermission, s.requireAuth)
 	mustHandle("/v1/permissions/{permission_id}", []string{http.MethodPut}, s.updatePermission, s.requireAuth)
+
+	// Resources
+	mustHandle("/v1/resources", []string{http.MethodPost}, s.createResource, s.requireAuth)
+	mustHandle("/v1/resources", []string{http.MethodGet}, s.listResources, s.requireAuth)
 	mustHandle("/v1/roles", []string{http.MethodPost}, s.createRole, s.requireAuth)
 	mustHandle("/v1/roles", []string{http.MethodGet}, s.listRoles, s.requireAuth)
 	mustHandle("/v1/roles/{role_id}", []string{http.MethodGet}, s.getRole, s.requireAuth)
@@ -68,7 +73,9 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/users/{user_id}/permissions", []string{http.MethodGet}, s.listUserPermissions, s.requireAuth)
 	mustHandle("/v1/users/{user_id}/permissions/{assignment_id}", []string{http.MethodDelete}, s.deleteUserPermission, s.requireAuth)
 	mustHandle("/v1/users/{user_id}/effective-permissions", []string{http.MethodGet}, s.effectivePermissions, s.requireAuth)
-	mustHandle("/v1/authorize", []string{http.MethodPost}, s.authorize, s.requireAuth)
+
+	// Authorized
+	mustHandle("/v1/authorise", []string{http.MethodPost}, s.authorize, s.requireAuth)
 
 	return withRequestID(s.accessLog(router))
 }

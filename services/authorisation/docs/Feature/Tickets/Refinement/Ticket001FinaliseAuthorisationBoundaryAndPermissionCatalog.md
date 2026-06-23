@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: Product boundary and permission catalog
 - Priority: P0
+- Status: Needs Revision
 - Branch: `feature/authorisation-boundary-permission-catalog`
 - Developer owner: Platform Architect
 - Test owner: Documentation Reviewer
@@ -31,6 +32,7 @@ Finalise the Authorisation Service PRD so implementation teams have a stable own
   - authorisation administration
 - Define scope rules for platform, organisation, application, and resource scopes.
 - Explicitly state that new code must check permissions, not role names.
+- Revise permission catalog ownership to state that API Orchestrator owns gateway route permission registration and Authorisation Service stores/evaluates those permission records.
 
 ## Acceptance Criteria
 

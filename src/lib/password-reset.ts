@@ -1,5 +1,4 @@
-import { OutboundEmailStatus } from "@prisma/client";
-import { queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
+import { OutboundEmailStatus, queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
 import { confirmPasswordResetToken, requestPasswordResetToken, validatePasswordResetToken } from "@/lib/users-service";
 
 const resetExpiryHours = 24;

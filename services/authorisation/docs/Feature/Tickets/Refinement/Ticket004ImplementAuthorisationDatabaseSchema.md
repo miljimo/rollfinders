@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: PostgreSQL schema and migrations
 - Priority: P0
+- Status: Implemented
 - Branch: `feature/authorisation-database-schema`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer

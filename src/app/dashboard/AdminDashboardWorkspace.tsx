@@ -10,7 +10,7 @@ import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-d
 import { academyMatchesSearch, getAcademyFromAcademyService, listAcademyMembersFromAcademyService, listAllAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
-import { authorize, listAuthorisationPermissions, listAuthorisationRolePermissions, listAuthorisationRoles, listEffectiveUserPermissions, listUserAuthorisationRoles, listUserPermissionAssignments, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
+import { authorize, listAuthorisationPermissions, listAuthorisationResources, listAuthorisationRolePermissions, listAuthorisationRoles, listEffectiveUserPermissions, listUserAuthorisationRoles, listUserPermissionAssignments, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
 import { BookingServiceError, listBookings, type BookingRecord } from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
@@ -76,6 +76,7 @@ export const metadata: Metadata = {
 const pageSize = 8;
 const usersPageSize = 10;
 const platformAdminAcademyPageSize = 5;
+const academyDialogEventPageSize = 5;
 const claimPageSizes = [20, 50, 100];
 const openMatSessionsLabel = "Courses/Events";
 
@@ -487,6 +488,7 @@ export default async function AdminDashboardWorkspace({
   const userPage = pageFromParams(params, "usersPage");
   const payoutsPage = pageFromParams(params, "payoutsPage");
   const platformAcademyPage = pageFromParams(params, "platformAcademiesPage");
+  const academyEventsPage = pageFromParams(params, "academyEventsPage");
   const claimPage = pageFromParams(params, "claimsPage");
   const emailPage = pageFromParams(params, "emailPage");
   const claimPageSize = selectedClaimPageSize(firstParam(params.pageSize));
@@ -511,8 +513,8 @@ export default async function AdminDashboardWorkspace({
   const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString());
   const allAcademyRecords = await attachAcademyOperationalMetadata(
     academyAdmin && currentUser.academyId
-      ? (await getAcademyFromAcademyService(currentUser.academyId).then((academy) => academy ? [academy] : []))
-      : await listAllAcademiesFromAcademyService(),
+      ? (await getAcademyFromAcademyService(currentUser.academyId, currentUser).then((academy) => academy ? [academy] : []))
+      : await listAllAcademiesFromAcademyService({ actor: currentUser }),
   );
   const scopedAcademyRecords = academyAdmin && currentUser.academyId
     ? allAcademyRecords.filter((academy) => academy.id === currentUser.academyId)
@@ -611,6 +613,7 @@ export default async function AdminDashboardWorkspace({
     currentUserAuthorisationRoles,
     currentUserEffectivePermissions,
     authorisationPermissionCatalog,
+    authorisationResources,
     currentUserPermissionAssignments,
     organisationOptions,
     applicationOptions,
@@ -678,10 +681,11 @@ export default async function AdminDashboardWorkspace({
       organisationId: currentUser.academyId ?? undefined,
       applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
     }) : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listAuthorisationPermissions() : Promise.resolve([]),
+    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationPermissions() : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listAuthorisationResources() : Promise.resolve([]),
     panel === "users" ? listUserPermissionAssignments(currentUser.id) : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listOrganisations() : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listOrganisationApplications() : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listOrganisations(currentUser) : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listOrganisationApplications(currentUser) : Promise.resolve([]),
   ]);
   const rolePermissionAssociations = panel === "users" && (usersView === "roles" || usersView === "permissions")
     ? await Promise.all(authorisationRoles.map(async (role) => ({
@@ -704,8 +708,16 @@ export default async function AdminDashboardWorkspace({
     ? await (async () => {
         const academy = scopedAcademyRecords.find((item) => item.id === academyDialogId);
         if (!academy) return null;
-        const events = await prisma.event.findMany({ where: { academyId: academy.id, active: true }, orderBy: { eventDate: "asc" }, take: 5 });
-        return { ...academy, events };
+        const eventWhere = { academyId: academy.id, active: true };
+        const eventsTotalCount = await prisma.event.count({ where: eventWhere });
+        const eventPage = clampPage(academyEventsPage, eventsTotalCount, academyDialogEventPageSize);
+        const events = await prisma.event.findMany({
+          where: eventWhere,
+          orderBy: { eventDate: "asc" },
+          skip: (eventPage - 1) * academyDialogEventPageSize,
+          take: academyDialogEventPageSize,
+        });
+        return { ...academy, events, eventsTotalCount };
       })()
     : null;
   const cloneSourceEvent = panel === "open-mats" && dialog === "create-course" && cloneFromEventId
@@ -1217,12 +1229,15 @@ export default async function AdminDashboardWorkspace({
                     roleId: role.id,
                     permissions,
                   }))}
+                  permissions={authorisationPermissionCatalog}
                   roles={authorisationRoles}
+                  userPermissions={currentUserEffectivePermissions}
                 />
               ) : usersView === "permissions" ? (
                 <UserPermissionsBoard
                   directAssignments={currentUserPermissionAssignments}
                   permissions={authorisationPermissionCatalog}
+                  resources={authorisationResources}
                   roles={authorisationRoles}
                   applications={applicationOptions.map((application) => ({ id: application.id, name: application.name, slug: application.slug }))}
                   organisations={organisationOptions.map((organisation) => ({ id: organisation.id, name: organisation.name, slug: organisation.slug }))}
@@ -1264,7 +1279,13 @@ export default async function AdminDashboardWorkspace({
         <NewAcademyDialog />
       ) : null}
       {panel === "academies" && dialog === "view-academy" && selectedDialogAcademy ? (
-        <ViewAcademyDialog academy={selectedDialogAcademy} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} showAcademyStats={platformAdmin} />
+        <ViewAcademyDialog
+          academy={selectedDialogAcademy}
+          closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined, academyEventsPage: undefined })}
+          currentEventsPage={academyEventsPage}
+          searchParams={params}
+          showAcademyStats={platformAdmin}
+        />
       ) : null}
       {panel === "academies" && dialog === "edit-academy" && selectedDialogAcademy ? (
         <EditAcademyDialog academy={selectedDialogAcademy} academyAdmin={academyAdmin} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} />
@@ -1291,14 +1312,27 @@ type DashboardEventDetail = Prisma.EventGetPayload<{
   include: { activities: true };
 }> & { academy: AcademyServiceRecord };
 
-type DashboardAcademyDetail = AcademyServiceRecord & { events: Prisma.EventGetPayload<{}>[] };
+type DashboardAcademyDetail = AcademyServiceRecord & { events: Prisma.EventGetPayload<{}>[]; eventsTotalCount: number };
 
-function ViewAcademyDialog({ academy, closeHref, showAcademyStats }: { academy: DashboardAcademyDetail; closeHref: string; showAcademyStats: boolean }) {
+function ViewAcademyDialog({
+  academy,
+  closeHref,
+  currentEventsPage,
+  searchParams,
+  showAcademyStats,
+}: {
+  academy: DashboardAcademyDetail;
+  closeHref: string;
+  currentEventsPage: number;
+  searchParams: AdminSearchParams;
+  showAcademyStats: boolean;
+}) {
   const claimState = academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)
     ? "Claimed"
     : academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)
       ? "Pending claim"
       : "Unclaimed";
+  const eventPage = clampPage(currentEventsPage, academy.eventsTotalCount, academyDialogEventPageSize);
 
   return (
     <DialogShell closeHref={closeHref} description={`${academy.city}, ${academy.postcode}`} maxWidthClass="max-w-5xl" title={academy.name}>
@@ -1329,7 +1363,7 @@ function ViewAcademyDialog({ academy, closeHref, showAcademyStats }: { academy: 
               <div className="mt-3 grid gap-3">
                 <DialogInfo label="Claim requests" value={academy.claims.length.toString()} />
                 <DialogInfo label="Admins" value={academy.members.length.toString()} />
-                <DialogInfo label="Upcoming courses/events" value={academy.events.length.toString()} />
+                <DialogInfo label="Upcoming courses/events" value={academy.eventsTotalCount.toString()} />
                 <DialogInfo label="Reviews" value="0" />
                 <DialogInfo label="Average rating" value="Not rated" />
               </div>
@@ -1361,6 +1395,9 @@ function ViewAcademyDialog({ academy, closeHref, showAcademyStats }: { academy: 
             ))}
             {!academy.events.length ? <p className="text-sm font-semibold text-stone-600">No active courses or events are listed.</p> : null}
           </div>
+          {academy.eventsTotalCount > academyDialogEventPageSize ? (
+            <Pagination currentPage={eventPage} itemsPerPage={academyDialogEventPageSize} totalItems={academy.eventsTotalCount} pageKey="academyEventsPage" searchParams={searchParams} />
+          ) : null}
         </section>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -1678,13 +1715,17 @@ function UserResult({ params }: { params: AdminSearchParams }) {
 function SystemRolesPanel({
   actorRole,
   actorRoleKeys,
+  permissions,
   rolePermissions,
   roles,
+  userPermissions,
 }: {
   actorRole: string;
   actorRoleKeys: string[];
+  permissions: AuthorisationPermission[];
   rolePermissions: { roleId: string; permissions: AuthorisationPermission[] }[];
   roles: AuthorisationRole[];
+  userPermissions: AuthorisationPermission[];
 }) {
   const roleLevelByKey = new Map(roles.map((role) => [role.key, role.level]));
   const actorMaxLevel = Math.max(
@@ -1696,7 +1737,16 @@ function SystemRolesPanel({
   const visibleRoles = roles.filter((role) => role.level <= actorMaxLevel);
   const visibleRoleIds = new Set(visibleRoles.map((role) => role.id));
 
-  return <SystemRolesBoard rolePermissions={rolePermissions.filter((item) => visibleRoleIds.has(item.roleId))} roles={visibleRoles} />;
+  const userPermissionCodes = new Set(userPermissions.map((permission) => permission.code));
+  return (
+    <SystemRolesBoard
+      canAddPrivileges={userPermissionCodes.has("authorisation.role_permission.add") || userPermissionCodes.has("authorisation.role_permission.assign") || userPermissionCodes.has("authorisation.manage")}
+      canCreateRoles={userPermissionCodes.has("authorisation.role.create") || userPermissionCodes.has("authorisation.manage")}
+      permissions={permissions}
+      rolePermissions={rolePermissions.filter((item) => visibleRoleIds.has(item.roleId))}
+      roles={visibleRoles}
+    />
+  );
 }
 
 function UnavailableUserSecurityPanel({ description, title }: { description: string; title: string }) {
@@ -2781,18 +2831,13 @@ function PaymentDashboardTable<T>({
             {data.map((row, index) => {
               const rowHref = getRowHref?.(row, index);
               return (
-                <tr key={getRowId(row, index)} className={clsx("border-b border-stone-100 last:border-b-0", rowHref ? "cursor-pointer hover:bg-teal-50/40" : "")}>
+                <TableRow key={getRowId(row, index)} href={rowHref} className="border-b border-stone-100 last:border-b-0">
                   {columns.map((column) => (
-                    <td key={column.key} className="relative px-4 py-4 text-slate-700">
-                      {rowHref ? (
-                        <Link href={rowHref} className="absolute inset-0 z-10" aria-label="View booking details">
-                          <span className="sr-only">View booking details</span>
-                        </Link>
-                      ) : null}
-                      <div className={rowHref && column.key !== "action" ? "pointer-events-none relative z-20" : "relative z-20"}>{column.render?.(row) ?? ""}</div>
+                    <td key={column.key} className="px-4 py-4 text-slate-700">
+                      <div>{column.render?.(row) ?? ""}</div>
                     </td>
                   ))}
-                </tr>
+                </TableRow>
               );
             })}
           </tbody>

@@ -1,0 +1,58 @@
+services:
+  notification:
+    build:
+      context: .
+    profiles:
+      - notification
+      - app
+    environment:
+      PORT: "8080"
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
+      NOTIFICATION_API_KEY: ${NOTIFICATION_API_KEY:-local-notification-api-key}
+      READ_TIMEOUT: 5s
+      WRITE_TIMEOUT: 10s
+      SHUTDOWN_TIMEOUT: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+      - service_database
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  notification-worker:
+    build:
+      context: .
+    entrypoint: ["/app/notification-worker"]
+    profiles:
+      - notification
+      - app
+    environment:
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-25}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_TLS_MODE: ${SMTP_TLS_MODE:-starttls}
+      SMTP_DEFAULT_FROM_EMAIL: ${SMTP_DEFAULT_FROM_EMAIL:-noreply@rollfinders.com}
+      SMTP_DEFAULT_FROM_NAME: ${SMTP_DEFAULT_FROM_NAME:-RollFinders}
+      NOTIFICATION_WORKER_BATCH_SIZE: ${NOTIFICATION_WORKER_BATCH_SIZE:-10}
+      NOTIFICATION_WORKER_POLL_INTERVAL: ${NOTIFICATION_WORKER_POLL_INTERVAL:-5s}
+      NOTIFICATION_WORKER_CONCURRENCY: ${NOTIFICATION_WORKER_CONCURRENCY:-1}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - service_database

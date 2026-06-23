@@ -5,6 +5,7 @@
 - Feature: Authorisation Service
 - Component: OpenAPI and API contract
 - Priority: P0
+- Status: Implemented
 - Branch: `feature/authorisation-openapi-contract`
 - Developer owner: API Developer
 - Test owner: Test Engineer

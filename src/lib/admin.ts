@@ -16,7 +16,7 @@ export async function getCurrentUser() {
     const account = await getUserAccount(user.id);
     if (account.user.academyId) return account.user;
 
-    const membership = (await listAcademyMembershipsForUserFromAcademyService(account.user.id))[0];
+    const membership = (await listAcademyMembershipsForUserFromAcademyService(account.user.id, account.user))[0];
 
     return { ...account.user, academyId: membership?.academyId ?? null };
   } catch (error) {

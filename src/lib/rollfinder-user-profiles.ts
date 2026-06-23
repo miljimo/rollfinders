@@ -20,6 +20,13 @@ type RollfinderUserInput = {
   createdAt?: string | Date | null;
 };
 
+type ServiceActor = {
+  id: string;
+  role?: string | null;
+  email?: string | null;
+  academyId?: string | null;
+};
+
 export type RollfinderProfileUser = RollfinderUserInput & {
   academyId: string | null;
 };
@@ -66,27 +73,27 @@ async function authorisationProfileRole(userId: string, serviceRole: Role) {
   return highestRole([serviceRole, ...roles]);
 }
 
-async function validAcademyId(academyId: string | null | undefined) {
+async function validAcademyId(academyId: string | null | undefined, actor?: ServiceActor) {
   if (!academyId) return null;
-  const academy = await getAcademyFromAcademyService(academyId);
+  const academy = await getAcademyFromAcademyService(academyId, actor);
   return academy?.id ?? null;
 }
 
-export async function localUserAcademyId(userId: string) {
-  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId))[0];
+export async function localUserAcademyId(userId: string, actor?: ServiceActor) {
+  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId, actor))[0];
   return membership?.academyId ?? null;
 }
 
-async function localUserAcademyProfile(userId: string) {
-  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId))[0];
+async function localUserAcademyProfile(userId: string, actor?: ServiceActor) {
+  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId, actor))[0];
   return membership ?? null;
 }
 
-export async function syncRollfinderUserProfile(user: RollfinderUserInput, academyIdOverride?: string | null) {
-  const existingAcademyId = academyIdOverride === undefined ? await localUserAcademyId(user.id) : null;
-  const academyId = await validAcademyId(academyIdOverride === undefined ? existingAcademyId ?? user.academyId ?? null : academyIdOverride);
+export async function syncRollfinderUserProfile(user: RollfinderUserInput, academyIdOverride?: string | null, actor?: ServiceActor) {
+  const existingAcademyId = academyIdOverride === undefined ? await localUserAcademyId(user.id, actor) : null;
+  const academyId = await validAcademyId(academyIdOverride === undefined ? existingAcademyId ?? user.academyId ?? null : academyIdOverride, actor);
 
-  const existingMemberships = await listAcademyMembershipsForUserFromAcademyService(user.id);
+  const existingMemberships = await listAcademyMembershipsForUserFromAcademyService(user.id, actor);
   await Promise.all(existingMemberships.map((membership) => removeAcademyMemberInAcademyService(membership.academyId, user.id)));
   if (academyId) await addAcademyMemberInAcademyService(academyId, user.id);
 
@@ -98,8 +105,8 @@ export async function removeRollfinderUserProfile(userId: string) {
   await Promise.all(memberships.map((membership) => removeAcademyMemberInAcademyService(membership.academyId, userId)));
 }
 
-export async function enrichManagedUserWithRollfinderProfile<T extends RollfinderUserInput>(user: T): Promise<T & { academyId: string | null }> {
-  const membership = await localUserAcademyProfile(user.id);
+export async function enrichManagedUserWithRollfinderProfile<T extends RollfinderUserInput>(user: T, actor?: ServiceActor): Promise<T & { academyId: string | null }> {
+  const membership = await localUserAcademyProfile(user.id, actor);
   const fallbackAcademyId = user.academyId ?? membership?.academyId;
   const serviceRole = normalizeRole(user.role);
   const role = await authorisationProfileRole(user.id, serviceRole);
@@ -113,10 +120,10 @@ export async function enrichManagedUserWithRollfinderProfile<T extends Rollfinde
   };
 }
 
-export async function enrichManagedUsersWithRollfinderProfiles<T extends RollfinderUserInput>(users: T[]) {
+export async function enrichManagedUsersWithRollfinderProfiles<T extends RollfinderUserInput>(users: T[], actor?: ServiceActor) {
   if (!users.length) return [] as Array<T & { academyId: string | null }>;
   const ids = users.map((user) => user.id);
-  const memberships = (await Promise.all(ids.map((id) => listAcademyMembershipsForUserFromAcademyService(id)))).flat();
+  const memberships = (await Promise.all(ids.map((id) => listAcademyMembershipsForUserFromAcademyService(id, actor)))).flat();
   const membershipByUserId = new Map<string, { academyId: string }>();
   for (const membership of memberships) {
     if (!membershipByUserId.has(membership.userId)) membershipByUserId.set(membership.userId, { academyId: membership.academyId });

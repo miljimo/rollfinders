@@ -5,6 +5,7 @@
 - Feature: RollFinders Authorisation Migration
 - Component: Next.js authorisation client/helper
 - Priority: P1
+- Status: Partially Implemented
 - Branch: `feature/rollfinders-authorisation-helper`
 - Developer owner: RollFinders Full Stack Developer
 - Test owner: Test Engineer

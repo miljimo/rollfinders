@@ -27,14 +27,14 @@ func New(opts Options) http.Handler {
 		cfg:    opts.Config,
 		logger: opts.Logger,
 		proxies: map[string]http.Handler{
-			"user":          newProxy(opts.Config.UserBaseURL, "", ""),
-			"authorisation": newProxy(opts.Config.AuthorisationBaseURL, "/v1/authorisation", "/v1"),
-			"academy":       newProxy(opts.Config.AcademyBaseURL, "", ""),
-			"organisation":  newProxy(opts.Config.OrganisationBaseURL, "", ""),
-			"course":        newProxy(opts.Config.CourseBaseURL, "", ""),
-			"booking":       newProxy(opts.Config.BookingBaseURL, "", ""),
-			"payment":       newProxy(opts.Config.PaymentBaseURL, "", ""),
-			"legacy":        newProxy(opts.Config.LegacyNextBaseURL, "/legacy", ""),
+			"user":          createNewProxyHandler(opts.Config.UserBaseURL, "", ""),
+			"authorisation": createNewProxyHandler(opts.Config.AuthorisationBaseURL, "/v1/authorisation", "/v1"),
+			"academy":       createNewProxyHandler(opts.Config.AcademyBaseURL, "", ""),
+			"organisation":  createNewProxyHandler(opts.Config.OrganisationBaseURL, "", ""),
+			"course":        createNewProxyHandler(opts.Config.CourseBaseURL, "", ""),
+			"booking":       createNewProxyHandler(opts.Config.BookingBaseURL, "", ""),
+			"payment":       createNewProxyHandler(opts.Config.PaymentBaseURL, "", ""),
+			"legacy":        createNewProxyHandler(opts.Config.LegacyNextBaseURL, "/legacy", ""),
 		},
 	}
 

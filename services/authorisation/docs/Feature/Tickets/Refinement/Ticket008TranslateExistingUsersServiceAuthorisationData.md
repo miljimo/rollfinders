@@ -5,6 +5,7 @@
 - Feature: Authorisation Service Migration
 - Component: Users Service legacy authorisation data translation
 - Priority: P1
+- Status: Partially Implemented
 - Branch: `feature/authorisation-users-data-translation`
 - Developer owner: Platform Backend Developer
 - Test owner: Test Engineer
