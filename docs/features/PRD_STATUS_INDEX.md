@@ -36,7 +36,7 @@ Status meanings:
 | Service area | Current status | Current implementation | Left to implement |
 | --- | --- | --- | --- |
 | Payment Service MVP | Partial | `services/payments` runs as its own Go service/container, uses the shared RollFinders database server, has database-first migrations, API auth, checkout creation, callbacks, payment history, refunds, idempotency, health/readiness, local compose support, and RollFinders dashboard integration. | Complete generic payee/payee-account APIs, connected-account payment creation, commission/allocation ledger, settlement/payout ledger, webhook reconciliation, and generic non-RollFinders integration tests. |
-| RollFinders Payment UI | Partial | Admin/academy payment dashboard panels exist for overview, transactions, earnings, refunds, payouts, and settings. Stripe Connect setup UI exists for platform/academy accounts. Dashboard-managed Stripe API key storage has been removed. | Complete provider-backed payout/settlement data, production refund/payout actions, and live provider webhook status reconciliation. |
+| RollFinders Payment UI | Partial | Admin/academy payment dashboard panels exist for overview, transactions, earnings, refunds, payouts, and settings. Stripe Connect setup UI exists for core/academy accounts. Dashboard-managed Stripe API key storage has been removed. | Complete provider-backed payout/settlement data, production refund/payout actions, and live provider webhook status reconciliation. |
 | Academy Direct Payments | Partial | RollFinders stores connected Stripe account details against platform or academy ownership. Paid/donation checkout is hidden and server-rejected unless the academy account is connected, verified, charges-enabled, and payouts-enabled. | Move connected account ownership into generic Payment Service payee/payee-account APIs and route eligible course/event payments directly to academy connected accounts with platform fees. |
 | Booking Service MVP | Partial | `services/booking` has Go service skeleton, health/readiness, database-first migrations, core booking tables, camelCase functions/procedures, package-level data access functions, lifecycle endpoints, participant/attendance endpoints, and admin dashboard navigation. | Wire RollFinders public free booking and paid booking-first checkout to Booking Service, add trusted payment confirmation, admin booking dashboard workflows, live database integration tests, and refund-aware state transitions. |
 
@@ -207,7 +207,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 * `Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` - verification status exists; dedicated verification audit metadata is missing.
 * `Users/Academies/Products/Reviewing/PendingAcademiesPrd.md` - pending academy visibility exists; dashboard metric drilldown remains to verify or implement.
 * `Users/Profile/Products/Proposal/SelfProfileDashboardPrd.md` - standard dashboard profile/settings are implemented; broader proposal scope is not fully closed.
-* `services/users/docs/Products/Reviewing/GenericIdentityAccessManagementPrd.md` - Go user service now has generic IAM tables, procedure-backed writes, role/permission/user assignment storage, organization tables, and effective-permission evaluation; role/permission/organization REST endpoints and full auth lifecycle flows remain to complete.
+* `docs/services/users/Products/Reviewing/GenericIdentityAccessManagementPrd.md` - Go user service now has generic IAM tables, procedure-backed writes, role/permission/user assignment storage, organization tables, and effective-permission evaluation; role/permission/organization REST endpoints and full auth lifecycle flows remain to complete.
 
 ## Not Done
 
@@ -228,9 +228,9 @@ These remain proposal/strategy work or have no implementation found.
 * `Users/Profile/Components/Proposal/UserProfile.md`
 * `Users/Profile/Products/Proposal/AdminUserProfileWorkflowPrd.md`
 * `Users/Profile/Products/Proposal/UserProfileExperienceStrategyPrd.md`
-* `services/users/docs/Products/Reviewing/UserAndAuthGoServicePortPrd.md`
-* `services/users/docs/Products/Reviewing/UserAuthGoServiceApiPrd.md`
-* `services/users/docs/Products/Reviewing/UserManagementGoServiceApiPrd.md`
+* `docs/services/users/Products/Reviewing/UserAndAuthGoServicePortPrd.md`
+* `docs/services/users/Products/Reviewing/UserAuthGoServiceApiPrd.md`
+* `docs/services/users/Products/Reviewing/UserManagementGoServiceApiPrd.md`
 
 ## Docs / Reference
 

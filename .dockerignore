@@ -1,7 +1,11 @@
 .git
 .next
+**/.next
 node_modules
+**/node_modules
 npm-debug.log
+playwright-report
+test-results
 Dockerfile
 .dockerignore
 .env

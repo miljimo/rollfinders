@@ -1,0 +1,81 @@
+package server
+
+import (
+	"context"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"rollfinders/internal/services/subscriptions/config"
+)
+
+type Options struct {
+	Config config.Config
+	Logger *slog.Logger
+}
+
+type server struct {
+	cfg    config.Config
+	logger *slog.Logger
+	repo   *repository
+}
+
+func New(opts Options) http.Handler {
+	if opts.Logger == nil {
+		opts.Logger = slog.Default()
+	}
+	s := &server{cfg: opts.Config, logger: opts.Logger}
+	if opts.Config.DatabaseURL != "" {
+		repo, err := openRepository(context.Background(), opts.Config.DatabaseURL)
+		if err != nil {
+			opts.Logger.Warn("subscriptions database unavailable at startup", "error", err)
+		} else {
+			s.repo = repo
+		}
+	}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", s.health)
+	mux.HandleFunc("GET /readyz", s.ready)
+	mux.HandleFunc("GET /v1/products", s.listProducts)
+	mux.HandleFunc("POST /v1/products", s.createProduct)
+	mux.HandleFunc("GET /v1/products/{product_key}", s.getProduct)
+	mux.HandleFunc("PUT /v1/products/{product_key}", s.updateProduct)
+	mux.HandleFunc("GET /v1/product-features", s.listFeatures)
+	mux.HandleFunc("POST /v1/product-features", s.createFeature)
+	mux.HandleFunc("GET /v1/product-features/{feature_key}", s.getFeature)
+	mux.HandleFunc("PUT /v1/product-features/{feature_key}", s.updateFeature)
+	mux.HandleFunc("GET /v1/plans", s.listPlans)
+	mux.HandleFunc("POST /v1/plans", s.createPlan)
+	mux.HandleFunc("GET /v1/plans/{plan_key}", s.getPlan)
+	mux.HandleFunc("PUT /v1/plans/{plan_key}", s.updatePlan)
+	mux.HandleFunc("PUT /v1/plans/{plan_key}/features", s.replacePlanFeatures)
+	mux.HandleFunc("GET /v1/applications/{application_id}/available-product-features", s.availableProductFeatures)
+	mux.HandleFunc("GET /v1/applications/{application_id}/subscriptions", s.listSubscriptions)
+	mux.HandleFunc("POST /v1/applications/{application_id}/subscriptions", s.createSubscription)
+	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}", s.getSubscription)
+	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/cancel", s.cancelSubscription)
+	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/change-plan", s.changePlan)
+	mux.HandleFunc("GET /v1/applications/{application_id}/entitlements", s.entitlements)
+
+	return withRequestID(s.accessLog(mux))
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func (s *server) accessLog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		s.logger.Info("request handled", "request_id", requestIDFrom(r), "method", r.Method, "path", r.URL.Path, "status", rec.status, "duration_ms", time.Since(start).Milliseconds())
+	})
+}

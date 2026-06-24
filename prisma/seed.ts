@@ -3,7 +3,7 @@ import { PrismaClient, GiType } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { readFile } from "fs/promises";
 import path from "path";
-import { createPrismaPgPool } from "../src/lib/prisma-pg-pool";
+import { createPrismaPgPool } from "../apps/portal/src/lib/prisma-pg-pool";
 
 type CsvRow = Record<string, string>;
 type Mapping = Record<string, string>;

@@ -1,0 +1,29 @@
+services:
+  academy:
+    build:
+      context: ../../../..
+      dockerfile: apps/backend_api/containers/academy/Dockerfile
+    profiles:
+      - academy
+      - app
+    environment:
+      PORT: "8080"
+      DB_NAME: ${DB_NAME:-rollfinder}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_HOST: db
+      DB_PORT: 5432
+      READ_TIMEOUT: 5s
+      WRITE_TIMEOUT: 10s
+      SHUTDOWN_TIMEOUT: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+      - service_database
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

@@ -1,0 +1,44 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@rollfinders/theme": ["../../packages/theme/src/index.ts"],
+      "@rollfinders/theme/*": ["../../packages/theme/src/*"],
+      "@rollfinders/ui": ["../../packages/ui/src/index.ts"],
+      "@rollfinders/ui/*": ["../../packages/ui/src/*"],
+      "@rollfinders/api-client": ["../../packages/api-client/src/index.ts"],
+      "@rollfinders/api-client/*": ["../../packages/api-client/src/*"],
+      "@rollfinders/types": ["../../packages/types/src/index.ts"],
+      "@rollfinders/types/*": ["../../packages/types/src/*"],
+      "@rollfinders/validation": ["../../packages/validation/src/index.ts"],
+      "@rollfinders/validation/*": ["../../packages/validation/src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}

@@ -90,20 +90,20 @@ emit_existing_service_image() {
 aws ecr get-login-password --region "${AWS_REGION}" \
   | docker login --username AWS --password-stdin "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
-if target_matches "users" && service_changed "services/users"; then
-  build_service "users" "services/users" "USER_SERVICE_IMAGE_URI"
+if target_matches "users" && service_changed "apps/backend_api/containers/users"; then
+  build_service "users" "apps/backend_api/containers/users" "USER_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "users" "USER_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "payments" && service_changed "services/payments"; then
-  build_service "payments" "services/payments" "PAYMENT_SERVICE_IMAGE_URI"
+if target_matches "payments" && service_changed "apps/backend_api/containers/payments"; then
+  build_service "payments" "apps/backend_api/containers/payments" "PAYMENT_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "payments" "PAYMENT_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "authorisation" && service_changed "services/authorisation"; then
-  build_service "authorisation" "services/authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
+if target_matches "authorisation" && service_changed "apps/backend_api/containers/authorisation"; then
+  build_service "authorisation" "apps/backend_api/containers/authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
 fi

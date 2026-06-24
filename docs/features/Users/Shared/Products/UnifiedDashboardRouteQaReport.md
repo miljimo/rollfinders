@@ -20,7 +20,7 @@ Scope:
 | Standard users get only allowlisted standard panels | Contract test checks `standardPanel` allowlist and invalid panel redirect to `/dashboard`. | Covered |
 | Standard-user rolls are academy-scoped, newest-first, read-only | Contract test checks dashboard page and `/api/dashboard/rolls` source for academy scope, `createdAt desc`, read-only route shape, and no write handlers. | Covered |
 | Standard users cannot access admin APIs | Contract test checks `isAnyAdminRole` excludes standard roles and `/api/admin/academies` uses `requireAdminApi`. | Partially covered |
-| Admin/platform/super/academy behavior continues | Existing admin tests remain in `src/app/admin/__tests__`; new contract test checks unified workspace dispatch and canonical links. | Partially covered |
+| Admin/core/super/academy behavior continues | Existing admin tests remain in `src/app/admin/__tests__`; new contract test checks unified workspace dispatch and canonical links. | Partially covered |
 
 ## Findings
 

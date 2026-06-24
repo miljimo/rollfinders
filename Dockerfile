@@ -1,6 +1,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
+COPY packages ./packages
 RUN npm ci --no-audit --no-fund --prefer-offline
 
 FROM node:22-alpine AS builder
@@ -22,15 +23,15 @@ RUN apk add --no-cache postgresql-client
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY prisma ./prisma
-COPY seed ./seed
-COPY services/users/migrations ./services/users/migrations
-COPY services/payments/migrations ./services/payments/migrations
-COPY services/courses/migrations ./services/courses/migrations
-COPY services/booking/migrations ./services/booking/migrations
-COPY services/academy/migrations ./services/academy/migrations
-COPY services/authorisation/migrations ./services/authorisation/migrations
-COPY services/notification/migrations ./services/notification/migrations
-COPY services/analytics/migrations ./services/analytics/migrations
+COPY apps/backend_api/seed ./apps/backend_api/seed
+COPY apps/backend_api/migrations/users ./apps/backend_api/migrations/users
+COPY apps/backend_api/migrations/payments ./apps/backend_api/migrations/payments
+COPY apps/backend_api/migrations/courses ./apps/backend_api/migrations/courses
+COPY apps/backend_api/migrations/booking ./apps/backend_api/migrations/booking
+COPY apps/backend_api/migrations/academy ./apps/backend_api/migrations/academy
+COPY apps/backend_api/migrations/authorisation ./apps/backend_api/migrations/authorisation
+COPY apps/backend_api/migrations/notification ./apps/backend_api/migrations/notification
+COPY apps/backend_api/migrations/analytics ./apps/backend_api/migrations/analytics
 COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
@@ -48,26 +49,26 @@ ENV NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
 RUN apk add --no-cache curl postgresql-client \
   && addgroup -S nodejs \
   && adduser -S nextjs -G nodejs
-COPY --from=builder /app/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/apps/portal/public ./apps/portal/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/portal/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/portal/.next/static ./apps/portal/.next/static
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
-COPY --chown=nextjs:nodejs seed ./seed
-COPY --chown=nextjs:nodejs services/users/migrations ./services/users/migrations
-COPY --chown=nextjs:nodejs services/payments/migrations ./services/payments/migrations
-COPY --chown=nextjs:nodejs services/courses/migrations ./services/courses/migrations
-COPY --chown=nextjs:nodejs services/booking/migrations ./services/booking/migrations
-COPY --chown=nextjs:nodejs services/academy/migrations ./services/academy/migrations
-COPY --chown=nextjs:nodejs services/authorisation/migrations ./services/authorisation/migrations
-COPY --chown=nextjs:nodejs services/notification/migrations ./services/notification/migrations
-COPY --chown=nextjs:nodejs services/analytics/migrations ./services/analytics/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/seed ./apps/backend_api/seed
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/users ./apps/backend_api/migrations/users
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/payments ./apps/backend_api/migrations/payments
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/courses ./apps/backend_api/migrations/courses
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/booking ./apps/backend_api/migrations/booking
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/academy ./apps/backend_api/migrations/academy
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/authorisation ./apps/backend_api/migrations/authorisation
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/notification ./apps/backend_api/migrations/notification
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/analytics ./apps/backend_api/migrations/analytics
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
-COPY --chown=nextjs:nodejs src/lib/email/templates ./src/lib/email/templates
-COPY --chown=nextjs:nodejs src/lib/prisma-pg-pool.ts ./src/lib/prisma-pg-pool.ts
+COPY --chown=nextjs:nodejs apps/portal/src/lib/email/templates ./apps/portal/src/lib/email/templates
+COPY --chown=nextjs:nodejs apps/portal/src/lib/prisma-pg-pool.ts ./apps/portal/src/lib/prisma-pg-pool.ts
 COPY --chown=nextjs:nodejs prisma.config.ts ./
 USER nextjs
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD curl -fsS "http://${HOSTNAME}:3000/api/health" || exit 1
-CMD ["node", "server.js"]
+CMD ["node", "apps/portal/server.js"]

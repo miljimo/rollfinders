@@ -14,7 +14,7 @@ THEN no database migration script SHALL be required for this PRD.
 
 ## Purpose
 
-Provide platform/admin settings, email operations, audit visibility, and password update access.
+Provide core/admin settings, email operations, audit visibility, and password update access.
 
 ## Requirements
 

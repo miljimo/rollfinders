@@ -1,0 +1,28 @@
+package endpoints
+
+import (
+	"net/http"
+
+	"rollfinders/internal/services/academy/dataaccess"
+)
+
+func (s *server) listAcademyMemberships(w http.ResponseWriter, r *http.Request) {
+	userID := cleanString(r.URL.Query().Get("user_id"))
+	if userID == "" {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", "user_id is required.", nil)
+		return
+	}
+	db, ok := s.withDataContext(w, r)
+	if !ok {
+		return
+	}
+	defer db.Close()
+	limit := intQuery(r.URL.Query().Get("limit"), 10)
+	offset := intQuery(r.URL.Query().Get("offset"), 0)
+	memberships, err := dataaccess.ListAcademyMembershipsByUser(r.Context(), db, userID, limit, offset)
+	if err != nil {
+		s.writeDataError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"memberships": memberships, "pagination": pagination(limit, offset, len(memberships))})
+}

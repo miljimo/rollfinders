@@ -1,0 +1,45 @@
+services:
+  organisation-migrate:
+    image: postgres:16-alpine
+    profiles:
+      - organisation
+      - app
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - ../../migrations/organisation:/migrations:ro
+    command:
+      - sh
+      - -c
+      - >
+        psql -v ON_ERROR_STOP=1
+        -h db
+        -U ${DB_USER:-postgres}
+        -d ${DB_NAME:-rollfinder}
+        -f /migrations/001_core_schema.sql
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - service_database
+  organisation-api:
+    build:
+      context: ../../../..
+      dockerfile: apps/backend_api/containers/organisation/Dockerfile
+    profiles:
+      - organisation
+      - app
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-rollfinder}?sslmode=disable
+    depends_on:
+      organisation-migrate:
+        condition: service_completed_successfully
+    networks:
+      - backend
+      - service_database
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

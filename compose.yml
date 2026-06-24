@@ -1,14 +1,14 @@
 include:
-  - path: ./services/api/compose.yml
-  - path: ./services/payments/compose.yml
-  - path: ./services/booking/compose.yml
-  - path: ./services/notification/compose.yml
-  - path: ./services/analytics/compose.yml
-  - path: ./services/academy/compose.yml
-  - path: ./services/users/compose.yml
-  - path: ./services/courses/compose.yml
-  - path: ./services/authorisation/compose.yml
-  - path: ./services/organisation/compose.yml
+  - path: ./apps/backend_api/containers/api/compose.yml
+  - path: ./apps/backend_api/containers/payments/compose.yml
+  - path: ./apps/backend_api/containers/booking/compose.yml
+  - path: ./apps/backend_api/containers/notification/compose.yml
+  - path: ./apps/backend_api/containers/analytics/compose.yml
+  - path: ./apps/backend_api/containers/academy/compose.yml
+  - path: ./apps/backend_api/containers/users/compose.yml
+  - path: ./apps/backend_api/containers/courses/compose.yml
+  - path: ./apps/backend_api/containers/authorisation/compose.yml
+  - path: ./apps/backend_api/containers/organisation/compose.yml
 
 services:
   db:
@@ -24,6 +24,7 @@ services:
       - seed
       - organisation
       - api
+      - authorisation
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -32,7 +33,7 @@ services:
       - "${DB_PORT:-54322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./services/payments/migrations:/docker-entrypoint-initdb.d:ro
+      - ./apps/backend_api/migrations/payments:/docker-entrypoint-initdb.d:ro
     networks:
       - app_database
       - service_database

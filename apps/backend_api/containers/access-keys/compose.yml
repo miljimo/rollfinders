@@ -1,0 +1,10 @@
+services:
+  access-keys:
+    build:
+      context: ../../../..
+      dockerfile: apps/backend_api/containers/access-keys/Dockerfile
+    environment:
+      PORT: "8080"
+      SERVICE_API_KEY: ${SERVICE_API_KEY:-local-service-api-key}
+    ports:
+      - "8098:8080"

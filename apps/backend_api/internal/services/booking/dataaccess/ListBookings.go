@@ -1,0 +1,40 @@
+package dataaccess
+
+import (
+	"context"
+
+	"rollfinders/internal/services/booking/databases"
+)
+
+func ListBookings(ctx context.Context, db databases.DataContext, filter ListBookingsFilter) (BookingList, error) {
+	limit := filter.Limit
+	if limit <= 0 || limit > 200 {
+		limit = 10
+	}
+	offset := filter.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := db.Function(
+		ctx,
+		`booking."bookingList"`,
+		nullable(filter.CustomerID),
+		nullable(filter.GuestReference),
+		nullable(filter.OrganisationID),
+		nullable(filter.BookableType),
+		nullable(filter.BookableID),
+		nullable(filter.BookableInstanceID),
+		nullable(filter.PaymentID),
+		nullable(filter.Status),
+		limit,
+		offset,
+	)
+	if err != nil {
+		return BookingList{}, err
+	}
+	items := make([]Booking, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, bookingFromRow(row))
+	}
+	return BookingList{Items: items, Count: len(items)}, nil
+}

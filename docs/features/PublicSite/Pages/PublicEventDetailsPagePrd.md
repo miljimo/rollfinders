@@ -13,11 +13,11 @@ Source request: Inline product mockup and attached text PRD supplied on 2026-06-
 Related documents:
 
 * `docs/features/OpenMats/Pages/OpenMatDetailPage.md`
-* `services/courses/docs/Tickets/RF-COURSE-008-CourseDetailRoutes.md`
-* `services/courses/docs/Products/Reviewing/CourseOccurrencePaymentsPrd.md`
-* `services/courses/docs/Products/Reviewing/EventPermanentUriAndQrCodePrd.md`
-* `services/courses/docs/Products/Reviewing/EventLocationDirectionsButtonPrd.md`
-* `services/courses/docs/Products/Reviewing/CourseActivitiesManagementPrd.md`
+* `docs/services/courses/Tickets/RF-COURSE-008-CourseDetailRoutes.md`
+* `docs/services/courses/Products/Reviewing/CourseOccurrencePaymentsPrd.md`
+* `docs/services/courses/Products/Reviewing/EventPermanentUriAndQrCodePrd.md`
+* `docs/services/courses/Products/Reviewing/EventLocationDirectionsButtonPrd.md`
+* `docs/services/courses/Products/Reviewing/CourseActivitiesManagementPrd.md`
 * `docs/features/SharedComponents/Reviewing/ReusableUiComponentPrd.md`
 * `docs/features/SharedComponents/DomainCards.md`
 * `docs/features/SharedComponents/Badge.md`
@@ -306,7 +306,7 @@ Supported map providers:
 * Google Maps.
 * OpenStreetMap.
 
-The directions action SHALL use the existing directions helper and launch a suitable map application or web map based on platform/browser support.
+The directions action SHALL use the existing directions helper and launch a suitable map application or web map based on core/browser support.
 
 ## Host Academy Card
 

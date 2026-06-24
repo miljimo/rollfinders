@@ -19,16 +19,26 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./apps/portal/src/*"],
+      "@rollfinders/theme": ["./packages/theme/src/index.ts"],
+      "@rollfinders/theme/*": ["./packages/theme/src/*"],
+      "@rollfinders/ui": ["./packages/ui/src/index.ts"],
+      "@rollfinders/ui/*": ["./packages/ui/src/*"],
+      "@rollfinders/api-client": ["./packages/api-client/src/index.ts"],
+      "@rollfinders/api-client/*": ["./packages/api-client/src/*"],
+      "@rollfinders/types": ["./packages/types/src/index.ts"],
+      "@rollfinders/types/*": ["./packages/types/src/*"],
+      "@rollfinders/validation": ["./packages/validation/src/index.ts"],
+      "@rollfinders/validation/*": ["./packages/validation/src/*"]
     }
   },
   "include": [
-    "next-env.d.ts",
+    "apps/portal/next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts",
+    "apps/portal/.next/types/**/*.ts",
+    "apps/portal/.next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", ".next"]
 }

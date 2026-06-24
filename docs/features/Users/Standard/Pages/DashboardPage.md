@@ -4,6 +4,14 @@ Route: `/dashboard`
 
 Source: `src/app/dashboard/page.tsx`
 
+Public website route split:
+
+* The public website navigation SHALL NOT show a Login link in the main nav.
+* The public website navigation MAY show a Dashboard link.
+* Auth flows conceptually live on `auth.rollfinders.com`.
+* The unified dashboard shell route remains `/dashboard`.
+* Service dashboard URLs use `dashboard.<service>.rollfinders.com`.
+
 ## Purpose
 
 Provide the standard-user version of the unified dashboard experience.
@@ -64,7 +72,9 @@ AND fields that are not user-changeable SHALL be shown as read-only when present
 
 IF unauthenticated user opens dashboard  
 WHEN authorization runs  
-THEN user SHALL be redirected to login.
+THEN user SHALL be redirected to the auth login URL with `redirect=/dashboard`.
+
+AND local development SHALL preserve local `/login?redirect=/dashboard` behavior when no auth portal base URL is configured.
 
 IF user role has admin dashboard instead  
 WHEN routing occurs  

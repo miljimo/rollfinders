@@ -1,0 +1,60 @@
+services:
+  authorisation-migrate:
+    image: postgres:16-alpine
+    profiles:
+      - authorisation
+      - app
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - ../../migrations/authorisation:/migrations:ro
+    command:
+      - sh
+      - -c
+      - >
+        psql -v ON_ERROR_STOP=1
+        -h db
+        -U ${DB_USER:-postgres}
+        -d ${DB_NAME:-rollfinder}
+        -f /migrations/001_core_schema.sql
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - service_database
+  authorisation-seed-gateway-resources:
+    build:
+      context: ../../../..
+      dockerfile: apps/backend_api/containers/authorisation/Dockerfile
+    profiles:
+      - authorisation
+      - app
+    entrypoint: ["/app/seed-gateway-resources"]
+    environment:
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-rollfinder}?sslmode=disable
+    depends_on:
+      authorisation-migrate:
+        condition: service_completed_successfully
+    networks:
+      - service_database
+  authorisation-api:
+    build:
+      context: ../../../..
+      dockerfile: apps/backend_api/containers/authorisation/Dockerfile
+    profiles:
+      - authorisation
+      - app
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-rollfinder}?sslmode=disable
+    depends_on:
+      authorisation-seed-gateway-resources:
+        condition: service_completed_successfully
+    networks:
+      - backend
+      - service_database
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

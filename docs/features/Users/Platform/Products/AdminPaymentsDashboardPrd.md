@@ -8,7 +8,7 @@ Last updated: 2026-06-17
 
 RollFinders needs an administrative payments dashboard so Academy Admins, Platform Admins, and Super Admins can review payments made to courses and events without calling Stripe directly.
 
-This PRD complements `services/courses/docs/Products/Reviewing/CourseOccurrencePaymentsPrd.md`, especially Requirement 10, Academy Admin Visibility, and Requirement 11, Platform Admin Operations. The payment service remains the transaction system of record; RollFinders reads recorded payment history from the payment service.
+This PRD complements `docs/services/courses/Products/Reviewing/CourseOccurrencePaymentsPrd.md`, especially Requirement 10, Academy Admin Visibility, and Requirement 11, Platform Admin Operations. The payment service remains the transaction system of record; RollFinders reads recorded payment history from the payment service.
 
 ## Goals
 
@@ -75,7 +75,7 @@ The dashboard side navigation SHALL include a `Payments` item for:
 The route SHALL use the unified dashboard route:
 
 ```text
-/dashboard?panel=payments
+/dashboard/payment
 ```
 
 ## Data Source
@@ -205,13 +205,13 @@ GIVEN an Academy Admin belongs to academy A
 
 AND payments exist for academy A and academy B
 
-WHEN the Academy Admin opens `/dashboard?panel=payments`
+WHEN the Academy Admin opens `/dashboard/payment`
 
 THEN only academy A payment records SHALL be visible.
 
 ### Platform-Wide Visibility
 
-GIVEN a Platform Admin or Super Admin opens `/dashboard?panel=payments`
+GIVEN a Platform Admin or Super Admin opens `/dashboard/payment`
 
 THEN course/event payment records across academies SHALL be visible.
 

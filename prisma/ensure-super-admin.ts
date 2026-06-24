@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import { createPrismaPgPool } from "../src/lib/prisma-pg-pool";
+import { createPrismaPgPool } from "../apps/portal/src/lib/prisma-pg-pool";
 
 function getDatabaseUrl() {
   if (process.env.DATABASE_URL) {
