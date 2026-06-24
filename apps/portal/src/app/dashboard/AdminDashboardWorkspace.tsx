@@ -1167,7 +1167,7 @@ export default async function AdminDashboardWorkspace({
               search={<BookingsPanelSearch search={bookingsSearch} />}
               title="Bookings"
             >
-              <BookingsPanel academyAdmin={academyAdmin} actionBookingId={bookingActionBookingId} actionError={bookingActionError} result={bookingResult} search={bookingsSearch} />
+              <BookingsPanel academyAdmin={academyAdmin} actionBookingId={bookingActionBookingId} actionError={bookingActionError} result={bookingResult} search={bookingsSearch} searchParams={params} />
             </AdminPanel>
           ) : null}
           {panel === "academy-claims" ? (
@@ -2549,15 +2549,32 @@ function bookingActionNotice(error: string | null | undefined, booking: BookingR
   };
 }
 
-function BookingsPanel({ academyAdmin, actionBookingId, actionError, result, search }: { academyAdmin: boolean; actionBookingId?: string | null; actionError?: string | null; result: DashboardBookingsResult; search: string }) {
+function BookingsPanel({
+  academyAdmin,
+  actionBookingId,
+  actionError,
+  result,
+  search,
+  searchParams,
+}: {
+  academyAdmin: boolean;
+  actionBookingId?: string | null;
+  actionError?: string | null;
+  result: DashboardBookingsResult;
+  search: string;
+  searchParams: AdminSearchParams;
+}) {
   const visibleBookings = result.bookings.filter((booking) => bookingMatchesSearch(booking, search));
   const confirmedBookings = visibleBookings.filter((booking) => booking.status === "confirmed" || booking.status === "completed");
   const pendingPaymentBookings = visibleBookings.filter((booking) => booking.status === "payment_pending");
   const paymentReceivedBookings = visibleBookings.filter((booking) => booking.status === "payment_received");
   const participantTotal = visibleBookings.reduce((sum, booking) => sum + booking.participantCount, 0);
-  const recentBookings = visibleBookings.slice(0, 10);
+  const currentPage = servicePaginationCurrentPage(result.pagination);
+  const totalItems = servicePaginationTotalItems(result.pagination);
+  const start = totalItems === 0 ? 0 : result.pagination.offset + 1;
+  const end = visibleBookings.length === 0 ? result.pagination.offset : result.pagination.offset + visibleBookings.length;
   const summaryCards: PaymentSummaryCard[] = [
-    { changeLabel: "All matching records", icon: <ClipboardCheck size={27} aria-hidden />, id: "total-bookings", label: "Total Bookings", value: visibleBookings.length.toLocaleString() },
+    { changeLabel: result.pagination.has_more ? "More records available" : "All loaded records", icon: <ClipboardCheck size={27} aria-hidden />, id: "total-bookings", label: "Total Bookings", value: totalItems.toLocaleString() },
     { changeLabel: "Confirmed or completed", icon: <CheckCircle2 size={28} aria-hidden />, id: "confirmed-bookings", label: "Confirmed", value: confirmedBookings.length.toLocaleString() },
     { changeLabel: "Awaiting academy confirmation", icon: <ShieldCheck size={28} aria-hidden />, id: "payment-received-bookings", label: "Payment Received", value: paymentReceivedBookings.length.toLocaleString() },
     { changeLabel: "Waiting for payment", icon: <CreditCard size={28} aria-hidden />, id: "pending-payment-bookings", label: "Pending Payment", value: pendingPaymentBookings.length.toLocaleString() },
@@ -2576,7 +2593,7 @@ function BookingsPanel({ academyAdmin, actionBookingId, actionError, result, sea
       <PaymentMetricCards cards={summaryCards} />
       {search ? (
         <p className="text-sm font-semibold text-slate-600">
-          Showing {visibleBookings.length} of {result.bookings.length} bookings matching &quot;{search}&quot;.
+          Showing this page of bookings matching &quot;{search}&quot;.
         </p>
       ) : null}
       {result.error ? (
@@ -2619,13 +2636,22 @@ function BookingsPanel({ academyAdmin, actionBookingId, actionError, result, sea
             render: (booking) => <BookingActionsMenu booking={booking} />,
           },
         ]}
-        data={recentBookings}
+        data={visibleBookings}
         emptyIcon={<ClipboardCheck size={28} aria-hidden />}
         emptyMessage={result.bookings.length ? "No bookings match that search." : "No bookings have been recorded yet."}
         getRowId={(booking) => booking.id}
         getRowHref={(booking) => bookingEventHref(booking)}
+        pagination={{
+          currentPage,
+          end,
+          nextHref: pageHref(searchParams, "bookingsPage", currentPage + 1),
+          previousHref: pageHref(searchParams, "bookingsPage", currentPage - 1),
+          start,
+          totalItems,
+          totalPages: Math.max(currentPage, Math.ceil(totalItems / bookingsPageSize)),
+        }}
         title="Recent Bookings"
-        viewAllLabel={`${visibleBookings.length.toLocaleString()} shown`}
+        viewAllLabel={`Showing ${start}-${end} of ${totalItems.toLocaleString()} bookings`}
       />
     </div>
   );
@@ -2781,10 +2807,14 @@ function paymentOrderId(payment: PaymentRecord) {
   return payment.checkoutSessionId ?? payment.providerPaymentId ?? payment.id;
 }
 
-function PaymentsTransactionsView({ payments, result, search, currency }: { payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; currency: string }) {
+function PaymentsTransactionsView({ currency, payments, result, search, searchParams }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; searchParams: AdminSearchParams }) {
   const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
   const failedPayments = payments.filter((payment) => payment.status === "failed" || payment.status === "cancelled");
   const totalAmount = successfulPayments.reduce((sum, payment) => sum + payment.amount, 0);
+  const currentPage = servicePaginationCurrentPage(result.pagination);
+  const totalItems = servicePaginationTotalItems(result.pagination);
+  const start = totalItems === 0 ? 0 : result.pagination.offset + 1;
+  const end = payments.length === 0 ? result.pagination.offset : result.pagination.offset + payments.length;
   const summaryCards: PaymentSummaryCard[] = [
     { changeClassName: "text-emerald-700", changeLabel: "↑ 14.3% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "total-transactions", label: "Total Transactions", value: payments.length.toLocaleString() },
     { changeClassName: "text-emerald-700", changeLabel: "↑ 13.6% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-transactions", label: "Successful", value: successfulPayments.length.toLocaleString() },
@@ -2876,8 +2906,17 @@ function PaymentsTransactionsView({ payments, result, search, currency }: { paym
           emptyIcon={<CreditCard size={28} aria-hidden />}
           emptyMessage={result.payments.length ? "No transactions match that search." : "No transactions have been recorded yet."}
           getRowId={(payment) => payment.id}
+          pagination={{
+            currentPage,
+            end,
+            nextHref: pageHref(searchParams, "paymentsPage", currentPage + 1),
+            previousHref: pageHref(searchParams, "paymentsPage", currentPage - 1),
+            start,
+            totalItems,
+            totalPages: Math.max(currentPage, Math.ceil(totalItems / paymentsPageSize)),
+          }}
           title="Transactions"
-          viewAllLabel={`Showing ${payments.length.toLocaleString()} of ${result.payments.length.toLocaleString()} transactions`}
+          viewAllLabel={`Showing ${start}-${end} of ${totalItems.toLocaleString()} transactions`}
         />
       </section>
     </div>
@@ -3093,13 +3132,17 @@ function PaymentsEarningsView({ currency, payments, paymentPlatformSettings, per
   );
 }
 
-function PaymentsRefundsView({ currency, payments, result, search }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string }) {
+function PaymentsRefundsView({ currency, payments, result, search, searchParams }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; searchParams: AdminSearchParams }) {
   const refundedPayments = payments.filter((payment) => payment.refundedAmount > 0 || payment.status === "refunded" || payment.status === "partially_refunded");
   const processedRefunds = refundedPayments.filter((payment) => payment.status === "refunded" || payment.status === "partially_refunded");
   const pendingRefunds = refundedPayments.filter((payment) => payment.status !== "refunded" && payment.status !== "partially_refunded");
   const totalRefunded = refundedPayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
   const paidAmount = payments.filter((payment) => payment.status === "succeeded").reduce((sum, payment) => sum + payment.amount, 0);
   const refundRate = paidAmount > 0 ? (totalRefunded / paidAmount) * 100 : 0;
+  const currentPage = servicePaginationCurrentPage(result.pagination);
+  const totalItems = servicePaginationTotalItems(result.pagination);
+  const start = totalItems === 0 ? 0 : result.pagination.offset + 1;
+  const end = refundedPayments.length === 0 ? result.pagination.offset : result.pagination.offset + refundedPayments.length;
   const summaryCards: PaymentSummaryCard[] = [
     { changeClassName: "text-red-600", changeLabel: "↓ 12.5% vs Jun 07 - Jun 13", icon: <Download size={27} aria-hidden />, iconClassName: "bg-red-50 text-red-700 ring-red-100", id: "total-refunds", label: "Total Refunds", value: formatMinorCurrency(totalRefunded, currency) },
     { changeClassName: "text-red-600", changeLabel: "↓ 20% vs Jun 07 - Jun 13", icon: <CalendarDays size={28} aria-hidden />, id: "refunds-processed", label: "Refunds Processed", value: processedRefunds.length.toLocaleString() },
@@ -3182,8 +3225,17 @@ function PaymentsRefundsView({ currency, payments, result, search }: { currency:
           emptyIcon={<RefreshCw size={28} aria-hidden />}
           emptyMessage={result.payments.length ? "No refunds match that search." : "No refunds have been recorded yet."}
           getRowId={(payment) => payment.id}
+          pagination={{
+            currentPage,
+            end,
+            nextHref: pageHref(searchParams, "paymentsPage", currentPage + 1),
+            previousHref: pageHref(searchParams, "paymentsPage", currentPage - 1),
+            start,
+            totalItems,
+            totalPages: Math.max(currentPage, Math.ceil(totalItems / paymentsPageSize)),
+          }}
           title="Refunds"
-          viewAllLabel={`Showing ${refundedPayments.length.toLocaleString()} of ${refundedPayments.length.toLocaleString()} refunds`}
+          viewAllLabel={`Showing ${start}-${end} of ${totalItems.toLocaleString()} payments`}
         />
       </section>
     </div>
@@ -3516,7 +3568,7 @@ function PaymentsPanel({
   ];
 
   if (view === "transactions") {
-    return <PaymentsTransactionsView currency={currency} payments={visiblePayments} result={result} search={search} />;
+    return <PaymentsTransactionsView currency={currency} payments={visiblePayments} result={result} search={search} searchParams={searchParams} />;
   }
 
   if (view === "earnings") {
@@ -3524,7 +3576,7 @@ function PaymentsPanel({
   }
 
   if (view === "refunds") {
-    return <PaymentsRefundsView currency={currency} payments={visiblePayments} result={result} search={search} />;
+    return <PaymentsRefundsView currency={currency} payments={visiblePayments} result={result} search={search} searchParams={searchParams} />;
   }
 
   if (view === "payouts") {
