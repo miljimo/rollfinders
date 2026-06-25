@@ -15,16 +15,24 @@ type Options struct {
 }
 
 type server struct {
-	cfg    config.Config
-	logger *slog.Logger
-	repo   *repository
+	cfg     config.Config
+	logger  *slog.Logger
+	repo    *repository
+	billing stripeBillingClient
 }
 
 func New(opts Options) http.Handler {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
-	s := &server{cfg: opts.Config, logger: opts.Logger}
+	s := &server{
+		cfg:    opts.Config,
+		logger: opts.Logger,
+		billing: stripeBillingClient{
+			apiVersion: opts.Config.StripeAPIVersion,
+			secretKey:  opts.Config.StripeSecretKey,
+		},
+	}
 	if opts.Config.DatabaseURL != "" {
 		repo, err := openRepository(context.Background(), opts.Config.DatabaseURL)
 		if err != nil {
@@ -67,6 +75,7 @@ func New(opts Options) http.Handler {
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/cancel", s.cancelSubscription)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/suspend", s.suspendSubscription)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/change-plan", s.changePlan)
+	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/checkout", s.createSubscriptionCheckout)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/plan-changes", s.createPlanChange)
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}/plan-changes", s.listPlanChanges)
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}/billing-events", s.listBillingEvents)

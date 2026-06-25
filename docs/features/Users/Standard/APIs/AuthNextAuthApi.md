@@ -40,6 +40,20 @@ WHEN NextAuth processes the request
 
 THEN the API SHALL preserve the configured session, provider, credential, and callback rules.
 
+## AUTH-003A: Post-Login Account Hydration
+
+IF credentials sign-in succeeds
+
+WHEN NextAuth builds the browser session and redirects to `/dashboard`
+
+THEN the authenticated user SHALL be able to fetch their own account context through `GET /v1/accounts/{accountId}`.
+
+IF the authenticated user is an academy admin or academy owner
+
+WHEN the self-account lookup is authorised
+
+THEN the lookup SHALL succeed with the user's role and academy id so the dashboard can load.
+
 ## AUTH-004: Unsupported Direct Changes
 
 IF a feature requires auth behavior changes

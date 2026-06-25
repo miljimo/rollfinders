@@ -1,9 +1,11 @@
 package server
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestInferPlanChangeType(t *testing.T) {
@@ -58,6 +60,76 @@ func TestValidPlanChangeType(t *testing.T) {
 		if validPlanChangeType(value) {
 			t.Fatalf("validPlanChangeType(%q) = true, want false", value)
 		}
+	}
+}
+
+func TestStripeBillingCycleHelpers(t *testing.T) {
+	if !stripeBillableCycle("month") || !stripeBillableCycle("year") {
+		t.Fatal("month and year billing cycles must be billable")
+	}
+	for _, value := range []string{"free", "manual", "", "week"} {
+		if stripeBillableCycle(value) {
+			t.Fatalf("stripeBillableCycle(%q) = true, want false", value)
+		}
+	}
+	if got := stripeRecurringInterval("year"); got != "year" {
+		t.Fatalf("stripeRecurringInterval(year) = %q, want year", got)
+	}
+	if got := stripeRecurringInterval("month"); got != "month" {
+		t.Fatalf("stripeRecurringInterval(month) = %q, want month", got)
+	}
+}
+
+func TestRedactBillingProviderError(t *testing.T) {
+	body := []byte(`{"error":{"type":"invalid_request_error","code":"resource_missing","message":"No such price"}}`)
+	got := redactBillingProviderError(body)
+	if !strings.Contains(got, "invalid_request_error") || !strings.Contains(got, "resource_missing") || !strings.Contains(got, "No such price") {
+		t.Fatalf("redactBillingProviderError() = %q", got)
+	}
+	if got := redactBillingProviderError([]byte(`not-json`)); got != "provider_error" {
+		t.Fatalf("redactBillingProviderError(invalid) = %q, want provider_error", got)
+	}
+}
+
+func TestStripeSubscriptionCheckoutSandbox(t *testing.T) {
+	if os.Getenv("RUN_SUBSCRIPTION_BILLING_E2E") != "1" {
+		t.Skip("set RUN_SUBSCRIPTION_BILLING_E2E=1 to create a Stripe test checkout session")
+	}
+	key := os.Getenv("STRIPE_SECRET_KEY")
+	if key == "" {
+		key = os.Getenv("PAYMENT_GATEWAY_API_KEY")
+	}
+	if !strings.HasPrefix(key, "sk_test_") {
+		t.Fatal("subscription billing e2e requires a Stripe test secret key")
+	}
+	client := stripeBillingClient{secretKey: key, apiVersion: "2024-09-30.acacia"}
+	session, err := client.createSubscriptionCheckout(subscriptionCheckoutRequest{
+		PlanID:         "plan_e2e",
+		CustomerEmail:  "billing-e2e@example.com",
+		SuccessURL:     "http://localhost:3000/dashboard/subscriptions?billing=success",
+		CancelURL:      "http://localhost:3000/dashboard/subscriptions?billing=cancelled",
+		IdempotencyKey: fmt.Sprintf("subscription-billing-e2e-%d", time.Now().UnixNano()),
+		PlanChangeID:   "plan_change_e2e",
+	}, Subscription{
+		ID:        "sub_e2e",
+		OwnerType: "application",
+		OwnerID:   "app_rollfinders",
+	}, Plan{
+		ID:           "plan_e2e",
+		Name:         "RollFinders Subscription Billing E2E",
+		Description:  "Automated subscription billing integration test.",
+		Currency:     "GBP",
+		PriceMinor:   100,
+		BillingCycle: "month",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(session.ID, "cs_test_") {
+		t.Fatalf("session id = %q, want Stripe test checkout session", session.ID)
+	}
+	if !strings.HasPrefix(session.URL, "https://checkout.stripe.com/") {
+		t.Fatalf("session URL = %q, want Stripe Checkout URL", session.URL)
 	}
 }
 

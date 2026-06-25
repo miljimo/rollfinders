@@ -559,6 +559,17 @@ type createPlanChangeRequest struct {
 	EffectiveAt    string `json:"effective_at"`
 }
 
+type subscriptionCheckoutRequest struct {
+	PlanID         string `json:"plan_id"`
+	OrganisationID string `json:"organisation_id"`
+	RequestedBy    string `json:"requested_by"`
+	CustomerEmail  string `json:"customer_email"`
+	SuccessURL     string `json:"success_url"`
+	CancelURL      string `json:"cancel_url"`
+	IdempotencyKey string `json:"idempotency_key"`
+	PlanChangeID   string `json:"-"`
+}
+
 func (s *server) listPlanChanges(w http.ResponseWriter, r *http.Request) {
 	if !s.requireRepository(w, r) {
 		return
@@ -581,6 +592,125 @@ func (s *server) listBillingEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"billing_events": items, "pagination": pagination(intQuery(r, "limit", 50), intQuery(r, "offset", 0), len(items))})
+}
+
+func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	var req subscriptionCheckoutRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+	subscription, err := s.repo.getSubscription(r.Context(), r.PathValue("subscription_id"))
+	if err != nil {
+		s.handleError(w, r, err, "subscription get for checkout failed")
+		return
+	}
+	toPlanID := strings.TrimSpace(req.PlanID)
+	if toPlanID == "" {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", "plan_id is required.")
+		return
+	}
+	fromPlan, err := s.repo.getPlan(r.Context(), subscription.PlanID)
+	if err != nil {
+		s.handleError(w, r, err, "current plan get for checkout failed")
+		return
+	}
+	toPlan, err := s.repo.getPlan(r.Context(), toPlanID)
+	if err != nil {
+		s.handleError(w, r, err, "target plan get for checkout failed")
+		return
+	}
+	changeType := inferPlanChangeType(fromPlan, toPlan)
+	status := "checkout_pending"
+	checkoutRequired := toPlan.PriceMinor > 0 && stripeBillableCycle(toPlan.BillingCycle)
+	if !checkoutRequired {
+		status = "applied"
+	}
+	planChangeID := newUUID()
+	req.PlanChangeID = planChangeID
+	if strings.TrimSpace(req.SuccessURL) == "" {
+		req.SuccessURL = s.cfg.CheckoutSuccessURL
+	}
+	if strings.TrimSpace(req.CancelURL) == "" {
+		req.CancelURL = s.cfg.CheckoutCancelURL
+	}
+	if strings.TrimSpace(req.IdempotencyKey) == "" {
+		req.IdempotencyKey = "subscription-checkout:" + subscription.ID + ":" + toPlan.ID + ":" + planChangeID
+	}
+	session := checkoutSession{}
+	if checkoutRequired {
+		if !s.billing.configured() {
+			writeError(w, r, http.StatusServiceUnavailable, "billing_not_configured", "Subscription billing provider is not configured.")
+			return
+		}
+		session, err = s.billing.createSubscriptionCheckout(req, subscription, toPlan)
+		if err != nil {
+			s.logger.Error("subscription checkout create failed", "request_id", requestIDFrom(r), "error", err)
+			writeError(w, r, http.StatusBadGateway, "billing_provider_error", "Subscription billing provider request failed.")
+			return
+		}
+	}
+	planChange, err := s.repo.createPlanChange(r.Context(), PlanChange{
+		ID:             planChangeID,
+		SubscriptionID: subscription.ID,
+		ApplicationID:  subscription.OwnerID,
+		OrganisationID: strings.TrimSpace(req.OrganisationID),
+		FromPlanID:     subscription.PlanID,
+		ToPlanID:       toPlan.ID,
+		ChangeType:     changeType,
+		Status:         status,
+		CheckoutID:     session.ID,
+		RequestedBy:    strings.TrimSpace(req.RequestedBy),
+	})
+	if err != nil {
+		s.handleError(w, r, err, "checkout plan change create failed")
+		return
+	}
+	eventType := "checkout_created"
+	provider := "stripe"
+	providerReference := session.ID
+	if !checkoutRequired {
+		eventType = "plan_change_applied"
+		provider = "subscription-service"
+		item, err := s.repo.setSubscriptionStatus(r.Context(), subscription.ID, "active", toPlan.ID)
+		if err != nil {
+			s.handleError(w, r, err, "subscription apply checkout-free plan change failed")
+			return
+		}
+		subscription = item
+	}
+	event, err := s.repo.createBillingEvent(r.Context(), BillingEvent{
+		SubscriptionID:    subscription.ID,
+		PlanChangeID:      planChange.ID,
+		EventType:         eventType,
+		Status:            planChange.Status,
+		AmountMinor:       toPlan.PriceMinor,
+		Currency:          toPlan.Currency,
+		Provider:          provider,
+		ProviderReference: providerReference,
+		Metadata:          checkoutMetadata(session.URL),
+	})
+	if err != nil {
+		s.handleError(w, r, err, "checkout billing event create failed")
+		return
+	}
+	response := map[string]any{
+		"subscription":      subscription,
+		"plan_change":       planChange,
+		"billing_event":     event,
+		"checkout_required": checkoutRequired,
+	}
+	if checkoutRequired {
+		response["checkout"] = billingCheckoutResult{
+			CheckoutURL: session.URL,
+			SessionID:   session.ID,
+			Provider:    "stripe",
+		}
+	}
+	writeJSON(w, http.StatusCreated, response)
 }
 
 func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
@@ -698,6 +828,17 @@ func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
 		"billing_event":     event,
 		"checkout_required": checkoutRequired,
 	})
+}
+
+func checkoutMetadata(checkoutURL string) json.RawMessage {
+	if strings.TrimSpace(checkoutURL) == "" {
+		return json.RawMessage(`{}`)
+	}
+	body, err := json.Marshal(map[string]string{"checkout_url": checkoutURL})
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return body
 }
 
 func inferPlanChangeType(fromPlan Plan, toPlan Plan) string {

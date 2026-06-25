@@ -191,7 +191,7 @@ function PanelContent({
   return (
     <>
       <div className={`relative flex h-20 items-center border-b border-stone-200 ${collapsed ? "justify-start px-0" : "gap-3 px-3 pr-16"}`}>
-        <Link href="/" className={collapsed ? "inline-flex size-[70px] shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" : "flex min-w-0 flex-1 items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"} aria-label="Go to RollFinders home">
+        <Link href="/dashboard" className={collapsed ? "inline-flex size-[70px] shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" : "flex min-w-0 flex-1 items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"} aria-label="Go to dashboard">
           <span className="inline-flex size-[70px] shrink-0 items-center justify-center">
             <Image src="/logo.png" alt="" width={70} height={70} className="h-[70px] w-[70px] object-contain" priority />
           </span>
@@ -205,7 +205,7 @@ function PanelContent({
         {onToggleCollapsed ? (
           <button
             type="button"
-            className={`${collapsed ? "-right-4 size-10 rounded-full shadow-md" : "right-4 size-11 rounded-md shadow-sm"} absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center border border-stone-200 bg-white text-slate-600 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2`}
+            className={`${collapsed ? "-right-4 size-10" : "-right-5 size-11"} absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-md border border-stone-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2`}
             aria-label={collapsed ? "Expand dashboard navigation" : "Collapse dashboard navigation"}
             onClick={onToggleCollapsed}
           >

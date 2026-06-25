@@ -10,12 +10,16 @@ import (
 )
 
 type Config struct {
-	Port            string
-	DatabaseURL     string
-	EnvironmentName string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	ShutdownTimeout time.Duration
+	Port               string
+	DatabaseURL        string
+	EnvironmentName    string
+	StripeSecretKey    string
+	StripeAPIVersion   string
+	CheckoutSuccessURL string
+	CheckoutCancelURL  string
+	ReadTimeout        time.Duration
+	WriteTimeout       time.Duration
+	ShutdownTimeout    time.Duration
 }
 
 func Load() (Config, error) {
@@ -24,9 +28,20 @@ func Load() (Config, error) {
 
 func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
-		Port:            env.GetWithDefault("PORT", "8080"),
-		DatabaseURL:     databaseURL(env),
-		EnvironmentName: env.GetWithDefault("ENVIRONMENT_NAME", env.GetWithDefault("APP_ENV", "local")),
+		Port:             env.GetWithDefault("PORT", "8080"),
+		DatabaseURL:      databaseURL(env),
+		EnvironmentName:  env.GetWithDefault("ENVIRONMENT_NAME", env.GetWithDefault("APP_ENV", "local")),
+		StripeSecretKey:  firstNonEmpty(env.Get("STRIPE_SECRET_KEY"), env.Get("PAYMENT_GATEWAY_API_KEY")),
+		StripeAPIVersion: env.GetWithDefault("STRIPE_API_VERSION", "2024-09-30.acacia"),
+		CheckoutSuccessURL: firstNonEmpty(
+			env.Get("SUBSCRIPTION_CHECKOUT_SUCCESS_URL"),
+			env.Get("PAYMENT_DEFAULT_CLIENT_CALLBACK_URL"),
+			"http://localhost:3000/dashboard/subscriptions?billing=success",
+		),
+		CheckoutCancelURL: firstNonEmpty(
+			env.Get("SUBSCRIPTION_CHECKOUT_CANCEL_URL"),
+			"http://localhost:3000/dashboard/subscriptions?billing=cancelled",
+		),
 		ReadTimeout:     durationOrDefault(env, "READ_TIMEOUT", 5*time.Second),
 		WriteTimeout:    durationOrDefault(env, "WRITE_TIMEOUT", 10*time.Second),
 		ShutdownTimeout: durationOrDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
@@ -35,6 +50,15 @@ func LoadFrom(env environments.Environment) (Config, error) {
 		return Config{}, errors.New("PORT must not be empty")
 	}
 	return cfg, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func databaseURL(env environments.Environment) string {

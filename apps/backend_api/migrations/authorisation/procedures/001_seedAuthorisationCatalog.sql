@@ -568,6 +568,8 @@ BEGIN
         'booking.create', 'booking.read', 'booking.view', 'booking.cancel', 'booking.confirm', 'booking.complete',
         'booking.payment_received', 'booking.payment_link',
         'booking.participant.create', 'booking.participant.read', 'booking.participant.attendance.record',
+        'auth.session.read',
+        'account.read',
         'payment.read', 'payment.search', 'payment.report.revenue.read', 'payment.report.refund.read',
         'payment.refund.read', 'payment.payee.balance.read',
         'payout.request.create', 'payout.request.read', 'payout.request.cancel'

@@ -11,7 +11,9 @@ if [ -z "${DATABASE_URL:-}" ]; then
   fi
 fi
 
-cd /app
+if [ -d "${APP_ROOT:-/app}" ]; then
+  cd "${APP_ROOT:-/app}"
+fi
 
 if [ -f apps/backend_api/migrations/users/001_core_schema.sql ]; then
   (cd apps/backend_api/migrations/users && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)

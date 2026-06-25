@@ -198,6 +198,7 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodGet, Path: SubscriptionRecord, Permission: PermissionSubscriptionSubscriptionRead, ResourceType: ResourceSubscription, ResourceIDParam: ParamSubscriptionId},
 			{Method: http.MethodPost, Path: SubscriptionRecordCancel, Permission: PermissionSubscriptionSubscriptionManage, ResourceType: ResourceSubscription, ResourceIDParam: ParamSubscriptionId},
 			{Method: http.MethodPost, Path: SubscriptionRecordChangePlan, Permission: PermissionSubscriptionSubscriptionManage, ResourceType: ResourceSubscription, ResourceIDParam: ParamSubscriptionId},
+			{Method: http.MethodPost, Path: SubscriptionRecordCheckout, Permission: PermissionSubscriptionSubscriptionManage, ResourceType: ResourceSubscription, ResourceIDParam: ParamSubscriptionId},
 			{Method: http.MethodGet, Path: SubscriptionApplicationEntitlements, Permission: PermissionSubscriptionEntitlementRead, ResourceType: ResourceApplication, ResourceIDParam: ParamApplicationId},
 		}},
 

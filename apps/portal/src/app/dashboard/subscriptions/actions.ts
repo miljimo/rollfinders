@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import {
   createApplicationSubscription,
+  createSubscriptionCheckout,
   createSubscriptionFeature,
   createSubscriptionPlan,
   createSubscriptionProduct,
@@ -281,6 +282,25 @@ export async function replacePlanFeaturesAction(formData: FormData) {
   const featureIds = formData.getAll("featureIds").map((item) => String(item)).filter(Boolean);
   await replaceSubscriptionPlanFeatures(planId, featureIds, await actor());
   revalidatePath("/dashboard/subscriptions");
+}
+
+export async function startPlanCheckoutAction(formData: FormData) {
+  let checkoutUrl = "";
+  try {
+    const currentActor = await actor();
+    const result = await createSubscriptionCheckout(value(formData, "subscriptionId"), {
+      planId: value(formData, "planId"),
+      organisationId: value(formData, "organisationId"),
+    }, currentActor);
+    checkoutUrl = result.checkout?.checkout_url ?? "";
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectWithActionError("overview", err);
+  }
+  if (checkoutUrl) {
+    redirect(checkoutUrl);
+  }
+  redirect("/dashboard/subscriptions?billing=applied");
 }
 
 export async function createSubscriptionAction(formData: FormData) {

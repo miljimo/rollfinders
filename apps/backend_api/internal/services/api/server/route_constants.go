@@ -122,6 +122,7 @@ const (
 	SubscriptionRecord                                   = gatewayroutes.SubscriptionRecord
 	SubscriptionRecordCancel                             = gatewayroutes.SubscriptionRecordCancel
 	SubscriptionRecordChangePlan                         = gatewayroutes.SubscriptionRecordChangePlan
+	SubscriptionRecordCheckout                           = gatewayroutes.SubscriptionRecordCheckout
 	SubscriptionApplicationEntitlements                  = gatewayroutes.SubscriptionApplicationEntitlements
 )
 

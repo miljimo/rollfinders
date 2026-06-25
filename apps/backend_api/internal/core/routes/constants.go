@@ -277,6 +277,7 @@ const (
 	SubscriptionRecord                       GatewayTargetPath = "/v1/subscriptions/{subscriptionId}"
 	SubscriptionRecordCancel                 GatewayTargetPath = "/v1/subscriptions/{subscriptionId}/cancel"
 	SubscriptionRecordChangePlan             GatewayTargetPath = "/v1/subscriptions/{subscriptionId}/change-plan"
+	SubscriptionRecordCheckout               GatewayTargetPath = "/v1/subscriptions/{subscriptionId}/checkout"
 	SubscriptionApplicationEntitlements      GatewayTargetPath = "/v1/applications/{applicationId}/entitlements"
 
 	PermissionSubscriptionProductRead           GatewayPermissionName = "subscription.product.read"

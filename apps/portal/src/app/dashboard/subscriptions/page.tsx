@@ -43,6 +43,7 @@ import {
   suspendSubscriberAction,
   suspendPlanAction,
   suspendProductAction,
+  startPlanCheckoutAction,
   updateSubscriberAction,
   updateFeatureAction,
   updatePlanAction,
@@ -499,7 +500,7 @@ function SubscriptionViewPanel({
   if (activeView === "billing-events") return <EmptyOperationalPanel title="Billing Events" description="Billing event ingestion is not connected yet." />;
   if (activeView === "usage-limits") return <EmptyOperationalPanel title="Usage Limits" description="Usage metering and limit enforcement are not connected yet." />;
 
-  return <AvailablePlansPanel currentPlanId={entitlements.plan_id} features={features} page={plansPage} plans={plans.filter((plan) => !plan.is_internal)} products={products} />;
+  return <AvailablePlansPanel currentPlanId={entitlements.plan_id} currentSubscriptionId={entitlements.subscription_id} features={features} page={plansPage} plans={plans.filter((plan) => !plan.is_internal)} products={products} />;
 }
 
 function filterPlans(plans: SubscriptionPlan[], search: string) {
@@ -581,7 +582,7 @@ function SubscriptionSearch({ name, placeholder, search, view }: { name: string;
   );
 }
 
-function AvailablePlansPanel({ currentPlanId, features, page, plans, products }: { currentPlanId?: string; features: SubscriptionFeature[]; page: number; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
+function AvailablePlansPanel({ currentPlanId, currentSubscriptionId, features, page, plans, products }: { currentPlanId?: string; currentSubscriptionId?: string; features: SubscriptionFeature[]; page: number; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
   const pageSize = 6;
   const sortedPlans = plans.slice().sort((left, right) => left.price_minor - right.price_minor || left.name.localeCompare(right.name));
   const currentPlan = currentPlanId ? sortedPlans.find((plan) => plan.id === currentPlanId) : undefined;
@@ -593,7 +594,7 @@ function AvailablePlansPanel({ currentPlanId, features, page, plans, products }:
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-black text-slate-950">Available Plans</h2>
       </div>
-      <PlanFeatureComparisonCard currentPlan={currentPlan} currentPlanId={currentPlanId} features={features} plans={visiblePlans} products={products} />
+      <PlanFeatureComparisonCard currentPlan={currentPlan} currentPlanId={currentPlanId} currentSubscriptionId={currentSubscriptionId} features={features} plans={visiblePlans} products={products} />
       {totalPages > 1 ? (
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-stone-100 pt-4 text-sm font-bold">
           <span className="text-slate-600">Page {currentPage} of {totalPages}</span>
@@ -663,12 +664,19 @@ function planActionLabel(plan: SubscriptionPlan, currentPlan?: SubscriptionPlan)
   return "Switch Plan";
 }
 
-function PlanActionButton({ currentPlan, currentPlanId, plan }: { currentPlan?: SubscriptionPlan; currentPlanId?: string; plan: SubscriptionPlan }) {
+function PlanActionButton({ currentPlan, currentPlanId, currentSubscriptionId, plan }: { currentPlan?: SubscriptionPlan; currentPlanId?: string; currentSubscriptionId?: string; plan: SubscriptionPlan }) {
   if (plan.id === currentPlanId) {
+    return null;
+  }
+  if (currentSubscriptionId) {
     return (
-      <span className="inline-flex min-h-9 items-center justify-center rounded-md border border-teal-200 bg-teal-50 px-3 text-xs font-black uppercase text-teal-700">
-        Current Plan
-      </span>
+      <form action={startPlanCheckoutAction} className="mx-auto">
+        <input type="hidden" name="subscriptionId" value={currentSubscriptionId} />
+        <input type="hidden" name="planId" value={plan.id} />
+        <Button type="submit" variant="primary" className="mx-auto min-h-9 justify-center px-3 text-xs">
+          {planActionLabel(plan, currentPlan)}
+        </Button>
+      </form>
     );
   }
   return (
@@ -678,7 +686,7 @@ function PlanActionButton({ currentPlan, currentPlanId, plan }: { currentPlan?: 
   );
 }
 
-function PlanFeatureComparisonCard({ currentPlan, currentPlanId, features, plans, products }: { currentPlan?: SubscriptionPlan; currentPlanId?: string; features: SubscriptionFeature[]; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
+function PlanFeatureComparisonCard({ currentPlan, currentPlanId, currentSubscriptionId, features, plans, products }: { currentPlan?: SubscriptionPlan; currentPlanId?: string; currentSubscriptionId?: string; features: SubscriptionFeature[]; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
   const groups = comparisonFeatureGroups(features, products);
   const supportByPlan = new Map(plans.map((plan) => [plan.id, planFeatureIds(plan)]));
   if (!plans.length) {
@@ -701,7 +709,7 @@ function PlanFeatureComparisonCard({ currentPlan, currentPlanId, features, plans
                   <span className="ml-1 text-xs font-semibold text-slate-500">/ {planBillingLabel(plan.billing_cycle)}</span>
                 </p>
                 <div className="mt-2">
-                  <PlanActionButton currentPlan={currentPlan} currentPlanId={currentPlanId} plan={plan} />
+                  <PlanActionButton currentPlan={currentPlan} currentPlanId={currentPlanId} currentSubscriptionId={currentSubscriptionId} plan={plan} />
                 </div>
               </th>
             ))}
@@ -745,7 +753,7 @@ function PlanFeatureComparisonCard({ currentPlan, currentPlanId, features, plans
             </th>
             {plans.map((plan) => (
               <td key={`${plan.id}:action`} className={`border-r border-t border-stone-100 px-3 py-4 text-center align-middle last:border-r-0 ${plan.id === currentPlanId ? "bg-teal-50" : "bg-white"}`}>
-                <PlanActionButton currentPlan={currentPlan} currentPlanId={currentPlanId} plan={plan} />
+                <PlanActionButton currentPlan={currentPlan} currentPlanId={currentPlanId} currentSubscriptionId={currentSubscriptionId} plan={plan} />
               </td>
             ))}
           </tr>

@@ -79,6 +79,16 @@ export type OrganisationSubscription = {
   billing_period_end: string;
 };
 
+export type SubscriptionCheckoutResponse = {
+  checkout_required: boolean;
+  checkout?: {
+    checkout_url?: string;
+    session_id?: string;
+    provider?: string;
+  };
+  subscription?: OrganisationSubscription;
+};
+
 export type ApplicationEntitlements = {
   owner_type?: string;
   owner_id?: string;
@@ -290,4 +300,19 @@ export async function suspendApplicationSubscription(subscriptionId: string, act
 
 export async function deleteApplicationSubscription(subscriptionId: string, actor?: SubscriptionActor | null) {
   return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, actor, { method: "DELETE" });
+}
+
+export async function createSubscriptionCheckout(subscriptionId: string, input: {
+  planId: string;
+  organisationId?: string;
+}, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/checkout`, actor, {
+    method: "POST",
+    body: JSON.stringify({
+      plan_id: input.planId,
+      organisation_id: input.organisationId,
+      requested_by: actor?.id,
+      customer_email: actor?.email ?? undefined,
+    }),
+  }) as Promise<SubscriptionCheckoutResponse>;
 }

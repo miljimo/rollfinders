@@ -23,7 +23,7 @@ RUN apk add --no-cache postgresql-client
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY prisma ./prisma
-COPY apps/backend_api/seed ./apps/backend_api/seed
+COPY apps/backend_api/migrations/seed ./apps/backend_api/migrations/seed
 COPY apps/backend_api/migrations/users ./apps/backend_api/migrations/users
 COPY apps/backend_api/migrations/payments ./apps/backend_api/migrations/payments
 COPY apps/backend_api/migrations/courses ./apps/backend_api/migrations/courses
@@ -36,7 +36,7 @@ COPY apps/backend_api/migrations/subscriptions ./apps/backend_api/migrations/sub
 COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
-CMD ["npx", "prisma", "migrate", "deploy"]
+CMD ["sh", "-c", "npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"]
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -56,7 +56,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/portal/.next/static ./apps/p
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
-COPY --chown=nextjs:nodejs apps/backend_api/seed ./apps/backend_api/seed
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/seed ./apps/backend_api/migrations/seed
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/users ./apps/backend_api/migrations/users
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/payments ./apps/backend_api/migrations/payments
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/courses ./apps/backend_api/migrations/courses

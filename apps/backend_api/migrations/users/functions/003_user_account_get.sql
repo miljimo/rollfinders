@@ -19,7 +19,17 @@ AS $$
             ORDER BY c.created_at ASC
             LIMIT 1
         ), '') AS email,
-        CASE WHEN u.is_protected THEN 'SUPER_ADMIN' ELSE 'STANDARD_USER' END AS role,
+        CASE
+            WHEN u.is_protected THEN 'SUPER_ADMIN'
+            ELSE COALESCE((
+                SELECT r.key
+                FROM authorisation.user_roles ur
+                JOIN authorisation.roles r ON r.id = ur.role_id
+                WHERE ur.user_id = u.id
+                ORDER BY r.level DESC, ur.created_at ASC
+                LIMIT 1
+            ), 'STANDARD_USER')
+        END AS role,
         (
             SELECT ou.organisation_id
             FROM organisation_users ou

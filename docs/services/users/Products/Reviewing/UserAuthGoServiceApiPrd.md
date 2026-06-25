@@ -165,6 +165,18 @@ WHEN the route is called
 
 THEN the service SHALL return `404`.
 
+IF an academy admin successfully completes credential login
+
+WHEN NextAuth or another trusted session client calls `GET /v1/accounts/{self}` for the same subject
+
+THEN the request SHALL be authorised by the orchestration layer and the service SHALL return the active account context, including role and academy id.
+
+IF `/v1/accounts/{self}` is denied after successful credential login for the same active subject
+
+WHEN the browser session is being hydrated
+
+THEN the flow SHALL be treated as a contract failure because login has issued a token that cannot load its own account.
+
 ---
 
 # Requirement 5: NextAuth Compatibility

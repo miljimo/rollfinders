@@ -163,6 +163,8 @@ Permission creation APIs must reject codes outside the approved naming conventio
 
 Every protected endpoint exposed by a RollFinders service SHALL map to one permission code. Public credential, token, callback, webhook, and internal worker routes still receive explicit permission codes so they can be audited, restricted, or moved behind service authentication without inventing new policy names later.
 
+Authenticated dashboard roles SHALL be able to complete their own session hydration after credentials login. `ACADEMY_ADMIN`, `ACADEMY_OWNER`, platform admin, super admin, and standard authenticated roles SHALL include self-account/session read permissions required for `GET /v1/accounts/{accountId}` and authenticated session reads. A successful credential login SHALL NOT issue a token that immediately fails protected self-account hydration for the same subject.
+
 ### Users And Authentication Service
 
 ```text

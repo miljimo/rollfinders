@@ -15,13 +15,27 @@ const seedCatalog = readFileSync("apps/backend_api/migrations/authorisation/proc
 const repository = readFileSync("apps/backend_api/internal/services/authorisation/server/repository.go", "utf8");
 const migrationCommand = readFileSync("apps/backend_api/cmd/services/authorisation/migrate-users-authorisation/main.go", "utf8");
 const endpointSources = [
-  "authorizationEndpoints.go",
-  "permissionEndpoints.go",
-  "resourceEndpoints.go",
-  "roleEndpoints.go",
-  "rolePermissionEndpoints.go",
-  "userPermissionEndpoints.go",
-  "userRoleEndpoints.go",
+  "AddRolePermissionHandler.go",
+  "AssignUserPermissionHandler.go",
+  "AssignUserRoleHandler.go",
+  "AuthorizeHandler.go",
+  "CreatePermissionHandler.go",
+  "CreateResourceHandler.go",
+  "CreateRoleHandler.go",
+  "DeleteUserPermissionHandler.go",
+  "DeleteUserRoleHandler.go",
+  "EffectivePermissionsHandler.go",
+  "GetPermissionHandler.go",
+  "GetRoleHandler.go",
+  "ListPermissionsHandler.go",
+  "ListResourcesHandler.go",
+  "ListRolePermissionsHandler.go",
+  "ListRolesHandler.go",
+  "ListUserPermissionsHandler.go",
+  "ListUserRolesHandler.go",
+  "RemoveRolePermissionHandler.go",
+  "UpdatePermissionHandler.go",
+  "UpdateRoleHandler.go",
 ]
   .map((file) => readFileSync(`apps/backend_api/internal/services/authorisation/server/${file}`, "utf8"))
   .join("\n");
@@ -57,23 +71,24 @@ test("Authorisation permissions are capability codes without numeric levels", ()
 test("Authorisation permission definitions can be global or scoped to organisation and application", () => {
   assert.match(permissionsTable, /\borganisation_id\s+text\b/);
   assert.match(permissionsTable, /\bapplication_id\s+text\b/);
-  assert.match(permissionsTable, /UNIQUE\s+NULLS\s+NOT\s+DISTINCT\s+\(code,\s+organisation_id,\s+application_id\)/i);
+  assert.match(permissionsTable, /\bresource_id\s+text\s+NOT\s+NULL\s+REFERENCES\s+resources\(id\)/i);
+  assert.match(permissionsTable, /UNIQUE\s+NULLS\s+NOT\s+DISTINCT\s+\(resource_id,\s+organisation_id,\s+application_id\)/i);
   assert.doesNotMatch(permissionsTable, /\bcode\s+text\s+NOT\s+NULL\s+UNIQUE\b/i);
-  assert.match(seedCatalog, /ON CONFLICT ON CONSTRAINT permissions_code_scope_key DO UPDATE/);
-  assert.match(repository, /organisation_id = NULLIF\(\$5, ''\)/);
-  assert.match(repository, /application_id = NULLIF\(\$6, ''\)/);
-  assert.match(repository, /p\.organisation_id IS NULL OR p\.organisation_id = \$2/);
-  assert.match(repository, /p\.application_id IS NULL OR p\.application_id = \$3/);
+  assert.match(seedCatalog, /ON CONFLICT ON CONSTRAINT permissions_resource_scope_key DO UPDATE/);
+  assert.match(repository, /SELECT \* FROM permission_create\(\$1, \$2, \$3, \$4, \$5\)/);
+  assert.match(repository, /p\.OrganisationID,\s*p\.ApplicationID,\s*p\.ResourceID/);
+  assert.match(repository, /SELECT \* FROM permission_row_by_code\(\$1, \$2, \$3\)/);
+  assert.match(repository, /code,\s*scope\.OrganisationID,\s*scope\.ApplicationID/);
 });
 
 test("Authorisation permission IDs are generated and not semantic permission codes", () => {
-  const permissionInsertIndex = seedCatalog.indexOf("INSERT INTO permissions (id, code, name, description, resource_id)");
+  const permissionInsertIndex = seedCatalog.indexOf("INSERT INTO permissions (id, resource_id)");
   const rolesInsertIndex = seedCatalog.indexOf("INSERT INTO roles", permissionInsertIndex);
   const permissionInsertBlock = seedCatalog.slice(permissionInsertIndex, rolesInsertIndex);
 
   assert.doesNotMatch(seedCatalog, /'perm_[a-z0-9_]+',/);
   assert.doesNotMatch(permissionInsertBlock, /ON CONFLICT \(id\)/);
-  assert.match(permissionInsertBlock, /ON CONFLICT ON CONSTRAINT permissions_code_scope_key/);
+  assert.match(permissionInsertBlock, /ON CONFLICT ON CONSTRAINT permissions_resource_scope_key/);
   assert.match(permissionInsertBlock, /gen_random_bytes\(12\)/);
   assert.doesNotMatch(endpointSources, /newID\("perm"\)/);
   assert.match(endpointSources, /newID\("permission"\)/);
@@ -82,10 +97,14 @@ test("Authorisation permission IDs are generated and not semantic permission cod
 test("Authorisation scopes use a resource table for resource identifiers", () => {
   assert.match(resourcesTable, /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+resources/i);
   assert.match(resourcesTable, /\bid\s+text\s+PRIMARY\s+KEY/i);
-  assert.match(resourcesTable, /\bresource_type\s+text\s+NOT\s+NULL/i);
+  assert.match(resourcesTable, /\bname\s+text\s+NOT\s+NULL\s+UNIQUE/i);
+  assert.match(resourcesTable, /\btarget\s+text\b/i);
   assert.match(resourceScopeMigration, /FOREIGN\s+KEY\s+\(resource_id\)\s+REFERENCES\s+resources\(id\)/i);
-  assert.match(repository, /INSERT\s+INTO\s+resources\s+\(id,\s+resource_type\)/);
-  assert.match(repository, /LEFT\s+JOIN\s+resources\s+res\s+ON\s+res\.id\s+=\s+up\.resource_id/);
+  assert.match(repository, /SELECT \* FROM resource_upsert\(\$1, \$2, \$3, \$4\)/);
+  assert.match(repository, /resource\.ID,\s*resource\.Name,\s*resource\.Description,\s*resource\.Target/);
+  assert.match(repository, /SELECT \* FROM user_role_assign\(\$1, \$2, \$3, \$4, \$5, \$6, \$7\)/);
+  assert.match(repository, /a\.Scope\.OrganisationID,\s*a\.Scope\.ApplicationID,\s*a\.Scope\.ResourceID/);
+  assert.match(repository, /SELECT \* FROM user_permission_assign\(\$1, \$2, \$3, \$4, \$5, \$6, \$7, \$8\)/);
   assert.doesNotMatch(userRolesTable, /\bresource_type\s+text\b/);
   assert.doesNotMatch(userPermissionsTable, /\bresource_type\s+text\b/);
   assert.doesNotMatch(auditEventsTable, /\bresource_type\s+text\b/);
@@ -107,9 +126,11 @@ test("Authorisation seed keeps platform payment revenue separate from academy pa
   assert.match(seedCatalog, /payment\.report\.platform_revenue\.read/);
 
   const academyWhereIndex = seedCatalog.indexOf("WHERE r.key IN ('ACADEMY_OWNER', 'ACADEMY_ADMIN')");
-  const academyJoinIndex = seedCatalog.lastIndexOf("JOIN permissions p ON p.code IN", academyWhereIndex);
+  const academyJoinIndex = seedCatalog.lastIndexOf("JOIN resources resource ON resource.id = p.resource_id AND resource.name IN", academyWhereIndex);
   const academyConflictIndex = seedCatalog.indexOf("ON CONFLICT DO NOTHING;", academyWhereIndex);
   const academyRoleBlock = seedCatalog.slice(academyJoinIndex, academyConflictIndex);
+  assert.match(academyRoleBlock, /account\.read/);
+  assert.match(academyRoleBlock, /auth\.session\.read/);
   assert.match(academyRoleBlock, /payment\.report\.revenue\.read/);
   assert.match(academyRoleBlock, /payment\.report\.refund\.read/);
   assert.doesNotMatch(academyRoleBlock, /payment\.report\.platform_revenue\.read/);

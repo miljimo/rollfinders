@@ -246,6 +246,15 @@ function selectedSettingsAction(value: string | undefined) {
   return "change-password";
 }
 
+type SettingsAction = ReturnType<typeof selectedSettingsAction>;
+
+function effectiveSettingsActionForRole(action: SettingsAction, elevatedAdmin: boolean, canViewWeeklyActivity: boolean): SettingsAction {
+  if (action === "change-password" || action === "edit-profile") return action;
+  if (elevatedAdmin && (action === "email-options" || action === "recent-audits")) return action;
+  if (canViewWeeklyActivity && action === "weekly-activity") return action;
+  return "change-password";
+}
+
 type PaymentOverviewPeriod = "daily" | "weekly" | "monthly" | "yearly";
 type PaymentsDashboardView = "overview" | "transactions" | "earnings" | "refunds" | "payouts" | "settings";
 type UsersDashboardView = "overview" | "roles" | "permissions" | "access-keys" | "mfa";
@@ -490,6 +499,7 @@ export default async function AdminDashboardWorkspace({
   const platformAcademiesSearch = (firstParam(params.platformAcademiesSearch) ?? "").trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
+  const effectiveSettingsAction = effectiveSettingsActionForRole(activeSettingsAction, elevatedAdmin, elevatedAdmin);
   const paymentAccountOwner = academyAdmin && currentUser.academyId
     ? { ownerId: currentUser.academyId, ownerType: "academy" as const }
     : { ownerId: "rollfinders", ownerType: "platform" as const };
@@ -799,6 +809,21 @@ export default async function AdminDashboardWorkspace({
     { href: dashboardUsersHref(params, { usersView: "access-keys", usersPage: undefined }), icon: "accessKeys", label: "Access Keys", active: panel === "users" && usersView === "access-keys" },
     { href: dashboardUsersHref(params, { usersView: "mfa", usersPage: undefined }), icon: "mfa", label: "MFA", active: panel === "users" && usersView === "mfa" },
   ] satisfies SidePanelItem["children"];
+  const settingsNavigationSections = [
+    { href: "/dashboard?panel=settings&settingsAction=edit-profile", icon: "users", label: "Profile", active: panel === "settings" && effectiveSettingsAction === "edit-profile" },
+    { href: "/dashboard?panel=settings&settingsAction=change-password", icon: "mfa", label: "Change Password", active: panel === "settings" && effectiveSettingsAction === "change-password" },
+    ...(elevatedAdmin
+      ? [
+          { href: "/dashboard?panel=settings&settingsAction=email-options", icon: "settings", label: "Email Options", active: panel === "settings" && effectiveSettingsAction === "email-options" },
+          { href: "/dashboard?panel=settings&settingsAction=recent-audits", icon: "permissions", label: "Audits", active: panel === "settings" && effectiveSettingsAction === "recent-audits" },
+        ] satisfies SidePanelItem["children"]
+      : []),
+    ...(elevatedAdmin
+      ? [
+          { href: "/dashboard?panel=settings&settingsAction=weekly-activity", icon: "dashboard", label: "Activities Summary", active: panel === "settings" && effectiveSettingsAction === "weekly-activity" },
+        ] satisfies SidePanelItem["children"]
+      : []),
+  ] satisfies SidePanelItem["children"];
   const dashboardServiceNavigationItems = adminNavigationItems
     .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
     .map((item) => item.href === "/dashboard/academies" ? { ...item, label: "Academies" } : item);
@@ -817,17 +842,18 @@ export default async function AdminDashboardWorkspace({
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
     : activeServiceNavigationItem?.href === "/dashboard/users"
       ? { ...activeServiceNavigationItem, children: userNavigationSections }
+      : activeServiceNavigationItem?.href === "/dashboard?panel=settings"
+        ? { ...activeServiceNavigationItem, children: settingsNavigationSections }
     : activeServiceNavigationItem;
   const serviceNavigationItems: SidePanelItem[] = [
     ...(activeServicePanelNavigationItem &&
-    activeServicePanelNavigationItem.href !== mapNavigationItem?.href &&
-    activeServicePanelNavigationItem.href !== settingsNavigationItem?.href
+    activeServicePanelNavigationItem.href !== mapNavigationItem?.href
       ? [activeServicePanelNavigationItem]
       : []),
   ];
   const sidePanelFooterNavigationItems: SidePanelItem[] = [
     ...(mapNavigationItem ? [mapNavigationItem] : []),
-    ...(settingsNavigationItem ? [settingsNavigationItem] : []),
+    ...(settingsNavigationItem && panel !== "settings" ? [settingsNavigationItem] : []),
   ];
   const statCards: StatsPanelItem[] = academyAdmin
     ? [
@@ -1021,7 +1047,6 @@ export default async function AdminDashboardWorkspace({
         <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24">
           <div className="size-11 lg:hidden" aria-hidden />
           <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-4">
-            <DashboardServiceMenu items={dashboardServiceNavigationItems} />
             <ActionMenu
               buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
               label="Open account profile menu"
@@ -1080,11 +1105,11 @@ export default async function AdminDashboardWorkspace({
         ) : panel === "maps" ? (
           <MapDashboardContent academies={mapItems} />
         ) : (
-        <section className="px-4 py-8 sm:px-8">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className={clsx("px-4 py-8 sm:px-8", dashboardLanding && "mx-auto max-w-[112rem] py-12")}>
+          <div className={clsx("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", dashboardLanding && "gap-6")}>
             <div>
-              <h1 className="text-3xl font-black text-slate-950">{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
-              <p className="mt-2 text-slate-600">{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
+              <h1 className={clsx("font-black text-slate-950", dashboardLanding ? "text-5xl tracking-normal" : "text-3xl")}>{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <p className={clsx("mt-2 text-slate-600", dashboardLanding && "text-xl")}>{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
@@ -1766,29 +1791,6 @@ function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { acade
   );
 }
 
-function DashboardServiceMenu({ items }: { items: SidePanelItem[] }) {
-  return (
-    <nav className="hidden min-w-0 overflow-x-auto md:block" aria-label="Service dashboards">
-      <div className="ml-auto flex min-w-max items-center justify-end gap-1">
-        {items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={item.active ? "page" : undefined}
-            className={clsx(
-              "inline-flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
-              item.active ? "font-bold text-stone-950" : "font-medium text-stone-700 hover:bg-white hover:text-stone-950",
-            )}
-          >
-            <Icon name={item.icon} size={17} className="shrink-0" />
-            <span className="whitespace-nowrap">{item.label}</span>
-          </Link>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
 function NewUserDialog({ academies, academyAdmin, actorRole, superAdmin }: { academies: { id: string; name: string }[]; academyAdmin: boolean; actorRole: string; superAdmin: boolean }) {
   return (
     <DialogShell closeHref="/dashboard/users" description="Create a user and assign role and academy access." title="New User">
@@ -2082,61 +2084,14 @@ function SettingsDashboardContent({
   recentAuditLogs: SettingsAuditLog[];
 }) {
   const emailOptionsHref = "/dashboard?panel=settings&settingsAction=email-options";
-  const effectiveSettingsAction =
-    activeSettingsAction === "change-password" || activeSettingsAction === "edit-profile" || (elevatedAdmin && (activeSettingsAction === "email-options" || activeSettingsAction === "recent-audits" || activeSettingsAction === "weekly-activity"))
-      ? activeSettingsAction
-      : "change-password";
-  const settingsActionItems: QuickActionPanelItem[] = [
-    {
-      active: effectiveSettingsAction === "change-password",
-      title: "Change Password",
-      description: "Set a new password for your administrator account",
-      href: "/dashboard?panel=settings&settingsAction=change-password",
-      icon: <KeyRound size={24} aria-hidden />,
-      id: "change-password",
-    },
-    {
-      active: effectiveSettingsAction === "edit-profile",
-      title: "Edit Profile",
-      description: "Update your personal display name",
-      href: "/dashboard?panel=settings&settingsAction=edit-profile",
-      icon: <Edit3 size={24} aria-hidden />,
-      id: "edit-profile",
-    },
-    ...(elevatedAdmin
-      ? [
-          {
-            active: effectiveSettingsAction === "email-options",
-            title: "Email Options",
-            description: "Process queue runs and inspect delivery issues",
-            href: "/dashboard?panel=settings&settingsAction=email-options",
-            icon: <Mail size={24} aria-hidden />,
-            id: "email-options",
-          } satisfies QuickActionPanelItem,
-          {
-            active: effectiveSettingsAction === "recent-audits",
-            title: "Recent Audits",
-            description: "Review recent administrative audit activity",
-            href: "/dashboard?panel=settings&settingsAction=recent-audits",
-            icon: <ShieldCheck size={24} aria-hidden />,
-            id: "recent-audits",
-          } satisfies QuickActionPanelItem,
-        ]
-      : []),
-    ...(canViewWeeklyActivity
-      ? [
-          {
-            active: effectiveSettingsAction === "weekly-activity",
-            title: "Weekly Activity Summary",
-            description: "Review current-week contribution momentum",
-            href: "/dashboard?panel=settings&settingsAction=weekly-activity",
-            icon: <BarChart3 size={24} aria-hidden />,
-            id: "weekly-activity",
-          } satisfies QuickActionPanelItem,
-        ]
-      : []),
-  ];
-  const selectedSettingsItem = settingsActionItems.find((item) => item.active);
+  const effectiveSettingsAction = effectiveSettingsActionForRole(activeSettingsAction, elevatedAdmin, canViewWeeklyActivity);
+  const selectedSettingsTitle = {
+    "change-password": "Change Password",
+    "edit-profile": "Profile",
+    "email-options": "Email Options",
+    "recent-audits": "Audits",
+    "weekly-activity": "Activities Summary",
+  }[effectiveSettingsAction];
 
   return (
     <section className="px-4 py-8 sm:px-8">
@@ -2150,9 +2105,7 @@ function SettingsDashboardContent({
         </Button>
       </div>
 
-      <QuickActionPanel className="mt-7 hidden md:block" items={settingsActionItems} />
-
-      <SettingsDetailPanel title={selectedSettingsItem?.title ?? "Settings"}>
+      <SettingsDetailPanel title={selectedSettingsTitle}>
         {effectiveSettingsAction === "change-password" ? (
           <div className="max-w-xl">
             <p className="text-sm font-semibold leading-6 text-slate-600">Set a new password for your administrator account.</p>
