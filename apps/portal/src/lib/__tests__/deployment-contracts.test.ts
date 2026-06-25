@@ -23,9 +23,15 @@ describe("deployment safety contracts", () => {
     assert.match(deployEnvironment, /image\.env is missing IMAGE_URI/);
     assert.match(deployEnvironment, /API_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /USER_SERVICE_IMAGE_URI/);
-    assert.match(deployEnvironment, /PAYMENT_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /AUTHORISATION_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /ACADEMY_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /ORGANISATION_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /COURSE_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /BOOKING_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /PAYMENT_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /SUBSCRIPTION_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /NOTIFICATION_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /ANALYTICS_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /build-go-services\.sh/);
   });
 
@@ -34,14 +40,26 @@ describe("deployment safety contracts", () => {
 
     assert.match(promotion, /"api_service_image_uri":\s*os\.environ\["API_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"user_service_image_uri":\s*os\.environ\["USER_SERVICE_IMAGE_FOR_PROMOTION"\]/);
-    assert.match(promotion, /"payment_service_image_uri":\s*os\.environ\["PAYMENT_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"authorisation_service_image_uri":\s*os\.environ\["AUTHORISATION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"academy_service_image_uri":\s*os\.environ\["ACADEMY_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"organisation_service_image_uri":\s*os\.environ\["ORGANISATION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"course_service_image_uri":\s*os\.environ\["COURSE_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"booking_service_image_uri":\s*os\.environ\["BOOKING_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"payment_service_image_uri":\s*os\.environ\["PAYMENT_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"subscription_service_image_uri":\s*os\.environ\["SUBSCRIPTION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"notification_service_image_uri":\s*os\.environ\["NOTIFICATION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"analytics_service_image_uri":\s*os\.environ\["ANALYTICS_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /echo "API_SERVICE_IMAGE_URI=\$\{api_service_image\}"/);
     assert.match(promotion, /echo "USER_SERVICE_IMAGE_URI=\$\{user_service_image\}"/);
-    assert.match(promotion, /echo "PAYMENT_SERVICE_IMAGE_URI=\$\{payment_service_image\}"/);
     assert.match(promotion, /echo "AUTHORISATION_SERVICE_IMAGE_URI=\$\{authorisation_service_image\}"/);
+    assert.match(promotion, /echo "ACADEMY_SERVICE_IMAGE_URI=\$\{academy_service_image\}"/);
+    assert.match(promotion, /echo "ORGANISATION_SERVICE_IMAGE_URI=\$\{organisation_service_image\}"/);
+    assert.match(promotion, /echo "COURSE_SERVICE_IMAGE_URI=\$\{course_service_image\}"/);
+    assert.match(promotion, /echo "BOOKING_SERVICE_IMAGE_URI=\$\{booking_service_image\}"/);
+    assert.match(promotion, /echo "PAYMENT_SERVICE_IMAGE_URI=\$\{payment_service_image\}"/);
     assert.match(promotion, /echo "SUBSCRIPTION_SERVICE_IMAGE_URI=\$\{subscription_service_image\}"/);
+    assert.match(promotion, /echo "NOTIFICATION_SERVICE_IMAGE_URI=\$\{notification_service_image\}"/);
+    assert.match(promotion, /echo "ANALYTICS_SERVICE_IMAGE_URI=\$\{analytics_service_image\}"/);
   });
 
   it("runs migrations before rolling the ECS service to the new task definition", () => {

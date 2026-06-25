@@ -39,13 +39,67 @@ variable "image_uri" {
 
 variable "user_service_image_uri" {
   type        = string
-  description = "Legacy users/auth service image URI. Lower services must now be deployed as separate ECS services behind the API tier, not as frontend sidecars."
+  description = "Users service image URI."
+  default     = ""
+}
+
+variable "api_service_image_uri" {
+  type        = string
+  description = "API Gateway service image URI."
+  default     = ""
+}
+
+variable "authorisation_service_image_uri" {
+  type        = string
+  description = "Authorisation service image URI."
+  default     = ""
+}
+
+variable "academy_service_image_uri" {
+  type        = string
+  description = "Academy service image URI."
+  default     = ""
+}
+
+variable "organisation_service_image_uri" {
+  type        = string
+  description = "Organisation service image URI."
+  default     = ""
+}
+
+variable "course_service_image_uri" {
+  type        = string
+  description = "Courses service image URI."
+  default     = ""
+}
+
+variable "booking_service_image_uri" {
+  type        = string
+  description = "Booking service image URI."
   default     = ""
 }
 
 variable "payment_service_image_uri" {
   type        = string
-  description = "Legacy payments service image URI. Lower services must now be deployed as separate ECS services behind the API tier, not as frontend sidecars."
+  description = "Payments service image URI."
+  default     = ""
+}
+
+variable "subscription_service_image_uri" {
+  type        = string
+  description = "Subscriptions service image URI."
+  default     = ""
+}
+
+variable "notification_service_image_uri" {
+  type        = string
+  description = "Notification service image URI."
+  default     = ""
+}
+
+variable "analytics_service_image_uri" {
+  type        = string
+  description = "Analytics service image URI."
   default     = ""
 }
 

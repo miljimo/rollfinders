@@ -8,7 +8,7 @@ Reviewing. Prepared for developer-environment deployment on 2026-06-25. Not depl
 
 * Source branch: `master`
 * Target environment: `dev`
-* Current release candidate commit: `ae52a6f Implement subscription billing boundary and deployment fixes`
+* Current release candidate commit: pending local commit for full runtime backend service deployment metadata.
 * Included entitlement baseline commit: `34d876d Implement subscription entitlement enforcement`
 * Release preparation state: committed locally on `master`.
 * Requested date: 2026-06-25
@@ -61,14 +61,20 @@ The dev release pipeline now requires and records image metadata for:
 IMAGE_URI
 API_SERVICE_IMAGE_URI
 USER_SERVICE_IMAGE_URI
-PAYMENT_SERVICE_IMAGE_URI
 AUTHORISATION_SERVICE_IMAGE_URI
+ACADEMY_SERVICE_IMAGE_URI
+ORGANISATION_SERVICE_IMAGE_URI
+COURSE_SERVICE_IMAGE_URI
+BOOKING_SERVICE_IMAGE_URI
+PAYMENT_SERVICE_IMAGE_URI
 SUBSCRIPTION_SERVICE_IMAGE_URI
+NOTIFICATION_SERVICE_IMAGE_URI
+ANALYTICS_SERVICE_IMAGE_URI
 ```
 
 `scripts/cicd/build-go-services.sh` now builds service Dockerfiles from the repository root context, which matches the Dockerfiles' `COPY apps/backend_api ...` expectations.
 
-The build script also emits API Gateway and Subscription Service images, which are required by this release.
+The build script also emits all runtime backend service images required by the dev ECS task: API Gateway, Users, Authorisation, Academy, Organisation, Courses, Booking, Payments, Subscriptions, Notification, and Analytics.
 
 ### Migrations
 
@@ -96,8 +102,10 @@ npm run build
 TF_DATA_DIR=/tmp/rollfinder-tfdata-dev-release terraform -chdir=infrastructure/terraform init -backend=false
 TF_DATA_DIR=/tmp/rollfinder-tfdata-dev-release terraform -chdir=infrastructure/terraform validate
 node --import tsx --test apps/portal/src/lib/__tests__/deployment-contracts.test.ts apps/portal/src/lib/__tests__/email-operations-contracts.test.ts
-docker build -f apps/backend_api/containers/api/Dockerfile -t rollfinder-release-check-api:local .
-docker build -f apps/backend_api/containers/subscriptions/Dockerfile -t rollfinder-release-check-subscriptions:local .
+for dockerfile in apps/backend_api/containers/{api,users,authorisation,academy,organisation,courses,booking,payments,subscriptions,notification,analytics}/Dockerfile; do
+  service="$(basename "$(dirname "$dockerfile")")"
+  docker build -f "$dockerfile" -t "rollfinder-release-check-${service}:local" .
+done
 ```
 
 Results:
@@ -108,8 +116,7 @@ Results:
 * Portal production build passed.
 * Terraform validation passed using isolated `TF_DATA_DIR`.
 * Deployment and email operation contract tests passed: 21/21.
-* API Gateway Docker image build passed locally.
-* Subscription Service Docker image build passed locally.
+* Runtime backend Docker image builds passed locally for API Gateway, Users, Authorisation, Academy, Organisation, Courses, Booking, Payments, Subscriptions, Notification, and Analytics.
 
 ### Full Unit Test Status
 
@@ -216,7 +223,7 @@ If dev health checks fail, migrations fail, or dashboard login/users/subscriptio
 
 * [x] Release scope documented.
 * [x] Deployment scripts updated for `infrastructure/terraform`.
-* [x] API and Subscription Service images included in build metadata.
+* [x] Runtime backend service images included in build metadata.
 * [x] Service SQL migration runner includes authorisation and subscriptions migrations.
 * [x] Backend Go tests passed.
 * [x] Portal typecheck passed.
@@ -225,6 +232,7 @@ If dev health checks fail, migrations fail, or dashboard login/users/subscriptio
 * [x] Release-specific deployment contract tests passed.
 * [ ] Full historical `npm run test` suite green.
 * [x] Release prep changes committed locally to `master` as `ae52a6f`.
+* [ ] Full runtime backend service deployment metadata committed to `master`.
 * [ ] `master` pushed to remote.
 * [ ] Bitbucket dev deployment completed.
 * [ ] Dev smoke checks completed.

@@ -49,8 +49,8 @@ if [[ -z "${IMAGE_URI:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" ]]; then
-  echo "image.env must include API_SERVICE_IMAGE_URI, USER_SERVICE_IMAGE_URI, PAYMENT_SERVICE_IMAGE_URI, AUTHORISATION_SERVICE_IMAGE_URI, and SUBSCRIPTION_SERVICE_IMAGE_URI for this release."
+if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${ACADEMY_SERVICE_IMAGE_URI:-}" || -z "${ORGANISATION_SERVICE_IMAGE_URI:-}" || -z "${COURSE_SERVICE_IMAGE_URI:-}" || -z "${BOOKING_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" || -z "${NOTIFICATION_SERVICE_IMAGE_URI:-}" || -z "${ANALYTICS_SERVICE_IMAGE_URI:-}" ]]; then
+  echo "image.env must include image URIs for app, api, users, authorisation, academy, organisation, courses, booking, payments, subscriptions, notification, and analytics."
   echo "Run scripts/cicd/build-go-services.sh after scripts/cicd/build.sh, or set FORCE_SERVICE_REDEPLOY=true SERVICE_REDEPLOY_TARGET=all."
   exit 1
 fi
@@ -84,8 +84,17 @@ terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 terraform plan \
   -var-file="${TFVARS}" \
   -var="image_uri=${IMAGE_URI}" \
+  -var="api_service_image_uri=${API_SERVICE_IMAGE_URI:-}" \
   -var="user_service_image_uri=${USER_SERVICE_IMAGE_URI:-}" \
+  -var="authorisation_service_image_uri=${AUTHORISATION_SERVICE_IMAGE_URI:-}" \
+  -var="academy_service_image_uri=${ACADEMY_SERVICE_IMAGE_URI:-}" \
+  -var="organisation_service_image_uri=${ORGANISATION_SERVICE_IMAGE_URI:-}" \
+  -var="course_service_image_uri=${COURSE_SERVICE_IMAGE_URI:-}" \
+  -var="booking_service_image_uri=${BOOKING_SERVICE_IMAGE_URI:-}" \
   -var="payment_service_image_uri=${PAYMENT_SERVICE_IMAGE_URI:-}" \
+  -var="subscription_service_image_uri=${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" \
+  -var="notification_service_image_uri=${NOTIFICATION_SERVICE_IMAGE_URI:-}" \
+  -var="analytics_service_image_uri=${ANALYTICS_SERVICE_IMAGE_URI:-}" \
   -out=deploy.tfplan
 
 terraform apply \

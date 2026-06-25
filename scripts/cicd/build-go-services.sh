@@ -17,7 +17,7 @@ IMAGE_ENV_FILE="${IMAGE_ENV_FILE:-image.env}"
 
 touch "${IMAGE_ENV_FILE}"
 TMP_IMAGE_ENV="$(mktemp)"
-grep -v -E '^(API_SERVICE_IMAGE_URI|USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI|SUBSCRIPTION_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
+grep -v -E '^(API_SERVICE_IMAGE_URI|USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI|ACADEMY_SERVICE_IMAGE_URI|ORGANISATION_SERVICE_IMAGE_URI|COURSE_SERVICE_IMAGE_URI|BOOKING_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|SUBSCRIPTION_SERVICE_IMAGE_URI|NOTIFICATION_SERVICE_IMAGE_URI|ANALYTICS_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
 mv "${TMP_IMAGE_ENV}" "${IMAGE_ENV_FILE}"
 
 service_changed() {
@@ -121,8 +121,44 @@ else
   emit_existing_service_image "authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
 fi
 
+if target_matches "academy" && service_changed "apps/backend_api/containers/academy" "apps/backend_api/cmd/services/academy" "apps/backend_api/internal/services/academy" "apps/backend_api/migrations/academy"; then
+  build_service "academy" "apps/backend_api/containers/academy/Dockerfile" "ACADEMY_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "academy" "ACADEMY_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "organisation" && service_changed "apps/backend_api/containers/organisation" "apps/backend_api/cmd/services/organisation" "apps/backend_api/internal/services/organisation" "apps/backend_api/migrations/organisation"; then
+  build_service "organisation" "apps/backend_api/containers/organisation/Dockerfile" "ORGANISATION_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "organisation" "ORGANISATION_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "courses" && service_changed "apps/backend_api/containers/courses" "apps/backend_api/cmd/services/courses" "apps/backend_api/internal/services/courses" "apps/backend_api/migrations/courses"; then
+  build_service "courses" "apps/backend_api/containers/courses/Dockerfile" "COURSE_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "courses" "COURSE_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "booking" && service_changed "apps/backend_api/containers/booking" "apps/backend_api/cmd/services/booking" "apps/backend_api/internal/services/booking" "apps/backend_api/migrations/booking"; then
+  build_service "booking" "apps/backend_api/containers/booking/Dockerfile" "BOOKING_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "booking" "BOOKING_SERVICE_IMAGE_URI"
+fi
+
 if target_matches "subscriptions" && service_changed "apps/backend_api/containers/subscriptions" "apps/backend_api/cmd/services/subscriptions" "apps/backend_api/internal/services/subscriptions" "apps/backend_api/migrations/subscriptions"; then
   build_service "subscriptions" "apps/backend_api/containers/subscriptions/Dockerfile" "SUBSCRIPTION_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "subscriptions" "SUBSCRIPTION_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "notification" && service_changed "apps/backend_api/containers/notification" "apps/backend_api/cmd/services/notification" "apps/backend_api/internal/services/notification" "apps/backend_api/migrations/notification"; then
+  build_service "notification" "apps/backend_api/containers/notification/Dockerfile" "NOTIFICATION_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "notification" "NOTIFICATION_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "analytics" && service_changed "apps/backend_api/containers/analytics" "apps/backend_api/cmd/services/analytics" "apps/backend_api/internal/services/analytics" "apps/backend_api/migrations/analytics"; then
+  build_service "analytics" "apps/backend_api/containers/analytics/Dockerfile" "ANALYTICS_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "analytics" "ANALYTICS_SERVICE_IMAGE_URI"
 fi

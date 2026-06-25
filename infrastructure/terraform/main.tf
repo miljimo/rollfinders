@@ -333,7 +333,9 @@ module "app_service" {
         { name = "NODE_ENV", value = "production" },
         { name = "PORT", value = "3000" },
         { name = "HOSTNAME", value = "0.0.0.0" },
-        { name = "API_PUBLIC_BASE_URL", value = local.api_base_url },
+        { name = "API_PUBLIC_BASE_URL", value = "http://127.0.0.1:8080" },
+        { name = "NOTIFICATION_SERVICE_BASE_URL", value = "http://127.0.0.1:8088" },
+        { name = "ANALYTICS_SERVICE_BASE_URL", value = "http://127.0.0.1:8089" },
         { name = "EMAIL_DOMAIN", value = module.email.sending_domain }
       ]
       secrets = [
@@ -348,6 +350,7 @@ module "app_service" {
         { name = "SMTP_PASSWORD", valueFrom = module.app_secrets.arn_by_key["SMTP_PASSWORD"] },
         { name = "MAILBOX_LINK", valueFrom = module.app_secrets.arn_by_key["MAILBOX_LINK"] },
         { name = "CRON_SECRET", valueFrom = module.app_secrets.arn_by_key["CRON_SECRET"] },
+        { name = "NOTIFICATION_API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] },
         { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
         { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
         { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
@@ -366,6 +369,230 @@ module "app_service" {
         retries     = 3
         startPeriod = 30
       }
+    },
+    {
+      name       = "api"
+      image      = var.api_service_image_uri
+      cpu        = 64
+      memory     = 128
+      essential  = false
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8080" },
+        { name = "USER_PUBLIC_BASE_URL", value = "http://127.0.0.1:8081" },
+        { name = "AUTHORISATION_PUBLIC_BASE_URL", value = "http://127.0.0.1:8082" },
+        { name = "ACADEMY_PUBLIC_BASE_URL", value = "http://127.0.0.1:8083" },
+        { name = "ORGANISATION_PUBLIC_BASE_URL", value = "http://127.0.0.1:8084" },
+        { name = "COURSE_PUBLIC_BASE_URL", value = "http://127.0.0.1:8085" },
+        { name = "BOOKING_PUBLIC_BASE_URL", value = "http://127.0.0.1:8086" },
+        { name = "PAYMENT_PUBLIC_BASE_URL", value = "http://127.0.0.1:8087" },
+        { name = "SUBSCRIPTION_PUBLIC_BASE_URL", value = "http://127.0.0.1:8090" },
+        { name = "LEGACY_NEXT_PUBLIC_BASE_URL", value = "http://127.0.0.1:3000" },
+        { name = "ROLLFINDERS_APPLICATION_ID", value = "app_rollfinders" }
+      ]
+      secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
+      ]
+      ports       = [{ container_port = 8080, host_port = 8080, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8080/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name       = "users"
+      image      = var.user_service_image_uri
+      cpu        = 64
+      memory     = 128
+      essential  = false
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8081" },
+        { name = "AUTHORISATION_CUTOVER", value = "true" },
+        { name = "DEFAULT_USER_ROLE", value = "STANDARD_USER" }
+      ]
+      secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] },
+        { name = "SUPER_ADMIN_EMAIL", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_EMAIL"].arn },
+        { name = "SUPER_ADMIN_PASSWORD", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_PASSWORD"].arn },
+        { name = "SUPER_ADMIN_NAME", valueFrom = aws_ssm_parameter.super_admin["SUPER_ADMIN_NAME"].arn }
+      ]
+      ports       = [{ container_port = 8081, host_port = 8081, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8081/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name         = "authorisation"
+      image        = var.authorisation_service_image_uri
+      cpu          = 64
+      memory       = 128
+      essential    = false
+      log_region   = var.aws_region
+      environments = [{ name = "PORT", value = "8082" }]
+      secrets      = [{ name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] }]
+      ports        = [{ container_port = 8082, host_port = 8082, protocol = "tcp" }]
+      healthCheck  = { command = ["CMD-SHELL", "wget -qO- http://localhost:8082/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name         = "academy"
+      image        = var.academy_service_image_uri
+      cpu          = 64
+      memory       = 128
+      essential    = false
+      log_region   = var.aws_region
+      environments = [{ name = "PORT", value = "8083" }]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
+      ]
+      ports       = [{ container_port = 8083, host_port = 8083, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8083/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name         = "organisation"
+      image        = var.organisation_service_image_uri
+      cpu          = 64
+      memory       = 128
+      essential    = false
+      log_region   = var.aws_region
+      environments = [{ name = "PORT", value = "8084" }]
+      secrets      = [{ name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] }]
+      ports        = [{ container_port = 8084, host_port = 8084, protocol = "tcp" }]
+      healthCheck  = { command = ["CMD-SHELL", "wget -qO- http://localhost:8084/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name         = "courses"
+      image        = var.course_service_image_uri
+      cpu          = 64
+      memory       = 128
+      essential    = false
+      log_region   = var.aws_region
+      environments = [{ name = "PORT", value = "8085" }]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
+      ]
+      ports       = [{ container_port = 8085, host_port = 8085, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8085/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name         = "booking"
+      image        = var.booking_service_image_uri
+      cpu          = 64
+      memory       = 128
+      essential    = false
+      log_region   = var.aws_region
+      environments = [{ name = "PORT", value = "8086" }]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
+      ]
+      ports       = [{ container_port = 8086, host_port = 8086, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8086/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name       = "payments"
+      image      = var.payment_service_image_uri
+      cpu        = 64
+      memory     = 128
+      essential  = false
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8087" },
+        { name = "PAYMENT_PUBLIC_BASE_URL", value = "http://127.0.0.1:8080" },
+        { name = "PAYMENT_DEFAULT_CLIENT_ID", value = "rollfinders" },
+        { name = "PAYMENT_DEFAULT_CLIENT_NAME", value = "Rollfinders" },
+        { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "${local.app_base_url}/payments/status" }
+      ]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] },
+        { name = "PAYMENT_GATEWAY_API_KEY", valueFrom = module.app_secrets.arn_by_key["PAYMENT_GATEWAY_API_KEY"] },
+        { name = "STRIPE_API_VERSION", valueFrom = module.app_secrets.arn_by_key["STRIPE_API_VERSION"] },
+        { name = "STRIPE_CONTEXT", valueFrom = module.app_secrets.arn_by_key["STRIPE_CONTEXT"] }
+      ]
+      ports       = [{ container_port = 8087, host_port = 8087, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8087/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name         = "notification"
+      image        = var.notification_service_image_uri
+      cpu          = 64
+      memory       = 128
+      essential    = false
+      log_region   = var.aws_region
+      environments = [{ name = "PORT", value = "8088" }]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] },
+        { name = "NOTIFICATION_API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] }
+      ]
+      ports       = [{ container_port = 8088, host_port = 8088, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8088/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name       = "analytics"
+      image      = var.analytics_service_image_uri
+      cpu        = 64
+      memory     = 128
+      essential  = false
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8089" },
+        { name = "ANALYTICS_API_KEY", value = "local-analytics-api-key" }
+      ]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
+      ]
+      ports       = [{ container_port = 8089, host_port = 8089, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8089/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
+    },
+    {
+      name       = "subscriptions"
+      image      = var.subscription_service_image_uri
+      cpu        = 64
+      memory     = 128
+      essential  = false
+      log_region = var.aws_region
+      environments = [
+        { name = "PORT", value = "8090" },
+        { name = "PAYMENT_PUBLIC_BASE_URL", value = "http://127.0.0.1:8087" },
+        { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "${local.app_base_url}/dashboard/subscriptions" }
+      ]
+      secrets = [
+        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
+        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
+        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
+        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
+        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
+      ]
+      ports       = [{ container_port = 8090, host_port = 8090, protocol = "tcp" }]
+      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8090/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
     }
   ]
 
