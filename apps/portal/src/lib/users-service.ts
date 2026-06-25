@@ -79,7 +79,11 @@ function headers(actor?: ActorContext) {
 async function parseResponse(response: Response) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const message = typeof body?.error === "string" ? body.error : `User service request failed with status ${response.status}.`;
+    const message = typeof body?.error === "string"
+      ? body.error
+      : typeof body?.error?.message === "string"
+        ? body.error.message
+        : `User service request failed with status ${response.status}.`;
     throw new UserServiceError(message, response.status);
   }
   return body;
@@ -93,13 +97,7 @@ function splitRollfinderAcademyInput(input: unknown) {
   const raw = input as Record<string, unknown>;
   const academyId = raw.academyId;
   const role = raw.role;
-  const serviceInput = {
-    name: raw.name,
-    email: raw.email,
-    role: raw.role,
-    status: raw.status,
-    academyId: raw.academyId,
-  };
+  const serviceInput = { ...(input as Record<string, unknown>) };
   return {
     serviceInput,
     academyId: typeof academyId === "string" ? academyId.trim() || null : academyId === null ? null : undefined,
@@ -383,11 +381,11 @@ export async function updateManagedUser(actor: ActorContext, id: string, input: 
     body: JSON.stringify(serviceInput),
   });
   const result = await parseResponse(response) as { user: ManagedUser };
-  const user = await syncRollfinderUserProfile(result.user, academyId);
+  const user = await syncRollfinderUserProfile(result.user, academyId, actor);
   if (role) {
     await replaceUserAuthorisationRole(actor, result.user.id, role, { organisationId: academyId ?? undefined });
   }
-  return { user: await enrichManagedUserWithRollfinderProfile(user) as ManagedUser };
+  return { user: await enrichManagedUserWithRollfinderProfile(user, actor) as ManagedUser };
 }
 
 export async function deleteManagedUser(actor: ActorContext, id: string) {

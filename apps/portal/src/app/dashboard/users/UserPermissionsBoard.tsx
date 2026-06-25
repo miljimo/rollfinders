@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
-import type { AuthorisationPermission, AuthorisationPermissionAssignment, AuthorisationResource, AuthorisationRole } from "@/lib/authorisation-service";
+import type { AuthorisationPagination, AuthorisationPermission, AuthorisationPermissionAssignment, AuthorisationResource, AuthorisationRole } from "@/lib/authorisation-service";
 import { ActionMenu } from "../../admin/ActionMenu";
-import { createPermissionWithOptionalAssignments, removeCurrentUserPermissionAssignment, updatePermissionDescription } from "../DashboardActions";
+import { createPermissionWithOptionalAssignments, loadAuthorisationPermissionsPage, removeCurrentUserPermissionAssignment, updatePermissionDescription } from "../DashboardActions";
 
 type PermissionRow = {
   id: string;
@@ -102,6 +102,7 @@ export function UserPermissionsBoard({
   directAssignments,
   organisations,
   permissions,
+  permissionsPagination,
   resources,
   rolePermissions,
   roles,
@@ -111,6 +112,7 @@ export function UserPermissionsBoard({
   directAssignments: AuthorisationPermissionAssignment[];
   organisations: ScopeOption[];
   permissions: AuthorisationPermission[];
+  permissionsPagination: AuthorisationPagination;
   resources: AuthorisationResource[];
   rolePermissions: RolePermissionAssociation[];
   roles: AuthorisationRole[];
@@ -119,6 +121,9 @@ export function UserPermissionsBoard({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [permissionPages, setPermissionPages] = useState<Record<number, { pagination: AuthorisationPagination; permissions: AuthorisationPermission[] }>>({
+    1: { pagination: permissionsPagination, permissions },
+  });
   const [selectedRow, setSelectedRow] = useState<PermissionRow | null>(null);
   const [editingRow, setEditingRow] = useState<PermissionRow | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -141,15 +146,29 @@ export function UserPermissionsBoard({
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const pageSize = 10;
-  const rows = useMemo(() => toRows(permissions, directAssignments, rolePermissions), [directAssignments, permissions, rolePermissions]);
+  const currentPermissionPage = permissionPages[page] ?? { pagination: permissionsPagination, permissions: [] };
+  const loadedPermissions = useMemo(
+    () => Object.keys(permissionPages)
+      .map((key) => Number(key))
+      .sort((left, right) => left - right)
+      .flatMap((key) => permissionPages[key]?.permissions ?? []),
+    [permissionPages],
+  );
+  const visiblePermissions = search.trim() ? loadedPermissions : currentPermissionPage.permissions;
+  const rows = useMemo(() => toRows(visiblePermissions, directAssignments, rolePermissions), [directAssignments, rolePermissions, visiblePermissions]);
   const normalizedSearch = search.trim().toLowerCase();
   const filteredRows = useMemo(() => {
     if (!normalizedSearch) return rows;
     return rows.filter((row) => rowSearchText(row).includes(normalizedSearch));
   }, [normalizedSearch, rows]);
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const loadedPageNumbers = Object.keys(permissionPages).map((key) => Number(key));
+  const highestLoadedPage = Math.max(1, ...loadedPageNumbers);
+  const hasMorePermissions = Object.values(permissionPages).some((item) => item.pagination.has_more);
+  const totalPages = normalizedSearch
+    ? Math.max(1, Math.ceil(filteredRows.length / pageSize), hasMorePermissions ? highestLoadedPage + 1 : highestLoadedPage)
+    : Math.max(1, highestLoadedPage, currentPermissionPage.pagination.has_more ? page + 1 : page);
   const currentPage = Math.min(page, totalPages);
-  const pagedRows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pagedRows = normalizedSearch ? filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize) : filteredRows;
   const canEditPermissions = rows.some((row) => row.code === "authorisation.permission.update" || row.code === "authorisation.manage");
   const canCreatePermissions = rows.some((row) => row.code === "authorisation.permission.create" || row.code === "authorisation.manage");
   const organisationSelectOptions: AutoCompleteTextFieldOption[] = organisations.map((organisation) => ({
@@ -197,6 +216,22 @@ export function UserPermissionsBoard({
   function updateSearch(value: string) {
     setSearch(value);
     setPage(1);
+  }
+
+  function goToPermissionPage(nextPage: number) {
+    const safePage = Math.max(1, nextPage);
+    if (permissionPages[safePage]) {
+      setPage(safePage);
+      return;
+    }
+    startTransition(async () => {
+      const result = await loadAuthorisationPermissionsPage(safePage, pageSize);
+      setPermissionPages((current) => ({
+        ...current,
+        [safePage]: { pagination: result.pagination, permissions: result.permissions },
+      }));
+      setPage(safePage);
+    });
   }
 
   function removePermission(row: PermissionRow) {
@@ -408,22 +443,22 @@ export function UserPermissionsBoard({
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 px-5 py-4 text-sm font-medium text-stone-700">
         <div className="grid gap-1">
           <span>
-            Showing {filteredRows.length ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredRows.length)} of {filteredRows.length} permissions
+            Showing {pagedRows.length ? (currentPage - 1) * pageSize + 1 : 0} to {(currentPage - 1) * pageSize + pagedRows.length} of {currentPermissionPage.pagination.has_more ? `${currentPage * pageSize}+` : String((currentPage - 1) * pageSize + pagedRows.length)} permissions
           </span>
           {message ? <span className={message.type === "success" ? "font-semibold text-teal-800" : "font-semibold text-red-700"}>{message.text}</span> : null}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(1)}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1 || pending} onClick={() => goToPermissionPage(1)}>
             <ChevronsLeft size={17} aria-hidden />
           </button>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1 || pending} onClick={() => goToPermissionPage(currentPage - 1)}>
             <ChevronLeft size={17} aria-hidden />
           </button>
           <span className="inline-flex size-10 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">{currentPage}</span>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage >= totalPages || pending} onClick={() => goToPermissionPage(currentPage + 1)}>
             <ChevronRight size={17} aria-hidden />
           </button>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage >= totalPages || pending} onClick={() => goToPermissionPage(totalPages)}>
             <ChevronsRight size={17} aria-hidden />
           </button>
         </div>

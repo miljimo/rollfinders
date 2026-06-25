@@ -13,7 +13,7 @@ const navItems = [
 ];
 
 export async function PageHeader() {
-  const session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions).catch(() => null);
   const isLoggedIn = Boolean(session?.user);
 
   return (

@@ -133,7 +133,7 @@ export async function enrichManagedUsersWithRollfinderProfiles<T extends Rollfin
   return Promise.all(users.map(async (user) => {
     const membership = membershipByUserId.get(user.id);
     const serviceRole = normalizeRole(user.role);
-    const role = await authorisationProfileRole(user.id, serviceRole);
+    const role = await authorisationProfileRole(user.id, serviceRole, actor);
     return {
       ...user,
       academyId: user.academyId ?? membership?.academyId ?? null,

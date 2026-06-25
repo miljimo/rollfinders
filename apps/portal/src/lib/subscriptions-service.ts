@@ -57,6 +57,7 @@ export type SubscriptionPlan = {
   currency: string;
   price_minor: number;
   billing_cycle: string;
+  is_internal: boolean;
   features?: SubscriptionPlanFeature[];
   products?: SubscriptionPlanProduct[];
   included_feature_ids?: string[];
@@ -151,6 +152,18 @@ export async function listSubscriptionProducts(actor?: SubscriptionActor | null)
 export async function listSubscriptionFeatures(actor?: SubscriptionActor | null) {
   const result = await request("/v1/product-features?limit=100", actor) as { features?: SubscriptionFeature[] };
   return result.features ?? [];
+}
+
+export async function listSubscriptionFeaturesPage(actor?: SubscriptionActor | null, options: { limit?: number; offset?: number } = {}) {
+  const limit = options.limit ?? 10;
+  const offset = options.offset ?? 0;
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const result = await request(`/v1/product-features?${params.toString()}`, actor) as { features?: SubscriptionFeature[]; pagination?: SubscriptionPagination };
+  const features = result.features ?? [];
+  return {
+    features,
+    pagination: result.pagination ?? { limit, offset, count: features.length, has_more: false },
+  };
 }
 
 export async function listSubscriptionPlansPage(actor?: SubscriptionActor | null, options: { limit?: number; offset?: number } = {}) {
@@ -262,4 +275,19 @@ export async function createApplicationSubscription(input: {
     method: "POST",
     body: JSON.stringify({ owner_type: "application", owner_id: applicationId, organisation_id: input.organisationId, plan_id: input.planId }),
   });
+}
+
+export async function updateApplicationSubscription(subscriptionId: string, input: { planId: string; status: string }, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, actor, {
+    method: "PUT",
+    body: JSON.stringify({ plan_id: input.planId, status: input.status }),
+  });
+}
+
+export async function suspendApplicationSubscription(subscriptionId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/suspend`, actor, { method: "POST" });
+}
+
+export async function deleteApplicationSubscription(subscriptionId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, actor, { method: "DELETE" });
 }

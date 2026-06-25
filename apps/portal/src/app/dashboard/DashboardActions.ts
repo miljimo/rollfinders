@@ -1,7 +1,21 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addAuthorisationRolePermission, authorize, createAuthorisationPermission, createAuthorisationRole, createUserPermissionAssignment, deleteUserPermissionAssignment, updateAuthorisationPermission, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
+import {
+  addAuthorisationRolePermission,
+  authorize,
+  createAuthorisationPermission,
+  createAuthorisationRole,
+  createUserPermissionAssignment,
+  deleteUserPermissionAssignment,
+  listAuthorisationPermissionsPage,
+  listAuthorisationRolePermissions,
+  listAuthorisationRolesPage,
+  updateAuthorisationPermission,
+  type AuthorisationPagination,
+  type AuthorisationPermission,
+  type AuthorisationRole,
+} from "@/lib/authorisation-service";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { isAnyAdminRole, isStandardUserRole } from "@/lib/admin";
 
@@ -14,6 +28,17 @@ export type PermissionMutationResult<T = unknown> = {
   data?: T;
   message: string;
   success: boolean;
+};
+
+export type AuthorisationRolePageResult = {
+  pagination: AuthorisationPagination;
+  rolePermissions: { roleId: string; permissions: AuthorisationPermission[] }[];
+  roles: AuthorisationRole[];
+};
+
+export type AuthorisationPermissionPageResult = {
+  pagination: AuthorisationPagination;
+  permissions: AuthorisationPermission[];
 };
 
 export async function updateStandardUserProfile(
@@ -38,6 +63,27 @@ export async function removeCurrentUserPermissionAssignment(assignmentId: string
   const { user } = await requireDashboardUser();
   await deleteUserPermissionAssignment(user, user.id, assignmentId);
   revalidatePath("/dashboard");
+}
+
+export async function loadAuthorisationRolesPage(page: number, limit = 10): Promise<AuthorisationRolePageResult> {
+  const { user } = await requireDashboardUser();
+  const cleanLimit = Math.min(Math.max(Math.floor(limit), 1), 100);
+  const cleanPage = Math.max(Math.floor(page), 1);
+  const offset = (cleanPage - 1) * cleanLimit;
+  const result = await listAuthorisationRolesPage(user, { limit: cleanLimit, offset });
+  const rolePermissions = await Promise.all(result.roles.map(async (role) => ({
+    roleId: role.id,
+    permissions: await listAuthorisationRolePermissions(role.id, user),
+  })));
+  return { ...result, rolePermissions };
+}
+
+export async function loadAuthorisationPermissionsPage(page: number, limit = 10): Promise<AuthorisationPermissionPageResult> {
+  const { user } = await requireDashboardUser();
+  const cleanLimit = Math.min(Math.max(Math.floor(limit), 1), 100);
+  const cleanPage = Math.max(Math.floor(page), 1);
+  const offset = (cleanPage - 1) * cleanLimit;
+  return listAuthorisationPermissionsPage(user, { limit: cleanLimit, offset });
 }
 
 export async function updatePermissionDescription(input: {

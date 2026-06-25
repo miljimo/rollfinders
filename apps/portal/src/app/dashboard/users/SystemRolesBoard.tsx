@@ -5,8 +5,8 @@ import { useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Plus, Search, Trash2, X } from "lucide-react";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import { TablePagination } from "@/components/Table";
-import type { AuthorisationPermission, AuthorisationRole } from "@/lib/authorisation-service";
-import { addPrivilegeToRole, createRoleWithPrivileges } from "../DashboardActions";
+import type { AuthorisationPagination, AuthorisationPermission, AuthorisationRole } from "@/lib/authorisation-service";
+import { addPrivilegeToRole, createRoleWithPrivileges, loadAuthorisationRolesPage } from "../DashboardActions";
 
 const pageSize = 10;
 const rolePermissionPageSize = 7;
@@ -31,16 +31,24 @@ export function SystemRolesBoard({
   permissions,
   rolePermissions,
   roles,
+  rolesPagination,
 }: {
   canAddPrivileges: boolean;
   canCreateRoles: boolean;
   permissions: AuthorisationPermission[];
   rolePermissions: { roleId: string; permissions: AuthorisationPermission[] }[];
   roles: AuthorisationRole[];
+  rolesPagination: AuthorisationPagination;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [rolePages, setRolePages] = useState<Record<number, { pagination: AuthorisationPagination; roles: AuthorisationRole[] }>>({
+    1: { pagination: rolesPagination, roles },
+  });
+  const [rolePermissionPages, setRolePermissionPages] = useState<Record<string, AuthorisationPermission[]>>(() =>
+    Object.fromEntries(rolePermissions.map((item) => [item.roleId, item.permissions])),
+  );
   const [rolePermissionPage, setRolePermissionPage] = useState(1);
   const [selectedRole, setSelectedRole] = useState<AuthorisationRole | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -55,14 +63,28 @@ export function SystemRolesBoard({
   const [detailPermissionId, setDetailPermissionId] = useState("");
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const currentRolePage = rolePages[page] ?? { pagination: rolesPagination, roles: [] };
+  const loadedRoles = useMemo(
+    () => Object.keys(rolePages)
+      .map((key) => Number(key))
+      .sort((left, right) => left - right)
+      .flatMap((key) => rolePages[key]?.roles ?? []),
+    [rolePages],
+  );
   const normalizedSearch = search.trim().toLowerCase();
   const filteredRoles = useMemo(() => {
-    if (!normalizedSearch) return roles;
-    return roles.filter((role) => roleSearchText(role).includes(normalizedSearch));
-  }, [normalizedSearch, roles]);
-  const totalPages = Math.max(1, Math.ceil(filteredRoles.length / pageSize));
+    const source = normalizedSearch ? loadedRoles : currentRolePage.roles;
+    if (!normalizedSearch) return source;
+    return source.filter((role) => roleSearchText(role).includes(normalizedSearch));
+  }, [currentRolePage.roles, loadedRoles, normalizedSearch]);
+  const loadedPageNumbers = Object.keys(rolePages).map((key) => Number(key));
+  const highestLoadedPage = Math.max(1, ...loadedPageNumbers);
+  const hasMoreRoles = Object.values(rolePages).some((item) => item.pagination.has_more);
+  const totalPages = normalizedSearch
+    ? Math.max(1, Math.ceil(filteredRoles.length / pageSize), hasMoreRoles ? highestLoadedPage + 1 : highestLoadedPage)
+    : Math.max(1, highestLoadedPage, currentRolePage.pagination.has_more ? page + 1 : page);
   const currentPage = Math.min(page, totalPages);
-  const pagedRoles = filteredRoles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const pagedRoles = normalizedSearch ? filteredRoles.slice((currentPage - 1) * pageSize, currentPage * pageSize) : filteredRoles;
   const permissionOptions: AutoCompleteTextFieldOption[] = permissions.map((permission) => ({
     id: permission.id,
     label: permission.code,
@@ -79,7 +101,27 @@ export function SystemRolesBoard({
   }
 
   function permissionsForRole(roleId: string) {
-    return rolePermissions.find((item) => item.roleId === roleId)?.permissions ?? [];
+    return rolePermissionPages[roleId] ?? [];
+  }
+
+  function goToRolePage(nextPage: number) {
+    const safePage = Math.max(1, nextPage);
+    if (rolePages[safePage]) {
+      setPage(safePage);
+      return;
+    }
+    startTransition(async () => {
+      const result = await loadAuthorisationRolesPage(safePage, pageSize);
+      setRolePages((current) => ({
+        ...current,
+        [safePage]: { pagination: result.pagination, roles: result.roles },
+      }));
+      setRolePermissionPages((current) => ({
+        ...current,
+        ...Object.fromEntries(result.rolePermissions.map((item) => [item.roleId, item.permissions])),
+      }));
+      setPage(safePage);
+    });
   }
 
   function resetCreateForm() {
@@ -220,22 +262,22 @@ export function SystemRolesBoard({
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-stone-200 px-5 py-4 text-sm font-medium text-stone-700">
         <div className="grid gap-1">
           <span>
-            Showing {filteredRoles.length ? (currentPage - 1) * pageSize + 1 : 0} to {Math.min(currentPage * pageSize, filteredRoles.length)} of {filteredRoles.length} roles
+            Showing {pagedRoles.length ? (currentPage - 1) * pageSize + 1 : 0} to {(currentPage - 1) * pageSize + pagedRoles.length} of {currentRolePage.pagination.has_more ? `${currentPage * pageSize}+` : String((currentPage - 1) * pageSize + pagedRoles.length)} roles
           </span>
           {message ? <span className={message.type === "success" ? "font-semibold text-teal-800" : "font-semibold text-red-700"}>{message.text}</span> : null}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage(1)}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1 || pending} onClick={() => goToRolePage(1)}>
             <ChevronsLeft size={17} aria-hidden />
           </button>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === 1 || pending} onClick={() => goToRolePage(currentPage - 1)}>
             <ChevronLeft size={17} aria-hidden />
           </button>
           <span className="inline-flex size-10 items-center justify-center rounded-md bg-blue-600 text-sm font-bold text-white">{currentPage}</span>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === totalPages} onClick={() => setPage((value) => Math.min(totalPages, value + 1))}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage >= totalPages || pending} onClick={() => goToRolePage(currentPage + 1)}>
             <ChevronRight size={17} aria-hidden />
           </button>
-          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage === totalPages} onClick={() => setPage(totalPages)}>
+          <button type="button" className="inline-flex size-10 items-center justify-center rounded-md border border-stone-300 disabled:opacity-40" disabled={currentPage >= totalPages || pending} onClick={() => goToRolePage(totalPages)}>
             <ChevronsRight size={17} aria-hidden />
           </button>
         </div>

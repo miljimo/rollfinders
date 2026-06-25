@@ -46,9 +46,13 @@ CREATE TABLE IF NOT EXISTS subscriptions.plans (
     currency text NOT NULL DEFAULT 'GBP',
     price_minor integer NOT NULL DEFAULT 0 CHECK (price_minor >= 0),
     billing_cycle text NOT NULL DEFAULT 'month' CONSTRAINT plans_billing_cycle_allowed CHECK (billing_cycle IN ('free', 'month', 'year', 'manual')),
+    is_internal boolean NOT NULL DEFAULT false,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE subscriptions.plans
+    ADD COLUMN IF NOT EXISTS is_internal boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS subscriptions.billing_cycles (
     key text PRIMARY KEY,
@@ -128,7 +132,7 @@ CREATE TABLE IF NOT EXISTS subscriptions.subscriptions (
     owner_type text NOT NULL DEFAULT 'application' CHECK (owner_type IN ('application', 'organisation', 'academy', 'user')),
     owner_id text NOT NULL,
     plan_id text NOT NULL REFERENCES subscriptions.plans(id) ON UPDATE CASCADE ON DELETE RESTRICT,
-    status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'EXPIRED', 'SUSPENDED')),
+    status text NOT NULL DEFAULT 'ACTIVE',
     billing_period_start timestamptz NOT NULL DEFAULT now(),
     billing_period_end timestamptz NOT NULL DEFAULT (now() + interval '1 month'),
     trial_start timestamptz,
@@ -139,15 +143,87 @@ CREATE TABLE IF NOT EXISTS subscriptions.subscriptions (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+DO $$
+DECLARE
+    subscription_status_constraint text;
+BEGIN
+    FOR subscription_status_constraint IN
+        SELECT conname
+        FROM pg_constraint
+        WHERE conrelid = 'subscriptions.subscriptions'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) ILIKE '%status%'
+    LOOP
+        EXECUTE format('ALTER TABLE subscriptions.subscriptions DROP CONSTRAINT %I', subscription_status_constraint);
+    END LOOP;
+
+    ALTER TABLE subscriptions.subscriptions
+        ADD CONSTRAINT subscriptions_status_allowed CHECK (status IN (
+            'TRIAL', 'ACTIVE', 'PAST_DUE', 'CANCELLED', 'EXPIRED', 'SUSPENDED',
+            'pending', 'checkout_pending', 'active', 'past_due', 'scheduled_downgrade',
+            'cancel_at_period_end', 'cancelled', 'suspended', 'failed'
+        ));
+END $$;
+
+CREATE TABLE IF NOT EXISTS subscriptions.subscription_plan_changes (
+    id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    subscription_id text NOT NULL REFERENCES subscriptions.subscriptions(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    application_id text NOT NULL,
+    organisation_id text NOT NULL DEFAULT '',
+    from_plan_id text REFERENCES subscriptions.plans(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    to_plan_id text REFERENCES subscriptions.plans(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    change_type text NOT NULL CHECK (change_type IN ('subscribe', 'upgrade', 'downgrade', 'switch', 'cancel', 'reactivate')),
+    status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'checkout_pending', 'payment_confirmed', 'scheduled', 'applied', 'rejected', 'cancelled', 'failed')),
+    effective_at timestamptz,
+    payment_id text NOT NULL DEFAULT '',
+    checkout_id text NOT NULL DEFAULT '',
+    requested_by text NOT NULL DEFAULT '',
+    approved_by text NOT NULL DEFAULT '',
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions.subscription_billing_events (
+    id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    subscription_id text REFERENCES subscriptions.subscriptions(id) ON UPDATE CASCADE ON DELETE CASCADE,
+    plan_change_id text REFERENCES subscriptions.subscription_plan_changes(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    payment_id text NOT NULL DEFAULT '',
+    event_type text NOT NULL,
+    status text NOT NULL DEFAULT '',
+    amount_minor integer NOT NULL DEFAULT 0 CHECK (amount_minor >= 0),
+    currency text NOT NULL DEFAULT 'GBP',
+    provider text NOT NULL DEFAULT '',
+    provider_reference text NOT NULL DEFAULT '',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_one_active_owner_subscription
 ON subscriptions.subscriptions (owner_type, owner_id)
-WHERE status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED');
+WHERE status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'active', 'past_due', 'scheduled_downgrade', 'cancel_at_period_end', 'suspended');
 
 CREATE INDEX IF NOT EXISTS subscriptions_products_service_idx ON subscriptions.products(service_id);
 CREATE INDEX IF NOT EXISTS subscriptions_product_features_product_idx ON subscriptions.product_features(product_id);
+WITH duplicate_product_features AS (
+    SELECT id, name, row_number() OVER (PARTITION BY product_id, lower(name) ORDER BY created_at, id) AS duplicate_number
+    FROM subscriptions.product_features
+)
+UPDATE subscriptions.product_features feature
+SET name = duplicate_product_features.name || ' (' || duplicate_product_features.duplicate_number || ')',
+    updated_at = now()
+FROM duplicate_product_features
+WHERE feature.id = duplicate_product_features.id
+  AND duplicate_product_features.duplicate_number > 1;
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_product_features_product_name_key ON subscriptions.product_features(product_id, lower(name));
 CREATE INDEX IF NOT EXISTS subscriptions_plan_features_feature_idx ON subscriptions.plan_features(feature_id);
 CREATE INDEX IF NOT EXISTS subscriptions_plan_products_product_idx ON subscriptions.plan_products(product_id);
 CREATE INDEX IF NOT EXISTS subscriptions_subscriptions_owner_idx ON subscriptions.subscriptions(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_subscription_idx ON subscriptions.subscription_plan_changes(subscription_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_application_idx ON subscriptions.subscription_plan_changes(application_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_organisation_idx ON subscriptions.subscription_plan_changes(organisation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_status_idx ON subscriptions.subscription_plan_changes(status, effective_at);
+CREATE INDEX IF NOT EXISTS subscriptions_billing_events_subscription_idx ON subscriptions.subscription_billing_events(subscription_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_billing_events_plan_change_idx ON subscriptions.subscription_billing_events(plan_change_id, created_at DESC);
 
 INSERT INTO subscriptions.products (id, service_id, name, description, status, is_selectable)
 VALUES

@@ -10,7 +10,7 @@ import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-d
 import { academyMatchesSearch, getAcademyFromAcademyService, listAcademyMembersFromAcademyService, listAllAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import { academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
-import { authorize, listAuthorisationPermissions, listAuthorisationResources, listAuthorisationRolePermissions, listAuthorisationRoles, listEffectiveUserPermissions, listUserAuthorisationRoles, listUserPermissionAssignments, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
+import { authorize, listAuthorisationPermissionsPage, listAuthorisationResources, listAuthorisationRolePermissions, listAuthorisationRolesPage, listEffectiveUserPermissions, listUserAuthorisationRoles, listUserPermissionAssignments, type AuthorisationPagination, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
 import { BookingServiceError, listBookingsPage, type BookingRecord, type ServicePaginationMeta } from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
@@ -28,11 +28,12 @@ import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
-import { getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
+import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
+import { DashboardServiceGrid, type DashboardServiceGridItem } from "@/components/DashboardServiceGrid";
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
@@ -176,6 +177,25 @@ function selectedPanel(value: string | undefined) {
   if (value === "courses") return "open-mats";
   if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "bookings" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics" || value === "subscriptions") return value;
   return "academies";
+}
+
+function dashboardServiceDescription(label: string, academyAdmin: boolean) {
+  const descriptions: Record<string, string> = {
+    "Academies": academyAdmin ? "Manage your academy profile, listing, and operational details." : "Review, verify, and manage academy records.",
+    "Academy Claims": "Review ownership access requests and claim evidence.",
+    "Academy Profile": "Manage your academy profile, listing, and operational details.",
+    "Academy Review": "Review academies created by platform admins.",
+    "Analytics": "Review marketplace, visitor, profile, and commercial signals.",
+    "Bookings": "Review bookings for courses and events.",
+    "Courses/Events": "Create and manage courses, events, seminars, and open mats.",
+    "Manage Academies": "Review, verify, and manage academy records.",
+    "Manage Users": "Create users, assign roles, and manage access.",
+    "Map": "Inspect academy locations on the platform map.",
+    "Payments": "Review payment activity, earnings, refunds, and payouts.",
+    "Settings": "Manage dashboard account and platform settings.",
+    "Subscriptions": "Manage products, plans, entitlements, and subscribers.",
+  };
+  return descriptions[label] ?? "Open this RollFinders service dashboard.";
 }
 
 function isPlatformOnlyPanel(panel: string) {
@@ -383,6 +403,10 @@ type DashboardBookingsResult = {
 };
 
 function emptyServicePagination(limit: number, offset = 0): ServicePaginationMeta {
+  return { count: 0, has_more: false, limit, offset };
+}
+
+function emptyAuthorisationPagination(limit: number, offset = 0): AuthorisationPagination {
   return { count: 0, has_more: false, limit, offset };
 }
 
@@ -600,10 +624,10 @@ export default async function AdminDashboardWorkspace({
     paymentPlatformSettings,
     paymentMetricVisibility,
     bookingResult,
-    authorisationRoles,
+    authorisationRolesPage,
     currentUserAuthorisationRoles,
     currentUserEffectivePermissions,
-    authorisationPermissionCatalog,
+    authorisationPermissionPage,
     authorisationResources,
     currentUserPermissionAssignments,
     organisationOptions,
@@ -661,25 +685,32 @@ export default async function AdminDashboardWorkspace({
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
-    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationRoles(currentUser) : Promise.resolve([]),
+    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationRolesPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ roles: [], pagination: emptyAuthorisationPagination(pageSize) }),
     panel === "users" && usersView === "roles" ? listUserAuthorisationRoles(currentUser.id, currentUser) : Promise.resolve([]),
     panel === "users" ? listEffectiveUserPermissions(currentUser.id, {
       organisationId: currentUser.academyId ?? undefined,
       applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
     }, currentUser) : Promise.resolve([]),
-    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationPermissions(currentUser) : Promise.resolve([]),
+    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationPermissionsPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ permissions: [], pagination: emptyAuthorisationPagination(pageSize) }),
     panel === "users" && usersView === "permissions" ? listAuthorisationResources(currentUser) : Promise.resolve([]),
     panel === "users" ? listUserPermissionAssignments(currentUser.id, currentUser) : Promise.resolve([]),
     panel === "users" && usersView === "permissions" ? listOrganisations(currentUser) : Promise.resolve([]),
     panel === "users" && usersView === "permissions" ? listOrganisationApplications(currentUser) : Promise.resolve([]),
   ]);
+  const authorisationRoles = authorisationRolesPage.roles;
+  const authorisationPermissionCatalog = authorisationPermissionPage.permissions;
   const rolePermissionAssociations = panel === "users" && (usersView === "roles" || usersView === "permissions")
     ? await Promise.all(authorisationRoles.map(async (role) => ({
         role,
         permissions: await listAuthorisationRolePermissions(role.id, currentUser),
       })))
     : [];
-  const selectedDialogUser = userDialogId ? users.find((user) => user.id === userDialogId) : undefined;
+  const selectedDialogUser = panel === "users" && userDialogId && (dialog === "view-user" || dialog === "edit-user")
+    ? users.find((user) => user.id === userDialogId)
+      ?? await getManagedUser(currentUser, userDialogId)
+        .then(({ user }) => managedUserToUserRow(user))
+        .catch(() => undefined)
+    : undefined;
   const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
     ? await prisma.event.findFirst({
         where: { AND: [eventScopeWhere, { id: eventDialogId, active: true }] },
@@ -771,6 +802,15 @@ export default async function AdminDashboardWorkspace({
   const dashboardServiceNavigationItems = adminNavigationItems
     .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
     .map((item) => item.href === "/dashboard/academies" ? { ...item, label: "Academies" } : item);
+  const dashboardLanding = !firstParam(params.panel);
+  const dashboardGridItems: DashboardServiceGridItem[] = adminNavigationItems
+    .filter((item) => item.href !== "/dashboard")
+    .map((item) => ({
+      description: dashboardServiceDescription(item.label, academyAdmin),
+      href: item.href,
+      icon: item.icon,
+      label: item.href === "/dashboard/academies" ? "Academies" : item.label,
+    }));
   const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
@@ -1043,12 +1083,14 @@ export default async function AdminDashboardWorkspace({
         <section className="px-4 py-8 sm:px-8">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-3xl font-black text-slate-950">{panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
-              <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
+              <h1 className="text-3xl font-black text-slate-950">{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <p className="mt-2 text-slate-600">{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
-          {!hideSharedDashboardSections ? (
+          {dashboardLanding ? <DashboardServiceGrid items={dashboardGridItems} /> : null}
+
+          {!dashboardLanding && !hideSharedDashboardSections ? (
             <>
               <StatsPanel
                 className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
@@ -1096,7 +1138,7 @@ export default async function AdminDashboardWorkspace({
             />
           ) : null}
 
-          {panel !== "platform-admin-academies" && panel !== "analytics" ? (
+          {!dashboardLanding && panel !== "platform-admin-academies" && panel !== "analytics" ? (
           <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           {panel === "academies" ? (
             <AdminPanel
@@ -1218,12 +1260,14 @@ export default async function AdminDashboardWorkspace({
                   }))}
                   permissions={authorisationPermissionCatalog}
                   roles={authorisationRoles}
+                  rolesPagination={authorisationRolesPage.pagination}
                   userPermissions={currentUserEffectivePermissions}
                 />
               ) : usersView === "permissions" ? (
                 <UserPermissionsBoard
                   directAssignments={currentUserPermissionAssignments}
                   permissions={authorisationPermissionCatalog}
+                  permissionsPagination={authorisationPermissionPage.pagination}
                   resources={authorisationResources}
                   roles={authorisationRoles}
                   applications={applicationOptions.map((application) => ({ id: application.id, name: application.name, slug: application.slug }))}
@@ -1614,6 +1658,7 @@ function SystemRolesPanel({
   permissions,
   rolePermissions,
   roles,
+  rolesPagination,
   userPermissions,
 }: {
   actorRole: string;
@@ -1621,6 +1666,7 @@ function SystemRolesPanel({
   permissions: AuthorisationPermission[];
   rolePermissions: { roleId: string; permissions: AuthorisationPermission[] }[];
   roles: AuthorisationRole[];
+  rolesPagination: AuthorisationPagination;
   userPermissions: AuthorisationPermission[];
 }) {
   const roleLevelByKey = new Map(roles.map((role) => [role.key, role.level]));
@@ -1641,6 +1687,7 @@ function SystemRolesPanel({
       permissions={permissions}
       rolePermissions={rolePermissions.filter((item) => visibleRoleIds.has(item.roleId))}
       roles={visibleRoles}
+      rolesPagination={rolesPagination}
     />
   );
 }
@@ -3710,6 +3757,19 @@ type UserRow = {
   createdAt: Date;
   academy: { name: string } | null;
 };
+
+function managedUserToUserRow(user: ManagedUser): UserRow {
+  const academy = "academy" in user
+    ? (user as ManagedUser & { academy?: { name: string } | null }).academy ?? null
+    : null;
+  return {
+    ...user,
+    role: user.role as Role,
+    status: user.status as UserStatus,
+    createdAt: new Date(user.createdAt),
+    academy,
+  };
+}
 
 const menuItemClass = "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
 const dangerMenuItemClass = "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50";

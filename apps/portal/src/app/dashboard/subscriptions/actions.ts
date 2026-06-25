@@ -8,6 +8,7 @@ import {
   createSubscriptionFeature,
   createSubscriptionPlan,
   createSubscriptionProduct,
+  deleteApplicationSubscription,
   deleteSubscriptionFeature,
   deleteSubscriptionPlan,
   deleteSubscriptionProduct,
@@ -15,8 +16,10 @@ import {
   replaceSubscriptionPlanFeatures,
   replaceSubscriptionPlanProducts,
   SubscriptionServiceError,
+  suspendApplicationSubscription,
   suspendSubscriptionPlan,
   suspendSubscriptionProduct,
+  updateApplicationSubscription,
   updateSubscriptionFeature,
   updateSubscriptionPlan,
   updateSubscriptionProduct,
@@ -66,7 +69,10 @@ async function actor() {
 }
 
 function actionErrorMessage(err: unknown) {
-  if (err instanceof SubscriptionServiceError) return err.message;
+  if (err instanceof SubscriptionServiceError) {
+    if (err.status === 409) return "A feature with this name already exists for the selected product service.";
+    return err.message;
+  }
   return "Subscription service request failed.";
 }
 
@@ -217,6 +223,7 @@ export async function createPlanAction(formData: FormData) {
       currency: "GBP",
       price_minor: Number(value(formData, "priceMinor") || "0"),
       billing_cycle: value(formData, "billingCycle") || "month",
+      is_internal: formData.get("isInternal") === "on",
     }, await actor());
     const plan = result && typeof result === "object" && "plan" in result ? (result as { plan?: { id?: string } }).plan : null;
     const productIds = formData.getAll("productIds").map((item) => String(item)).filter(Boolean);
@@ -240,6 +247,7 @@ export async function updatePlanAction(formData: FormData) {
       currency: "GBP",
       price_minor: Number(value(formData, "priceMinor") || "0"),
       billing_cycle: value(formData, "billingCycle") || "month",
+      is_internal: formData.get("isInternal") === "on",
     }, await actor());
     const productIds = formData.getAll("productIds").map((item) => String(item)).filter(Boolean);
     await replaceSubscriptionPlanProducts(planId, productIds, await actor());
@@ -286,4 +294,38 @@ export async function createSubscriptionAction(formData: FormData) {
   } catch (err) {
     redirectWithActionError("subscribers", err);
   }
+  redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
+}
+
+export async function updateSubscriberAction(formData: FormData) {
+  try {
+    await updateApplicationSubscription(value(formData, "subscriptionId"), {
+      planId: value(formData, "planId"),
+      status: value(formData, "status") || "ACTIVE",
+    }, await actor());
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectWithActionError("subscribers", err);
+  }
+  redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
+}
+
+export async function suspendSubscriberAction(formData: FormData) {
+  try {
+    await suspendApplicationSubscription(value(formData, "subscriptionId"), await actor());
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectWithActionError("subscribers", err);
+  }
+  redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
+}
+
+export async function deleteSubscriberAction(formData: FormData) {
+  try {
+    await deleteApplicationSubscription(value(formData, "subscriptionId"), await actor());
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectWithActionError("subscribers", err);
+  }
+  redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
 }

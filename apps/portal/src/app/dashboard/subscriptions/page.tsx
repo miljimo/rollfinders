@@ -18,6 +18,7 @@ import {
   listApplicationSubscriptions,
   listSubscriptionBillingCycles,
   listSubscriptionFeatures,
+  listSubscriptionFeaturesPage,
   listSubscriptionPlansPage,
   listSubscriptionProducts,
   type ApplicationEntitlements,
@@ -34,12 +35,15 @@ import {
   createPlanAction,
   createProductAction,
   createSubscriptionAction,
+  deleteSubscriberAction,
   deleteFeatureAction,
   deletePlanAction,
   deleteProductAction,
   disableFeatureAction,
+  suspendSubscriberAction,
   suspendPlanAction,
   suspendProductAction,
+  updateSubscriberAction,
   updateFeatureAction,
   updatePlanAction,
   updateProductAction,
@@ -161,6 +165,11 @@ export default async function SubscriptionsDashboardPage({
   const plansPage = numberParam(params.plansPage);
   const plansPageSize = 10;
   const plansOffset = (plansPage - 1) * plansPageSize;
+  const featuresPage = numberParam(params.featuresPage);
+  const featuresPageSize = 10;
+  const featuresOffset = (featuresPage - 1) * featuresPageSize;
+  const productsPage = numberParam(params.productsPage);
+  const subscribersPage = numberParam(params.subscribersPage);
   const plansSearch = (firstParam(params.plansSearch) ?? "").trim();
   const productsSearch = (firstParam(params.productsSearch) ?? "").trim();
   const featuresSearch = (firstParam(params.featuresSearch) ?? "").trim();
@@ -170,16 +179,18 @@ export default async function SubscriptionsDashboardPage({
   const selectedPlanId = (firstParam(params.planId) ?? "").trim();
   const selectedProductId = (firstParam(params.productId) ?? "").trim();
   const selectedFeatureId = (firstParam(params.featureId) ?? "").trim();
+  const selectedSubscriptionId = (firstParam(params.subscriptionId) ?? "").trim();
   const applicationId = firstParam(params.applicationId) || process.env.ROLLFINDERS_APPLICATION_ID || "app_rollfinders";
   const actor = { id: user.id, role: user.role, email: user.email, academyId: user.academyId };
 
   let error: string | null = actionError || null;
-  const [products, features, planResult, subscriptions, entitlements, organisations, applications, assignableFeatures, billingCycles] = await Promise.all([
+  const [products, features, featureResult, planResult, subscriptions, entitlements, organisations, applications, assignableFeatures, billingCycles] = await Promise.all([
     listSubscriptionProducts(actor).catch((err) => {
       error = serviceErrorMessage(err);
       return [];
     }),
     listSubscriptionFeatures(actor).catch(() => []),
+    listSubscriptionFeaturesPage(actor, { limit: featuresPageSize, offset: featuresOffset }).catch(() => ({ features: [], pagination: { limit: featuresPageSize, offset: featuresOffset, count: 0, has_more: false } })),
     listSubscriptionPlansPage(actor, { limit: plansPageSize, offset: plansOffset }).catch(() => ({ plans: [], pagination: { limit: plansPageSize, offset: plansOffset, count: 0, has_more: false } })),
     listApplicationSubscriptions(applicationId, actor).catch(() => []),
     getApplicationEntitlements(applicationId, actor).catch((): ApplicationEntitlements => ({ application_id: applicationId, features: [] })),
@@ -200,6 +211,7 @@ export default async function SubscriptionsDashboardPage({
   const selectedPlan = plans.find((plan) => plan.id === selectedPlanId);
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId);
+  const selectedSubscription = subscriptions.find((subscription) => subscription.id === selectedSubscriptionId);
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
@@ -220,7 +232,7 @@ export default async function SubscriptionsDashboardPage({
         <section className="px-4 py-8 sm:px-8">
           {error ? <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div> : null}
 
-          <SubscriptionViewPanel activeView={activeView} applicationId={applicationId} applications={applications} entitlements={entitlements} features={features} featuresSearch={featuresSearch} organisations={organisations} planPagination={planResult.pagination} plans={plans} plansPage={plansPage} plansSearch={plansSearch} products={products} productsSearch={productsSearch} subscribersSearch={subscribersSearch} subscriptions={subscriptions} />
+          <SubscriptionViewPanel activeView={activeView} applicationId={applicationId} applications={applications} entitlements={entitlements} featurePagination={featureResult.pagination} features={features} featuresSearch={featuresSearch} featureTableRows={featureResult.features} organisations={organisations} planPagination={planResult.pagination} plans={plans} plansPage={plansPage} plansSearch={plansSearch} products={products} productsPage={productsPage} productsSearch={productsSearch} subscribersPage={subscribersPage} subscribersSearch={subscribersSearch} subscriptions={subscriptions} />
         </section>
       </main>
       {dialog === "new-plan" ? (
@@ -268,7 +280,14 @@ export default async function SubscriptionsDashboardPage({
       {dialog === "new-subscriber" ? (
         <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=subscribers" description="Create a subscriber record without leaving the dashboard." title="New Subscriber">
           <div className="mt-5">
-            <CreateSubscriptionPanel applicationId={applicationId} applications={applications} entitlements={entitlements} organisations={organisations} plans={plans} />
+            <CreateSubscriptionPanel applicationId={applicationId} applications={applications} entitlements={entitlements} features={features} organisations={organisations} plans={plans} />
+          </div>
+        </DialogShell>
+      ) : null}
+      {dialog === "edit-subscriber" && selectedSubscription ? (
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=subscribers" description="Update this subscriber record." title="Edit Subscriber">
+          <div className="mt-5">
+            <SubscriberForm plans={plans} subscription={selectedSubscription} />
           </div>
         </DialogShell>
       ) : null}
@@ -289,15 +308,19 @@ function SubscriptionViewPanel({
   applicationId,
   applications,
   entitlements,
+  featurePagination,
   features,
   featuresSearch,
+  featureTableRows,
   organisations,
   planPagination,
   plans,
   plansPage,
   plansSearch,
   products,
+  productsPage,
   productsSearch,
+  subscribersPage,
   subscribersSearch,
   subscriptions,
 }: {
@@ -305,15 +328,19 @@ function SubscriptionViewPanel({
   applicationId: string;
   applications: OrganisationApplicationRecord[];
   entitlements: ApplicationEntitlements;
+  featurePagination: SubscriptionPagination;
   features: SubscriptionFeature[];
   featuresSearch: string;
+  featureTableRows: SubscriptionFeature[];
   organisations: OrganisationRecord[];
   planPagination: SubscriptionPagination;
   plans: SubscriptionPlan[];
   plansPage: number;
   plansSearch: string;
   products: SubscriptionProduct[];
+  productsPage: number;
   productsSearch: string;
+  subscribersPage: number;
   subscribersSearch: string;
   subscriptions: OrganisationSubscription[];
 }) {
@@ -352,6 +379,7 @@ function SubscriptionViewPanel({
 
   if (activeView === "products") {
     const filteredProducts = filterProducts(products, productsSearch);
+    const pagedProducts = localTablePage(filteredProducts, productsPage);
     return (
       <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -366,14 +394,26 @@ function SubscriptionViewPanel({
         </div>
         <SubscriptionSearch name="productsSearch" placeholder="Search products" search={productsSearch} view="products" />
         <div className="mt-4">
-          <ProductsTable products={filteredProducts} features={features} />
+          <ProductsTable
+            products={pagedProducts.items}
+            features={features}
+            pagination={{
+              page: pagedProducts.currentPage,
+              previousHref: subscriptionHref({ subscriptionsView: "products", productsPage: pagedProducts.currentPage - 1, productsSearch: productsSearch || undefined }),
+              nextHref: subscriptionHref({ subscriptionsView: "products", productsPage: pagedProducts.currentPage + 1, productsSearch: productsSearch || undefined }),
+              totalPages: pagedProducts.totalPages,
+            }}
+          />
         </div>
       </section>
     );
   }
 
   if (activeView === "features") {
-    const filteredFeatures = filterFeatures(features, featuresSearch);
+    const filteredFeatures = filterFeatures(featureTableRows, featuresSearch);
+    const pageFromOffset = Math.floor(featurePagination.offset / Math.max(featurePagination.limit, 1)) + 1;
+    const currentPage = Math.max(1, pageFromOffset);
+    const totalPages = featurePagination.has_more ? currentPage + 1 : currentPage;
     return (
       <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -388,13 +428,24 @@ function SubscriptionViewPanel({
         </div>
         <SubscriptionSearch name="featuresSearch" placeholder="Search features" search={featuresSearch} view="features" />
         <div className="mt-4">
-          <FeaturesTable features={filteredFeatures} products={products} />
+          <FeaturesTable
+            features={filteredFeatures}
+            pagination={{
+              page: currentPage,
+              previousHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage - 1, featuresSearch: featuresSearch || undefined }),
+              nextHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage + 1, featuresSearch: featuresSearch || undefined }),
+              totalPages,
+            }}
+            products={products}
+          />
         </div>
       </section>
     );
   }
 
   if (activeView === "entitlements") {
+    const currentPlan = plans.find((plan) => plan.id === entitlements.plan_id);
+    const entitlementFeatureNames = entitlementFeatureLabels(entitlements, features);
     return (
       <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
         <h2 className="text-xl font-black text-slate-950">Entitlements</h2>
@@ -402,9 +453,9 @@ function SubscriptionViewPanel({
         <div className="mt-4 rounded-md bg-slate-50 p-4 text-sm text-slate-700">
           {entitlements.plan_id ? (
             <div className="grid gap-2">
-              <p><span className="font-bold">Plan:</span> {entitlements.plan_id}</p>
+              <p><span className="font-bold">Plan:</span> {currentPlan?.name ?? "Unknown plan"}</p>
               <p><span className="font-bold">Status:</span> {entitlements.status ?? "ACTIVE"}</p>
-              <p className="break-all"><span className="font-bold">Features:</span> {(entitlements.features ?? []).map((feature) => feature.feature_id).join(", ") || "No feature IDs."}</p>
+              <p><span className="font-bold">Features:</span> {entitlementFeatureNames.join(", ") || "No features."}</p>
             </div>
           ) : "No active entitlement set for this application."}
         </div>
@@ -414,6 +465,7 @@ function SubscriptionViewPanel({
 
   if (activeView === "subscribers") {
     const filteredSubscriptions = filterSubscriptions(subscriptions, subscribersSearch);
+    const pagedSubscriptions = localTablePage(filteredSubscriptions, subscribersPage);
     return (
       <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -428,7 +480,16 @@ function SubscriptionViewPanel({
         </div>
         <SubscriptionSearch name="subscribersSearch" placeholder="Search subscribers" search={subscribersSearch} view="subscribers" />
         <div className="mt-4">
-          <SubscriptionsTable subscriptions={filteredSubscriptions} />
+          <SubscriptionsTable
+            plans={plans}
+            subscriptions={pagedSubscriptions.items}
+            pagination={{
+              page: pagedSubscriptions.currentPage,
+              previousHref: subscriptionHref({ subscriptionsView: "subscribers", subscribersPage: pagedSubscriptions.currentPage - 1, subscribersSearch: subscribersSearch || undefined }),
+              nextHref: subscriptionHref({ subscriptionsView: "subscribers", subscribersPage: pagedSubscriptions.currentPage + 1, subscribersSearch: subscribersSearch || undefined }),
+              totalPages: pagedSubscriptions.totalPages,
+            }}
+          />
         </div>
       </section>
     );
@@ -438,7 +499,7 @@ function SubscriptionViewPanel({
   if (activeView === "billing-events") return <EmptyOperationalPanel title="Billing Events" description="Billing event ingestion is not connected yet." />;
   if (activeView === "usage-limits") return <EmptyOperationalPanel title="Usage Limits" description="Usage metering and limit enforcement are not connected yet." />;
 
-  return <AvailablePlansPanel currentPlanId={entitlements.plan_id} features={features} page={plansPage} plans={plans} products={products} />;
+  return <AvailablePlansPanel currentPlanId={entitlements.plan_id} features={features} page={plansPage} plans={plans.filter((plan) => !plan.is_internal)} products={products} />;
 }
 
 function filterPlans(plans: SubscriptionPlan[], search: string) {
@@ -459,10 +520,31 @@ function filterFeatures(features: SubscriptionFeature[], search: string) {
   return features.filter((feature) => [feature.id, feature.product_id, feature.service_id ?? "", feature.name, feature.description, feature.status].join(" ").toLowerCase().includes(normalized));
 }
 
+function entitlementFeatureLabels(entitlements: ApplicationEntitlements, features: SubscriptionFeature[]) {
+  const featureById = new Map(features.map((feature) => [feature.id, feature]));
+  return (entitlements.features ?? []).map((feature) => featureById.get(feature.feature_id)?.name ?? "Unknown feature");
+}
+
+function entitlementPlanLabel(entitlements: ApplicationEntitlements, plans: SubscriptionPlan[]) {
+  if (!entitlements.plan_id) return "";
+  return plans.find((plan) => plan.id === entitlements.plan_id)?.name ?? "Unknown plan";
+}
+
 function filterSubscriptions(subscriptions: OrganisationSubscription[], search: string) {
   const normalized = search.trim().toLowerCase();
   if (!normalized) return subscriptions;
   return subscriptions.filter((subscription) => [subscription.id, subscription.owner_type, subscription.owner_id, subscription.plan_id, subscription.status].join(" ").toLowerCase().includes(normalized));
+}
+
+function localTablePage<T>(items: T[], page: number, pageSize = 10) {
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const start = (currentPage - 1) * pageSize;
+  return {
+    currentPage,
+    items: items.slice(start, start + pageSize),
+    totalPages,
+  };
 }
 
 function PlansSearch({ search }: { search: string }) {
@@ -682,15 +764,19 @@ function CreateSubscriptionPanel({
   applicationId,
   applications,
   entitlements,
+  features,
   organisations,
   plans,
 }: {
   applicationId: string;
   applications: OrganisationApplicationRecord[];
   entitlements: ApplicationEntitlements;
+  features: SubscriptionFeature[];
   organisations: OrganisationRecord[];
   plans: SubscriptionPlan[];
 }) {
+  const entitlementFeatures = entitlementFeatureLabels(entitlements, features);
+  const entitlementPlan = entitlementPlanLabel(entitlements, plans);
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       <h2 className="text-xl font-black text-slate-950">Create subscription</h2>
@@ -722,11 +808,59 @@ function CreateSubscriptionPanel({
       </form>
       <div className="mt-6">
         <h3 className="text-sm font-black uppercase text-slate-500">Active entitlement feed</h3>
-        <p className="mt-2 break-all rounded-md bg-slate-50 p-3 text-sm text-slate-700">
-          {entitlements.plan_id ? `${entitlements.plan_id}: ${(entitlements.features ?? []).map((feature) => feature.feature_id).join(", ")}` : "No active entitlement set for this application."}
+        <p className="mt-2 rounded-md bg-slate-50 p-3 text-sm text-slate-700">
+          {entitlements.plan_id ? `${entitlementPlan}: ${entitlementFeatures.join(", ") || "No features."}` : "No active entitlement set for this application."}
         </p>
       </div>
     </section>
+  );
+}
+
+function SubscriberForm({ plans, subscription }: { plans: SubscriptionPlan[]; subscription: OrganisationSubscription }) {
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <h2 className="text-xl font-black text-slate-950">Edit subscriber</h2>
+      <form action={updateSubscriberAction} className="mt-4 grid gap-3">
+        <input type="hidden" name="subscriptionId" value={subscription.id} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <ReadOnlyField label="Owner Type" value={subscription.owner_type} />
+          <ReadOnlyField label="Owner ID" value={subscription.owner_id} />
+        </div>
+        <label className="grid gap-1 text-sm font-bold text-slate-700">
+          Plan
+          <select name="planId" defaultValue={subscription.plan_id} className="min-h-11 rounded-md border border-stone-300 bg-white px-3 py-2">
+            {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+          </select>
+        </label>
+        <SubscriberStatusField defaultValue={subscription.status} />
+        <SubscriptionSubmitButton label="Save subscriber" pendingLabel="Saving..." />
+      </form>
+    </section>
+  );
+}
+
+function ReadOnlyField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-1 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <div className="flex min-h-11 items-center rounded-md border border-stone-200 bg-stone-100 px-3 py-2 font-medium text-slate-700">{value}</div>
+    </div>
+  );
+}
+
+function SubscriberStatusField({ defaultValue = "ACTIVE" }: { defaultValue?: string }) {
+  return (
+    <label className="grid gap-1 text-sm font-bold text-slate-700">
+      Status
+      <select name="status" defaultValue={defaultValue} className="min-h-11 rounded-md border border-stone-300 bg-white px-3 py-2">
+        <option value="ACTIVE">Active</option>
+        <option value="TRIAL">Trial</option>
+        <option value="PAST_DUE">Past due</option>
+        <option value="SUSPENDED">Suspended</option>
+        <option value="CANCELLED">Cancelled</option>
+        <option value="EXPIRED">Expired</option>
+      </select>
+    </label>
   );
 }
 
@@ -809,6 +943,25 @@ function BillingCycleField({ cycles, defaultValue = "month" }: { cycles: Subscri
       <select name="billingCycle" defaultValue={selected} className="min-h-11 rounded-md border border-stone-300 bg-white px-3 py-2">
         {options.map((cycle) => <option key={cycle.key} value={cycle.key}>{cycle.name || billingCycleLabel(cycle.key)}</option>)}
       </select>
+    </label>
+  );
+}
+
+function InternalPlanField({ defaultChecked = false }: { defaultChecked?: boolean }) {
+  return (
+    <label className="flex items-start gap-3 rounded-md border border-stone-200 bg-stone-50 p-3 text-sm text-slate-700">
+      <input
+        name="isInternal"
+        type="checkbox"
+        defaultChecked={defaultChecked}
+        className="mt-1 h-4 w-4 rounded border-stone-300 text-teal-700"
+      />
+      <span>
+        <span className="block font-black text-slate-800">Internal plan</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
+          Hide this plan from academy and user plan selection, but keep it available for admin assignment.
+        </span>
+      </span>
     </label>
   );
 }
@@ -898,6 +1051,7 @@ function PlanForm({ action, billingCycles, buttonLabel, compact = false, importP
         <Field name="priceMinor" label="Price minor" type="number" defaultValue={plan ? String(plan.price_minor) : ""} />
         <CurrencyField />
         <BillingCycleField cycles={billingCycles} defaultValue={plan?.billing_cycle ?? "month"} />
+        <InternalPlanField defaultChecked={plan?.is_internal ?? false} />
         <PlanProductFields importPlans={availableImportPlans} products={products} selectedProductIds={Array.from(selectedProductIds)} />
         {plan ? <StatusField defaultValue={plan.status} /> : null}
         <SubscriptionSubmitButton label={buttonLabel} pendingLabel={pendingLabel} />
@@ -915,6 +1069,7 @@ function PlansTable({ pagination, plans }: { pagination: { page: number; previou
     price: currencyLabel(plan),
     billing: plan.billing_cycle,
     products: String(plan.products?.length ?? plan.included_product_ids?.length ?? 0),
+    visibility: plan.is_internal ? "Internal" : "Public",
     status: plan.status,
   }));
   const columns: TableColumn<(typeof rows)[number] & TableRecord>[] = [
@@ -923,6 +1078,7 @@ function PlansTable({ pagination, plans }: { pagination: { page: number; previou
     { key: "price", title: "Price" },
     { key: "billing", title: "Billing" },
     { key: "products", title: "Products" },
+    { key: "visibility", title: "Visibility" },
     { key: "status", title: "Status" },
     { key: "actions", title: "Actions", headerClassName: "text-right", className: "text-right", render: (_value, row) => <PlanActions planId={String(row.planId)} status={String(row.status)} /> },
   ];
@@ -964,7 +1120,7 @@ function PlanActions({ planId, status }: { planId: string; status: string }) {
   );
 }
 
-function ProductsTable({ features, products }: { features: SubscriptionFeature[]; products: SubscriptionProduct[] }) {
+function ProductsTable({ features, pagination, products }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[] }) {
   const rows = products.map((product) => ({
     id: product.id,
     productId: product.id,
@@ -980,7 +1136,7 @@ function ProductsTable({ features, products }: { features: SubscriptionFeature[]
     { key: "status", title: "Status" },
     { key: "actions", title: "Actions", headerClassName: "text-right", className: "text-right", render: (_value, row) => <ProductActions productId={String(row.productId)} status={String(row.status)} /> },
   ];
-  return <Table columns={columns} data={rows} emptyMessage="No subscription products found." getRowHref={() => undefined} />;
+  return <Table columns={columns} data={rows} emptyMessage="No subscription products found." getRowHref={() => undefined} pagination={pagination} />;
 }
 
 function ProductActions({ productId, status }: { productId: string; status: string }) {
@@ -1009,7 +1165,7 @@ function ProductActions({ productId, status }: { productId: string; status: stri
   );
 }
 
-function FeaturesTable({ features, products }: { features: SubscriptionFeature[]; products: SubscriptionProduct[] }) {
+function FeaturesTable({ features, pagination, products }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[] }) {
   const productNames = new Map(products.map((product) => [product.id, product.name]));
   const rows = features.map((feature) => ({
     id: feature.id,
@@ -1026,7 +1182,7 @@ function FeaturesTable({ features, products }: { features: SubscriptionFeature[]
     { key: "status", title: "Status" },
     { key: "actions", title: "Action", headerClassName: "text-right", className: "text-right", render: (_value, row) => <FeatureActions featureId={String(row.featureId)} status={String(row.status)} /> },
   ];
-  return <Table columns={columns} data={rows} emptyMessage="No subscription features found." getRowHref={() => undefined} />;
+  return <Table columns={columns} data={rows} emptyMessage="No subscription features found." getRowHref={() => undefined} pagination={pagination} />;
 }
 
 function FeatureActions({ featureId, status }: { featureId: string; status: string }) {
@@ -1055,12 +1211,14 @@ function FeatureActions({ featureId, status }: { featureId: string; status: stri
   );
 }
 
-function SubscriptionsTable({ subscriptions }: { subscriptions: OrganisationSubscription[] }) {
+function SubscriptionsTable({ pagination, plans, subscriptions }: { pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; plans: SubscriptionPlan[]; subscriptions: OrganisationSubscription[] }) {
+  const planNames = new Map(plans.map((plan) => [plan.id, plan.name]));
   const rows = subscriptions.map((subscription) => ({
     id: subscription.id,
+    subscriptionId: subscription.id,
     ownerType: subscription.owner_type,
     owner: subscription.owner_id,
-    plan: subscription.plan_id,
+    plan: planNames.get(subscription.plan_id) ?? subscription.plan_id,
     status: subscription.status,
   }));
   const columns: TableColumn<(typeof rows)[number] & TableRecord>[] = [
@@ -1068,6 +1226,33 @@ function SubscriptionsTable({ subscriptions }: { subscriptions: OrganisationSubs
     { key: "owner", title: "Owner ID" },
     { key: "plan", title: "Plan" },
     { key: "status", title: "Status" },
+    { key: "actions", title: "Action", headerClassName: "text-right", className: "text-right", render: (_value, row) => <SubscriberActions status={String(row.status)} subscriptionId={String(row.subscriptionId)} /> },
   ];
-  return <Table columns={columns} data={rows} emptyMessage="No application subscriptions found." getRowHref={() => undefined} />;
+  return <Table columns={columns} data={rows} emptyMessage="No application subscriptions found." getRowHref={() => undefined} pagination={pagination} />;
+}
+
+function SubscriberActions({ status, subscriptionId }: { status: string; subscriptionId: string }) {
+  const suspended = status === "SUSPENDED";
+  return (
+    <ActionMenu label="Open subscriber actions">
+      <Link href={`/dashboard/subscriptions?subscriptionsView=subscribers&dialog=edit-subscriber&subscriptionId=${encodeURIComponent(subscriptionId)}`} className={menuItemClass}>
+        <Edit3 size={18} aria-hidden />
+        Edit Subscription
+      </Link>
+      <form action={suspendSubscriberAction}>
+        <input type="hidden" name="subscriptionId" value={subscriptionId} />
+        <button type="submit" disabled={suspended} className={menuItemClass}>
+          <PauseCircle size={18} aria-hidden />
+          Suspend Subscription
+        </button>
+      </form>
+      <form action={deleteSubscriberAction}>
+        <input type="hidden" name="subscriptionId" value={subscriptionId} />
+        <button type="submit" className={dangerMenuItemClass}>
+          <Trash2 size={18} aria-hidden />
+          Delete Subscription
+        </button>
+      </form>
+    </ActionMenu>
+  );
 }

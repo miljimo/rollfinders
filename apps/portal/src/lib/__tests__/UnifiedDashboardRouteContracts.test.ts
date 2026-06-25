@@ -268,7 +268,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(userServiceSource, /const serviceInput = \{ \.\.\.\(input as Record<string, unknown>\) \}/);
     assert.doesNotMatch(userServiceSource, /const\s+\{\s*academyId,\s*\.\.\.serviceInput\s*\}/);
     assert.match(userServiceSource, /const \{ serviceInput, academyId, role \} = splitRollfinderAcademyInput\(input\)/);
-    assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId\)/);
+    assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId(?:,\s*actor)?\)/);
     assert.match(userServiceSource, /replaceUserAuthorisationRole\(actor,\s*result\.user\.id,\s*role,\s*\{ organisationId: academyId \?\? undefined \}\)/);
     assert.match(actionsSource, /canAssignManagedUserRole\(actor,\s*\{ role,\s*academyId \}\)/);
     assert.match(profileSource, /listUserAuthorisationRoles/);
@@ -297,6 +297,27 @@ describe("unified dashboard route contracts", () => {
     assert.match(adminUsersSource, /enrichUsersWithAcademyNames\(result\.users\)/);
     assert.match(adminUsersSource, /user\.academy\?\.name\s*\?\?\s*"None"/);
     assert.doesNotMatch(adminUsersSource, /supportedPageSizes|Rows per page/);
+  });
+
+  it("authorisation role and permission boards page from the service and cache loaded pages", () => {
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const actionsSource = readSource("apps/portal/src/app/dashboard/DashboardActions.ts");
+    const rolesBoardSource = readSource("apps/portal/src/app/dashboard/users/SystemRolesBoard.tsx");
+    const permissionsBoardSource = readSource("apps/portal/src/app/dashboard/users/UserPermissionsBoard.tsx");
+    const authorisationSource = readSource("apps/portal/src/lib/authorisation-service.ts");
+
+    assert.match(authorisationSource, /listAuthorisationRolesPage/);
+    assert.match(authorisationSource, /listAuthorisationPermissionsPage/);
+    assert.match(dashboardSource, /listAuthorisationRolesPage\(currentUser,\s*\{\s*limit:\s*pageSize,\s*offset:\s*0\s*\}\)/);
+    assert.match(dashboardSource, /listAuthorisationPermissionsPage\(currentUser,\s*\{\s*limit:\s*pageSize,\s*offset:\s*0\s*\}\)/);
+    assert.match(actionsSource, /loadAuthorisationRolesPage/);
+    assert.match(actionsSource, /loadAuthorisationPermissionsPage/);
+    assert.match(rolesBoardSource, /rolePages/);
+    assert.match(rolesBoardSource, /loadAuthorisationRolesPage\(safePage,\s*pageSize\)/);
+    assert.match(rolesBoardSource, /currentRolePage\.pagination\.has_more/);
+    assert.match(permissionsBoardSource, /permissionPages/);
+    assert.match(permissionsBoardSource, /loadAuthorisationPermissionsPage\(safePage,\s*pageSize\)/);
+    assert.match(permissionsBoardSource, /currentPermissionPage\.pagination\.has_more/);
   });
 
   it("academy member surfaces do not depend on public user profiles", () => {
@@ -415,7 +436,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /panel === "payments" \? "Payment Dashboard"/);
     assert.match(source, /panel === "users" \? "Identity Access Management"/);
     assert.match(source, /const hideSharedDashboardSections = \["academies", "open-mats", "bookings", "payments", "users"\]\.includes\(panel\)/);
-    assert.match(source, /\{!hideSharedDashboardSections \? \(/);
+    assert.match(source, /\{!dashboardLanding && !hideSharedDashboardSections \? \(/);
     assert.match(source, /getRowHref=\{\(booking\) => bookingEventHref\(booking\)\}/);
     assert.match(source, /<StatsPanel[\s\S]*title="Stats Board"[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
     assert.match(source, /collapseStorageKey="rollfinders\.dashboardStatsCollapsed"/);

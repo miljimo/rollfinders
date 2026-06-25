@@ -51,6 +51,13 @@ export type AuthorisationRole = {
   updated_at: string;
 };
 
+export type AuthorisationPagination = {
+  limit: number;
+  offset: number;
+  count: number;
+  has_more: boolean;
+};
+
 export type AuthorisationPermission = {
   id: string;
   code: string;
@@ -180,16 +187,42 @@ export async function listUserAuthorisationRoles(userId: string, actor?: Authori
 }
 
 export async function listAuthorisationRoles(actor?: AuthorisationActor | null) {
+  const result = await listAuthorisationRolesPage(actor);
+  return result.roles;
+}
+
+export async function listAuthorisationRolesPage(
+  actor?: AuthorisationActor | null,
+  options: { limit?: number; offset?: number } = {},
+) {
   try {
-    const response = await fetch(`${authorisationServiceUrl()}/roles`, {
+    const params = new URLSearchParams();
+    if (options.limit !== undefined) params.set("limit", String(options.limit));
+    if (options.offset !== undefined) params.set("offset", String(options.offset));
+    const query = params.toString();
+    const response = await fetch(`${authorisationServiceUrl()}/roles${query ? `?${query}` : ""}`, {
       method: "GET",
       cache: "no-store",
       headers: headers(actor),
     });
-    const result = await parseResponse(response) as { roles?: AuthorisationRole[] };
-    return result.roles ?? [];
+    const result = await parseResponse(response) as { roles?: AuthorisationRole[]; pagination?: AuthorisationPagination };
+    const roles = result.roles ?? [];
+    return {
+      roles,
+      pagination: result.pagination ?? {
+        limit: options.limit ?? 10,
+        offset: options.offset ?? 0,
+        count: roles.length,
+        has_more: false,
+      },
+    };
   } catch (error) {
-    if (error instanceof AuthorisationServiceError) return [];
+    if (error instanceof AuthorisationServiceError) {
+      return {
+        roles: [],
+        pagination: { limit: options.limit ?? 10, offset: options.offset ?? 0, count: 0, has_more: false },
+      };
+    }
     throw error;
   }
 }
@@ -237,16 +270,42 @@ export async function listAuthorisationRolePermissions(roleId: string, actor?: A
 }
 
 export async function listAuthorisationPermissions(actor?: AuthorisationActor | null) {
+  const result = await listAuthorisationPermissionsPage(actor);
+  return result.permissions;
+}
+
+export async function listAuthorisationPermissionsPage(
+  actor?: AuthorisationActor | null,
+  options: { limit?: number; offset?: number } = {},
+) {
   try {
-    const response = await fetch(`${authorisationServiceUrl()}/permissions`, {
+    const params = new URLSearchParams();
+    if (options.limit !== undefined) params.set("limit", String(options.limit));
+    if (options.offset !== undefined) params.set("offset", String(options.offset));
+    const query = params.toString();
+    const response = await fetch(`${authorisationServiceUrl()}/permissions${query ? `?${query}` : ""}`, {
       method: "GET",
       cache: "no-store",
       headers: headers(actor),
     });
-    const result = await parseResponse(response) as { permissions?: AuthorisationPermission[] };
-    return result.permissions ?? [];
+    const result = await parseResponse(response) as { permissions?: AuthorisationPermission[]; pagination?: AuthorisationPagination };
+    const permissions = result.permissions ?? [];
+    return {
+      permissions,
+      pagination: result.pagination ?? {
+        limit: options.limit ?? 10,
+        offset: options.offset ?? 0,
+        count: permissions.length,
+        has_more: false,
+      },
+    };
   } catch (error) {
-    if (error instanceof AuthorisationServiceError) return [];
+    if (error instanceof AuthorisationServiceError) {
+      return {
+        permissions: [],
+        pagination: { limit: options.limit ?? 10, offset: options.offset ?? 0, count: 0, has_more: false },
+      };
+    }
     throw error;
   }
 }

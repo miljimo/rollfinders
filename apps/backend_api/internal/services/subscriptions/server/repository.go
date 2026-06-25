@@ -55,6 +55,7 @@ type Plan struct {
 	Currency           string        `json:"currency"`
 	PriceMinor         int           `json:"price_minor"`
 	BillingCycle       string        `json:"billing_cycle"`
+	IsInternal         bool          `json:"is_internal"`
 	CreatedAt          time.Time     `json:"created_at"`
 	UpdatedAt          time.Time     `json:"updated_at"`
 	Features           []PlanFeature `json:"features,omitempty"`
@@ -100,6 +101,39 @@ type Subscription struct {
 	CancelledAt  *time.Time `json:"cancelled_at,omitempty"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+type PlanChange struct {
+	ID             string     `json:"id"`
+	SubscriptionID string     `json:"subscription_id"`
+	ApplicationID  string     `json:"application_id"`
+	OrganisationID string     `json:"organisation_id,omitempty"`
+	FromPlanID     string     `json:"from_plan_id,omitempty"`
+	ToPlanID       string     `json:"to_plan_id,omitempty"`
+	ChangeType     string     `json:"change_type"`
+	Status         string     `json:"status"`
+	EffectiveAt    *time.Time `json:"effective_at,omitempty"`
+	PaymentID      string     `json:"payment_id,omitempty"`
+	CheckoutID     string     `json:"checkout_id,omitempty"`
+	RequestedBy    string     `json:"requested_by,omitempty"`
+	ApprovedBy     string     `json:"approved_by,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+}
+
+type BillingEvent struct {
+	ID                string          `json:"id"`
+	SubscriptionID    string          `json:"subscription_id,omitempty"`
+	PlanChangeID      string          `json:"plan_change_id,omitempty"`
+	PaymentID         string          `json:"payment_id,omitempty"`
+	EventType         string          `json:"event_type"`
+	Status            string          `json:"status,omitempty"`
+	AmountMinor       int             `json:"amount_minor"`
+	Currency          string          `json:"currency"`
+	Provider          string          `json:"provider,omitempty"`
+	ProviderReference string          `json:"provider_reference,omitempty"`
+	Metadata          json.RawMessage `json:"metadata,omitempty"`
+	CreatedAt         time.Time       `json:"created_at"`
 }
 
 func openRepository(ctx context.Context, databaseURL string) (*repository, error) {
@@ -292,6 +326,21 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 	if len(feature.Metadata) == 0 {
 		feature.Metadata = json.RawMessage(`{}`)
 	}
+	var duplicate bool
+	if err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM product_features
+			WHERE product_id = $1
+			  AND lower(name) = lower($2)
+			  AND id <> $3
+		)
+	`, feature.ProductID, feature.Name, feature.ID).Scan(&duplicate); err != nil {
+		return ProductFeature{}, err
+	}
+	if duplicate {
+		return ProductFeature{}, errDuplicate
+	}
 	row := r.db.QueryRowContext(ctx, `
 		WITH upserted AS (
 			INSERT INTO product_features (id, product_id, name, description, status, is_selectable, metadata)
@@ -373,12 +422,12 @@ func (r *repository) deleteFeature(ctx context.Context, id string) error {
 
 func scanPlan(row interface{ Scan(...any) error }) (Plan, error) {
 	var plan Plan
-	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.CreatedAt, &plan.UpdatedAt)
+	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.IsInternal, &plan.CreatedAt, &plan.UpdatedAt)
 	return plan, err
 }
 
 func (r *repository) listPlans(ctx context.Context, limit, offset int) ([]Plan, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -438,8 +487,8 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 		plan.BillingCycle = "month"
 	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle, is_internal)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -447,14 +496,15 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 			currency = EXCLUDED.currency,
 			price_minor = EXCLUDED.price_minor,
 			billing_cycle = EXCLUDED.billing_cycle,
+			is_internal = EXCLUDED.is_internal,
 			updated_at = now()
-		RETURNING id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at
-	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle)
+		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at
+	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle, plan.IsInternal)
 	return scanPlan(row)
 }
 
 func (r *repository) getPlan(ctx context.Context, id string) (Plan, error) {
-	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at FROM plans WHERE id = $1`, id))
+	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at FROM plans WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
 	}
@@ -485,7 +535,7 @@ func (r *repository) setPlanStatus(ctx context.Context, id string, status string
 		UPDATE plans
 		SET status = $2, updated_at = now()
 		WHERE id = $1
-		RETURNING id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at
+		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at
 	`, id, activeStatus(status)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
@@ -692,16 +742,33 @@ func (r *repository) createSubscription(ctx context.Context, item Subscription) 
 	if item.BillingEnd.IsZero() {
 		item.BillingEnd = item.BillingStart.AddDate(0, 1, 0)
 	}
+	if err := r.db.QueryRowContext(ctx, `SELECT 1 FROM plans WHERE id = $1 AND status = 'ACTIVE'`, item.PlanID).Scan(new(int)); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Subscription{}, errInvalid
+		}
+		return Subscription{}, err
+	}
+	existing, err := scanSubscription(r.db.QueryRowContext(ctx, `
+		SELECT id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
+		FROM subscriptions
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, item.OwnerType, item.OwnerID))
+	if err == nil {
+		return r.setSubscriptionStatus(ctx, existing.ID, item.Status, item.PlanID)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return Subscription{}, err
+	}
 	row := r.db.QueryRowContext(ctx, `
 		INSERT INTO subscriptions (owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end)
-		SELECT $1, $2, $3, $4, $5, $6, $7, $8
-		WHERE EXISTS (SELECT 1 FROM plans WHERE id = $3 AND status = 'ACTIVE')
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		RETURNING id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
 	`, item.OwnerType, item.OwnerID, item.PlanID, item.Status, item.BillingStart, item.BillingEnd, item.TrialStart, item.TrialEnd)
 	result, err := scanSubscription(row)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Subscription{}, errInvalid
-	}
 	return result, err
 }
 
@@ -731,11 +798,134 @@ func (r *repository) setSubscriptionStatus(ctx context.Context, id string, statu
 	return item, err
 }
 
+func (r *repository) deleteSubscription(ctx context.Context, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM subscriptions WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errNotFound
+	}
+	return nil
+}
+
+func scanPlanChange(row interface{ Scan(...any) error }) (PlanChange, error) {
+	var item PlanChange
+	err := row.Scan(&item.ID, &item.SubscriptionID, &item.ApplicationID, &item.OrganisationID, &item.FromPlanID, &item.ToPlanID, &item.ChangeType, &item.Status, &item.EffectiveAt, &item.PaymentID, &item.CheckoutID, &item.RequestedBy, &item.ApprovedBy, &item.CreatedAt, &item.UpdatedAt)
+	return item, err
+}
+
+func scanPlanChanges(rows *sql.Rows) ([]PlanChange, error) {
+	items := []PlanChange{}
+	for rows.Next() {
+		item, err := scanPlanChange(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *repository) listPlanChanges(ctx context.Context, subscriptionID string, limit, offset int) ([]PlanChange, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, subscription_id, application_id, organisation_id, COALESCE(from_plan_id, ''), COALESCE(to_plan_id, ''), change_type, status, effective_at, payment_id, checkout_id, requested_by, approved_by, created_at, updated_at
+		FROM subscription_plan_changes
+		WHERE subscription_id = $1
+		ORDER BY created_at DESC
+		LIMIT LEAST(GREATEST($2, 1), 100) OFFSET GREATEST($3, 0)
+	`, subscriptionID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanPlanChanges(rows)
+}
+
+func (r *repository) createPlanChange(ctx context.Context, item PlanChange) (PlanChange, error) {
+	if item.SubscriptionID == "" || item.ChangeType == "" {
+		return PlanChange{}, errInvalid
+	}
+	if item.Status == "" {
+		item.Status = "requested"
+	}
+	if item.ID == "" {
+		item.ID = newUUID()
+	}
+	row := r.db.QueryRowContext(ctx, `
+		INSERT INTO subscription_plan_changes (id, subscription_id, application_id, organisation_id, from_plan_id, to_plan_id, change_type, status, effective_at, payment_id, checkout_id, requested_by, approved_by)
+		SELECT $1, s.id, COALESCE(NULLIF($2, ''), s.owner_id), $3, NULLIF($4, ''), NULLIF($5, ''), $6, $7, $8, $9, $10, $11, $12
+		FROM subscriptions s
+		WHERE s.id = $13
+		RETURNING id, subscription_id, application_id, organisation_id, COALESCE(from_plan_id, ''), COALESCE(to_plan_id, ''), change_type, status, effective_at, payment_id, checkout_id, requested_by, approved_by, created_at, updated_at
+	`, item.ID, item.ApplicationID, item.OrganisationID, item.FromPlanID, item.ToPlanID, item.ChangeType, item.Status, item.EffectiveAt, item.PaymentID, item.CheckoutID, item.RequestedBy, item.ApprovedBy, item.SubscriptionID)
+	result, err := scanPlanChange(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PlanChange{}, errNotFound
+	}
+	return result, err
+}
+
+func scanBillingEvent(row interface{ Scan(...any) error }) (BillingEvent, error) {
+	var item BillingEvent
+	err := row.Scan(&item.ID, &item.SubscriptionID, &item.PlanChangeID, &item.PaymentID, &item.EventType, &item.Status, &item.AmountMinor, &item.Currency, &item.Provider, &item.ProviderReference, &item.Metadata, &item.CreatedAt)
+	return item, err
+}
+
+func scanBillingEvents(rows *sql.Rows) ([]BillingEvent, error) {
+	items := []BillingEvent{}
+	for rows.Next() {
+		item, err := scanBillingEvent(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
+}
+
+func (r *repository) listBillingEvents(ctx context.Context, subscriptionID string, limit, offset int) ([]BillingEvent, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, COALESCE(subscription_id, ''), COALESCE(plan_change_id, ''), payment_id, event_type, status, amount_minor, currency, provider, provider_reference, metadata, created_at
+		FROM subscription_billing_events
+		WHERE subscription_id = $1
+		ORDER BY created_at DESC
+		LIMIT LEAST(GREATEST($2, 1), 100) OFFSET GREATEST($3, 0)
+	`, subscriptionID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanBillingEvents(rows)
+}
+
+func (r *repository) createBillingEvent(ctx context.Context, item BillingEvent) (BillingEvent, error) {
+	if item.EventType == "" {
+		return BillingEvent{}, errInvalid
+	}
+	if item.Currency == "" {
+		item.Currency = "GBP"
+	}
+	if len(item.Metadata) == 0 {
+		item.Metadata = json.RawMessage(`{}`)
+	}
+	row := r.db.QueryRowContext(ctx, `
+		INSERT INTO subscription_billing_events (subscription_id, plan_change_id, payment_id, event_type, status, amount_minor, currency, provider, provider_reference, metadata)
+		VALUES (NULLIF($1, ''), NULLIF($2, ''), $3, $4, $5, $6, $7, $8, $9, $10)
+		RETURNING id, COALESCE(subscription_id, ''), COALESCE(plan_change_id, ''), payment_id, event_type, status, amount_minor, currency, provider, provider_reference, metadata, created_at
+	`, item.SubscriptionID, item.PlanChangeID, item.PaymentID, item.EventType, item.Status, item.AmountMinor, item.Currency, item.Provider, item.ProviderReference, item.Metadata)
+	return scanBillingEvent(row)
+}
+
 func (r *repository) entitlements(ctx context.Context, ownerID string) (Subscription, []PlanFeature, error) {
 	sub, err := scanSubscription(r.db.QueryRowContext(ctx, `
 		SELECT id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
 		FROM subscriptions
-		WHERE owner_type = 'application' AND owner_id = $1 AND status IN ('ACTIVE', 'TRIAL')
+		WHERE owner_type = 'application' AND owner_id = $1 AND status IN ('ACTIVE', 'TRIAL', 'active', 'scheduled_downgrade', 'cancel_at_period_end')
 		ORDER BY created_at DESC
 		LIMIT 1
 	`, ownerID))
