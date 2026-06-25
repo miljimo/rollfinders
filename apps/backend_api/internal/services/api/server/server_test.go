@@ -27,6 +27,7 @@ func testConfig(baseURL string) config.Config {
 		CourseBaseURL:        baseURL,
 		BookingBaseURL:       baseURL,
 		PaymentBaseURL:       baseURL,
+		SubscriptionBaseURL:  baseURL,
 		LegacyNextBaseURL:    baseURL,
 	}
 }
@@ -45,6 +46,10 @@ func newGatewayTestServerWithAuthoriseCapture(t *testing.T, authorize bool, rece
 				}
 			}
 			writeJSON(w, http.StatusOK, map[string]any{"authorized": authorize, "decision": map[bool]string{true: "allow", false: "deny"}[authorize]})
+			return
+		}
+		if r.URL.Path == "/v1/entitlements/check" {
+			writeJSON(w, http.StatusOK, map[string]any{"allowed": true, "decision": "allow"})
 			return
 		}
 		if receivedPaths != nil {
@@ -76,6 +81,7 @@ func TestRootEndpointReturnsApiDocumentation(t *testing.T) {
 			CourseBaseURL:        "http://courses:8080",
 			BookingBaseURL:       "http://booking:8080",
 			PaymentBaseURL:       "http://payments:8080",
+			SubscriptionBaseURL:  "http://subscriptions:8080",
 			LegacyNextBaseURL:    "http://app:3000",
 		},
 		Logger: slog.Default(),
@@ -454,6 +460,79 @@ func TestRouteRegistrySendsServiceDeclaredPermissionAndResourceScope(t *testing.
 	}
 	if len(receivedPaths) != 1 || receivedPaths[0] != "/v1/academies/academy_456/search/hide" {
 		t.Fatalf("expected downstream call after allow, got %#v", receivedPaths)
+	}
+}
+
+func TestSubscriptionControlledRouteChecksEntitlementBeforeProxying(t *testing.T) {
+	receivedPaths := make([]string, 0, 1)
+	var entitlementPayload entitlementCheckRequest
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/authorize":
+			writeJSON(w, http.StatusOK, map[string]any{"authorized": true, "decision": "allow"})
+		case "/v1/entitlements/check":
+			if err := json.NewDecoder(r.Body).Decode(&entitlementPayload); err != nil {
+				t.Fatalf("decode entitlement request: %v", err)
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"allowed": true, "decision": "allow"})
+		default:
+			receivedPaths = append(receivedPaths, r.URL.Path)
+			writeJSON(w, http.StatusOK, map[string]string{"service": "downstream"})
+		}
+	}))
+	defer downstream.Close()
+
+	handler := New(Options{Config: testConfig(downstream.URL), Logger: slog.Default()})
+	req := authorisedRequest(http.MethodPut, "/v1/academies/academy_456")
+	req.Header.Set("X-Subscription-Owner-Type", "academy")
+	req.Header.Set("X-Subscription-Owner-ID", "academy_456")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", rec.Code)
+	}
+	if entitlementPayload.FeatureKey != "academy.profile.manage" {
+		t.Fatalf("expected academy profile entitlement check, got %#v", entitlementPayload)
+	}
+	if entitlementPayload.OwnerType != "academy" || entitlementPayload.OwnerID != "academy_456" {
+		t.Fatalf("unexpected entitlement owner: %#v", entitlementPayload)
+	}
+	if len(receivedPaths) != 1 || receivedPaths[0] != "/v1/academies/academy_456" {
+		t.Fatalf("expected downstream call after subscription allow, got %#v", receivedPaths)
+	}
+}
+
+func TestSubscriptionControlledRouteDeniesBeforeProxying(t *testing.T) {
+	receivedPaths := make([]string, 0, 1)
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/authorize":
+			writeJSON(w, http.StatusOK, map[string]any{"authorized": true, "decision": "allow"})
+		case "/v1/entitlements/check":
+			writeJSON(w, http.StatusOK, map[string]any{"allowed": false, "decision": "deny", "reason": "PLAN_FEATURE_NOT_INCLUDED"})
+		default:
+			receivedPaths = append(receivedPaths, r.URL.Path)
+			writeJSON(w, http.StatusOK, map[string]string{"service": "downstream"})
+		}
+	}))
+	defer downstream.Close()
+
+	handler := New(Options{Config: testConfig(downstream.URL), Logger: slog.Default()})
+	req := authorisedRequest(http.MethodPost, "/v1/courses")
+	req.Header.Set("X-Subscription-Owner-Type", "academy")
+	req.Header.Set("X-Subscription-Owner-ID", "academy_456")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected status 403, got %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "PLAN_FEATURE_NOT_INCLUDED") {
+		t.Fatalf("expected subscription denial reason, got %s", rec.Body.String())
+	}
+	if len(receivedPaths) != 0 {
+		t.Fatalf("downstream should not be called, got paths %#v", receivedPaths)
 	}
 }
 

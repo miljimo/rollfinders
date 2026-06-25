@@ -26,10 +26,12 @@ export type SubscriptionFeature = {
   id: string;
   product_id: string;
   service_id?: string;
+  feature_key: string;
   name: string;
   description: string;
   status: string;
   is_selectable: boolean;
+  subscription_controlled: boolean;
   metadata?: Record<string, unknown>;
 };
 

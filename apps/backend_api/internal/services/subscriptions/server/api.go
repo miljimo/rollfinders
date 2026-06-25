@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -191,9 +193,22 @@ func (s *server) upsertFeature(w http.ResponseWriter, r *http.Request, pathKey s
 		return
 	}
 	var feature ProductFeature
-	if err := decodeJSON(r, &feature); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
 		return
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&feature); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(body, &raw); err == nil {
+		if _, ok := raw["subscription_controlled"]; !ok {
+			feature.SubscriptionControlled = true
+		}
 	}
 	if pathKey != "" {
 		feature.ID = pathKey
@@ -881,6 +896,121 @@ func (s *server) entitlements(w http.ResponseWriter, r *http.Request) {
 		"status":          subscription.Status,
 		"features":        features,
 	})
+}
+
+type entitlementCheckRequest struct {
+	OwnerType      string `json:"owner_type"`
+	OwnerID        string `json:"owner_id"`
+	FeatureKey     string `json:"feature_key"`
+	ApplicationID  string `json:"application_id"`
+	OrganisationID string `json:"organisation_id"`
+	ResourceID     string `json:"resource_id"`
+}
+
+type entitlementCheckResponse struct {
+	Allowed                bool                    `json:"allowed"`
+	Decision               string                  `json:"decision"`
+	Reason                 string                  `json:"reason"`
+	OwnerPolicy            SubscriptionOwnerPolicy `json:"owner_policy"`
+	SubscriptionID         string                  `json:"subscription_id,omitempty"`
+	PlanID                 string                  `json:"plan_id,omitempty"`
+	FeatureKey             string                  `json:"feature_key"`
+	FeatureID              string                  `json:"feature_id,omitempty"`
+	SubscriptionControlled bool                    `json:"subscription_controlled"`
+	OwnerType              string                  `json:"owner_type"`
+	OwnerID                string                  `json:"owner_id"`
+	ApplicationID          string                  `json:"application_id,omitempty"`
+	OrganisationID         string                  `json:"organisation_id,omitempty"`
+	ResourceID             string                  `json:"resource_id,omitempty"`
+}
+
+func (s *server) checkEntitlement(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	var req entitlementCheckRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+	req.OwnerType = strings.ToLower(strings.TrimSpace(req.OwnerType))
+	req.OwnerID = strings.TrimSpace(req.OwnerID)
+	req.FeatureKey = strings.ToLower(strings.TrimSpace(req.FeatureKey))
+	if req.OwnerType == "" || req.OwnerID == "" || req.FeatureKey == "" {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", "owner_type, owner_id, and feature_key are required.")
+		return
+	}
+
+	policy, err := s.repo.getOwnerPolicy(r.Context(), req.OwnerType)
+	if err != nil {
+		s.handleError(w, r, err, "owner policy lookup failed")
+		return
+	}
+	response := entitlementCheckResponse{
+		Allowed:        true,
+		Decision:       "ALLOW",
+		Reason:         "IAM_ONLY",
+		OwnerPolicy:    policy,
+		FeatureKey:     req.FeatureKey,
+		OwnerType:      req.OwnerType,
+		OwnerID:        req.OwnerID,
+		ApplicationID:  strings.TrimSpace(req.ApplicationID),
+		OrganisationID: strings.TrimSpace(req.OrganisationID),
+		ResourceID:     strings.TrimSpace(req.ResourceID),
+	}
+	if !policy.SubscriptionSupported && !policy.SubscriptionRequired {
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	feature, err := s.repo.getFeature(r.Context(), req.FeatureKey)
+	if err != nil {
+		s.handleError(w, r, err, "entitlement feature lookup failed")
+		return
+	}
+	response.FeatureID = feature.ID
+	response.FeatureKey = feature.FeatureKey
+	response.SubscriptionControlled = feature.SubscriptionControlled
+	if !feature.SubscriptionControlled {
+		response.Reason = "FEATURE_NOT_SUBSCRIPTION_CONTROLLED"
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+
+	subscription, err := s.repo.activeSubscription(r.Context(), req.OwnerType, req.OwnerID)
+	if err != nil {
+		if errors.Is(err, errNotFound) {
+			if !policy.SubscriptionRequired {
+				response.Reason = "NO_ACTIVE_SUBSCRIPTION_IAM_ONLY"
+				writeJSON(w, http.StatusOK, response)
+				return
+			}
+			response.Allowed = false
+			response.Decision = "DENY"
+			response.Reason = "SUBSCRIPTION_REQUIRED"
+			writeJSON(w, http.StatusOK, response)
+			return
+		}
+		s.handleError(w, r, err, "active subscription lookup failed")
+		return
+	}
+	response.SubscriptionID = subscription.ID
+	response.PlanID = subscription.PlanID
+
+	included, err := s.repo.planIncludesFeature(r.Context(), subscription.PlanID, feature.ID)
+	if err != nil {
+		s.handleError(w, r, err, "plan feature lookup failed")
+		return
+	}
+	if !included {
+		response.Allowed = false
+		response.Decision = "DENY"
+		response.Reason = "PLAN_FEATURE_NOT_INCLUDED"
+		writeJSON(w, http.StatusOK, response)
+		return
+	}
+	response.Reason = "PLAN_FEATURE_INCLUDED"
+	writeJSON(w, http.StatusOK, response)
 }
 
 func parseTimeOr(value string, fallback time.Time) time.Time {

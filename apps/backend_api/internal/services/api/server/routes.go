@@ -6,12 +6,13 @@ import (
 )
 
 type RouteDefinitionWithPermission struct {
-	Method          string
-	Path            GatewayPath
-	Permission      GatewayPermission
-	ResourceType    GatewayResourceType
-	ResourceIDParam GatewayResourceIDParam
-	Public          bool
+	Method                 string
+	Path                   GatewayPath
+	Permission             GatewayPermission
+	ResourceType           GatewayResourceType
+	ResourceIDParam        GatewayResourceIDParam
+	SubscriptionFeatureKey GatewaySubscriptionFeatureKey
+	Public                 bool
 }
 
 type ServiceDefinition struct {
@@ -73,14 +74,14 @@ func serviceDefinitions() []ServiceDefinition {
 		{Name: AcademyService, Routes: []RouteDefinitionWithPermission{
 			{Method: http.MethodGet, Path: AcademiesPath, Public: true},
 			{Method: http.MethodGet, Path: AcademyPath, Public: true},
-			{Method: http.MethodPost, Path: AcademiesPath, Permission: PermissionAcademyCreate},
-			{Method: http.MethodPut, Path: AcademyPath, Permission: PermissionAcademyUpdate, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
-			{Method: http.MethodPatch, Path: AcademyPath, Permission: PermissionAcademyUpdate, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
+			{Method: http.MethodPost, Path: AcademiesPath, Permission: PermissionAcademyCreate, SubscriptionFeatureKey: FeatureAcademyProfileManage},
+			{Method: http.MethodPut, Path: AcademyPath, Permission: PermissionAcademyUpdate, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId, SubscriptionFeatureKey: FeatureAcademyProfileManage},
+			{Method: http.MethodPatch, Path: AcademyPath, Permission: PermissionAcademyUpdate, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId, SubscriptionFeatureKey: FeatureAcademyProfileManage},
 			{Method: http.MethodDelete, Path: AcademyPath, Permission: PermissionAcademyDelete, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
 			{Method: http.MethodPost, Path: AcademiesAcademyIdSearchHide, Permission: PermissionAcademySearchHide, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
 			{Method: http.MethodGet, Path: AcademiesAcademyIdMembers, Permission: PermissionAcademyMemberRead, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
-			{Method: http.MethodPost, Path: AcademiesAcademyIdMembers, Permission: PermissionAcademyMemberAssign, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
-			{Method: http.MethodDelete, Path: AcademiesAcademyIdMembersUserId, Permission: PermissionAcademyMemberRemove, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId},
+			{Method: http.MethodPost, Path: AcademiesAcademyIdMembers, Permission: PermissionAcademyMemberAssign, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId, SubscriptionFeatureKey: FeatureAcademyTeamManage},
+			{Method: http.MethodDelete, Path: AcademiesAcademyIdMembersUserId, Permission: PermissionAcademyMemberRemove, ResourceType: ResourceAcademy, ResourceIDParam: ParamAcademyId, SubscriptionFeatureKey: FeatureAcademyTeamManage},
 			{Method: http.MethodGet, Path: Memberships, Permission: PermissionAcademyMembershipRead},
 			{Method: http.MethodPost, Path: Memberships, Permission: PermissionAcademyMembershipAssign},
 			{Method: http.MethodDelete, Path: MembershipsMembershipId, Permission: PermissionAcademyMembershipRemove, ResourceType: ResourceMembership, ResourceIDParam: ParamMembershipId},
@@ -91,16 +92,16 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodGet, Path: CoursePath, Public: true},
 			{Method: http.MethodGet, Path: CourseTypesPath, Public: true},
 			{Method: http.MethodGet, Path: CourseTypePath, Public: true},
-			{Method: http.MethodPost, Path: CoursesPath, Permission: PermissionCourseCreate},
-			{Method: http.MethodPut, Path: CoursePath, Permission: PermissionCourseUpdate, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId},
-			{Method: http.MethodDelete, Path: CoursePath, Permission: PermissionCourseDelete, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId},
+			{Method: http.MethodPost, Path: CoursesPath, Permission: PermissionCourseCreate, SubscriptionFeatureKey: FeatureCourseCreate},
+			{Method: http.MethodPut, Path: CoursePath, Permission: PermissionCourseUpdate, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId, SubscriptionFeatureKey: FeatureCourseUpdate},
+			{Method: http.MethodDelete, Path: CoursePath, Permission: PermissionCourseDelete, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId, SubscriptionFeatureKey: FeatureCourseDelete},
 			{Method: http.MethodGet, Path: CoursesCourseIdActivities, Permission: PermissionCourseActivityRead, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId},
-			{Method: http.MethodPost, Path: CoursesCourseIdActivities, Permission: PermissionCourseActivityCreate, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId},
-			{Method: http.MethodPut, Path: ActivitiesActivityId, Permission: PermissionCourseActivityUpdate, ResourceType: ResourceActivity, ResourceIDParam: ParamActivityId},
-			{Method: http.MethodDelete, Path: ActivitiesActivityId, Permission: PermissionCourseActivityDelete, ResourceType: ResourceActivity, ResourceIDParam: ParamActivityId},
-			{Method: http.MethodPost, Path: CourseTypesPath, Permission: PermissionCourseTypeCreate},
-			{Method: http.MethodPut, Path: CourseTypePath, Permission: PermissionCourseTypeUpdate, ResourceType: ResourceCourseType, ResourceIDParam: ParamCourseTypeId},
-			{Method: http.MethodDelete, Path: CourseTypePath, Permission: PermissionCourseTypeDelete, ResourceType: ResourceCourseType, ResourceIDParam: ParamCourseTypeId},
+			{Method: http.MethodPost, Path: CoursesCourseIdActivities, Permission: PermissionCourseActivityCreate, ResourceType: ResourceCourse, ResourceIDParam: ParamCourseId, SubscriptionFeatureKey: FeatureCourseCreate},
+			{Method: http.MethodPut, Path: ActivitiesActivityId, Permission: PermissionCourseActivityUpdate, ResourceType: ResourceActivity, ResourceIDParam: ParamActivityId, SubscriptionFeatureKey: FeatureCourseUpdate},
+			{Method: http.MethodDelete, Path: ActivitiesActivityId, Permission: PermissionCourseActivityDelete, ResourceType: ResourceActivity, ResourceIDParam: ParamActivityId, SubscriptionFeatureKey: FeatureCourseDelete},
+			{Method: http.MethodPost, Path: CourseTypesPath, Permission: PermissionCourseTypeCreate, SubscriptionFeatureKey: FeatureCourseCreate},
+			{Method: http.MethodPut, Path: CourseTypePath, Permission: PermissionCourseTypeUpdate, ResourceType: ResourceCourseType, ResourceIDParam: ParamCourseTypeId, SubscriptionFeatureKey: FeatureCourseUpdate},
+			{Method: http.MethodDelete, Path: CourseTypePath, Permission: PermissionCourseTypeDelete, ResourceType: ResourceCourseType, ResourceIDParam: ParamCourseTypeId, SubscriptionFeatureKey: FeatureCourseDelete},
 		}},
 
 		{Name: PaymentService, Routes: []RouteDefinitionWithPermission{
@@ -128,9 +129,9 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodPost, Path: PayoutRequestsPayoutRequestIdMarkPaid, Permission: PermissionPayoutRequestMarkPaid, ResourceType: ResourcePayoutRequest, ResourceIDParam: ParamPayoutRequestId},
 			{Method: http.MethodPost, Path: PayoutRequestsPayoutRequestIdCancel, Permission: PermissionPayoutRequestCancel, ResourceType: ResourcePayoutRequest, ResourceIDParam: ParamPayoutRequestId},
 			{Method: http.MethodGet, Path: PaymentAccountsStripe, Permission: PermissionPaymentAccountRead},
-			{Method: http.MethodPost, Path: PaymentAccountsStripeConnect, Permission: PermissionPaymentAccountConnect},
-			{Method: http.MethodPost, Path: PaymentAccountsStripeRefresh, Permission: PermissionPaymentAccountConnect},
-			{Method: http.MethodPost, Path: PaymentAccountsStripeDisconnect, Permission: PermissionPaymentAccountDisconnect},
+			{Method: http.MethodPost, Path: PaymentAccountsStripeConnect, Permission: PermissionPaymentAccountConnect, SubscriptionFeatureKey: FeaturePaymentAcceptOnline},
+			{Method: http.MethodPost, Path: PaymentAccountsStripeRefresh, Permission: PermissionPaymentAccountConnect, SubscriptionFeatureKey: FeaturePaymentAcceptOnline},
+			{Method: http.MethodPost, Path: PaymentAccountsStripeDisconnect, Permission: PermissionPaymentAccountDisconnect, SubscriptionFeatureKey: FeaturePaymentAcceptOnline},
 			{Method: http.MethodPost, Path: WebhooksProvider, Public: true},
 		}},
 
@@ -204,7 +205,7 @@ func serviceDefinitions() []ServiceDefinition {
 
 		{Name: BookingService, Routes: []RouteDefinitionWithPermission{
 			{Method: http.MethodGet, Path: Bookings, Permission: PermissionBookingRead},
-			{Method: http.MethodPost, Path: Bookings, Permission: PermissionBookingCreate},
+			{Method: http.MethodPost, Path: Bookings, Permission: PermissionBookingCreate, SubscriptionFeatureKey: FeatureBookingCreate},
 			{Method: http.MethodGet, Path: BookingsBookingId, Permission: PermissionBookingRead, ResourceType: ResourceBooking, ResourceIDParam: ParamBookingId},
 			{Method: http.MethodPost, Path: BookingsBookingIdCancel, Permission: PermissionBookingCancel, ResourceType: ResourceBooking, ResourceIDParam: ParamBookingId},
 			{Method: http.MethodPost, Path: BookingsBookingIdConfirm, Permission: PermissionBookingConfirm, ResourceType: ResourceBooking, ResourceIDParam: ParamBookingId},

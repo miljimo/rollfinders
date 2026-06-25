@@ -10,6 +10,7 @@ type GatewayTargetPath string
 type GatewayPermissionName string
 type GatewayResourceType string
 type GatewayResourceIDParam string
+type GatewaySubscriptionFeatureKey string
 
 type GatewayResourceDefinition struct {
 	Name        GatewayPermissionName
@@ -68,6 +69,9 @@ const (
 	PermissionAcademyMembershipRemove GatewayPermissionName = "academy.membership.remove"
 	PermissionAcademySearchHide       GatewayPermissionName = "academy.search.hide"
 	PermissionAcademyUpdate           GatewayPermissionName = "academy.update"
+
+	FeatureAcademyProfileManage GatewaySubscriptionFeatureKey = "academy.profile.manage"
+	FeatureAcademyTeamManage    GatewaySubscriptionFeatureKey = "academy.team.manage"
 
 	ResourceAcademy    GatewayResourceType = "academy"
 	ResourceMembership GatewayResourceType = "membership"
@@ -161,6 +165,10 @@ const (
 	PermissionCourseTypeUpdate     GatewayPermissionName = "course.type.update"
 	PermissionCourseUpdate         GatewayPermissionName = "course.update"
 
+	FeatureCourseCreate GatewaySubscriptionFeatureKey = "course.create"
+	FeatureCourseUpdate GatewaySubscriptionFeatureKey = "course.update"
+	FeatureCourseDelete GatewaySubscriptionFeatureKey = "course.delete"
+
 	ResourceActivity   GatewayResourceType = "activity"
 	ResourceCourse     GatewayResourceType = "course"
 	ResourceCourseType GatewayResourceType = "course_type"
@@ -192,6 +200,8 @@ const (
 	PermissionBookingPaymentLink                 GatewayPermissionName = "booking.payment.link"
 	PermissionBookingPaymentRecord               GatewayPermissionName = "booking.payment.record"
 	PermissionBookingRead                        GatewayPermissionName = "booking.read"
+
+	FeatureBookingCreate GatewaySubscriptionFeatureKey = "booking.create"
 
 	ResourceBooking GatewayResourceType = "booking"
 
@@ -248,6 +258,8 @@ const (
 	PermissionPayoutRequestReject      GatewayPermissionName = "payout.request.reject"
 	PermissionPayoutRequestRelease     GatewayPermissionName = "payout.request.release"
 	PermissionPayoutRequestSearch      GatewayPermissionName = "payout.request.search"
+
+	FeaturePaymentAcceptOnline GatewaySubscriptionFeatureKey = "payment.accept_online"
 
 	ResourcePayee         GatewayResourceType = "payee"
 	ResourcePayment       GatewayResourceType = "payment"

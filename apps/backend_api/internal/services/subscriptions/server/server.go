@@ -80,6 +80,7 @@ func New(opts Options) http.Handler {
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}/plan-changes", s.listPlanChanges)
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}/billing-events", s.listBillingEvents)
 	mux.HandleFunc("GET /v1/applications/{application_id}/entitlements", s.entitlements)
+	mux.HandleFunc("POST /v1/entitlements/check", s.checkEntitlement)
 
 	return withRequestID(s.accessLog(mux))
 }

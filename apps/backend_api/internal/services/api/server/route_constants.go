@@ -7,6 +7,7 @@ type GatewayPath = gatewayroutes.GatewayTargetPath
 type GatewayPermission = gatewayroutes.GatewayPermissionName
 type GatewayResourceType = gatewayroutes.GatewayResourceType
 type GatewayResourceIDParam = gatewayroutes.GatewayResourceIDParam
+type GatewaySubscriptionFeatureKey = gatewayroutes.GatewaySubscriptionFeatureKey
 
 const (
 	UserService          = gatewayroutes.UserService
@@ -222,6 +223,16 @@ const (
 	PermissionUserRead                           = gatewayroutes.PermissionUserRead
 	PermissionUserSearch                         = gatewayroutes.PermissionUserSearch
 	PermissionUserUpdate                         = gatewayroutes.PermissionUserUpdate
+)
+
+const (
+	FeatureAcademyProfileManage = gatewayroutes.FeatureAcademyProfileManage
+	FeatureAcademyTeamManage    = gatewayroutes.FeatureAcademyTeamManage
+	FeatureCourseCreate         = gatewayroutes.FeatureCourseCreate
+	FeatureCourseUpdate         = gatewayroutes.FeatureCourseUpdate
+	FeatureCourseDelete         = gatewayroutes.FeatureCourseDelete
+	FeatureBookingCreate        = gatewayroutes.FeatureBookingCreate
+	FeaturePaymentAcceptOnline  = gatewayroutes.FeaturePaymentAcceptOnline
 )
 
 const (

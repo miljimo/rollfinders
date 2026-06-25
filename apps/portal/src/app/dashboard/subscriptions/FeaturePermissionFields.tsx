@@ -23,8 +23,10 @@ type AssignableFeatureOption = {
 
 type ExistingFeature = {
   product_id: string;
+  feature_key: string;
   name: string;
   description: string;
+  subscription_controlled: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -52,6 +54,7 @@ export function FeaturePermissionFields({
 }) {
   const initialProductId = feature?.product_id || products[0]?.id || "";
   const [selectedProductId, setSelectedProductId] = useState(initialProductId);
+  const [featureKey, setFeatureKey] = useState(feature?.feature_key ?? "");
   const [featureName, setFeatureName] = useState(feature?.name ?? "");
   const [selectedPermissionCodes, setSelectedPermissionCodes] = useState<string[]>(() => {
     const code = featurePermissionCode(feature);
@@ -86,6 +89,7 @@ export function FeaturePermissionFields({
     .filter((permission): permission is PermissionOption => Boolean(permission));
   const selectedDisplayName = (permission: PermissionOption) => displayNamesByCode[permission.code]?.trim() || (selectedPermissionCodes.length === 1 ? featureName.trim() : "") || permission.name || permission.code;
   const primaryPermission = selectedPermissions[0];
+  const submittedFeatureKey = primaryPermission?.code || featureKey.trim();
   const submittedName = primaryPermission ? selectedDisplayName(primaryPermission) : featureName.trim();
   const submittedDescription = primaryPermission?.description || feature?.description || primaryPermission?.code || "";
   const selectedPermissionsPayload = JSON.stringify(selectedPermissions.map((permission) => ({
@@ -144,6 +148,18 @@ export function FeaturePermissionFields({
           }}
           placeholder="Enter feature display name"
           className="min-h-11 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium"
+        />
+      </label>
+
+      <label className="grid gap-1 text-sm font-bold text-slate-700">
+        Feature Key
+        <input
+          type="text"
+          value={primaryPermission?.code ?? featureKey}
+          onChange={(event) => setFeatureKey(event.target.value)}
+          disabled={Boolean(primaryPermission)}
+          placeholder="service.capability.action"
+          className="min-h-11 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium disabled:bg-stone-100 disabled:text-stone-500"
         />
       </label>
 
@@ -234,8 +250,24 @@ export function FeaturePermissionFields({
 
       <input type="hidden" name="name" value={submittedName} />
       <input type="hidden" name="description" value={submittedDescription} />
+      <input type="hidden" name="featureKey" value={submittedFeatureKey} />
       <input type="hidden" name="permissionCode" value={primaryPermission?.code ?? ""} />
       <input type="hidden" name="selectedPermissions" value={selectedPermissionsPayload} />
+
+      <label className="flex items-start gap-3 rounded-md border border-stone-200 bg-stone-50 p-3 text-sm text-slate-700">
+        <input
+          name="subscriptionControlled"
+          type="checkbox"
+          defaultChecked={feature?.subscription_controlled ?? true}
+          className="mt-1 h-4 w-4 rounded border-stone-300 text-teal-700"
+        />
+        <span>
+          <span className="block font-black text-slate-800">Subscription controlled</span>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">
+            Require an active plan with this feature before API Gateway allows the action.
+          </span>
+        </span>
+      </label>
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-stone-200 bg-stone-50 px-3 py-3 text-sm">
         <p className="font-black text-slate-800">{selectedPermissionCodes.length ? `${selectedPermissionCodes.length} permission feature${selectedPermissionCodes.length === 1 ? "" : "s"} selected` : "Select permission features"}</p>

@@ -142,20 +142,24 @@ export async function createFeatureAction(formData: FormData) {
       for (const permission of selected) {
         await createSubscriptionFeature({
           product_id: value(formData, "productId"),
+          feature_key: permission.code,
           name: permission.name,
           description: permission.description,
           status: "ACTIVE",
           is_selectable: true,
+          subscription_controlled: formData.get("subscriptionControlled") === "on",
           metadata: { permission_code: permission.code },
         }, currentActor);
       }
     } else {
       await createSubscriptionFeature({
         product_id: value(formData, "productId"),
+        feature_key: value(formData, "featureKey"),
         name: value(formData, "name"),
         description: value(formData, "description"),
         status: "ACTIVE",
         is_selectable: true,
+        subscription_controlled: formData.get("subscriptionControlled") === "on",
         metadata: permissionMetadata(formData),
       }, currentActor);
     }
@@ -174,19 +178,23 @@ export async function updateFeatureAction(formData: FormData) {
     const currentActor = await actor();
     await updateSubscriptionFeature(featureId, {
       product_id: value(formData, "productId"),
+      feature_key: primary?.code ?? value(formData, "featureKey"),
       name: primary?.name ?? value(formData, "name"),
       description: primary?.description ?? value(formData, "description"),
       status: value(formData, "status") || "ACTIVE",
       is_selectable: true,
+      subscription_controlled: formData.get("subscriptionControlled") === "on",
       metadata: primary ? { permission_code: primary.code } : permissionMetadata(formData),
     }, currentActor);
     for (const permission of additional) {
       await createSubscriptionFeature({
         product_id: value(formData, "productId"),
+        feature_key: permission.code,
         name: permission.name,
         description: permission.description,
         status: value(formData, "status") || "ACTIVE",
         is_selectable: true,
+        subscription_controlled: formData.get("subscriptionControlled") === "on",
         metadata: { permission_code: permission.code },
       }, currentActor);
     }

@@ -35,16 +35,18 @@ type Product struct {
 }
 
 type ProductFeature struct {
-	ID           string          `json:"id"`
-	ProductID    string          `json:"product_id"`
-	ServiceID    string          `json:"service_id,omitempty"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	Status       string          `json:"status"`
-	IsSelectable bool            `json:"is_selectable"`
-	Metadata     json.RawMessage `json:"metadata,omitempty"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID                     string          `json:"id"`
+	ProductID              string          `json:"product_id"`
+	ServiceID              string          `json:"service_id,omitempty"`
+	FeatureKey             string          `json:"feature_key"`
+	Name                   string          `json:"name"`
+	Description            string          `json:"description"`
+	Status                 string          `json:"status"`
+	IsSelectable           bool            `json:"is_selectable"`
+	SubscriptionControlled bool            `json:"subscription_controlled"`
+	Metadata               json.RawMessage `json:"metadata,omitempty"`
+	CreatedAt              time.Time       `json:"created_at"`
+	UpdatedAt              time.Time       `json:"updated_at"`
 }
 
 type Plan struct {
@@ -85,6 +87,16 @@ type PlanProduct struct {
 type BillingCycle struct {
 	Key  string `json:"key"`
 	Name string `json:"name"`
+}
+
+type SubscriptionOwnerPolicy struct {
+	ID                    string    `json:"id"`
+	OwnerType             string    `json:"owner_type"`
+	SubscriptionSupported bool      `json:"subscription_supported"`
+	SubscriptionRequired  bool      `json:"subscription_required"`
+	DefaultPlanID         string    `json:"default_plan_id,omitempty"`
+	CreatedAt             time.Time `json:"created_at"`
+	UpdatedAt             time.Time `json:"updated_at"`
 }
 
 type Subscription struct {
@@ -289,12 +301,12 @@ func (r *repository) deleteProduct(ctx context.Context, id string) error {
 
 func scanFeature(row interface{ Scan(...any) error }) (ProductFeature, error) {
 	var feature ProductFeature
-	err := row.Scan(&feature.ID, &feature.ProductID, &feature.ServiceID, &feature.Name, &feature.Description, &feature.Status, &feature.IsSelectable, &feature.Metadata, &feature.CreatedAt, &feature.UpdatedAt)
+	err := row.Scan(&feature.ID, &feature.ProductID, &feature.ServiceID, &feature.FeatureKey, &feature.Name, &feature.Description, &feature.Status, &feature.IsSelectable, &feature.SubscriptionControlled, &feature.Metadata, &feature.CreatedAt, &feature.UpdatedAt)
 	return feature, err
 }
 
 func (r *repository) listFeatures(ctx context.Context, limit, offset int, productID string) ([]ProductFeature, error) {
-	query := `SELECT f.id, f.product_id, p.service_id, f.name, f.description, f.status, f.is_selectable, f.metadata, f.created_at, f.updated_at FROM product_features f JOIN products p ON p.id = f.product_id`
+	query := `SELECT f.id, f.product_id, p.service_id, f.feature_key, f.name, f.description, f.status, f.is_selectable, f.subscription_controlled, f.metadata, f.created_at, f.updated_at FROM product_features f JOIN products p ON p.id = f.product_id`
 	args := []any{}
 	if productID != "" {
 		args = append(args, productID)
@@ -320,7 +332,11 @@ func (r *repository) listFeatures(ctx context.Context, limit, offset int, produc
 
 func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) (ProductFeature, error) {
 	feature.Status = activeStatus(feature.Status)
-	if feature.ID == "" || feature.ProductID == "" || feature.Name == "" {
+	feature.FeatureKey = strings.ToLower(strings.TrimSpace(feature.FeatureKey))
+	if feature.FeatureKey == "" {
+		feature.FeatureKey = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(feature.Name), " ", "."))
+	}
+	if feature.ID == "" || feature.ProductID == "" || feature.FeatureKey == "" || feature.Name == "" {
 		return ProductFeature{}, errInvalid
 	}
 	if len(feature.Metadata) == 0 {
@@ -341,25 +357,41 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 	if duplicate {
 		return ProductFeature{}, errDuplicate
 	}
+	if err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM product_features
+			WHERE product_id = $1
+			  AND lower(feature_key) = lower($2)
+			  AND id <> $3
+		)
+	`, feature.ProductID, feature.FeatureKey, feature.ID).Scan(&duplicate); err != nil {
+		return ProductFeature{}, err
+	}
+	if duplicate {
+		return ProductFeature{}, errDuplicate
+	}
 	row := r.db.QueryRowContext(ctx, `
 		WITH upserted AS (
-			INSERT INTO product_features (id, product_id, name, description, status, is_selectable, metadata)
-			SELECT $1, $2, $3, $4, $5, $6, $7::jsonb
+			INSERT INTO product_features (id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, metadata)
+			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb
 			WHERE EXISTS (SELECT 1 FROM products WHERE id = $2 AND status = 'ACTIVE')
 			ON CONFLICT (id) DO UPDATE SET
 				product_id = EXCLUDED.product_id,
+				feature_key = EXCLUDED.feature_key,
 				name = EXCLUDED.name,
 				description = EXCLUDED.description,
 				status = EXCLUDED.status,
 				is_selectable = EXCLUDED.is_selectable,
+				subscription_controlled = EXCLUDED.subscription_controlled,
 				metadata = EXCLUDED.metadata,
 				updated_at = now()
-			RETURNING id, product_id, name, description, status, is_selectable, metadata, created_at, updated_at
+			RETURNING id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, metadata, created_at, updated_at
 		)
-		SELECT u.id, u.product_id, p.service_id, u.name, u.description, u.status, u.is_selectable, u.metadata, u.created_at, u.updated_at
+		SELECT u.id, u.product_id, p.service_id, u.feature_key, u.name, u.description, u.status, u.is_selectable, u.subscription_controlled, u.metadata, u.created_at, u.updated_at
 		FROM upserted u
 		JOIN products p ON p.id = u.product_id
-	`, feature.ID, feature.ProductID, feature.Name, feature.Description, feature.Status, feature.IsSelectable, []byte(feature.Metadata))
+	`, feature.ID, feature.ProductID, feature.FeatureKey, feature.Name, feature.Description, feature.Status, feature.IsSelectable, feature.SubscriptionControlled, []byte(feature.Metadata))
 	result, err := scanFeature(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errInvalid
@@ -369,9 +401,9 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 
 func (r *repository) getFeature(ctx context.Context, id string) (ProductFeature, error) {
 	feature, err := scanFeature(r.db.QueryRowContext(ctx, `
-		SELECT f.id, f.product_id, p.service_id, f.name, f.description, f.status, f.is_selectable, f.metadata, f.created_at, f.updated_at
+		SELECT f.id, f.product_id, p.service_id, f.feature_key, f.name, f.description, f.status, f.is_selectable, f.subscription_controlled, f.metadata, f.created_at, f.updated_at
 		FROM product_features f JOIN products p ON p.id = f.product_id
-		WHERE f.id = $1
+		WHERE f.id = $1 OR f.feature_key = $1
 	`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errNotFound
@@ -383,10 +415,10 @@ func (r *repository) setFeatureStatus(ctx context.Context, id string, status str
 	feature, err := scanFeature(r.db.QueryRowContext(ctx, `
 		WITH updated AS (
 			UPDATE product_features SET status = $2, updated_at = now()
-			WHERE id = $1
-			RETURNING id, product_id, name, description, status, is_selectable, metadata, created_at, updated_at
+			WHERE id = $1 OR feature_key = $1
+			RETURNING id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, metadata, created_at, updated_at
 		)
-		SELECT u.id, u.product_id, p.service_id, u.name, u.description, u.status, u.is_selectable, u.metadata, u.created_at, u.updated_at
+		SELECT u.id, u.product_id, p.service_id, u.feature_key, u.name, u.description, u.status, u.is_selectable, u.subscription_controlled, u.metadata, u.created_at, u.updated_at
 		FROM updated u
 		JOIN products p ON p.id = u.product_id
 	`, id, activeStatus(status)))
@@ -403,10 +435,14 @@ func (r *repository) deleteFeature(ctx context.Context, id string) error {
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_features WHERE feature_id = $1`, id); err != nil {
+	feature, err := r.getFeature(ctx, id)
+	if err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `DELETE FROM product_features WHERE id = $1`, id)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_features WHERE feature_id = $1`, feature.ID); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM product_features WHERE id = $1`, feature.ID)
 	if err != nil {
 		return err
 	}
@@ -473,6 +509,34 @@ func (r *repository) listBillingCycles(ctx context.Context) ([]BillingCycle, err
 		}
 	}
 	return cycles, nil
+}
+
+func scanOwnerPolicy(row interface{ Scan(...any) error }) (SubscriptionOwnerPolicy, error) {
+	var item SubscriptionOwnerPolicy
+	err := row.Scan(&item.ID, &item.OwnerType, &item.SubscriptionSupported, &item.SubscriptionRequired, &item.DefaultPlanID, &item.CreatedAt, &item.UpdatedAt)
+	return item, err
+}
+
+func defaultOwnerPolicy(ownerType string) SubscriptionOwnerPolicy {
+	return SubscriptionOwnerPolicy{
+		OwnerType: strings.ToLower(strings.TrimSpace(ownerType)),
+	}
+}
+
+func (r *repository) getOwnerPolicy(ctx context.Context, ownerType string) (SubscriptionOwnerPolicy, error) {
+	ownerType = strings.ToLower(strings.TrimSpace(ownerType))
+	if ownerType == "" {
+		return SubscriptionOwnerPolicy{}, errInvalid
+	}
+	policy, err := scanOwnerPolicy(r.db.QueryRowContext(ctx, `
+		SELECT id, owner_type, subscription_supported, subscription_required, COALESCE(default_plan_id, ''), created_at, updated_at
+		FROM subscription_owner_policies
+		WHERE owner_type = $1
+	`, ownerType))
+	if errors.Is(err, sql.ErrNoRows) {
+		return defaultOwnerPolicy(ownerType), nil
+	}
+	return policy, err
 }
 
 func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
@@ -937,6 +1001,34 @@ func (r *repository) entitlements(ctx context.Context, ownerID string) (Subscrip
 	}
 	features, err := r.listPlanFeatures(ctx, sub.PlanID)
 	return sub, features, err
+}
+
+func (r *repository) activeSubscription(ctx context.Context, ownerType string, ownerID string) (Subscription, error) {
+	item, err := scanSubscription(r.db.QueryRowContext(ctx, `
+		SELECT id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
+		FROM subscriptions
+		WHERE owner_type = $1
+		  AND owner_id = $2
+		  AND status IN ('ACTIVE', 'TRIAL', 'active', 'scheduled_downgrade', 'cancel_at_period_end')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`, strings.ToLower(strings.TrimSpace(ownerType)), ownerID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Subscription{}, errNotFound
+	}
+	return item, err
+}
+
+func (r *repository) planIncludesFeature(ctx context.Context, planID string, featureID string) (bool, error) {
+	var included bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM plan_features
+			WHERE plan_id = $1 AND feature_id = $2
+		)
+	`, planID, featureID).Scan(&included)
+	return included, err
 }
 
 func itoa(value int) string {

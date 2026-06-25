@@ -518,7 +518,7 @@ function filterProducts(products: SubscriptionProduct[], search: string) {
 function filterFeatures(features: SubscriptionFeature[], search: string) {
   const normalized = search.trim().toLowerCase();
   if (!normalized) return features;
-  return features.filter((feature) => [feature.id, feature.product_id, feature.service_id ?? "", feature.name, feature.description, feature.status].join(" ").toLowerCase().includes(normalized));
+  return features.filter((feature) => [feature.id, feature.product_id, feature.service_id ?? "", feature.feature_key, feature.name, feature.description, feature.status].join(" ").toLowerCase().includes(normalized));
 }
 
 function entitlementFeatureLabels(entitlements: ApplicationEntitlements, features: SubscriptionFeature[]) {
@@ -1179,14 +1179,18 @@ function FeaturesTable({ features, pagination, products }: { features: Subscript
     id: feature.id,
     featureId: feature.id,
     product: productNames.get(feature.product_id) ?? feature.product_id,
+    featureKey: feature.feature_key,
     name: feature.name,
     description: feature.description || "No description",
+    controlled: feature.subscription_controlled ? "Subscription" : "IAM only",
     status: feature.status,
   }));
   const columns: TableColumn<(typeof rows)[number] & TableRecord>[] = [
     { key: "product", title: "Product" },
+    { key: "featureKey", title: "Feature Key" },
     { key: "name", title: "Name" },
     { key: "description", title: "Description" },
+    { key: "controlled", title: "Access" },
     { key: "status", title: "Status" },
     { key: "actions", title: "Action", headerClassName: "text-right", className: "text-right", render: (_value, row) => <FeatureActions featureId={String(row.featureId)} status={String(row.status)} /> },
   ];

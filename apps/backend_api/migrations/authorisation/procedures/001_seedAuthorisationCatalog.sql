@@ -542,7 +542,7 @@ BEGIN
         'subscription.entitlement.read',
         'auth.register', 'auth.logout', 'auth.refresh', 'auth.password.change', 'auth.session.read', 'auth.session.revoke',
         'auth.mfa.setup', 'auth.mfa.verify', 'auth.credentials.authenticate',
-        'account.read', 'user.create', 'user.read', 'user.update', 'user.delete', 'user.mutate',
+        'account.read', 'user.create', 'user.read', 'user.search', 'user.update', 'user.delete', 'user.mutate',
         'organisation.create', 'organisation.read', 'organisation.update', 'organisation.application.manage',
         'authorisation.permission.create', 'authorisation.permission.read', 'authorisation.permission.search', 'authorisation.permission.update',
         'authorisation.role.create', 'authorisation.role.read', 'authorisation.role.search', 'authorisation.role.update',
@@ -570,6 +570,7 @@ BEGIN
         'booking.participant.create', 'booking.participant.read', 'booking.participant.attendance.record',
         'auth.session.read',
         'account.read',
+        'user.search',
         'payment.read', 'payment.search', 'payment.report.revenue.read', 'payment.report.refund.read',
         'payment.refund.read', 'payment.payee.balance.read',
         'payout.request.create', 'payout.request.read', 'payout.request.cancel'

@@ -91,6 +91,14 @@ func TestGatewayResourceCatalogIncludesTargetsForAPIPermissions(t *testing.T) {
 		PermissionAuthorisationUserRoleAssign:        AuthorisationUsersUserIdRoles,
 		PermissionAuthorisationUserRoleRead:          AuthorisationUsersUserIdRoles,
 		PermissionAuthorisationUserRoleRemove:        AuthorisationUsersUserIdRolesAssignmentId,
+		PermissionSubscriptionProductRead:            SubscriptionProducts,
+		PermissionSubscriptionProductManage:          SubscriptionProducts,
+		PermissionSubscriptionPlanRead:               SubscriptionPlans,
+		PermissionSubscriptionPlanManage:             SubscriptionPlans,
+		PermissionSubscriptionAvailableFeaturesRead:  SubscriptionApplicationAvailableFeatures,
+		PermissionSubscriptionSubscriptionRead:       SubscriptionApplicationSubscriptions,
+		PermissionSubscriptionSubscriptionManage:     SubscriptionApplicationSubscriptions,
+		PermissionSubscriptionEntitlementRead:        SubscriptionApplicationEntitlements,
 	}
 
 	catalog := GatewayResourceCatalog()
