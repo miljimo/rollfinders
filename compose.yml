@@ -9,6 +9,7 @@ include:
   - path: ./apps/backend_api/containers/courses/compose.yml
   - path: ./apps/backend_api/containers/authorisation/compose.yml
   - path: ./apps/backend_api/containers/organisation/compose.yml
+  - path: ./apps/backend_api/containers/subscriptions/compose.yml
 
 services:
   db:
@@ -25,6 +26,7 @@ services:
       - organisation
       - api
       - authorisation
+      - subscriptions
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -53,6 +55,7 @@ services:
       - courses
       - notification
       - analytics
+      - subscriptions
       - app
       - seed
     environment:

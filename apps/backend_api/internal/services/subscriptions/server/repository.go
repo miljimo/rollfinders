@@ -24,66 +24,82 @@ type repository struct {
 }
 
 type Product struct {
-	Key            string    `json:"key"`
-	ServiceKey     string    `json:"service_key"`
-	Name           string    `json:"name"`
-	Description    string    `json:"description"`
-	Status         string    `json:"status"`
-	PlanSelectable bool      `json:"plan_selectable"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	ID           string    `json:"id"`
+	ServiceID    string    `json:"service_id"`
+	Name         string    `json:"name"`
+	Description  string    `json:"description"`
+	Status       string    `json:"status"`
+	IsSelectable bool      `json:"is_selectable"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type ProductFeature struct {
-	Key            string          `json:"key"`
-	ProductKey     string          `json:"product_key"`
-	ServiceKey     string          `json:"service_key,omitempty"`
-	Name           string          `json:"name"`
-	Description    string          `json:"description"`
-	Status         string          `json:"status"`
-	PlanSelectable bool            `json:"plan_selectable"`
-	LimitMetadata  json.RawMessage `json:"limit_metadata,omitempty"`
-	CreatedAt      time.Time       `json:"created_at"`
-	UpdatedAt      time.Time       `json:"updated_at"`
+	ID           string          `json:"id"`
+	ProductID    string          `json:"product_id"`
+	ServiceID    string          `json:"service_id,omitempty"`
+	Name         string          `json:"name"`
+	Description  string          `json:"description"`
+	Status       string          `json:"status"`
+	IsSelectable bool            `json:"is_selectable"`
+	Metadata     json.RawMessage `json:"metadata,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 type Plan struct {
-	Key                 string        `json:"key"`
-	Name                string        `json:"name"`
-	Description         string        `json:"description"`
-	Status              string        `json:"status"`
-	Currency            string        `json:"currency"`
-	PriceMinor          int           `json:"price_minor"`
-	BillingCycle        string        `json:"billing_cycle"`
-	CreatedAt           time.Time     `json:"created_at"`
-	UpdatedAt           time.Time     `json:"updated_at"`
-	Features            []PlanFeature `json:"features,omitempty"`
-	IncludedFeatureKeys []string      `json:"included_feature_keys,omitempty"`
+	ID                 string        `json:"id"`
+	Name               string        `json:"name"`
+	Description        string        `json:"description"`
+	Status             string        `json:"status"`
+	Currency           string        `json:"currency"`
+	PriceMinor         int           `json:"price_minor"`
+	BillingCycle       string        `json:"billing_cycle"`
+	CreatedAt          time.Time     `json:"created_at"`
+	UpdatedAt          time.Time     `json:"updated_at"`
+	Features           []PlanFeature `json:"features,omitempty"`
+	Products           []PlanProduct `json:"products,omitempty"`
+	IncludedFeatureIDs []string      `json:"included_feature_ids,omitempty"`
+	IncludedProductIDs []string      `json:"included_product_ids,omitempty"`
 }
 
 type PlanFeature struct {
-	PlanKey    string          `json:"plan_key"`
-	FeatureKey string          `json:"feature_key"`
-	ProductKey string          `json:"product_key,omitempty"`
-	ServiceKey string          `json:"service_key,omitempty"`
-	Limits     json.RawMessage `json:"limits,omitempty"`
+	ID         string          `json:"id"`
+	PlanID     string          `json:"plan_id"`
+	FeatureID  string          `json:"feature_id"`
+	ProductID  string          `json:"product_id,omitempty"`
+	ServiceID  string          `json:"service_id,omitempty"`
+	LimitValue json.RawMessage `json:"limit_value,omitempty"`
 	CreatedAt  time.Time       `json:"created_at"`
 }
 
+type PlanProduct struct {
+	ID        string    `json:"id"`
+	PlanID    string    `json:"plan_id"`
+	ProductID string    `json:"product_id"`
+	ServiceID string    `json:"service_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type BillingCycle struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
 type Subscription struct {
-	ID             string     `json:"id"`
-	OrganisationID string     `json:"organisation_id"`
-	ApplicationID  string     `json:"application_id"`
-	PlanKey        string     `json:"plan_key"`
-	Status         string     `json:"status"`
-	BillingStart   time.Time  `json:"billing_period_start"`
-	BillingEnd     time.Time  `json:"billing_period_end"`
-	TrialStart     *time.Time `json:"trial_start,omitempty"`
-	TrialEnd       *time.Time `json:"trial_end,omitempty"`
-	CancelAt       *time.Time `json:"cancel_at,omitempty"`
-	CancelledAt    *time.Time `json:"cancelled_at,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID           string     `json:"id"`
+	OwnerType    string     `json:"owner_type"`
+	OwnerID      string     `json:"owner_id"`
+	PlanID       string     `json:"plan_id"`
+	Status       string     `json:"status"`
+	BillingStart time.Time  `json:"billing_period_start"`
+	BillingEnd   time.Time  `json:"billing_period_end"`
+	TrialStart   *time.Time `json:"trial_start,omitempty"`
+	TrialEnd     *time.Time `json:"trial_end,omitempty"`
+	CancelAt     *time.Time `json:"cancel_at,omitempty"`
+	CancelledAt  *time.Time `json:"cancelled_at,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
 func openRepository(ctx context.Context, databaseURL string) (*repository, error) {
@@ -131,12 +147,12 @@ func activeStatus(status string) string {
 
 func scanProduct(row interface{ Scan(...any) error }) (Product, error) {
 	var product Product
-	err := row.Scan(&product.Key, &product.ServiceKey, &product.Name, &product.Description, &product.Status, &product.PlanSelectable, &product.CreatedAt, &product.UpdatedAt)
+	err := row.Scan(&product.ID, &product.ServiceID, &product.Name, &product.Description, &product.Status, &product.IsSelectable, &product.CreatedAt, &product.UpdatedAt)
 	return product, err
 }
 
 func (r *repository) listProducts(ctx context.Context, limit, offset int, status string) ([]Product, error) {
-	query := `SELECT key, service_key, name, description, status, plan_selectable, created_at, updated_at FROM products`
+	query := `SELECT id, service_id, name, description, status, is_selectable, created_at, updated_at FROM products`
 	args := []any{}
 	if status != "" {
 		args = append(args, strings.ToUpper(status))
@@ -162,46 +178,96 @@ func (r *repository) listProducts(ctx context.Context, limit, offset int, status
 
 func (r *repository) upsertProduct(ctx context.Context, product Product) (Product, error) {
 	product.Status = activeStatus(product.Status)
-	if product.Key == "" || product.ServiceKey == "" || product.Name == "" {
+	if product.ID == "" || product.ServiceID == "" || product.Name == "" {
 		return Product{}, errInvalid
 	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO products (key, service_key, name, description, status, plan_selectable)
+		INSERT INTO products (id, service_id, name, description, status, is_selectable)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		ON CONFLICT (key) DO UPDATE SET
+		ON CONFLICT (id) DO UPDATE SET
+			service_id = EXCLUDED.service_id,
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			status = EXCLUDED.status,
-			plan_selectable = EXCLUDED.plan_selectable,
+			is_selectable = EXCLUDED.is_selectable,
 			updated_at = now()
-		RETURNING key, service_key, name, description, status, plan_selectable, created_at, updated_at
-	`, product.Key, product.ServiceKey, product.Name, product.Description, product.Status, product.PlanSelectable)
+		RETURNING id, service_id, name, description, status, is_selectable, created_at, updated_at
+	`, product.ID, product.ServiceID, product.Name, product.Description, product.Status, product.IsSelectable)
 	return scanProduct(row)
 }
 
-func (r *repository) getProduct(ctx context.Context, key string) (Product, error) {
-	product, err := scanProduct(r.db.QueryRowContext(ctx, `SELECT key, service_key, name, description, status, plan_selectable, created_at, updated_at FROM products WHERE key = $1`, key))
+func (r *repository) getProduct(ctx context.Context, id string) (Product, error) {
+	product, err := scanProduct(r.db.QueryRowContext(ctx, `SELECT id, service_id, name, description, status, is_selectable, created_at, updated_at FROM products WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Product{}, errNotFound
 	}
 	return product, err
 }
 
+func (r *repository) setProductStatus(ctx context.Context, id string, status string) (Product, error) {
+	product, err := scanProduct(r.db.QueryRowContext(ctx, `
+		UPDATE products
+		SET status = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING id, service_id, name, description, status, is_selectable, created_at, updated_at
+	`, id, activeStatus(status)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Product{}, errNotFound
+	}
+	return product, err
+}
+
+func (r *repository) deleteProduct(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM plan_products
+		WHERE product_id = $1
+	`, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM plan_features
+		WHERE feature_id IN (SELECT id FROM product_features WHERE product_id = $1)
+	`, id); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM product_features WHERE product_id = $1`, id); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM products WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errNotFound
+	}
+	return tx.Commit()
+}
+
 func scanFeature(row interface{ Scan(...any) error }) (ProductFeature, error) {
 	var feature ProductFeature
-	err := row.Scan(&feature.Key, &feature.ProductKey, &feature.ServiceKey, &feature.Name, &feature.Description, &feature.Status, &feature.PlanSelectable, &feature.LimitMetadata, &feature.CreatedAt, &feature.UpdatedAt)
+	err := row.Scan(&feature.ID, &feature.ProductID, &feature.ServiceID, &feature.Name, &feature.Description, &feature.Status, &feature.IsSelectable, &feature.Metadata, &feature.CreatedAt, &feature.UpdatedAt)
 	return feature, err
 }
 
-func (r *repository) listFeatures(ctx context.Context, limit, offset int, productKey string) ([]ProductFeature, error) {
-	query := `SELECT f.key, f.product_key, p.service_key, f.name, f.description, f.status, f.plan_selectable, f.limit_metadata, f.created_at, f.updated_at FROM product_features f JOIN products p ON p.key = f.product_key`
+func (r *repository) listFeatures(ctx context.Context, limit, offset int, productID string) ([]ProductFeature, error) {
+	query := `SELECT f.id, f.product_id, p.service_id, f.name, f.description, f.status, f.is_selectable, f.metadata, f.created_at, f.updated_at FROM product_features f JOIN products p ON p.id = f.product_id`
 	args := []any{}
-	if productKey != "" {
-		args = append(args, productKey)
-		query += ` WHERE f.product_key = $1`
+	if productID != "" {
+		args = append(args, productID)
+		query += ` WHERE f.product_id = $1`
 	}
 	args = append(args, limit, offset)
-	query += ` ORDER BY f.product_key ASC, f.name ASC LIMIT LEAST(GREATEST($` + itoa(len(args)-1) + `, 1), 100) OFFSET GREATEST($` + itoa(len(args)) + `, 0)`
+	query += ` ORDER BY f.product_id ASC, f.name ASC LIMIT LEAST(GREATEST($` + itoa(len(args)-1) + `, 1), 100) OFFSET GREATEST($` + itoa(len(args)) + `, 0)`
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -220,30 +286,31 @@ func (r *repository) listFeatures(ctx context.Context, limit, offset int, produc
 
 func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) (ProductFeature, error) {
 	feature.Status = activeStatus(feature.Status)
-	if feature.Key == "" || feature.ProductKey == "" || feature.Name == "" {
+	if feature.ID == "" || feature.ProductID == "" || feature.Name == "" {
 		return ProductFeature{}, errInvalid
 	}
-	if len(feature.LimitMetadata) == 0 {
-		feature.LimitMetadata = json.RawMessage(`{}`)
+	if len(feature.Metadata) == 0 {
+		feature.Metadata = json.RawMessage(`{}`)
 	}
 	row := r.db.QueryRowContext(ctx, `
 		WITH upserted AS (
-			INSERT INTO product_features (key, product_key, name, description, status, plan_selectable, limit_metadata)
+			INSERT INTO product_features (id, product_id, name, description, status, is_selectable, metadata)
 			SELECT $1, $2, $3, $4, $5, $6, $7::jsonb
-			WHERE EXISTS (SELECT 1 FROM products WHERE key = $2 AND status = 'ACTIVE')
-			ON CONFLICT (key) DO UPDATE SET
+			WHERE EXISTS (SELECT 1 FROM products WHERE id = $2 AND status = 'ACTIVE')
+			ON CONFLICT (id) DO UPDATE SET
+				product_id = EXCLUDED.product_id,
 				name = EXCLUDED.name,
 				description = EXCLUDED.description,
 				status = EXCLUDED.status,
-				plan_selectable = EXCLUDED.plan_selectable,
-				limit_metadata = EXCLUDED.limit_metadata,
+				is_selectable = EXCLUDED.is_selectable,
+				metadata = EXCLUDED.metadata,
 				updated_at = now()
-			RETURNING key, product_key, name, description, status, plan_selectable, limit_metadata, created_at, updated_at
+			RETURNING id, product_id, name, description, status, is_selectable, metadata, created_at, updated_at
 		)
-		SELECT u.key, u.product_key, p.service_key, u.name, u.description, u.status, u.plan_selectable, u.limit_metadata, u.created_at, u.updated_at
+		SELECT u.id, u.product_id, p.service_id, u.name, u.description, u.status, u.is_selectable, u.metadata, u.created_at, u.updated_at
 		FROM upserted u
-		JOIN products p ON p.key = u.product_key
-	`, feature.Key, feature.ProductKey, feature.Name, feature.Description, feature.Status, feature.PlanSelectable, []byte(feature.LimitMetadata))
+		JOIN products p ON p.id = u.product_id
+	`, feature.ID, feature.ProductID, feature.Name, feature.Description, feature.Status, feature.IsSelectable, []byte(feature.Metadata))
 	result, err := scanFeature(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errInvalid
@@ -251,26 +318,67 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 	return result, err
 }
 
-func (r *repository) getFeature(ctx context.Context, key string) (ProductFeature, error) {
+func (r *repository) getFeature(ctx context.Context, id string) (ProductFeature, error) {
 	feature, err := scanFeature(r.db.QueryRowContext(ctx, `
-		SELECT f.key, f.product_key, p.service_key, f.name, f.description, f.status, f.plan_selectable, f.limit_metadata, f.created_at, f.updated_at
-		FROM product_features f JOIN products p ON p.key = f.product_key
-		WHERE f.key = $1
-	`, key))
+		SELECT f.id, f.product_id, p.service_id, f.name, f.description, f.status, f.is_selectable, f.metadata, f.created_at, f.updated_at
+		FROM product_features f JOIN products p ON p.id = f.product_id
+		WHERE f.id = $1
+	`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errNotFound
 	}
 	return feature, err
 }
 
+func (r *repository) setFeatureStatus(ctx context.Context, id string, status string) (ProductFeature, error) {
+	feature, err := scanFeature(r.db.QueryRowContext(ctx, `
+		WITH updated AS (
+			UPDATE product_features SET status = $2, updated_at = now()
+			WHERE id = $1
+			RETURNING id, product_id, name, description, status, is_selectable, metadata, created_at, updated_at
+		)
+		SELECT u.id, u.product_id, p.service_id, u.name, u.description, u.status, u.is_selectable, u.metadata, u.created_at, u.updated_at
+		FROM updated u
+		JOIN products p ON p.id = u.product_id
+	`, id, activeStatus(status)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return ProductFeature{}, errNotFound
+	}
+	return feature, err
+}
+
+func (r *repository) deleteFeature(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_features WHERE feature_id = $1`, id); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM product_features WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errNotFound
+	}
+	return tx.Commit()
+}
+
 func scanPlan(row interface{ Scan(...any) error }) (Plan, error) {
 	var plan Plan
-	err := row.Scan(&plan.Key, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.CreatedAt, &plan.UpdatedAt)
+	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.CreatedAt, &plan.UpdatedAt)
 	return plan, err
 }
 
 func (r *repository) listPlans(ctx context.Context, limit, offset int) ([]Plan, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT key, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -286,9 +394,41 @@ func (r *repository) listPlans(ctx context.Context, limit, offset int) ([]Plan, 
 	return plans, rows.Err()
 }
 
+func (r *repository) listBillingCycles(ctx context.Context) ([]BillingCycle, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT key, name
+		FROM billing_cycles
+		ORDER BY sort_order ASC, name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	cycles := []BillingCycle{}
+	for rows.Next() {
+		var cycle BillingCycle
+		if err := rows.Scan(&cycle.Key, &cycle.Name); err != nil {
+			return nil, err
+		}
+		cycles = append(cycles, cycle)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(cycles) == 0 {
+		cycles = []BillingCycle{
+			{Key: "free", Name: "Free"},
+			{Key: "month", Name: "Month"},
+			{Key: "year", Name: "Year"},
+			{Key: "manual", Name: "Manual"},
+		}
+	}
+	return cycles, nil
+}
+
 func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 	plan.Status = activeStatus(plan.Status)
-	if plan.Key == "" || plan.Name == "" {
+	if plan.ID == "" || plan.Name == "" {
 		return Plan{}, errInvalid
 	}
 	if plan.Currency == "" {
@@ -298,9 +438,9 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 		plan.BillingCycle = "month"
 	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO plans (key, name, description, status, currency, price_minor, billing_cycle)
+		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (key) DO UPDATE SET
+		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			status = EXCLUDED.status,
@@ -308,39 +448,77 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 			price_minor = EXCLUDED.price_minor,
 			billing_cycle = EXCLUDED.billing_cycle,
 			updated_at = now()
-		RETURNING key, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at
-	`, plan.Key, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle)
+		RETURNING id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at
+	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle)
 	return scanPlan(row)
 }
 
-func (r *repository) getPlan(ctx context.Context, key string) (Plan, error) {
-	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT key, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at FROM plans WHERE key = $1`, key))
+func (r *repository) getPlan(ctx context.Context, id string) (Plan, error) {
+	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at FROM plans WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
 	}
 	if err != nil {
 		return Plan{}, err
 	}
-	features, err := r.listPlanFeatures(ctx, key)
+	features, err := r.listPlanFeatures(ctx, id)
 	if err != nil {
 		return Plan{}, err
 	}
 	plan.Features = features
 	for _, feature := range features {
-		plan.IncludedFeatureKeys = append(plan.IncludedFeatureKeys, feature.FeatureKey)
+		plan.IncludedFeatureIDs = append(plan.IncludedFeatureIDs, feature.FeatureID)
+	}
+	products, err := r.listPlanProducts(ctx, id)
+	if err != nil {
+		return Plan{}, err
+	}
+	plan.Products = products
+	for _, product := range products {
+		plan.IncludedProductIDs = append(plan.IncludedProductIDs, product.ProductID)
 	}
 	return plan, nil
 }
 
-func (r *repository) listPlanFeatures(ctx context.Context, planKey string) ([]PlanFeature, error) {
+func (r *repository) setPlanStatus(ctx context.Context, id string, status string) (Plan, error) {
+	plan, err := scanPlan(r.db.QueryRowContext(ctx, `
+		UPDATE plans
+		SET status = $2, updated_at = now()
+		WHERE id = $1
+		RETURNING id, name, description, status, currency, price_minor, billing_cycle, created_at, updated_at
+	`, id, activeStatus(status)))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Plan{}, errNotFound
+	}
+	return plan, err
+}
+
+func (r *repository) deletePlan(ctx context.Context, id string) error {
+	result, err := r.db.ExecContext(ctx, `DELETE FROM plans WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errNotFound
+	}
+	return nil
+}
+
+func (r *repository) listPlanFeatures(ctx context.Context, planID string) ([]PlanFeature, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT pf.plan_key, pf.feature_key, f.product_key, p.service_key, pf.limits, pf.created_at
-		FROM plan_features pf
-		JOIN product_features f ON f.key = pf.feature_key
-		JOIN products p ON p.key = f.product_key
-		WHERE pf.plan_key = $1
-		ORDER BY pf.feature_key ASC
-	`, planKey)
+		SELECT f.id, pp.plan_id, f.id, f.product_id, p.service_id, '{}'::jsonb, pp.created_at
+		FROM plan_products pp
+		JOIN products p ON p.id = pp.product_id
+		JOIN product_features f ON f.product_id = p.id
+		WHERE pp.plan_id = $1
+		  AND f.status = 'ACTIVE'
+		  AND f.is_selectable = true
+		ORDER BY f.name ASC
+	`, planID)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +526,7 @@ func (r *repository) listPlanFeatures(ctx context.Context, planKey string) ([]Pl
 	features := []PlanFeature{}
 	for rows.Next() {
 		var feature PlanFeature
-		if err := rows.Scan(&feature.PlanKey, &feature.FeatureKey, &feature.ProductKey, &feature.ServiceKey, &feature.Limits, &feature.CreatedAt); err != nil {
+		if err := rows.Scan(&feature.ID, &feature.PlanID, &feature.FeatureID, &feature.ProductID, &feature.ServiceID, &feature.LimitValue, &feature.CreatedAt); err != nil {
 			return nil, err
 		}
 		features = append(features, feature)
@@ -356,14 +534,37 @@ func (r *repository) listPlanFeatures(ctx context.Context, planKey string) ([]Pl
 	return features, rows.Err()
 }
 
-func (r *repository) replacePlanFeatures(ctx context.Context, planKey string, features []PlanFeature) ([]PlanFeature, error) {
+func (r *repository) listPlanProducts(ctx context.Context, planID string) ([]PlanProduct, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT pp.id, pp.plan_id, pp.product_id, p.service_id, pp.created_at
+		FROM plan_products pp
+		JOIN products p ON p.id = pp.product_id
+		WHERE pp.plan_id = $1
+		ORDER BY p.name ASC
+	`, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	products := []PlanProduct{}
+	for rows.Next() {
+		var product PlanProduct
+		if err := rows.Scan(&product.ID, &product.PlanID, &product.ProductID, &product.ServiceID, &product.CreatedAt); err != nil {
+			return nil, err
+		}
+		products = append(products, product)
+	}
+	return products, rows.Err()
+}
+
+func (r *repository) replacePlanFeatures(ctx context.Context, planID string, features []PlanFeature) ([]PlanFeature, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 	var exists bool
-	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM plans WHERE key = $1)`, planKey).Scan(&exists); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM plans WHERE id = $1)`, planID).Scan(&exists); err != nil {
 		return nil, err
 	}
 	if !exists {
@@ -371,41 +572,85 @@ func (r *repository) replacePlanFeatures(ctx context.Context, planKey string, fe
 	}
 	seen := map[string]bool{}
 	for _, feature := range features {
-		if feature.FeatureKey == "" {
+		if feature.FeatureID == "" {
 			return nil, errInvalid
 		}
-		if seen[feature.FeatureKey] {
+		if seen[feature.FeatureID] {
 			return nil, errDuplicate
 		}
-		seen[feature.FeatureKey] = true
+		seen[feature.FeatureID] = true
 		var selectable bool
-		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM product_features WHERE key = $1 AND status = 'ACTIVE' AND plan_selectable = true)`, feature.FeatureKey).Scan(&selectable); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM product_features WHERE id = $1 AND status = 'ACTIVE' AND is_selectable = true)`, feature.FeatureID).Scan(&selectable); err != nil {
 			return nil, err
 		}
 		if !selectable {
 			return nil, errInvalid
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_features WHERE plan_key = $1`, planKey); err != nil {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_features WHERE plan_id = $1`, planID); err != nil {
 		return nil, err
 	}
 	for _, feature := range features {
-		limits := feature.Limits
-		if len(limits) == 0 {
-			limits = json.RawMessage(`{}`)
+		limitValue := feature.LimitValue
+		if len(limitValue) == 0 {
+			limitValue = json.RawMessage(`{}`)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO plan_features (plan_key, feature_key, limits) VALUES ($1, $2, $3::jsonb)`, planKey, feature.FeatureKey, []byte(limits)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO plan_features (plan_id, feature_id, limit_value) VALUES ($1, $2, $3::jsonb)`, planID, feature.FeatureID, []byte(limitValue)); err != nil {
 			return nil, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	return r.listPlanFeatures(ctx, planKey)
+	return r.listPlanFeatures(ctx, planID)
 }
 
-func (r *repository) listSubscriptions(ctx context.Context, applicationID string, limit, offset int) ([]Subscription, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, organisation_id, application_id, plan_key, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at FROM subscriptions WHERE application_id = $1 ORDER BY created_at DESC LIMIT LEAST(GREATEST($2, 1), 100) OFFSET GREATEST($3, 0)`, applicationID, limit, offset)
+func (r *repository) replacePlanProducts(ctx context.Context, planID string, productIDs []string) ([]PlanProduct, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var exists bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM plans WHERE id = $1)`, planID).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, errNotFound
+	}
+	seen := map[string]bool{}
+	for _, productID := range productIDs {
+		if productID == "" {
+			return nil, errInvalid
+		}
+		if seen[productID] {
+			return nil, errDuplicate
+		}
+		seen[productID] = true
+		var selectable bool
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM products WHERE id = $1 AND status = 'ACTIVE' AND is_selectable = true)`, productID).Scan(&selectable); err != nil {
+			return nil, err
+		}
+		if !selectable {
+			return nil, errInvalid
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_products WHERE plan_id = $1`, planID); err != nil {
+		return nil, err
+	}
+	for _, productID := range productIDs {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO plan_products (plan_id, product_id) VALUES ($1, $2)`, planID, productID); err != nil {
+			return nil, err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return r.listPlanProducts(ctx, planID)
+}
+
+func (r *repository) listSubscriptions(ctx context.Context, ownerID string, limit, offset int) ([]Subscription, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at FROM subscriptions WHERE owner_type = 'application' AND owner_id = $1 ORDER BY created_at DESC LIMIT LEAST(GREATEST($2, 1), 100) OFFSET GREATEST($3, 0)`, ownerID, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -427,12 +672,15 @@ func scanSubscriptions(rows *sql.Rows) ([]Subscription, error) {
 
 func scanSubscription(row interface{ Scan(...any) error }) (Subscription, error) {
 	var item Subscription
-	err := row.Scan(&item.ID, &item.OrganisationID, &item.ApplicationID, &item.PlanKey, &item.Status, &item.BillingStart, &item.BillingEnd, &item.TrialStart, &item.TrialEnd, &item.CancelAt, &item.CancelledAt, &item.CreatedAt, &item.UpdatedAt)
+	err := row.Scan(&item.ID, &item.OwnerType, &item.OwnerID, &item.PlanID, &item.Status, &item.BillingStart, &item.BillingEnd, &item.TrialStart, &item.TrialEnd, &item.CancelAt, &item.CancelledAt, &item.CreatedAt, &item.UpdatedAt)
 	return item, err
 }
 
 func (r *repository) createSubscription(ctx context.Context, item Subscription) (Subscription, error) {
-	if item.OrganisationID == "" || item.ApplicationID == "" || item.PlanKey == "" {
+	if item.OwnerType == "" {
+		item.OwnerType = "application"
+	}
+	if item.OwnerID == "" || item.PlanID == "" {
 		return Subscription{}, errInvalid
 	}
 	if item.Status == "" {
@@ -445,11 +693,11 @@ func (r *repository) createSubscription(ctx context.Context, item Subscription) 
 		item.BillingEnd = item.BillingStart.AddDate(0, 1, 0)
 	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO subscriptions (organisation_id, application_id, plan_key, status, billing_period_start, billing_period_end, trial_start, trial_end)
+		INSERT INTO subscriptions (owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end)
 		SELECT $1, $2, $3, $4, $5, $6, $7, $8
-		WHERE EXISTS (SELECT 1 FROM plans WHERE key = $3 AND status = 'ACTIVE')
-		RETURNING id, organisation_id, application_id, plan_key, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
-	`, item.OrganisationID, item.ApplicationID, item.PlanKey, item.Status, item.BillingStart, item.BillingEnd, item.TrialStart, item.TrialEnd)
+		WHERE EXISTS (SELECT 1 FROM plans WHERE id = $3 AND status = 'ACTIVE')
+		RETURNING id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
+	`, item.OwnerType, item.OwnerID, item.PlanID, item.Status, item.BillingStart, item.BillingEnd, item.TrialStart, item.TrialEnd)
 	result, err := scanSubscription(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Subscription{}, errInvalid
@@ -458,24 +706,24 @@ func (r *repository) createSubscription(ctx context.Context, item Subscription) 
 }
 
 func (r *repository) getSubscription(ctx context.Context, id string) (Subscription, error) {
-	item, err := scanSubscription(r.db.QueryRowContext(ctx, `SELECT id, organisation_id, application_id, plan_key, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at FROM subscriptions WHERE id = $1`, id))
+	item, err := scanSubscription(r.db.QueryRowContext(ctx, `SELECT id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at FROM subscriptions WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Subscription{}, errNotFound
 	}
 	return item, err
 }
 
-func (r *repository) setSubscriptionStatus(ctx context.Context, id string, status string, planKey string) (Subscription, error) {
+func (r *repository) setSubscriptionStatus(ctx context.Context, id string, status string, planID string) (Subscription, error) {
 	if status == "" {
 		status = "CANCELLED"
 	}
 	query := `UPDATE subscriptions SET status = $2, cancelled_at = CASE WHEN $2 = 'CANCELLED' THEN now() ELSE cancelled_at END, updated_at = now()`
 	args := []any{id, status}
-	if planKey != "" {
-		query += `, plan_key = $3`
-		args = append(args, planKey)
+	if planID != "" {
+		query += `, plan_id = $3`
+		args = append(args, planID)
 	}
-	query += ` WHERE id = $1 RETURNING id, organisation_id, application_id, plan_key, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at`
+	query += ` WHERE id = $1 RETURNING id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at`
 	item, err := scanSubscription(r.db.QueryRowContext(ctx, query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Subscription{}, errNotFound
@@ -483,21 +731,21 @@ func (r *repository) setSubscriptionStatus(ctx context.Context, id string, statu
 	return item, err
 }
 
-func (r *repository) entitlements(ctx context.Context, applicationID string) (Subscription, []PlanFeature, error) {
+func (r *repository) entitlements(ctx context.Context, ownerID string) (Subscription, []PlanFeature, error) {
 	sub, err := scanSubscription(r.db.QueryRowContext(ctx, `
-		SELECT id, organisation_id, application_id, plan_key, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
+		SELECT id, owner_type, owner_id, plan_id, status, billing_period_start, billing_period_end, trial_start, trial_end, cancel_at, cancelled_at, created_at, updated_at
 		FROM subscriptions
-		WHERE application_id = $1 AND status IN ('ACTIVE', 'TRIAL')
+		WHERE owner_type = 'application' AND owner_id = $1 AND status IN ('ACTIVE', 'TRIAL')
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, applicationID))
+	`, ownerID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Subscription{}, []PlanFeature{}, nil
 	}
 	if err != nil {
 		return Subscription{}, nil, err
 	}
-	features, err := r.listPlanFeatures(ctx, sub.PlanKey)
+	features, err := r.listPlanFeatures(ctx, sub.PlanID)
 	return sub, features, err
 }
 

@@ -12,37 +12,45 @@ export type SubscriptionActor = {
 };
 
 export type SubscriptionProduct = {
-  key: string;
-  service_key: string;
+  id: string;
+  service_id: string;
   name: string;
   description: string;
   status: string;
-  plan_selectable: boolean;
+  is_selectable: boolean;
   created_at: string;
   updated_at: string;
 };
 
 export type SubscriptionFeature = {
-  key: string;
-  product_key: string;
-  service_key?: string;
+  id: string;
+  product_id: string;
+  service_id?: string;
   name: string;
   description: string;
   status: string;
-  plan_selectable: boolean;
-  limit_metadata?: Record<string, unknown>;
+  is_selectable: boolean;
+  metadata?: Record<string, unknown>;
 };
 
 export type SubscriptionPlanFeature = {
-  plan_key: string;
-  feature_key: string;
-  product_key?: string;
-  service_key?: string;
-  limits?: Record<string, unknown>;
+  id: string;
+  plan_id: string;
+  feature_id: string;
+  product_id?: string;
+  service_id?: string;
+  limit_value?: Record<string, unknown>;
+};
+
+export type SubscriptionPlanProduct = {
+  id: string;
+  plan_id: string;
+  product_id: string;
+  service_id?: string;
 };
 
 export type SubscriptionPlan = {
-  key: string;
+  id: string;
   name: string;
   description: string;
   status: string;
@@ -50,26 +58,41 @@ export type SubscriptionPlan = {
   price_minor: number;
   billing_cycle: string;
   features?: SubscriptionPlanFeature[];
-  included_feature_keys?: string[];
+  products?: SubscriptionPlanProduct[];
+  included_feature_ids?: string[];
+  included_product_ids?: string[];
+};
+
+export type SubscriptionBillingCycle = {
+  key: string;
+  name: string;
 };
 
 export type OrganisationSubscription = {
   id: string;
-  organisation_id: string;
-  application_id: string;
-  plan_key: string;
+  owner_type: string;
+  owner_id: string;
+  plan_id: string;
   status: string;
   billing_period_start: string;
   billing_period_end: string;
 };
 
 export type ApplicationEntitlements = {
-  organisation_id?: string;
+  owner_type?: string;
+  owner_id?: string;
   application_id: string;
   subscription_id?: string;
-  plan_key?: string;
+  plan_id?: string;
   status?: string;
   features?: SubscriptionPlanFeature[];
+};
+
+export type SubscriptionPagination = {
+  limit: number;
+  offset: number;
+  count: number;
+  has_more: boolean;
 };
 
 export class SubscriptionServiceError extends Error {
@@ -98,6 +121,10 @@ async function parseResponse(response: Response) {
     const message =
       typeof body?.error?.message === "string"
         ? body.error.message
+        : typeof body?.error === "string"
+          ? body.error
+          : typeof body?.message === "string"
+            ? body.message
         : `Subscription service request failed with status ${response.status}.`;
     throw new SubscriptionServiceError(message, response.status);
   }
@@ -126,15 +153,31 @@ export async function listSubscriptionFeatures(actor?: SubscriptionActor | null)
   return result.features ?? [];
 }
 
-export async function listSubscriptionPlans(actor?: SubscriptionActor | null) {
-  const result = await request("/v1/plans?limit=100", actor) as { plans?: SubscriptionPlan[] };
+export async function listSubscriptionPlansPage(actor?: SubscriptionActor | null, options: { limit?: number; offset?: number } = {}) {
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+  const result = await request(`/v1/plans?${params.toString()}`, actor) as { plans?: SubscriptionPlan[]; pagination?: SubscriptionPagination };
   const plans = result.plans ?? [];
-  const detailed = await Promise.all(plans.map((plan) => getSubscriptionPlan(plan.key, actor).catch(() => plan)));
-  return detailed.filter((plan): plan is SubscriptionPlan => Boolean(plan));
+  const detailed = await Promise.all(plans.map((plan) => getSubscriptionPlan(plan.id, actor).catch(() => plan)));
+  return {
+    plans: detailed.filter((plan): plan is SubscriptionPlan => Boolean(plan)),
+    pagination: result.pagination ?? { limit, offset, count: plans.length, has_more: false },
+  };
 }
 
-export async function getSubscriptionPlan(planKey: string, actor?: SubscriptionActor | null) {
-  const result = await request(`/v1/plans/${encodeURIComponent(planKey)}`, actor) as { plan?: SubscriptionPlan };
+export async function listSubscriptionPlans(actor?: SubscriptionActor | null) {
+  const result = await listSubscriptionPlansPage(actor, { limit: 100, offset: 0 });
+  return result.plans;
+}
+
+export async function listSubscriptionBillingCycles(actor?: SubscriptionActor | null) {
+  const result = await request("/v1/plans/billing-cycles", actor) as { billing_cycles?: SubscriptionBillingCycle[] };
+  return result.billing_cycles ?? [];
+}
+
+export async function getSubscriptionPlan(planId: string, actor?: SubscriptionActor | null) {
+  const result = await request(`/v1/plans/${encodeURIComponent(planId)}`, actor) as { plan?: SubscriptionPlan };
   return result.plan ?? null;
 }
 
@@ -151,29 +194,72 @@ export async function createSubscriptionProduct(input: Partial<SubscriptionProdu
   return request("/v1/products", actor, { method: "POST", body: JSON.stringify(input) });
 }
 
+export async function updateSubscriptionProduct(productId: string, input: Partial<SubscriptionProduct>, actor?: SubscriptionActor | null) {
+  return request(`/v1/products/${encodeURIComponent(productId)}`, actor, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function suspendSubscriptionProduct(productId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/products/${encodeURIComponent(productId)}/suspend`, actor, { method: "POST" });
+}
+
+export async function deleteSubscriptionProduct(productId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/products/${encodeURIComponent(productId)}`, actor, { method: "DELETE" });
+}
+
 export async function createSubscriptionFeature(input: Partial<SubscriptionFeature>, actor?: SubscriptionActor | null) {
   return request("/v1/product-features", actor, { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function updateSubscriptionFeature(featureId: string, input: Partial<SubscriptionFeature>, actor?: SubscriptionActor | null) {
+  return request(`/v1/product-features/${encodeURIComponent(featureId)}`, actor, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function disableSubscriptionFeature(featureId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/product-features/${encodeURIComponent(featureId)}/disable`, actor, { method: "POST" });
+}
+
+export async function deleteSubscriptionFeature(featureId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/product-features/${encodeURIComponent(featureId)}`, actor, { method: "DELETE" });
 }
 
 export async function createSubscriptionPlan(input: Partial<SubscriptionPlan>, actor?: SubscriptionActor | null) {
   return request("/v1/plans", actor, { method: "POST", body: JSON.stringify(input) });
 }
 
-export async function replaceSubscriptionPlanFeatures(planKey: string, featureKeys: string[], actor?: SubscriptionActor | null) {
-  return request(`/v1/plans/${encodeURIComponent(planKey)}/features`, actor, {
+export async function updateSubscriptionPlan(planId: string, input: Partial<SubscriptionPlan>, actor?: SubscriptionActor | null) {
+  return request(`/v1/plans/${encodeURIComponent(planId)}`, actor, { method: "PUT", body: JSON.stringify(input) });
+}
+
+export async function suspendSubscriptionPlan(planId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/plans/${encodeURIComponent(planId)}/suspend`, actor, { method: "POST" });
+}
+
+export async function deleteSubscriptionPlan(planId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/plans/${encodeURIComponent(planId)}`, actor, { method: "DELETE" });
+}
+
+export async function replaceSubscriptionPlanFeatures(planId: string, featureIds: string[], actor?: SubscriptionActor | null) {
+  return request(`/v1/plans/${encodeURIComponent(planId)}/features`, actor, {
     method: "PUT",
-    body: JSON.stringify({ feature_keys: featureKeys }),
+    body: JSON.stringify({ feature_ids: featureIds }),
+  });
+}
+
+export async function replaceSubscriptionPlanProducts(planId: string, productIds: string[], actor?: SubscriptionActor | null) {
+  return request(`/v1/plans/${encodeURIComponent(planId)}/products`, actor, {
+    method: "PUT",
+    body: JSON.stringify({ product_ids: productIds }),
   });
 }
 
 export async function createApplicationSubscription(input: {
   applicationId?: string;
   organisationId: string;
-  planKey: string;
+  planId: string;
 }, actor?: SubscriptionActor | null) {
   const applicationId = input.applicationId || defaultApplicationId();
   return request(`/v1/applications/${encodeURIComponent(applicationId)}/subscriptions`, actor, {
     method: "POST",
-    body: JSON.stringify({ organisation_id: input.organisationId, plan_key: input.planKey }),
+    body: JSON.stringify({ owner_type: "application", owner_id: applicationId, organisation_id: input.organisationId, plan_id: input.planId }),
   });
 }

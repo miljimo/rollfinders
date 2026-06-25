@@ -90,9 +90,16 @@ function splitRollfinderAcademyInput(input: unknown) {
     return { serviceInput: input, academyId: undefined as string | null | undefined, role: undefined as string | undefined };
   }
 
-  const serviceInput = { ...(input as Record<string, unknown>) };
-  const academyId = serviceInput.academyId;
-  const role = serviceInput.role;
+  const raw = input as Record<string, unknown>;
+  const academyId = raw.academyId;
+  const role = raw.role;
+  const serviceInput = {
+    name: raw.name,
+    email: raw.email,
+    role: raw.role,
+    status: raw.status,
+    academyId: raw.academyId,
+  };
   return {
     serviceInput,
     academyId: typeof academyId === "string" ? academyId.trim() || null : academyId === null ? null : undefined,

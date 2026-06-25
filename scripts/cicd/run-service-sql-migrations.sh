@@ -48,6 +48,10 @@ if [ -f apps/backend_api/migrations/analytics/001_coreSchema.sql ]; then
   (cd apps/backend_api/migrations/analytics && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
 fi
 
+if [ -f apps/backend_api/migrations/subscriptions/001_core_schema.sql ]; then
+  (cd apps/backend_api/migrations/subscriptions && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+fi
+
 if [ -d apps/backend_api/migrations/academy ]; then
   for dir in schema types tables procedures functions; do
     if [ -d "apps/backend_api/migrations/academy/${dir}" ]; then

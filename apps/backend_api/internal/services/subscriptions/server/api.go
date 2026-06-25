@@ -70,7 +70,7 @@ func (s *server) getProduct(w http.ResponseWriter, r *http.Request) {
 		s.handleError(w, r, err, "product get failed")
 		return
 	}
-	features, err := s.repo.listFeatures(r.Context(), 100, 0, product.Key)
+	features, err := s.repo.listFeatures(r.Context(), 100, 0, product.ID)
 	if err != nil {
 		s.handleError(w, r, err, "product feature list failed")
 		return
@@ -80,6 +80,29 @@ func (s *server) getProduct(w http.ResponseWriter, r *http.Request) {
 
 func (s *server) updateProduct(w http.ResponseWriter, r *http.Request) {
 	s.upsertProduct(w, r, r.PathValue("product_key"))
+}
+
+func (s *server) suspendProduct(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	result, err := s.repo.setProductStatus(r.Context(), r.PathValue("product_key"), "INACTIVE")
+	if err != nil {
+		s.handleError(w, r, err, "product suspend failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"product": result})
+}
+
+func (s *server) deleteProduct(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	if err := s.repo.deleteProduct(r.Context(), r.PathValue("product_key")); err != nil {
+		s.handleError(w, r, err, "product delete failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
 func (s *server) upsertProduct(w http.ResponseWriter, r *http.Request, pathKey string) {
@@ -92,7 +115,9 @@ func (s *server) upsertProduct(w http.ResponseWriter, r *http.Request, pathKey s
 		return
 	}
 	if pathKey != "" {
-		product.Key = pathKey
+		product.ID = pathKey
+	} else {
+		product.ID = newUUID()
 	}
 	result, err := s.repo.upsertProduct(r.Context(), product)
 	if err != nil {
@@ -110,7 +135,7 @@ func (s *server) listFeatures(w http.ResponseWriter, r *http.Request) {
 	if !s.requireRepository(w, r) {
 		return
 	}
-	features, err := s.repo.listFeatures(r.Context(), intQuery(r, "limit", 100), intQuery(r, "offset", 0), r.URL.Query().Get("product_key"))
+	features, err := s.repo.listFeatures(r.Context(), intQuery(r, "limit", 100), intQuery(r, "offset", 0), r.URL.Query().Get("product_id"))
 	if err != nil {
 		s.handleError(w, r, err, "feature list failed")
 		return
@@ -138,6 +163,29 @@ func (s *server) updateFeature(w http.ResponseWriter, r *http.Request) {
 	s.upsertFeature(w, r, r.PathValue("feature_key"))
 }
 
+func (s *server) disableFeature(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	result, err := s.repo.setFeatureStatus(r.Context(), r.PathValue("feature_key"), "INACTIVE")
+	if err != nil {
+		s.handleError(w, r, err, "feature disable failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"feature": result})
+}
+
+func (s *server) deleteFeature(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	if err := s.repo.deleteFeature(r.Context(), r.PathValue("feature_key")); err != nil {
+		s.handleError(w, r, err, "feature delete failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
+}
+
 func (s *server) upsertFeature(w http.ResponseWriter, r *http.Request, pathKey string) {
 	if !s.requireRepository(w, r) {
 		return
@@ -148,7 +196,9 @@ func (s *server) upsertFeature(w http.ResponseWriter, r *http.Request, pathKey s
 		return
 	}
 	if pathKey != "" {
-		feature.Key = pathKey
+		feature.ID = pathKey
+	} else {
+		feature.ID = newUUID()
 	}
 	result, err := s.repo.upsertFeature(r.Context(), feature)
 	if err != nil {
@@ -166,12 +216,38 @@ func (s *server) listPlans(w http.ResponseWriter, r *http.Request) {
 	if !s.requireRepository(w, r) {
 		return
 	}
-	plans, err := s.repo.listPlans(r.Context(), intQuery(r, "limit", 50), intQuery(r, "offset", 0))
+	limit := intQuery(r, "limit", 50)
+	offset := intQuery(r, "offset", 0)
+	plans, err := s.repo.listPlans(r.Context(), limit+1, offset)
 	if err != nil {
 		s.handleError(w, r, err, "plan list failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"plans": plans, "pagination": pagination(intQuery(r, "limit", 50), intQuery(r, "offset", 0), len(plans))})
+	hasMore := len(plans) > limit
+	if hasMore {
+		plans = plans[:limit]
+	}
+	meta := pagination(limit, offset, len(plans))
+	meta.HasMore = hasMore
+	if hasMore {
+		nextOffset := offset + len(plans)
+		meta.NextOffset = &nextOffset
+	} else {
+		meta.NextOffset = nil
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"plans": plans, "pagination": meta})
+}
+
+func (s *server) listBillingCycles(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	cycles, err := s.repo.listBillingCycles(r.Context())
+	if err != nil {
+		s.handleError(w, r, err, "billing cycle list failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"billing_cycles": cycles})
 }
 
 func (s *server) createPlan(w http.ResponseWriter, r *http.Request) {
@@ -194,6 +270,29 @@ func (s *server) updatePlan(w http.ResponseWriter, r *http.Request) {
 	s.upsertPlan(w, r, r.PathValue("plan_key"))
 }
 
+func (s *server) suspendPlan(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	result, err := s.repo.setPlanStatus(r.Context(), r.PathValue("plan_key"), "INACTIVE")
+	if err != nil {
+		s.handleError(w, r, err, "plan suspend failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"plan": result})
+}
+
+func (s *server) deletePlan(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	if err := s.repo.deletePlan(r.Context(), r.PathValue("plan_key")); err != nil {
+		s.handleError(w, r, err, "plan delete failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
+}
+
 func (s *server) upsertPlan(w http.ResponseWriter, r *http.Request, pathKey string) {
 	if !s.requireRepository(w, r) {
 		return
@@ -204,7 +303,9 @@ func (s *server) upsertPlan(w http.ResponseWriter, r *http.Request, pathKey stri
 		return
 	}
 	if pathKey != "" {
-		plan.Key = pathKey
+		plan.ID = pathKey
+	} else {
+		plan.ID = newUUID()
 	}
 	result, err := s.repo.upsertPlan(r.Context(), plan)
 	if err != nil {
@@ -219,8 +320,12 @@ func (s *server) upsertPlan(w http.ResponseWriter, r *http.Request, pathKey stri
 }
 
 type replacePlanFeaturesRequest struct {
-	Features    []PlanFeature `json:"features"`
-	FeatureKeys []string      `json:"feature_keys"`
+	Features   []PlanFeature `json:"features"`
+	FeatureIDs []string      `json:"feature_ids"`
+}
+
+type replacePlanProductsRequest struct {
+	ProductIDs []string `json:"product_ids"`
 }
 
 func (s *server) replacePlanFeatures(w http.ResponseWriter, r *http.Request) {
@@ -233,8 +338,8 @@ func (s *server) replacePlanFeatures(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	features := req.Features
-	for _, key := range req.FeatureKeys {
-		features = append(features, PlanFeature{FeatureKey: key})
+	for _, id := range req.FeatureIDs {
+		features = append(features, PlanFeature{FeatureID: id})
 	}
 	result, err := s.repo.replacePlanFeatures(r.Context(), r.PathValue("plan_key"), features)
 	if err != nil {
@@ -244,6 +349,25 @@ func (s *server) replacePlanFeatures(w http.ResponseWriter, r *http.Request) {
 	plan, _ := s.repo.getPlan(r.Context(), r.PathValue("plan_key"))
 	plan.Features = result
 	writeJSON(w, http.StatusOK, map[string]any{"plan": plan, "features": result})
+}
+
+func (s *server) replacePlanProducts(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	var req replacePlanProductsRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+	result, err := s.repo.replacePlanProducts(r.Context(), r.PathValue("plan_key"), req.ProductIDs)
+	if err != nil {
+		s.handleError(w, r, err, "plan products replace failed")
+		return
+	}
+	plan, _ := s.repo.getPlan(r.Context(), r.PathValue("plan_key"))
+	plan.Products = result
+	writeJSON(w, http.StatusOK, map[string]any{"plan": plan, "products": result})
 }
 
 func (s *server) availableProductFeatures(w http.ResponseWriter, r *http.Request) {
@@ -262,7 +386,7 @@ func (s *server) availableProductFeatures(w http.ResponseWriter, r *http.Request
 	}
 	activeFeatures := []ProductFeature{}
 	for _, feature := range features {
-		if feature.Status == "ACTIVE" && feature.PlanSelectable {
+		if feature.Status == "ACTIVE" && feature.IsSelectable {
 			activeFeatures = append(activeFeatures, feature)
 		}
 	}
@@ -288,8 +412,10 @@ func (s *server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
 }
 
 type createSubscriptionRequest struct {
+	OwnerType          string `json:"owner_type"`
+	OwnerID            string `json:"owner_id"`
 	OrganisationID     string `json:"organisation_id"`
-	PlanKey            string `json:"plan_key"`
+	PlanID             string `json:"plan_id"`
 	Status             string `json:"status"`
 	BillingPeriodStart string `json:"billing_period_start"`
 	BillingPeriodEnd   string `json:"billing_period_end"`
@@ -304,7 +430,15 @@ func (s *server) createSubscription(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
 		return
 	}
-	item := Subscription{OrganisationID: req.OrganisationID, ApplicationID: r.PathValue("application_id"), PlanKey: req.PlanKey, Status: req.Status}
+	ownerType := strings.TrimSpace(req.OwnerType)
+	if ownerType == "" {
+		ownerType = "application"
+	}
+	ownerID := strings.TrimSpace(req.OwnerID)
+	if ownerID == "" {
+		ownerID = r.PathValue("application_id")
+	}
+	item := Subscription{OwnerType: ownerType, OwnerID: ownerID, PlanID: req.PlanID, Status: req.Status}
 	item.BillingStart = parseTimeOr(req.BillingPeriodStart, time.Now().UTC())
 	item.BillingEnd = parseTimeOr(req.BillingPeriodEnd, item.BillingStart.AddDate(0, 1, 0))
 	result, err := s.repo.createSubscription(r.Context(), item)
@@ -340,7 +474,7 @@ func (s *server) cancelSubscription(w http.ResponseWriter, r *http.Request) {
 }
 
 type changePlanRequest struct {
-	PlanKey string `json:"plan_key"`
+	PlanID string `json:"plan_id"`
 }
 
 func (s *server) changePlan(w http.ResponseWriter, r *http.Request) {
@@ -352,11 +486,11 @@ func (s *server) changePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
 		return
 	}
-	if strings.TrimSpace(req.PlanKey) == "" {
-		writeError(w, r, http.StatusBadRequest, "invalid_request", "plan_key is required.")
+	if strings.TrimSpace(req.PlanID) == "" {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", "plan_id is required.")
 		return
 	}
-	item, err := s.repo.setSubscriptionStatus(r.Context(), r.PathValue("subscription_id"), "ACTIVE", req.PlanKey)
+	item, err := s.repo.setSubscriptionStatus(r.Context(), r.PathValue("subscription_id"), "ACTIVE", req.PlanID)
 	if err != nil {
 		s.handleError(w, r, err, "subscription change plan failed")
 		return
@@ -374,10 +508,11 @@ func (s *server) entitlements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"organisation_id": subscription.OrganisationID,
+		"owner_type":      subscription.OwnerType,
+		"owner_id":        subscription.OwnerID,
 		"application_id":  r.PathValue("application_id"),
 		"subscription_id": subscription.ID,
-		"plan_key":        subscription.PlanKey,
+		"plan_id":         subscription.PlanID,
 		"status":          subscription.Status,
 		"features":        features,
 	})

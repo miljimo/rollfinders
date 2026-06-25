@@ -107,11 +107,16 @@ const (
 	WebhooksProvider                                     = gatewayroutes.WebhooksProvider
 	SubscriptionProducts                                 = gatewayroutes.SubscriptionProducts
 	SubscriptionProduct                                  = gatewayroutes.SubscriptionProduct
+	SubscriptionProductSuspend                           = gatewayroutes.SubscriptionProductSuspend
 	SubscriptionProductFeatures                          = gatewayroutes.SubscriptionProductFeatures
 	SubscriptionProductFeature                           = gatewayroutes.SubscriptionProductFeature
+	SubscriptionProductFeatureDisable                    = gatewayroutes.SubscriptionProductFeatureDisable
 	SubscriptionPlans                                    = gatewayroutes.SubscriptionPlans
+	SubscriptionPlanBillingCycles                        = gatewayroutes.SubscriptionPlanBillingCycles
 	SubscriptionPlan                                     = gatewayroutes.SubscriptionPlan
+	SubscriptionPlanSuspend                              = gatewayroutes.SubscriptionPlanSuspend
 	SubscriptionPlanFeatures                             = gatewayroutes.SubscriptionPlanFeatures
+	SubscriptionPlanProducts                             = gatewayroutes.SubscriptionPlanProducts
 	SubscriptionApplicationAvailableFeatures             = gatewayroutes.SubscriptionApplicationAvailableFeatures
 	SubscriptionApplicationSubscriptions                 = gatewayroutes.SubscriptionApplicationSubscriptions
 	SubscriptionRecord                                   = gatewayroutes.SubscriptionRecord

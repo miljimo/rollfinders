@@ -32,6 +32,7 @@ COPY apps/backend_api/migrations/academy ./apps/backend_api/migrations/academy
 COPY apps/backend_api/migrations/authorisation ./apps/backend_api/migrations/authorisation
 COPY apps/backend_api/migrations/notification ./apps/backend_api/migrations/notification
 COPY apps/backend_api/migrations/analytics ./apps/backend_api/migrations/analytics
+COPY apps/backend_api/migrations/subscriptions ./apps/backend_api/migrations/subscriptions
 COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
@@ -64,6 +65,7 @@ COPY --chown=nextjs:nodejs apps/backend_api/migrations/academy ./apps/backend_ap
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/authorisation ./apps/backend_api/migrations/authorisation
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/notification ./apps/backend_api/migrations/notification
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/analytics ./apps/backend_api/migrations/analytics
+COPY --chown=nextjs:nodejs apps/backend_api/migrations/subscriptions ./apps/backend_api/migrations/subscriptions
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs apps/portal/src/lib/email/templates ./apps/portal/src/lib/email/templates
 COPY --chown=nextjs:nodejs apps/portal/src/lib/prisma-pg-pool.ts ./apps/portal/src/lib/prisma-pg-pool.ts

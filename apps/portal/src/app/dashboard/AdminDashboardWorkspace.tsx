@@ -736,6 +736,7 @@ export default async function AdminDashboardWorkspace({
       ? [
           { active: panel === "analytics", href: "/dashboard/analytics", icon: "dashboard", label: "Analytics" } satisfies SidePanelItem,
           { active: panel === "platform-admin-academies", href: "/dashboard/academy-review", icon: "academies", label: "Academy Review" } satisfies SidePanelItem,
+          { active: panel === "subscriptions", href: "/dashboard/subscriptions", icon: "payments", label: "Subscriptions" } satisfies SidePanelItem,
         ]
       : []),
     ...(elevatedAdmin
