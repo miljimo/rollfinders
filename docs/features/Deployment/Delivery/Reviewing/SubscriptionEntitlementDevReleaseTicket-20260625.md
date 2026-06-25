@@ -8,7 +8,7 @@ Reviewing. Prepared for developer-environment deployment on 2026-06-25. Not depl
 
 * Source branch: `master`
 * Target environment: `dev`
-* Current release candidate commit: pending local commit for full runtime backend service deployment metadata.
+* Current release candidate commit: `22bba08 Enable dev deployment for backend services`
 * Included entitlement baseline commit: `34d876d Implement subscription entitlement enforcement`
 * Release preparation state: committed locally on `master`.
 * Requested date: 2026-06-25
@@ -232,7 +232,7 @@ If dev health checks fail, migrations fail, or dashboard login/users/subscriptio
 * [x] Release-specific deployment contract tests passed.
 * [ ] Full historical `npm run test` suite green.
 * [x] Release prep changes committed locally to `master` as `ae52a6f`.
-* [ ] Full runtime backend service deployment metadata committed to `master`.
+* [x] Full runtime backend service deployment metadata committed to `master` as `22bba08`.
 * [ ] `master` pushed to remote.
 * [ ] Bitbucket dev deployment completed.
 * [ ] Dev smoke checks completed.
