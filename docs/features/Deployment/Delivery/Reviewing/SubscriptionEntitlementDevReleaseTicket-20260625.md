@@ -8,8 +8,9 @@ Reviewing. Prepared for developer-environment deployment on 2026-06-25. Not depl
 
 * Source branch: `master`
 * Target environment: `dev`
-* Current committed application change: `34d876d Implement subscription entitlement enforcement`
-* Release preparation state: deployment-script and release-ticket changes are pending commit in the local worktree.
+* Current release candidate commit: `ae52a6f Implement subscription billing boundary and deployment fixes`
+* Included entitlement baseline commit: `34d876d Implement subscription entitlement enforcement`
+* Release preparation state: committed locally on `master`.
 * Requested date: 2026-06-25
 * Release owner request: Product owner request in Codex session
 
@@ -95,6 +96,8 @@ npm run build
 TF_DATA_DIR=/tmp/rollfinder-tfdata-dev-release terraform -chdir=infrastructure/terraform init -backend=false
 TF_DATA_DIR=/tmp/rollfinder-tfdata-dev-release terraform -chdir=infrastructure/terraform validate
 node --import tsx --test apps/portal/src/lib/__tests__/deployment-contracts.test.ts apps/portal/src/lib/__tests__/email-operations-contracts.test.ts
+docker build -f apps/backend_api/containers/api/Dockerfile -t rollfinder-release-check-api:local .
+docker build -f apps/backend_api/containers/subscriptions/Dockerfile -t rollfinder-release-check-subscriptions:local .
 ```
 
 Results:
@@ -105,6 +108,8 @@ Results:
 * Portal production build passed.
 * Terraform validation passed using isolated `TF_DATA_DIR`.
 * Deployment and email operation contract tests passed: 21/21.
+* API Gateway Docker image build passed locally.
+* Subscription Service Docker image build passed locally.
 
 ### Full Unit Test Status
 
@@ -219,7 +224,7 @@ If dev health checks fail, migrations fail, or dashboard login/users/subscriptio
 * [x] Terraform validate passed.
 * [x] Release-specific deployment contract tests passed.
 * [ ] Full historical `npm run test` suite green.
-* [ ] Release prep changes committed.
+* [x] Release prep changes committed locally to `master` as `ae52a6f`.
 * [ ] `master` pushed to remote.
 * [ ] Bitbucket dev deployment completed.
 * [ ] Dev smoke checks completed.
