@@ -5,7 +5,7 @@ ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-production}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 export PROJECT_DIR
-TERRAFORM_DIR="${PROJECT_DIR}/terraform"
+TERRAFORM_DIR="${TERRAFORM_DIR:-${PROJECT_DIR}/infrastructure/terraform}"
 TFVARS="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/common.tfvars"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
 
@@ -49,8 +49,8 @@ if [[ -z "${IMAGE_URI:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" ]]; then
-  echo "image.env must include USER_SERVICE_IMAGE_URI and PAYMENT_SERVICE_IMAGE_URI for this release."
+if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" ]]; then
+  echo "image.env must include API_SERVICE_IMAGE_URI, USER_SERVICE_IMAGE_URI, PAYMENT_SERVICE_IMAGE_URI, AUTHORISATION_SERVICE_IMAGE_URI, and SUBSCRIPTION_SERVICE_IMAGE_URI for this release."
   echo "Run scripts/cicd/build-go-services.sh after scripts/cicd/build.sh, or set FORCE_SERVICE_REDEPLOY=true SERVICE_REDEPLOY_TARGET=all."
   exit 1
 fi

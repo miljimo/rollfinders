@@ -247,7 +247,8 @@ func validEmailStatusOrEmpty(status string) string {
 }
 
 func isUniqueViolation(err error) bool {
-	if pqErr, ok := err.(*pq.Error); ok {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
 		return pqErr.Code == "23505"
 	}
 	return false

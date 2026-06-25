@@ -395,7 +395,7 @@ export async function deleteManagedUser(actor: ActorContext, id: string) {
     headers: headers(actor),
   });
   const result = await parseResponse(response);
-  await removeRollfinderUserProfile(id);
+  await removeRollfinderUserProfile(id, actor);
   return result;
 }
 
@@ -407,6 +407,6 @@ export async function mutateManagedUser(actor: ActorContext, id: string, mutatio
     headers: headers(actor),
   });
   const result = await parseResponse(response) as { user: ManagedUser };
-  await syncRollfinderUserProfile(result.user);
-  return { user: await enrichManagedUserWithRollfinderProfile(result.user) as ManagedUser };
+  const user = await syncRollfinderUserProfile(result.user, undefined, actor);
+  return { user: await enrichManagedUserWithRollfinderProfile(user, actor) as ManagedUser };
 }

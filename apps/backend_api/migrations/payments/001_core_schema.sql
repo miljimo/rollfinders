@@ -16,6 +16,8 @@ SET search_path TO payments, public;
 \ir tables/011_payoutRequestStatusHistory.sql
 \ir tables/012_payoutRequestAuditEvents.sql
 \ir tables/013_paymentAccountSettings.sql
+\ir tables/014_subscriptionBilling.sql
+\ir tables/015_subscriptionInvoices.sql
 \ir functions/001_paymentGet.sql
 \ir functions/002_paymentClientGet.sql
 \ir functions/003_checkoutGet.sql

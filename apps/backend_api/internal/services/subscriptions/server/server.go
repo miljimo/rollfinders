@@ -18,7 +18,7 @@ type server struct {
 	cfg     config.Config
 	logger  *slog.Logger
 	repo    *repository
-	billing stripeBillingClient
+	billing paymentBillingClient
 }
 
 func New(opts Options) http.Handler {
@@ -28,9 +28,9 @@ func New(opts Options) http.Handler {
 	s := &server{
 		cfg:    opts.Config,
 		logger: opts.Logger,
-		billing: stripeBillingClient{
-			apiVersion: opts.Config.StripeAPIVersion,
-			secretKey:  opts.Config.StripeSecretKey,
+		billing: paymentBillingClient{
+			baseURL: opts.Config.PaymentBaseURL,
+			client:  http.DefaultClient,
 		},
 	}
 	if opts.Config.DatabaseURL != "" {

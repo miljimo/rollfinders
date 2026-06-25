@@ -17,22 +17,31 @@ describe("deployment safety contracts", () => {
     assert.match(migrate, command);
   });
 
-  it("blocks environment deploys when app, users, or payments images are missing", () => {
+  it("blocks environment deploys when required app and service images are missing", () => {
     const deployEnvironment = readSource("scripts/cicd/deploy-environment.sh");
 
     assert.match(deployEnvironment, /image\.env is missing IMAGE_URI/);
+    assert.match(deployEnvironment, /API_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /USER_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /PAYMENT_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /AUTHORISATION_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /SUBSCRIPTION_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /build-go-services\.sh/);
   });
 
-  it("promotes app, users, and payments images together", () => {
+  it("promotes app and service images together", () => {
     const promotion = readSource("scripts/cicd/promotion.sh");
 
+    assert.match(promotion, /"api_service_image_uri":\s*os\.environ\["API_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"user_service_image_uri":\s*os\.environ\["USER_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"payment_service_image_uri":\s*os\.environ\["PAYMENT_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"authorisation_service_image_uri":\s*os\.environ\["AUTHORISATION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"subscription_service_image_uri":\s*os\.environ\["SUBSCRIPTION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /echo "API_SERVICE_IMAGE_URI=\$\{api_service_image\}"/);
     assert.match(promotion, /echo "USER_SERVICE_IMAGE_URI=\$\{user_service_image\}"/);
     assert.match(promotion, /echo "PAYMENT_SERVICE_IMAGE_URI=\$\{payment_service_image\}"/);
+    assert.match(promotion, /echo "AUTHORISATION_SERVICE_IMAGE_URI=\$\{authorisation_service_image\}"/);
+    assert.match(promotion, /echo "SUBSCRIPTION_SERVICE_IMAGE_URI=\$\{subscription_service_image\}"/);
   });
 
   it("runs migrations before rolling the ECS service to the new task definition", () => {
@@ -52,17 +61,19 @@ describe("deployment safety contracts", () => {
     assert.doesNotMatch(coreSchema, /\\ir backfills\//);
   });
 
-  it("lets one-shot migration tasks finish even before service schemas are ready", () => {
-    const terraform = readSource("terraform/main.tf");
+  it("runs service SQL migrations from the deployment image before and after Prisma", () => {
+    const migrate = readSource("scripts/cicd/migrate.sh");
+    const dockerfile = readSource("Dockerfile");
 
-    assert.match(terraform, /name\s+=\s+"users"[\s\S]*?essential\s+=\s+false/);
-    assert.match(terraform, /name\s+=\s+"payments"[\s\S]*?essential\s+=\s+false/);
+    assert.match(migrate, /sh scripts\/cicd\/run-service-sql-migrations\.sh && npx prisma migrate deploy && sh scripts\/cicd\/run-service-sql-migrations\.sh/);
+    assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/authorisation \.\/apps\/backend_api\/migrations\/authorisation/);
+    assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/subscriptions \.\/apps\/backend_api\/migrations\/subscriptions/);
   });
 
   it("stores application runtime configuration in SSM parameters instead of one Secrets Manager JSON blob", () => {
-    const appSecretsModule = readSource("terraform/modules/app_secrets/main.tf");
-    const appSecretsOutputs = readSource("terraform/modules/app_secrets/outputs.tf");
-    const terraform = readSource("terraform/main.tf");
+    const appSecretsModule = readSource("infrastructure/terraform/modules/app_secrets/main.tf");
+    const appSecretsOutputs = readSource("infrastructure/terraform/modules/app_secrets/outputs.tf");
+    const terraform = readSource("infrastructure/terraform/main.tf");
 
     assert.match(appSecretsModule, /resource\s+"aws_ssm_parameter"\s+"app"/);
     assert.match(appSecretsModule, /for_each\s+=\s+nonsensitive\(toset\(keys\(var\.secret_values\)\)\)/);
@@ -76,7 +87,7 @@ describe("deployment safety contracts", () => {
   });
 
   it("keeps DATABASE_URL compatible with psql and Go libpq clients", () => {
-    const terraform = readSource("terraform/main.tf");
+    const terraform = readSource("infrastructure/terraform/main.tf");
 
     assert.doesNotMatch(terraform, /uselibpqcompat/);
     assert.match(terraform, /DATABASE_URL\s*=\s*"postgresql:\/\/\$\{var\.db_username\}:\$\{random_password\.db\.result\}@\$\{module\.database\.address\}:5432\/\$\{var\.db_name\}\?sslmode=require"/);
@@ -116,6 +127,6 @@ describe("deployment safety contracts", () => {
     }
     assert.match(pool, /url\.searchParams\.delete\("sslmode"\)/);
     assert.match(pool, /sslMode === "require" \? \(\{ rejectUnauthorized: false \}/);
-    assert.match(dockerfile, /COPY --chown=nextjs:nodejs src\/lib\/prisma-pg-pool\.ts \.\/src\/lib\/prisma-pg-pool\.ts/);
+    assert.match(dockerfile, /COPY --chown=nextjs:nodejs apps\/portal\/src\/lib\/prisma-pg-pool\.ts \.\/apps\/portal\/src\/lib\/prisma-pg-pool\.ts/);
   });
 });

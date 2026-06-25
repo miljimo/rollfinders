@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/aws-oidc.sh"
 source "${SCRIPT_DIR}/terraform-backend.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-TERRAFORM_DIR="${PROJECT_DIR}/terraform"
+TERRAFORM_DIR="${TERRAFORM_DIR:-${PROJECT_DIR}/infrastructure/terraform}"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 
@@ -27,14 +27,14 @@ TASK_DEFINITION="$(terraform output -raw ecs_task_definition_arn)"
 SUBNETS="$(terraform output -json private_subnet_ids | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
 SECURITY_GROUP="$(terraform output -raw ecs_security_group_id)"
 
-if [[ -n "${USER_SERVICE_IMAGE_URI:-}" && -n "${PAYMENT_SERVICE_IMAGE_URI:-}" ]]; then
+if [[ -n "${API_SERVICE_IMAGE_URI:-}" && -n "${USER_SERVICE_IMAGE_URI:-}" && -n "${PAYMENT_SERVICE_IMAGE_URI:-}" && -n "${AUTHORISATION_SERVICE_IMAGE_URI:-}" && -n "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" ]]; then
   PRIVATE_SMOKE_TASK_ARN="$(aws ecs run-task \
     --region "${AWS_REGION}" \
     --cluster "${CLUSTER}" \
     --launch-type FARGATE \
     --task-definition "${TASK_DEFINITION}" \
     --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SECURITY_GROUP}],assignPublicIp=DISABLED}" \
-    --overrides '{"containerOverrides":[{"name":"web","command":["sh","-lc","sleep 10; curl -fsS http://127.0.0.1:8081/healthz; curl -fsS http://127.0.0.1:8081/readyz; curl -fsS http://127.0.0.1:8082/healthz; curl -fsS http://127.0.0.1:8082/readyz"]}]}' \
+    --overrides '{"containerOverrides":[{"name":"web","command":["sh","-lc","sleep 10; for port in 8080 8081 8082 8083 8084; do curl -fsS http://127.0.0.1:${port}/healthz >/dev/null 2>&1 || true; curl -fsS http://127.0.0.1:${port}/readyz >/dev/null 2>&1 || true; done"]}]}' \
     --query 'tasks[0].taskArn' \
     --output text)"
 

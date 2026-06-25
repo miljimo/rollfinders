@@ -115,6 +115,18 @@ Payments Service is responsible for:
 
 Payments Service must not know what a subscription includes.
 
+Subscription Service must not call Stripe or any payment provider directly. For paid subscription actions, Subscription Service creates the subscription or plan-change state, then requests billing checkout from Payment Service through the Payment Service billing subscription or checkout contract.
+
+Payment Service billing routes must not reuse the RollFinders Subscription Service `/v1/subscriptions/...` route family. `/v1/subscriptions/...` remains the Subscription Service API for subscriber records, plan changes, cancellation, checkout handoff, and entitlement-related state. Payment-provider billing records belong under Payment Service-owned routes such as:
+
+```http
+POST /v1/billing/subscriptions
+GET /v1/billing/subscriptions/{billing_subscription_id}
+GET /v1/billing/subscriptions/{billing_subscription_id}/invoices
+```
+
+Subscription Service may store Payment Service identifiers, checkout IDs, provider references, and billing event summaries, but it must not duplicate invoice accounting or recurring payment ledger behaviour.
+
 ### Authorisation Service
 
 Authorisation Service is responsible for:

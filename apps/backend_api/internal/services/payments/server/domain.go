@@ -200,19 +200,21 @@ type providerEvent struct {
 }
 
 type store struct {
-	db        databases.DataContext
-	mu        sync.Mutex
-	next      int64
-	payments  map[string]*Payment
-	checkouts map[string]*Checkout
-	clients   map[string]*PaymentClient
-	refunds   map[string][]*Refund
-	payouts   map[string]*PayoutRequest
-	idem      map[string]idempotencyRecord
-	idemWait  map[string]chan struct{}
-	events    map[providerEvent]struct{}
-	outbox    []*OutboxEvent
-	metrics   metrics
+	db            databases.DataContext
+	mu            sync.Mutex
+	next          int64
+	payments      map[string]*Payment
+	checkouts     map[string]*Checkout
+	subscriptions map[string]*BillingSubscription
+	invoices      map[string][]*SubscriptionInvoice
+	clients       map[string]*PaymentClient
+	refunds       map[string][]*Refund
+	payouts       map[string]*PayoutRequest
+	idem          map[string]idempotencyRecord
+	idemWait      map[string]chan struct{}
+	events        map[providerEvent]struct{}
+	outbox        []*OutboxEvent
+	metrics       metrics
 }
 
 func newStore(databaseURL ...string) *store {
@@ -223,15 +225,17 @@ func newStore(databaseURL ...string) *store {
 		}
 	}
 	return &store{
-		db:        db,
-		payments:  map[string]*Payment{},
-		checkouts: map[string]*Checkout{},
-		clients:   map[string]*PaymentClient{},
-		refunds:   map[string][]*Refund{},
-		payouts:   map[string]*PayoutRequest{},
-		idem:      map[string]idempotencyRecord{},
-		idemWait:  map[string]chan struct{}{},
-		events:    map[providerEvent]struct{}{},
+		db:            db,
+		payments:      map[string]*Payment{},
+		checkouts:     map[string]*Checkout{},
+		subscriptions: map[string]*BillingSubscription{},
+		invoices:      map[string][]*SubscriptionInvoice{},
+		clients:       map[string]*PaymentClient{},
+		refunds:       map[string][]*Refund{},
+		payouts:       map[string]*PayoutRequest{},
+		idem:          map[string]idempotencyRecord{},
+		idemWait:      map[string]chan struct{}{},
+		events:        map[providerEvent]struct{}{},
 	}
 }
 

@@ -123,8 +123,8 @@ describe("email operations contracts", () => {
     const provisioning = readSource("apps/portal/src/lib/email-provisioning.ts");
     const reliableEmail = readSource("apps/portal/src/lib/reliable-email.ts");
     const notificationSmtp = readSource("apps/backend_api/internal/services/notification/providers/smtp.go");
-    const terraform = readSource("terraform/main.tf");
-    const variables = readSource("terraform/variables.tf");
+    const terraform = readSource("infrastructure/terraform/main.tf");
+    const variables = readSource("infrastructure/terraform/variables.tf");
     const packageJson = readSource("package.json");
 
     assert.doesNotMatch(provisioning, /EMAIL_DELIVERY_PROVIDER|provider:|region:/);

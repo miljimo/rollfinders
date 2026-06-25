@@ -7,16 +7,16 @@ Supported environments:
 - `dev`
 - `production`
 
-Bootstrap remote state once from `terraform/bootstrap`:
+Bootstrap remote state once from `infrastructure/terraform/bootstrap`:
 
 ```bash
 ./scripts/cicd/bootstrap-state.sh
 ```
 
-Then deploy an environment from `terraform`:
+Then deploy an environment from `infrastructure/terraform`:
 
 ```bash
-cd terraform
+cd infrastructure/terraform
 AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 terraform init \
   -backend-config=environments/dev/backend.tfvars \

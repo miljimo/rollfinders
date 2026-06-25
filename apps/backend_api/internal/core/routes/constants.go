@@ -221,6 +221,12 @@ const (
 	PaymentAccountsStripeConnect          GatewayTargetPath = "/v1/payment-accounts/stripe/connect"
 	PaymentAccountsStripeDisconnect       GatewayTargetPath = "/v1/payment-accounts/stripe/disconnect"
 	PaymentAccountsStripeRefresh          GatewayTargetPath = "/v1/payment-accounts/stripe/refresh"
+	PaymentBillingSubscriptions           GatewayTargetPath = "/v1/billing/subscriptions"
+	PaymentBillingSubscriptionsId         GatewayTargetPath = "/v1/billing/subscriptions/{billingSubscriptionId}"
+	PaymentBillingSubscriptionsIdCancel   GatewayTargetPath = "/v1/billing/subscriptions/{billingSubscriptionId}/cancel"
+	PaymentBillingSubscriptionsIdInvoices GatewayTargetPath = "/v1/billing/subscriptions/{billingSubscriptionId}/invoices"
+	PaymentBillingSubscriptionsIdPayments GatewayTargetPath = "/v1/billing/subscriptions/{billingSubscriptionId}/payments"
+	PaymentBillingSubscriptionsIdResume   GatewayTargetPath = "/v1/billing/subscriptions/{billingSubscriptionId}/resume"
 	Payments                              GatewayTargetPath = "/v1/payments"
 	PaymentsPaymentId                     GatewayTargetPath = "/v1/payments/{paymentId}"
 	PaymentsPaymentIdCancel               GatewayTargetPath = "/v1/payments/{paymentId}/cancel"
@@ -236,38 +242,43 @@ const (
 	PayoutRequestsPayoutRequestIdRelease  GatewayTargetPath = "/v1/payout-requests/{payoutRequestId}/release"
 	WebhooksProvider                      GatewayTargetPath = "/v1/webhooks/{provider}"
 
-	PermissionPaymentAccountConnect    GatewayPermissionName = "payment.account.connect"
-	PermissionPaymentAccountDisconnect GatewayPermissionName = "payment.account.disconnect"
-	PermissionPaymentAccountRead       GatewayPermissionName = "payment.account.read"
-	PermissionPaymentCancel            GatewayPermissionName = "payment.cancel"
-	PermissionPaymentCapture           GatewayPermissionName = "payment.capture"
-	PermissionPaymentCheckoutCreate    GatewayPermissionName = "payment.checkout.create"
-	PermissionPaymentClientCreate      GatewayPermissionName = "payment.client.create"
-	PermissionPaymentCreate            GatewayPermissionName = "payment.create"
-	PermissionPaymentPayeeBalanceRead  GatewayPermissionName = "payment.payee.balance.read"
-	PermissionPaymentRead              GatewayPermissionName = "payment.read"
-	PermissionPaymentRefundCreate      GatewayPermissionName = "payment.refund.create"
-	PermissionPaymentRefundRead        GatewayPermissionName = "payment.refund.read"
-	PermissionPaymentSearch            GatewayPermissionName = "payment.search"
-	PermissionPayoutRequestApprove     GatewayPermissionName = "payout.request.approve"
-	PermissionPayoutRequestCancel      GatewayPermissionName = "payout.request.cancel"
-	PermissionPayoutRequestCreate      GatewayPermissionName = "payout.request.create"
-	PermissionPayoutRequestHold        GatewayPermissionName = "payout.request.hold"
-	PermissionPayoutRequestMarkPaid    GatewayPermissionName = "payout.request.mark_paid"
-	PermissionPayoutRequestRead        GatewayPermissionName = "payout.request.read"
-	PermissionPayoutRequestReject      GatewayPermissionName = "payout.request.reject"
-	PermissionPayoutRequestRelease     GatewayPermissionName = "payout.request.release"
-	PermissionPayoutRequestSearch      GatewayPermissionName = "payout.request.search"
+	PermissionPaymentAccountConnect     GatewayPermissionName = "payment.account.connect"
+	PermissionPaymentAccountDisconnect  GatewayPermissionName = "payment.account.disconnect"
+	PermissionPaymentAccountRead        GatewayPermissionName = "payment.account.read"
+	PermissionPaymentCancel             GatewayPermissionName = "payment.cancel"
+	PermissionPaymentCapture            GatewayPermissionName = "payment.capture"
+	PermissionPaymentCheckoutCreate     GatewayPermissionName = "payment.checkout.create"
+	PermissionPaymentClientCreate       GatewayPermissionName = "payment.client.create"
+	PermissionPaymentCreate             GatewayPermissionName = "payment.create"
+	PermissionPaymentSubscriptionCreate GatewayPermissionName = "payment.subscription.create"
+	PermissionPaymentSubscriptionManage GatewayPermissionName = "payment.subscription.manage"
+	PermissionPaymentSubscriptionRead   GatewayPermissionName = "payment.subscription.read"
+	PermissionPaymentPayeeBalanceRead   GatewayPermissionName = "payment.payee.balance.read"
+	PermissionPaymentRead               GatewayPermissionName = "payment.read"
+	PermissionPaymentRefundCreate       GatewayPermissionName = "payment.refund.create"
+	PermissionPaymentRefundRead         GatewayPermissionName = "payment.refund.read"
+	PermissionPaymentSearch             GatewayPermissionName = "payment.search"
+	PermissionPayoutRequestApprove      GatewayPermissionName = "payout.request.approve"
+	PermissionPayoutRequestCancel       GatewayPermissionName = "payout.request.cancel"
+	PermissionPayoutRequestCreate       GatewayPermissionName = "payout.request.create"
+	PermissionPayoutRequestHold         GatewayPermissionName = "payout.request.hold"
+	PermissionPayoutRequestMarkPaid     GatewayPermissionName = "payout.request.mark_paid"
+	PermissionPayoutRequestRead         GatewayPermissionName = "payout.request.read"
+	PermissionPayoutRequestReject       GatewayPermissionName = "payout.request.reject"
+	PermissionPayoutRequestRelease      GatewayPermissionName = "payout.request.release"
+	PermissionPayoutRequestSearch       GatewayPermissionName = "payout.request.search"
 
 	FeaturePaymentAcceptOnline GatewaySubscriptionFeatureKey = "payment.accept_online"
 
-	ResourcePayee         GatewayResourceType = "payee"
-	ResourcePayment       GatewayResourceType = "payment"
-	ResourcePayoutRequest GatewayResourceType = "payout_request"
+	ResourcePayee                      GatewayResourceType = "payee"
+	ResourcePaymentBillingSubscription GatewayResourceType = "payment_billing_subscription"
+	ResourcePayment                    GatewayResourceType = "payment"
+	ResourcePayoutRequest              GatewayResourceType = "payout_request"
 
-	ParamPayeeId         GatewayResourceIDParam = "payeeId"
-	ParamPaymentId       GatewayResourceIDParam = "paymentId"
-	ParamPayoutRequestId GatewayResourceIDParam = "payoutRequestId"
+	ParamPayeeId                      GatewayResourceIDParam = "payeeId"
+	ParamPaymentBillingSubscriptionId GatewayResourceIDParam = "billingSubscriptionId"
+	ParamPaymentId                    GatewayResourceIDParam = "paymentId"
+	ParamPayoutRequestId              GatewayResourceIDParam = "payoutRequestId"
 )
 
 const (
@@ -412,6 +423,9 @@ func GatewayResourceCatalog() map[GatewayPermissionName]GatewayResourceDefinitio
 		PermissionPaymentCheckoutCreate:              createGatewayResource(PermissionPaymentCheckoutCreate, Checkouts),
 		PermissionPaymentClientCreate:                createGatewayResource(PermissionPaymentClientCreate, Clients),
 		PermissionPaymentCreate:                      createGatewayResource(PermissionPaymentCreate, Payments),
+		PermissionPaymentSubscriptionCreate:          createGatewayResource(PermissionPaymentSubscriptionCreate, PaymentBillingSubscriptions),
+		PermissionPaymentSubscriptionManage:          createGatewayResource(PermissionPaymentSubscriptionManage, PaymentBillingSubscriptionsIdCancel),
+		PermissionPaymentSubscriptionRead:            createGatewayResource(PermissionPaymentSubscriptionRead, PaymentBillingSubscriptionsId),
 		PermissionPaymentPayeeBalanceRead:            createGatewayResource(PermissionPaymentPayeeBalanceRead, PayeesPayeeIdBalances),
 		PermissionPaymentRead:                        createGatewayResource(PermissionPaymentRead, PaymentsPaymentId),
 		PermissionPaymentRefundCreate:                createGatewayResource(PermissionPaymentRefundCreate, PaymentsPaymentIdRefunds),

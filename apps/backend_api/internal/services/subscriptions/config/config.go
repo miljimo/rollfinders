@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"rollfinders/internal/services/subscriptions/environments"
@@ -13,8 +14,7 @@ type Config struct {
 	Port               string
 	DatabaseURL        string
 	EnvironmentName    string
-	StripeSecretKey    string
-	StripeAPIVersion   string
+	PaymentBaseURL     string
 	CheckoutSuccessURL string
 	CheckoutCancelURL  string
 	ReadTimeout        time.Duration
@@ -28,11 +28,10 @@ func Load() (Config, error) {
 
 func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
-		Port:             env.GetWithDefault("PORT", "8080"),
-		DatabaseURL:      databaseURL(env),
-		EnvironmentName:  env.GetWithDefault("ENVIRONMENT_NAME", env.GetWithDefault("APP_ENV", "local")),
-		StripeSecretKey:  firstNonEmpty(env.Get("STRIPE_SECRET_KEY"), env.Get("PAYMENT_GATEWAY_API_KEY")),
-		StripeAPIVersion: env.GetWithDefault("STRIPE_API_VERSION", "2024-09-30.acacia"),
+		Port:            env.GetWithDefault("PORT", "8080"),
+		DatabaseURL:     databaseURL(env),
+		EnvironmentName: env.GetWithDefault("ENVIRONMENT_NAME", env.GetWithDefault("APP_ENV", "local")),
+		PaymentBaseURL:  cleanURL(env.GetWithDefault("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002")),
 		CheckoutSuccessURL: firstNonEmpty(
 			env.Get("SUBSCRIPTION_CHECKOUT_SUCCESS_URL"),
 			env.Get("PAYMENT_DEFAULT_CLIENT_CALLBACK_URL"),
@@ -75,6 +74,10 @@ func databaseURL(env environments.Environment) string {
 	port := env.GetWithDefault("DB_PORT", "5432")
 	credentials := url.UserPassword(user, password)
 	return fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=disable", credentials.String(), host, port, url.PathEscape(name))
+}
+
+func cleanURL(value string) string {
+	return strings.TrimRight(strings.TrimSpace(value), "/")
 }
 
 func durationOrDefault(env environments.Environment, key string, fallback time.Duration) time.Duration {

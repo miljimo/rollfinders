@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/aws-oidc.sh"
 source "${SCRIPT_DIR}/terraform-backend.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-TERRAFORM_DIR="${PROJECT_DIR}/terraform"
+TERRAFORM_DIR="${TERRAFORM_DIR:-${PROJECT_DIR}/infrastructure/terraform}"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
 
 if [[ "${ENVIRONMENT_NAME}" == "production" && "${PRODUCTION_APPROVED:-}" != "true" ]]; then
@@ -72,7 +72,7 @@ TASK_DEFINITION_PAYLOAD="$(
 )"
 
 IMAGES_ALREADY_MATCH="$(
-  TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" python3 - <<'PY'
+  TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" API_SERVICE_IMAGE_URI="${API_SERVICE_IMAGE_URI:-}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" AUTHORISATION_SERVICE_IMAGE_URI="${AUTHORISATION_SERVICE_IMAGE_URI:-}" SUBSCRIPTION_SERVICE_IMAGE_URI="${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" python3 - <<'PY'
 import json
 import os
 
@@ -84,6 +84,12 @@ if os.environ.get("USER_SERVICE_IMAGE_URI"):
     desired["users"] = os.environ["USER_SERVICE_IMAGE_URI"]
 if os.environ.get("PAYMENT_SERVICE_IMAGE_URI"):
     desired["payments"] = os.environ["PAYMENT_SERVICE_IMAGE_URI"]
+if os.environ.get("API_SERVICE_IMAGE_URI"):
+    desired["api"] = os.environ["API_SERVICE_IMAGE_URI"]
+if os.environ.get("AUTHORISATION_SERVICE_IMAGE_URI"):
+    desired["authorisation"] = os.environ["AUTHORISATION_SERVICE_IMAGE_URI"]
+if os.environ.get("SUBSCRIPTION_SERVICE_IMAGE_URI"):
+    desired["subscriptions"] = os.environ["SUBSCRIPTION_SERVICE_IMAGE_URI"]
 
 current = {container["name"]: container["image"] for container in task_definition["containerDefinitions"]}
 print("true" if all(current.get(name) == image for name, image in desired.items()) else "false")
@@ -130,7 +136,7 @@ EOF
   exit 0
 fi
 
-TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" TASK_DEFINITION_FILE="${TASK_DEFINITION_FILE}" python3 - <<'PY'
+TASK_DEFINITION_PAYLOAD="${TASK_DEFINITION_PAYLOAD}" IMAGE_URI="${IMAGE_URI}" API_SERVICE_IMAGE_URI="${API_SERVICE_IMAGE_URI:-}" USER_SERVICE_IMAGE_URI="${USER_SERVICE_IMAGE_URI:-}" PAYMENT_SERVICE_IMAGE_URI="${PAYMENT_SERVICE_IMAGE_URI:-}" AUTHORISATION_SERVICE_IMAGE_URI="${AUTHORISATION_SERVICE_IMAGE_URI:-}" SUBSCRIPTION_SERVICE_IMAGE_URI="${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" TASK_DEFINITION_FILE="${TASK_DEFINITION_FILE}" python3 - <<'PY'
 import json
 import os
 
@@ -143,6 +149,12 @@ if os.environ.get("USER_SERVICE_IMAGE_URI"):
     image_by_container["users"] = os.environ["USER_SERVICE_IMAGE_URI"]
 if os.environ.get("PAYMENT_SERVICE_IMAGE_URI"):
     image_by_container["payments"] = os.environ["PAYMENT_SERVICE_IMAGE_URI"]
+if os.environ.get("API_SERVICE_IMAGE_URI"):
+    image_by_container["api"] = os.environ["API_SERVICE_IMAGE_URI"]
+if os.environ.get("AUTHORISATION_SERVICE_IMAGE_URI"):
+    image_by_container["authorisation"] = os.environ["AUTHORISATION_SERVICE_IMAGE_URI"]
+if os.environ.get("SUBSCRIPTION_SERVICE_IMAGE_URI"):
+    image_by_container["subscriptions"] = os.environ["SUBSCRIPTION_SERVICE_IMAGE_URI"]
 
 for container in task_definition["containerDefinitions"]:
     if container["name"] in image_by_container:

@@ -130,7 +130,7 @@ Each environment uses:
 
 - Shared Terraform artefact bucket named `rollfinder-<account-id>-terraform-artefact`
 - Separate Terraform state keys under `dev/` and `production/`
-- Separate environment config under `terraform/environments/<env>/common.tfvars`
+- Separate environment config under `infrastructure/terraform/environments/<env>/common.tfvars`
 - Separate ECR repository path: `rollfinder/<env>/app`
 - Separate Terraform-created resource names prefixed as `rollfinder-<env>`
 - Separate database instance and Secrets Manager secret

@@ -1,19 +1,19 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 )
 
-type stripeBillingClient struct {
-	apiVersion string
-	secretKey  string
+type paymentBillingClient struct {
+	baseURL string
+	client  *http.Client
 }
 
 type checkoutSession struct {
@@ -27,86 +27,114 @@ type billingCheckoutResult struct {
 	Provider    string `json:"provider"`
 }
 
-func (c stripeBillingClient) configured() bool {
-	return strings.TrimSpace(c.secretKey) != ""
+type paymentBillingSubscriptionRequest struct {
+	ClientID      string            `json:"client_id"`
+	OwnerType     string            `json:"owner_type"`
+	OwnerID       string            `json:"owner_id"`
+	CustomerID    string            `json:"customer_id,omitempty"`
+	Provider      string            `json:"provider"`
+	PlanID        string            `json:"plan_id"`
+	PlanName      string            `json:"plan_name"`
+	Amount        int               `json:"amount"`
+	Currency      string            `json:"currency"`
+	Interval      string            `json:"interval"`
+	CustomerEmail string            `json:"customer_email,omitempty"`
+	SuccessURL    string            `json:"success_url,omitempty"`
+	CancelURL     string            `json:"cancel_url,omitempty"`
+	Metadata      map[string]string `json:"metadata,omitempty"`
 }
 
-func (c stripeBillingClient) createSubscriptionCheckout(req subscriptionCheckoutRequest, sub Subscription, plan Plan) (checkoutSession, error) {
+type paymentBillingSubscriptionResponse struct {
+	ID          string `json:"subscription_id"`
+	CheckoutURL string `json:"checkout_url"`
+	Provider    string `json:"provider"`
+}
+
+func (c paymentBillingClient) configured() bool {
+	return strings.TrimSpace(c.baseURL) != ""
+}
+
+func (c paymentBillingClient) createSubscriptionCheckout(req subscriptionCheckoutRequest, sub Subscription, plan Plan) (checkoutSession, error) {
 	if !c.configured() {
-		return checkoutSession{}, errors.New("stripe secret key is not configured")
+		return checkoutSession{}, errors.New("payment service base URL is not configured")
 	}
-	form := url.Values{}
-	form.Set("mode", "subscription")
-	form.Set("success_url", req.SuccessURL)
-	form.Set("cancel_url", req.CancelURL)
-	form.Set("client_reference_id", sub.ID)
-	if strings.TrimSpace(req.CustomerEmail) != "" {
-		form.Set("customer_email", req.CustomerEmail)
-	}
-	form.Set("line_items[0][quantity]", "1")
-	form.Set("line_items[0][price_data][currency]", strings.ToLower(plan.Currency))
-	form.Set("line_items[0][price_data][unit_amount]", strconv.Itoa(plan.PriceMinor))
-	form.Set("line_items[0][price_data][recurring][interval]", stripeRecurringInterval(plan.BillingCycle))
-	form.Set("line_items[0][price_data][product_data][name]", plan.Name)
-	if strings.TrimSpace(plan.Description) != "" {
-		form.Set("line_items[0][price_data][product_data][description]", plan.Description)
-	}
-	metadata := map[string]string{
-		"subscription_id": sub.ID,
-		"owner_type":      sub.OwnerType,
-		"owner_id":        sub.OwnerID,
-		"plan_id":         plan.ID,
-		"plan_name":       plan.Name,
-	}
-	for key, value := range metadata {
-		form.Set("metadata["+key+"]", value)
-		form.Set("subscription_data[metadata]["+key+"]", value)
+	body := paymentBillingSubscriptionRequest{
+		ClientID:      "rollfinders",
+		OwnerType:     sub.OwnerType,
+		OwnerID:       sub.OwnerID,
+		CustomerID:    strings.TrimSpace(req.CustomerEmail),
+		Provider:      "stripe",
+		PlanID:        plan.ID,
+		PlanName:      plan.Name,
+		Amount:        plan.PriceMinor,
+		Currency:      plan.Currency,
+		Interval:      paymentBillingInterval(plan.BillingCycle),
+		CustomerEmail: strings.TrimSpace(req.CustomerEmail),
+		SuccessURL:    strings.TrimSpace(req.SuccessURL),
+		CancelURL:     strings.TrimSpace(req.CancelURL),
+		Metadata: map[string]string{
+			"subscription_id": sub.ID,
+			"owner_type":      sub.OwnerType,
+			"owner_id":        sub.OwnerID,
+			"plan_id":         plan.ID,
+			"plan_name":       plan.Name,
+		},
 	}
 	if req.PlanChangeID != "" {
-		form.Set("metadata[plan_change_id]", req.PlanChangeID)
-		form.Set("subscription_data[metadata][plan_change_id]", req.PlanChangeID)
+		body.Metadata["plan_change_id"] = req.PlanChangeID
 	}
-	httpReq, err := http.NewRequest(http.MethodPost, "https://api.stripe.com/v1/checkout/sessions", strings.NewReader(form.Encode()))
+	if strings.TrimSpace(req.OrganisationID) != "" {
+		body.Metadata["organisation_id"] = strings.TrimSpace(req.OrganisationID)
+	}
+	data, err := json.Marshal(body)
 	if err != nil {
 		return checkoutSession{}, err
 	}
-	httpReq.SetBasicAuth(c.secretKey, "")
-	httpReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if c.apiVersion != "" {
-		httpReq.Header.Set("Stripe-Version", c.apiVersion)
+	httpReq, err := http.NewRequest(http.MethodPost, strings.TrimRight(c.baseURL, "/")+"/v1/billing/subscriptions", bytes.NewReader(data))
+	if err != nil {
+		return checkoutSession{}, err
 	}
+	httpReq.Header.Set("Content-Type", "application/json")
 	if req.IdempotencyKey != "" {
 		httpReq.Header.Set("Idempotency-Key", req.IdempotencyKey)
 	}
-	res, err := http.DefaultClient.Do(httpReq)
+	client := c.client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	res, err := client.Do(httpReq)
 	if err != nil {
 		return checkoutSession{}, err
 	}
 	defer res.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	responseBody, err := io.ReadAll(io.LimitReader(res.Body, 1<<20))
 	if err != nil {
 		return checkoutSession{}, err
 	}
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return checkoutSession{}, fmt.Errorf("stripe subscription checkout failed: status=%d body=%s", res.StatusCode, redactBillingProviderError(body))
+		return checkoutSession{}, fmt.Errorf("payment service subscription checkout failed: status=%d body=%s", res.StatusCode, redactBillingProviderError(responseBody))
 	}
-	var session checkoutSession
-	if err := json.Unmarshal(body, &session); err != nil {
+	var response paymentBillingSubscriptionResponse
+	if err := json.Unmarshal(responseBody, &response); err != nil {
 		return checkoutSession{}, err
 	}
-	if session.ID == "" || session.URL == "" {
-		return checkoutSession{}, errors.New("stripe subscription checkout response missing id or url")
+	if response.ID == "" || response.CheckoutURL == "" {
+		return checkoutSession{}, errors.New("payment service subscription checkout response missing id or checkout_url")
 	}
-	return session, nil
+	return checkoutSession{ID: response.ID, URL: response.CheckoutURL}, nil
 }
 
-func stripeRecurringInterval(cycle string) string {
+func paymentBillingInterval(cycle string) string {
 	switch strings.ToLower(strings.TrimSpace(cycle)) {
 	case "year":
 		return "year"
 	default:
 		return "month"
 	}
+}
+
+func stripeRecurringInterval(cycle string) string {
+	return paymentBillingInterval(cycle)
 }
 
 func stripeBillableCycle(cycle string) bool {
@@ -130,6 +158,12 @@ func redactBillingProviderError(body []byte) string {
 		if message != "" {
 			return strings.TrimSpace(strings.Join([]string{errType, code, message}, " "))
 		}
+	}
+	if message, ok := payload["message"].(string); ok && strings.TrimSpace(message) != "" {
+		return strings.TrimSpace(message)
+	}
+	if status, ok := payload["status"].(float64); ok {
+		return "status=" + strconv.Itoa(int(status))
 	}
 	return "provider_error"
 }

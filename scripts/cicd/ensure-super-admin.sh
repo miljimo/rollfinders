@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/aws-oidc.sh"
 source "${SCRIPT_DIR}/terraform-backend.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-TERRAFORM_DIR="${PROJECT_DIR}/terraform"
+TERRAFORM_DIR="${TERRAFORM_DIR:-${PROJECT_DIR}/infrastructure/terraform}"
 BACKEND_CONFIG="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/backend.tfvars"
 
 cd "${TERRAFORM_DIR}"

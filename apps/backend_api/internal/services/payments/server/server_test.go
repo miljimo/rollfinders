@@ -219,6 +219,104 @@ func TestLegacyCourseOccurrenceCheckoutRouteRemainsCompatible(t *testing.T) {
 	}
 }
 
+func TestCreateSubscriptionBillingCheckout(t *testing.T) {
+	body := []byte(`{"client_id":"rollfinders","owner_type":"academy","owner_id":"academy_123","customer_id":"customer_123","provider":"stripe","plan_id":"plan_pro","plan_name":"Academy Pro","amount":7900,"currency":"GBP","interval":"month","trial_days":14,"metadata":{"source":"test"}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/billing/subscriptions", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "subscription-create")
+	res := httptest.NewRecorder()
+	handler := testServer("")
+	handler.ServeHTTP(res, req)
+
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
+	}
+	var subscription BillingSubscription
+	if err := json.Unmarshal(res.Body.Bytes(), &subscription); err != nil {
+		t.Fatal(err)
+	}
+	if subscription.ID == "" || subscription.CheckoutURL == "" {
+		t.Fatalf("expected subscription id and checkout url, got %+v", subscription)
+	}
+	if subscription.Status != subscriptionStatusTrialing || subscription.TrialStart == nil || subscription.TrialEnd == nil {
+		t.Fatalf("expected trialing subscription with trial dates, got %+v", subscription)
+	}
+
+	listReq := httptest.NewRequest(http.MethodGet, "/v1/billing/subscriptions?owner_type=academy&owner_id=academy_123", nil)
+	authed(listReq)
+	listRes := httptest.NewRecorder()
+	handler.ServeHTTP(listRes, listReq)
+	if listRes.Code != http.StatusOK {
+		t.Fatalf("expected list status 200, got %d: %s", listRes.Code, listRes.Body.String())
+	}
+	var list subscriptionListResponse
+	if err := json.Unmarshal(listRes.Body.Bytes(), &list); err != nil {
+		t.Fatal(err)
+	}
+	if list.Count != 1 || len(list.Subscriptions) != 1 || list.Subscriptions[0].ID != subscription.ID {
+		t.Fatalf("expected created subscription in list, got %+v", list)
+	}
+}
+
+func TestSubscriptionLifecycleEndpoints(t *testing.T) {
+	handler := testServer("")
+	body := []byte(`{"client_id":"rollfinders","owner_type":"academy","owner_id":"academy_123","provider":"stripe","plan_id":"plan_pro","plan_name":"Academy Pro","amount":7900,"currency":"GBP","interval":"month"}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/billing/subscriptions", bytes.NewReader(body))
+	authed(req)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "subscription-lifecycle")
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d: %s", res.Code, res.Body.String())
+	}
+	var subscription BillingSubscription
+	if err := json.Unmarshal(res.Body.Bytes(), &subscription); err != nil {
+		t.Fatal(err)
+	}
+
+	cancelReq := httptest.NewRequest(http.MethodPost, "/v1/billing/subscriptions/"+subscription.ID+"/cancel", nil)
+	authed(cancelReq)
+	cancelRes := httptest.NewRecorder()
+	handler.ServeHTTP(cancelRes, cancelReq)
+	if cancelRes.Code != http.StatusOK {
+		t.Fatalf("expected cancel status 200, got %d: %s", cancelRes.Code, cancelRes.Body.String())
+	}
+	var cancelled BillingSubscription
+	if err := json.Unmarshal(cancelRes.Body.Bytes(), &cancelled); err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != subscriptionStatusCancelled || !cancelled.CancelAtPeriodEnd || cancelled.CancelledAt == nil {
+		t.Fatalf("expected cancelled subscription, got %+v", cancelled)
+	}
+
+	resumeReq := httptest.NewRequest(http.MethodPost, "/v1/billing/subscriptions/"+subscription.ID+"/resume", nil)
+	authed(resumeReq)
+	resumeRes := httptest.NewRecorder()
+	handler.ServeHTTP(resumeRes, resumeReq)
+	if resumeRes.Code != http.StatusOK {
+		t.Fatalf("expected resume status 200, got %d: %s", resumeRes.Code, resumeRes.Body.String())
+	}
+	var resumed BillingSubscription
+	if err := json.Unmarshal(resumeRes.Body.Bytes(), &resumed); err != nil {
+		t.Fatal(err)
+	}
+	if resumed.Status != subscriptionStatusActive || resumed.CancelAtPeriodEnd || resumed.CancelledAt != nil {
+		t.Fatalf("expected active resumed subscription, got %+v", resumed)
+	}
+
+	for _, path := range []string{"/v1/billing/subscriptions/" + subscription.ID + "/payments", "/v1/billing/subscriptions/" + subscription.ID + "/invoices"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		authed(req)
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		if res.Code != http.StatusOK {
+			t.Fatalf("expected status 200 for %s, got %d: %s", path, res.Code, res.Body.String())
+		}
+	}
+}
+
 func TestCheckoutCallbackRedirectsToApplicationStatus(t *testing.T) {
 	srv := testServer("")
 	body := []byte(`{"resource_type":"course_occurrence","resource_id":"course_123:2026-06-08:19:00","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com","metadata":{"course_id":"course_123","academy_id":"academy_123"}}`)

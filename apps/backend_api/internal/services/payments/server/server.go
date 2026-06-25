@@ -77,6 +77,13 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/payment-accounts/stripe/connect", []string{http.MethodPost}, s.createStripeConnectAccountLink, auth)
 	mustHandle("/v1/payment-accounts/stripe/refresh", []string{http.MethodPost}, s.refreshStripeConnectAccount, auth)
 	mustHandle("/v1/payment-accounts/stripe/disconnect", []string{http.MethodPost}, s.disconnectStripeConnectAccount, auth)
+	mustHandle("/v1/billing/subscriptions", []string{http.MethodPost}, s.createSubscription, auth)
+	mustHandle("/v1/billing/subscriptions", []string{http.MethodGet}, s.listSubscriptions, auth)
+	mustHandle("/v1/billing/subscriptions/{id}", []string{http.MethodGet}, s.getSubscription, auth)
+	mustHandle("/v1/billing/subscriptions/{id}/cancel", []string{http.MethodPost}, s.cancelSubscription, auth)
+	mustHandle("/v1/billing/subscriptions/{id}/resume", []string{http.MethodPost}, s.resumeSubscription, auth)
+	mustHandle("/v1/billing/subscriptions/{id}/payments", []string{http.MethodGet}, s.listSubscriptionPayments, auth)
+	mustHandle("/v1/billing/subscriptions/{id}/invoices", []string{http.MethodGet}, s.listSubscriptionInvoices, auth)
 	mustHandle("/v1/webhooks/{provider}", []string{http.MethodPost}, s.webhook)
 	mustHandle("/internal/outbox/dispatch", []string{http.MethodPost}, s.dispatchOutbox)
 

@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/aws-oidc.sh"
 source "${SCRIPT_DIR}/terraform-backend.sh"
 PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-BOOTSTRAP_DIR="${PROJECT_DIR}/terraform/bootstrap"
+BOOTSTRAP_DIR="${TERRAFORM_BOOTSTRAP_DIR:-${PROJECT_DIR}/infrastructure/terraform/bootstrap}"
 ENVIRONMENTS=("dev" "production")
 TERRAFORM_BIN="${TERRAFORM_BIN:-terraform}"
 bucket="$(terraform_backend_bucket)"

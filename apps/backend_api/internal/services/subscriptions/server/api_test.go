@@ -1,11 +1,12 @@
 package server
 
 import (
-	"fmt"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestInferPlanChangeType(t *testing.T) {
@@ -91,33 +92,41 @@ func TestRedactBillingProviderError(t *testing.T) {
 	}
 }
 
-func TestStripeSubscriptionCheckoutSandbox(t *testing.T) {
-	if os.Getenv("RUN_SUBSCRIPTION_BILLING_E2E") != "1" {
-		t.Skip("set RUN_SUBSCRIPTION_BILLING_E2E=1 to create a Stripe test checkout session")
-	}
-	key := os.Getenv("STRIPE_SECRET_KEY")
-	if key == "" {
-		key = os.Getenv("PAYMENT_GATEWAY_API_KEY")
-	}
-	if !strings.HasPrefix(key, "sk_test_") {
-		t.Fatal("subscription billing e2e requires a Stripe test secret key")
-	}
-	client := stripeBillingClient{secretKey: key, apiVersion: "2024-09-30.acacia"}
+func TestPaymentSubscriptionCheckoutClient(t *testing.T) {
+	var received paymentBillingSubscriptionRequest
+	paymentService := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/billing/subscriptions" {
+			t.Fatalf("unexpected payment service request %s %s", r.Method, r.URL.Path)
+		}
+		if got := r.Header.Get("Idempotency-Key"); got != "subscription-billing-client-test" {
+			t.Fatalf("Idempotency-Key = %q, want subscription-billing-client-test", got)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&received); err != nil {
+			t.Fatal(err)
+		}
+		writeJSON(w, http.StatusCreated, paymentBillingSubscriptionResponse{
+			ID:          "bill_sub_123",
+			CheckoutURL: "https://checkout.stripe.com/pay/bill_sub_123",
+			Provider:    "stripe",
+		})
+	}))
+	defer paymentService.Close()
+
+	client := paymentBillingClient{baseURL: paymentService.URL, client: paymentService.Client()}
 	session, err := client.createSubscriptionCheckout(subscriptionCheckoutRequest{
-		PlanID:         "plan_e2e",
-		CustomerEmail:  "billing-e2e@example.com",
+		PlanID:         "plan_test",
+		CustomerEmail:  "billing@example.com",
 		SuccessURL:     "http://localhost:3000/dashboard/subscriptions?billing=success",
 		CancelURL:      "http://localhost:3000/dashboard/subscriptions?billing=cancelled",
-		IdempotencyKey: fmt.Sprintf("subscription-billing-e2e-%d", time.Now().UnixNano()),
-		PlanChangeID:   "plan_change_e2e",
+		IdempotencyKey: "subscription-billing-client-test",
+		PlanChangeID:   "plan_change_test",
 	}, Subscription{
-		ID:        "sub_e2e",
+		ID:        "sub_test",
 		OwnerType: "application",
 		OwnerID:   "app_rollfinders",
 	}, Plan{
-		ID:           "plan_e2e",
-		Name:         "RollFinders Subscription Billing E2E",
-		Description:  "Automated subscription billing integration test.",
+		ID:           "plan_test",
+		Name:         "RollFinders Subscription Billing Test",
 		Currency:     "GBP",
 		PriceMinor:   100,
 		BillingCycle: "month",
@@ -125,11 +134,17 @@ func TestStripeSubscriptionCheckoutSandbox(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(session.ID, "cs_test_") {
-		t.Fatalf("session id = %q, want Stripe test checkout session", session.ID)
+	if session.ID != "bill_sub_123" {
+		t.Fatalf("session id = %q, want bill_sub_123", session.ID)
 	}
 	if !strings.HasPrefix(session.URL, "https://checkout.stripe.com/") {
 		t.Fatalf("session URL = %q, want Stripe Checkout URL", session.URL)
+	}
+	if received.ClientID != "rollfinders" || received.Provider != "stripe" || received.Interval != "month" {
+		t.Fatalf("unexpected payment billing request: %+v", received)
+	}
+	if received.Metadata["subscription_id"] != "sub_test" || received.Metadata["plan_change_id"] != "plan_change_test" {
+		t.Fatalf("expected subscription metadata on payment billing request, got %+v", received.Metadata)
 	}
 }
 

@@ -423,16 +423,16 @@ export async function listAcademiesForActorFromAcademyService(actor: { id: strin
   return academies.filter((academy): academy is AcademyServiceRecord => Boolean(academy));
 }
 
-export async function addAcademyMemberInAcademyService(academyId: string, userId: string) {
+export async function addAcademyMemberInAcademyService(academyId: string, userId: string, actor?: ServiceActor) {
   const member = await request(`/v1/academies/${encodeURIComponent(academyId)}/members`, {
     method: "POST",
     body: JSON.stringify({ user_id: userId }),
-  }) as AcademyServiceMember;
+  }, actor) as AcademyServiceMember;
   return membershipFromService(member);
 }
 
-export async function removeAcademyMemberInAcademyService(academyId: string, userId: string) {
+export async function removeAcademyMemberInAcademyService(academyId: string, userId: string, actor?: ServiceActor) {
   await request(`/v1/academies/${encodeURIComponent(academyId)}/members/${encodeURIComponent(userId)}`, {
     method: "DELETE",
-  });
+  }, actor);
 }
