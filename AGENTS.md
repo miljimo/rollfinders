@@ -108,3 +108,8 @@ Follow this guide for deployment
 When creating tickets, output markdown tickets only.
 
 When implementing code, follow the ticket and relevant guides exactly.
+
+
+# Credentials
+ - AWS credential are in `.env` file
+ -  Run  ` eval "$(ssh-agent -s)" && ssh-add ~/.ssh/bitbucket_private ` to enable access git  
