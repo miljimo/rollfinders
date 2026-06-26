@@ -404,8 +404,8 @@ module "app_service" {
       name       = "users"
       image      = var.user_service_image_uri
       cpu        = 64
-      memory     = 128
-      essential  = false
+      memory     = 256
+      essential  = true
       log_region = var.aws_region
       environments = [
         { name = "PORT", value = "8081" },
