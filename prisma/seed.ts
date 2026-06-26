@@ -16,7 +16,7 @@ type SeedAcademy = {
   postcode: string | null;
 };
 
-const seedRoot = path.join(process.cwd(), "seed");
+const seedRoot = process.env.SEED_ROOT ?? path.join(process.cwd(), "apps", "backend_api", "migrations", "seed");
 
 function getDatabaseUrl() {
   if (process.env.DATABASE_URL) {
