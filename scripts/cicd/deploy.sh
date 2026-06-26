@@ -110,7 +110,7 @@ print("true" if all(current.get(name) == image for name, image in desired.items(
 PY
 )"
 
-if [[ "${IMAGES_ALREADY_MATCH}" == "true" ]]; then
+if [[ "${IMAGES_ALREADY_MATCH}" == "true" && "${CURRENT_TASK_DEFINITION_ARN}" == "${BASE_TASK_DEFINITION_ARN}" ]]; then
   aws ecs wait services-stable \
     --region "${AWS_REGION}" \
     --cluster "${ECS_CLUSTER}" \
