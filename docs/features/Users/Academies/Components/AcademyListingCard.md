@@ -1,6 +1,6 @@
 # PRD: Academy Listing Card Component
 
-![Academy listing card preview](../../assets/ui-components/academy-listing-card.svg)
+![Academy listing card preview](../../../../../apps/portal/docs/assets/ui-components/academy-listing-card.svg)
 
 ## Implementation Metadata
 

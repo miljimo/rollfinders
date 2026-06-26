@@ -48,6 +48,10 @@ resource "aws_ecs_service" "service" {
     Environment = var.environment
   }
 
+  lifecycle {
+    ignore_changes = [task_definition]
+  }
+
   depends_on = [aws_ecs_cluster.cluster,
     aws_ecs_task_definition.task,
   aws_service_discovery_service.discovery]

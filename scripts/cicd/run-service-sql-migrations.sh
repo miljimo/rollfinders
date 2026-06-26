@@ -27,8 +27,25 @@ if [ -f apps/backend_api/migrations/payments/001_core_schema.sql ]; then
   (cd apps/backend_api/migrations/payments && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
-if [ -f apps/backend_api/migrations/courses/001_coreSchema.sql ]; then
-  (cd apps/backend_api/migrations/courses && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
+if [ -d apps/backend_api/migrations/courses ]; then
+  for dir in schema types tables functions procedures; do
+    if [ -d "apps/backend_api/migrations/courses/${dir}" ]; then
+      for file in apps/backend_api/migrations/courses/${dir}/*.sql; do
+        [ -f "${file}" ] || continue
+        psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -c "SET search_path TO courses, public;" -f "${file}"
+      done
+    fi
+  done
+
+  prisma_migrations_finished="$(psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN to_regclass('public._prisma_migrations') IS NULL THEN false ELSE COALESCE((SELECT finished_at IS NOT NULL AND rolled_back_at IS NULL FROM public._prisma_migrations WHERE migration_name = '20260623203000_remove_public_analytics_tables' ORDER BY started_at DESC LIMIT 1), false) END;")"
+  if [ "${prisma_migrations_finished}" = "t" ] && [ -d apps/backend_api/migrations/courses/rollfinders ]; then
+    for file in apps/backend_api/migrations/courses/rollfinders/*.sql; do
+      [ -f "${file}" ] || continue
+      psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
+    done
+  fi
+
+  psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -c "INSERT INTO courses.schema_migrations(version) VALUES ('001_coreSchema') ON CONFLICT (version) DO NOTHING;"
 fi
 
 if [ -d apps/backend_api/migrations/booking ]; then

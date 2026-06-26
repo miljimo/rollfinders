@@ -4,16 +4,16 @@ This folder contains one PRD per reusable UI component candidate discovered in t
 
 ## Component PRDs
 
-- [Button](./Button.md) - [image](../../assets/ui-components/button.svg)
-- [Badge](./Badge.md) - [image](../../assets/ui-components/badge.svg)
-- [Table](./Table.md) - [image](../../assets/ui-components/table.svg)
-- [Page Header](./PageHeader.md) - [image](../../assets/ui-components/page-header.svg)
-- [Metric Card](./MetricCard.md) - [image](../../assets/ui-components/metric-card.svg)
-- [Filter Form](./FilterForm.md) - [image](../../assets/ui-components/filter-form.svg)
-- [Form Field System](./FormFieldSystem.md) - [image](../../assets/ui-components/form-field-system.svg)
-- [Panel Surface](./PanelSurface.md) - [image](../../assets/ui-components/panel-surface.svg)
-- [List Panel](./ListPanel.md) - [image](../../assets/ui-components/list-panel.svg)
-- [Domain Cards](./DomainCards.md) - [image](../../assets/ui-components/domain-cards.svg)
+- [Button](../Button.md) - [image](../../../assets/ui-components/button.svg)
+- [Badge](../Badge.md) - [image](../../../assets/ui-components/badge.svg)
+- [Table](../Table.md) - [image](../../../assets/ui-components/table.svg)
+- [Page Header](../PageHeader.md) - [image](../../../assets/ui-components/page-header.svg)
+- [Metric Card](../MetricCard.md) - [image](../../../assets/ui-components/metric-card.svg)
+- [Filter Form](../FilterForm.md) - [image](../../../assets/ui-components/filter-form.svg)
+- [Form Field System](../FormFieldSystem.md) - [image](../../../assets/ui-components/form-field-system.svg)
+- [Panel Surface](../PanelSurface.md) - [image](../../../assets/ui-components/panel-surface.svg)
+- [List Panel](../ListPanel.md) - [image](../../../assets/ui-components/list-panel.svg)
+- [Domain Cards](../DomainCards.md) - [image](../../../assets/ui-components/domain-cards.svg)
 
 ## Source Areas Reviewed
 

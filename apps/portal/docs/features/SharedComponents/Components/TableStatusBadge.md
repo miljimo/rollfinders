@@ -5,7 +5,7 @@
 - Source: `src/components/Table/TableStatusBadge.tsx`
 - Status: Ready for development
 - Related shared primitive: `Badge`
-- Parent PRD: `docs/features/SharedComponents/Badge.md`
+- Parent PRD: `../Badge.md`
 
 ## Purpose
 

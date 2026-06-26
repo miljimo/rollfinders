@@ -46,10 +46,17 @@ BEGIN
        WHERE n.nspname = 'public'
          AND c.relname = 'events'
          AND c.relkind = 'r'
+     )
+     AND EXISTS (
+       SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'events'
+         AND column_name = 'course_type'
      ) THEN
     INSERT INTO courses.course_types(id, organisation_id, name, description, is_default)
     SELECT
-      public."rollfindersCourseTypeId"(e.academy_id, e.course_type::text),
+      public."rollfindersCourseTypeId"(min(e.academy_id), e.course_type::text),
       min(e.academy_id),
       initcap(replace(e.course_type::text, '_', ' ')),
       'RollFinders course type migrated from public.events',

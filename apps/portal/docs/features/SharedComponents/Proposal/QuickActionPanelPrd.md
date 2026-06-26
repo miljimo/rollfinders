@@ -29,7 +29,7 @@ Related requirements:
 * `docs/features/Users/Platform/Products/EnhanceAdminPage.md`
 * `docs/features/Users/Platform/Products/AdminDashboardRestructureWithPagination.md`
 * `docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
-* `docs/features/SharedComponents/Reviewing/SidePanelControlPrd.md`
+* `../Reviewing/SidePanelControlPrd.md`
 
 ## In Scope
 

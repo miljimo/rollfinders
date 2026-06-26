@@ -28,7 +28,7 @@ This is an MVP-friendly detail view. It should stay simple and reuse the existin
 
 The original richer mockup is stored here for visual direction, but the MVP implementation should be simpler than the image:
 
-![Admin user profile redesign mockup](../../assets/user-profile-redesign-mockup.png)
+![Admin user profile redesign mockup](../../../../../../apps/portal/docs/assets/user-profile-redesign-mockup.png)
 
 MVP design direction:
 

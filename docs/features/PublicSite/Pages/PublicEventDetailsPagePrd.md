@@ -18,9 +18,9 @@ Related documents:
 * `docs/services/courses/Products/Reviewing/EventPermanentUriAndQrCodePrd.md`
 * `docs/services/courses/Products/Reviewing/EventLocationDirectionsButtonPrd.md`
 * `docs/services/courses/Products/Reviewing/CourseActivitiesManagementPrd.md`
-* `docs/features/SharedComponents/Reviewing/ReusableUiComponentPrd.md`
-* `docs/features/SharedComponents/DomainCards.md`
-* `docs/features/SharedComponents/Badge.md`
+* `apps/portal/docs/features/SharedComponents/Reviewing/ReusableUiComponentPrd.md`
+* `apps/portal/docs/features/SharedComponents/DomainCards.md`
+* `apps/portal/docs/features/SharedComponents/Badge.md`
 
 ## Mockup
 

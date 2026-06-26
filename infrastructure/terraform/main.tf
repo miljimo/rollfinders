@@ -11,6 +11,7 @@ module "networking" {
   name_prefix        = local.name_prefix
   vpc_cidr_block     = var.vpc_cidr_block
   availability_zones = var.availability_zones
+  enable_nat_gateway = var.enable_nat_gateway
 }
 
 module "alb_security_group" {
@@ -303,8 +304,8 @@ module "app_service" {
   memory                = 4096
   log_retention_in_days = local.is_production ? 30 : 14
   desired_count         = var.desired_count
-  assign_public_ip      = false
-  subnets               = module.networking.private_subnet_ids
+  assign_public_ip      = !var.enable_nat_gateway
+  subnets               = var.enable_nat_gateway ? module.networking.private_subnet_ids : module.networking.public_subnet_ids
   security_groups       = [module.ecs_security_group.id]
   task_role_arn         = module.task_role.arn
 

@@ -55,8 +55,8 @@ Status meanings:
 * `Deployment/Provisioning/Completed/SesDomainVerificationPrd.md`
 * `OpenMats/Products/Completed/RollFindersRecurringRollingsPrd.md`
 * `Product/Products/Completed/StatIndicatorDataRequirements.md`
-* `SharedComponents/Completed/MobileFirstPublicNavigationPrd.md`
-* `SharedComponents/Completed/StatIndicator.md`
+* `apps/portal/docs/features/SharedComponents/Completed/MobileFirstPublicNavigationPrd.md`
+* `apps/portal/docs/features/SharedComponents/Completed/StatIndicator.md`
 * `Users/Academies/Products/Completed/NewAcademyMultiStepExperiencePrd.md`
 * `Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 * `Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
@@ -102,32 +102,32 @@ These have matching implementation in source and should be treated as done unles
 * `PublicSite/Pages/HomePage.md`
 * `PublicSite/Pages/PrivacyPolicyPage.md`
 * `PublicSite/Pages/TermsPage.md`
-* `SharedComponents/AutoCompleteTextField.md`
-* `SharedComponents/Button.md`
-* `SharedComponents/Components/LocationSearchForm.md`
-* `SharedComponents/Components/LogoutButton.md`
-* `SharedComponents/Components/NavLink.md`
-* `SharedComponents/Components/PageShell.md`
-* `SharedComponents/Components/SearchForm.md`
-* `SharedComponents/Components/SiteFooter.md`
-* `SharedComponents/Components/SiteHeader.md`
-* `SharedComponents/Components/StaticPageShell.md`
-* `SharedComponents/Components/StaticSiteHeader.md`
-* `SharedComponents/Components/TableActions.md`
-* `SharedComponents/Components/TableBody.md`
-* `SharedComponents/Components/TableCell.md`
-* `SharedComponents/Components/TableEmptyState.md`
-* `SharedComponents/Components/TableHeader.md`
-* `SharedComponents/Components/TableIndex.md`
-* `SharedComponents/Components/TableLoadingState.md`
-* `SharedComponents/Components/TablePagination.md`
-* `SharedComponents/Components/TableRow.md`
-* `SharedComponents/Components/TableStatusBadge.md`
-* `SharedComponents/Components/TableTypes.md`
-* `SharedComponents/Proposal/QuickActionPanelPrd.md`
-* `SharedComponents/Proposal/StatsPanelPrd.md`
-* `SharedComponents/Reviewing/SidePanelControlPrd.md`
-* `SharedComponents/Table.md`
+* `apps/portal/docs/features/SharedComponents/AutoCompleteTextField.md`
+* `apps/portal/docs/features/SharedComponents/Button.md`
+* `apps/portal/docs/features/SharedComponents/Components/LocationSearchForm.md`
+* `apps/portal/docs/features/SharedComponents/Components/LogoutButton.md`
+* `apps/portal/docs/features/SharedComponents/Components/NavLink.md`
+* `apps/portal/docs/features/SharedComponents/Components/PageShell.md`
+* `apps/portal/docs/features/SharedComponents/Components/SearchForm.md`
+* `apps/portal/docs/features/SharedComponents/Components/SiteFooter.md`
+* `apps/portal/docs/features/SharedComponents/Components/SiteHeader.md`
+* `apps/portal/docs/features/SharedComponents/Components/StaticPageShell.md`
+* `apps/portal/docs/features/SharedComponents/Components/StaticSiteHeader.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableActions.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableBody.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableCell.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableEmptyState.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableHeader.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableIndex.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableLoadingState.md`
+* `apps/portal/docs/features/SharedComponents/Components/TablePagination.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableRow.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableStatusBadge.md`
+* `apps/portal/docs/features/SharedComponents/Components/TableTypes.md`
+* `apps/portal/docs/features/SharedComponents/Proposal/QuickActionPanelPrd.md`
+* `apps/portal/docs/features/SharedComponents/Proposal/StatsPanelPrd.md`
+* `apps/portal/docs/features/SharedComponents/Reviewing/SidePanelControlPrd.md`
+* `apps/portal/docs/features/SharedComponents/Table.md`
 * `Users/Academies/APIs/AdminAcademiesApi.md`
 * `Users/Academies/APIs/AdminAcademyClaimApproveApi.md`
 * `Users/Academies/APIs/AdminAcademyClaimDetailApi.md`
@@ -200,7 +200,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 * `Product/Products/Reviewing/RollFinderMvpPrd.md` - core MVP is largely implemented; analytics and full interactive marker behavior remain incomplete.
 * `Product/Products/RollFinderMvpApiTaskRequirements.md` - most API/backend tasks are implemented; analytics, rate limiting, duplicate pending claim DB constraint, and search performance checks remain.
 * `Product/Products/RollFinderMvpUiTaskRequirements.md` - most UI tasks are implemented; map marker detail/open-mat map state and direct open mat contact display remain.
-* `SharedComponents/Reviewing/ReusableUiComponentPrd.md` - many reusable components exist; not all proposed primitives are centralized as canonical components.
+* `apps/portal/docs/features/SharedComponents/Reviewing/ReusableUiComponentPrd.md` - many reusable components exist; not all proposed primitives are centralized as canonical components.
 * `Users/Academies/Products/MultiAdminAcademyManagement.md` - team management exists; team-action audit logging and owner notifications are still missing.
 * `Users/Academies/Products/Reviewing/academyManagementUiPrd.md` - guided academy edit UI exists in parts; pricing audience/member drop-in semantics still need implementation verification.
 * `Users/Academies/Products/Reviewing/AcademyManagementGuidedUpdateAndDropInPricingPrd.md` - guided academy management exists, but pricing audience semantics, free member drop-in behavior, and internal/external roll visibility still need implementation verification.
@@ -215,15 +215,15 @@ These remain proposal/strategy work or have no implementation found.
 
 * `Courses/Products/Reviewing/CourseOccurrencePaymentsPrd.md`
 * `Product/Products/RollFinderMvpAnalyticsIfWhenThenRequirements.md`
-* `SharedComponents/Badge.md`
-* `SharedComponents/DashboardTopHeaderPanel.md`
-* `SharedComponents/DomainCards.md`
-* `SharedComponents/FilterForm.md`
-* `SharedComponents/FormFieldSystem.md`
-* `SharedComponents/ListPanel.md`
-* `SharedComponents/MetricCard.md`
-* `SharedComponents/PageHeader.md`
-* `SharedComponents/PanelSurface.md`
+* `apps/portal/docs/features/SharedComponents/Badge.md`
+* `apps/portal/docs/features/SharedComponents/DashboardTopHeaderPanel.md`
+* `apps/portal/docs/features/SharedComponents/DomainCards.md`
+* `apps/portal/docs/features/SharedComponents/FilterForm.md`
+* `apps/portal/docs/features/SharedComponents/FormFieldSystem.md`
+* `apps/portal/docs/features/SharedComponents/ListPanel.md`
+* `apps/portal/docs/features/SharedComponents/MetricCard.md`
+* `apps/portal/docs/features/SharedComponents/PageHeader.md`
+* `apps/portal/docs/features/SharedComponents/PanelSurface.md`
 * `Users/Academies/Products/Reviewing/PublicAcademyRegistrationPrd.md`
 * `Users/Profile/Components/Proposal/UserProfile.md`
 * `Users/Profile/Products/Proposal/AdminUserProfileWorkflowPrd.md`
@@ -242,9 +242,9 @@ These documents are retained as reference material and do not need a done/not-do
 * `Product/Products/MvpImplementationAudit.md`
 * `Product/Products/RollFinderBusinessMarketPlan.md`
 * `README.md`
-* `SharedComponents/ApplicationUiAndPageRequirements.md`
-* `SharedComponents/CodeFileFormatPrd.md`
-* `SharedComponents/README.md`
+* `apps/portal/docs/features/SharedComponents/ApplicationUiAndPageRequirements.md`
+* `apps/portal/docs/features/SharedComponents/CodeFileFormatPrd.md`
+* `apps/portal/docs/features/SharedComponents/README.md`
 * `Users/Platform/README.md`
 * `Users/Shared/Products/UnifiedDashboardRouteQaReport.md`
 

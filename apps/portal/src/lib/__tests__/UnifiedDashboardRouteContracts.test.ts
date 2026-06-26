@@ -172,7 +172,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(helper, /return authPortalBaseUrl\(\) \? url\.toString\(\) : `\$\{url\.pathname\}\$\{url\.search\}`/);
     assert.match(dashboard, /redirect\(loginUrl\("\/dashboard"\)\)/);
     assert.doesNotMatch(dashboard, /redirect\("\/login\?callbackUrl=\/dashboard"\)/);
-    assert.match(proxy, /redirectTarget\s*=\s*new URL\(`\$\{request\.nextUrl\.pathname\}\$\{request\.nextUrl\.search\}`,\s*request\.url\)\.toString\(\)/);
+    assert.match(proxy, /publicSiteBaseUrl\(\)/);
+    assert.match(proxy, /new URL\(`\$\{request\.nextUrl\.pathname\}\$\{request\.nextUrl\.search\}`,\s*`\$\{publicBaseUrl\}\/`\)\.toString\(\)/);
+    assert.match(proxy, /new URL\(`\$\{request\.nextUrl\.pathname\}\$\{request\.nextUrl\.search\}`,\s*request\.url\)\.toString\(\)/);
     assert.match(proxy, /new URL\(loginUrl\(redirectTarget\),\s*request\.url\)/);
     assert.match(logoutButton, /logoutCallbackUrl\(\)/);
     assert.match(prd, /auth\.rollfinders\.com/);

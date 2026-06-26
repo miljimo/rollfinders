@@ -5,7 +5,7 @@
 - Source: `src/components/Table/Table.tsx`
 - Status: Ready for development
 - Export barrel: `src/components/Table/index.tsx`
-- Related PRD: `docs/features/SharedComponents/Table.md`
+- Related PRD: `../Table.md`
 
 ## Purpose
 

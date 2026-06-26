@@ -30,7 +30,7 @@ The experience should keep the current admin dashboard flow and existing academy
 
 Use the generated mockup as the visual reference:
 
-![New Academy multi-step mockup](../../assets/new-academy-multistep-mockup.png)
+![New Academy multi-step mockup](../../../../../../apps/portal/docs/assets/new-academy-multistep-mockup.png)
 
 Target UI pattern:
 

@@ -133,7 +133,7 @@ The component needs a stronger UX contract for result content, local and async s
 
 ### Visual Design
 
-- The component SHALL align with `docs/features/SharedComponents/FormFieldSystem.md`.
+- The component SHALL align with `./FormFieldSystem.md`.
 - The component SHALL use existing RollFinders form field styling where possible.
 - The input and dropdown SHALL have clear separation through border, spacing, and/or shadow.
 - Result rows SHALL use comfortable compact density suitable for admin forms and touch interaction.

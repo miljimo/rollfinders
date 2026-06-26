@@ -66,7 +66,7 @@ Existing reusable candidates include:
 * `Button`
 * `PageShell`
 * `ActionMenu`
-* Shared badge/status patterns documented in `docs/features/SharedComponents/Badge.md`
+* Shared badge/status patterns documented in `apps/portal/docs/features/SharedComponents/Badge.md`
 * Existing dialog, panel, table, and form styling patterns
 * `UserForm` for edit/create workflows, not read-only profile display
 

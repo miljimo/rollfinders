@@ -17,3 +17,9 @@ variable "availability_zones" {
   type        = list(string)
   description = "Availability zones for public, private, and database subnets."
 }
+
+variable "enable_nat_gateway" {
+  type        = bool
+  description = "Whether to provision a NAT Gateway and default private subnet egress route."
+  default     = true
+}

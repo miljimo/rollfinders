@@ -48,9 +48,9 @@ Each card shows:
 
 Related requirements:
 
-* `docs/features/SharedComponents/Completed/StatIndicator.md`
+* `../Completed/StatIndicator.md`
 * `docs/features/Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
-* `docs/features/SharedComponents/Proposal/QuickActionPanelPrd.md`
+* `./QuickActionPanelPrd.md`
 
 ## In Scope
 

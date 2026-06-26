@@ -20,7 +20,7 @@ Product and feature requirements:
 * `docs/features/OpenMats/Products/`
 * `docs/features/Users/Products/`
 * `docs/features/Platform/Products/PublicBusinessInformation.md`
-* `docs/features/SharedComponents/Table.md`
+* `apps/portal/docs/features/SharedComponents/Table.md`
 
 Implementation areas:
 

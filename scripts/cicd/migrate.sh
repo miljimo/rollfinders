@@ -21,17 +21,19 @@ terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
 terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 
 CLUSTER="$(terraform output -raw ecs_cluster_name)"
-TASK_DEFINITION="$(terraform output -raw ecs_task_definition_arn)"
-SUBNETS="$(terraform output -json private_subnet_ids | python3 -c 'import json,sys; print(",".join(json.load(sys.stdin)))')"
-SECURITY_GROUP="$(terraform output -raw ecs_security_group_id)"
+SERVICE="$(terraform output -raw ecs_service_name)"
+TASK_DEFINITION="$(aws ecs describe-services --region "${AWS_REGION}" --cluster "${CLUSTER}" --services "${SERVICE}" --query 'services[0].taskDefinition' --output text)"
+SUBNETS="$(aws ecs describe-services --region "${AWS_REGION}" --cluster "${CLUSTER}" --services "${SERVICE}" --query 'join(`,`, services[0].networkConfiguration.awsvpcConfiguration.subnets)' --output text)"
+SECURITY_GROUPS="$(aws ecs describe-services --region "${AWS_REGION}" --cluster "${CLUSTER}" --services "${SERVICE}" --query 'join(`,`, services[0].networkConfiguration.awsvpcConfiguration.securityGroups)' --output text)"
+ASSIGN_PUBLIC_IP="$(aws ecs describe-services --region "${AWS_REGION}" --cluster "${CLUSTER}" --services "${SERVICE}" --query 'services[0].networkConfiguration.awsvpcConfiguration.assignPublicIp' --output text)"
 
 TASK_ARN="$(aws ecs run-task \
   --region "${AWS_REGION}" \
   --cluster "${CLUSTER}" \
   --launch-type FARGATE \
   --task-definition "${TASK_DEFINITION}" \
-  --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SECURITY_GROUP}],assignPublicIp=DISABLED}" \
-  --overrides '{"containerOverrides":[{"name":"web","command":["sh","-lc","sh scripts/cicd/run-service-sql-migrations.sh"]}]}' \
+  --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SECURITY_GROUPS}],assignPublicIp=${ASSIGN_PUBLIC_IP}}" \
+  --overrides '{"containerOverrides":[{"name":"web","command":["sh","-lc","sh scripts/cicd/run-service-sql-migrations.sh && npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"]}]}' \
   --query 'tasks[0].taskArn' \
   --output text)"
 

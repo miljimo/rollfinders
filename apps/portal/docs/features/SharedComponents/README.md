@@ -11,7 +11,7 @@ This folder contains taskable functional implementation requirements for shared 
 
 Component-specific PRDs live in:
 
-`docs/features/SharedComponents/Components/`
+`Components/`
 
 Each file maps to a reusable component or table subcomponent and uses IF/WHEN/THEN requirements.
 

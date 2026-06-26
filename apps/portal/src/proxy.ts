@@ -1,12 +1,15 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
-import { loginUrl } from "./lib/auth-urls";
+import { loginUrl, publicSiteBaseUrl } from "./lib/auth-urls";
 
 const adminRoles = new Set(["SUPER_ADMIN", "ADMIN", "PLATFORM_ADMIN", "ACADEMY_ADMIN", "ACADEMY_OWNER"]);
 const standardDashboardRoles = new Set(["STANDARD_USER", "USER"]);
 
 function loginRedirect(request: NextRequest) {
-  const redirectTarget = new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, request.url).toString();
+  const publicBaseUrl = publicSiteBaseUrl();
+  const redirectTarget = publicBaseUrl
+    ? new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, `${publicBaseUrl}/`).toString()
+    : new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, request.url).toString();
   const url = new URL(loginUrl(redirectTarget), request.url);
   return NextResponse.redirect(url);
 }

@@ -32,6 +32,12 @@ variable "vpc_cidr_block" {
   default     = "10.40.0.0/16"
 }
 
+variable "enable_nat_gateway" {
+  type        = bool
+  description = "Whether to provision NAT Gateway egress for private subnets."
+  default     = true
+}
+
 variable "image_uri" {
   type        = string
   description = "Immutable ECR image URI pushed by the deployment pipeline."

@@ -17,7 +17,7 @@ Use these folders as the canonical locations:
 | Communications / User Account Emails | `Communications/Email/UserAccountEmails/APIs` | - | - | `Communications/Email/UserAccountEmails/Products` |
 | Deployment | - | - | - | `Deployment/Provisioning`, `Deployment/Delivery`, `Deployment/Operations` |
 | Public Site | - | - | `PublicSite/Pages` | - |
-| Shared Components | - | `SharedComponents` and `SharedComponents/Components` | - | - |
+| Shared Components | - | `apps/portal/docs/features/SharedComponents` and `apps/portal/docs/features/SharedComponents/Components` | - | - |
 | Product Planning | - | - | - | `Product/Products` |
 
 ## Duplication Rule

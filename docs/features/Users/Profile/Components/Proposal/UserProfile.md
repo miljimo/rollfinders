@@ -35,10 +35,10 @@ Existing profile PRDs:
 
 Existing reusable component PRDs:
 
-* `docs/features/SharedComponents/Button.md`
-* `docs/features/SharedComponents/Badge.md`
-* `docs/features/SharedComponents/PanelSurface.md`
-* `docs/features/SharedComponents/PageHeader.md`
+* `apps/portal/docs/features/SharedComponents/Button.md`
+* `apps/portal/docs/features/SharedComponents/Badge.md`
+* `apps/portal/docs/features/SharedComponents/PanelSurface.md`
+* `apps/portal/docs/features/SharedComponents/PageHeader.md`
 
 ## Component Reuse Requirement
 
