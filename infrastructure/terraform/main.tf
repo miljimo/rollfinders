@@ -299,8 +299,8 @@ module "app_service" {
   log_group_name        = "/ecs/${local.name_prefix}"
   service_name          = "web"
   launch_type           = "FARGATE"
-  cpu                   = var.container_cpu
-  memory                = var.container_memory
+  cpu                   = 2048
+  memory                = 4096
   log_retention_in_days = local.is_production ? 30 : 14
   desired_count         = var.desired_count
   assign_public_ip      = false
