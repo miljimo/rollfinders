@@ -447,6 +447,7 @@ module "app_service" {
       log_region   = var.aws_region
       environments = [{ name = "PORT", value = "8083" }]
       secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
         { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
         { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
@@ -477,6 +478,7 @@ module "app_service" {
       log_region   = var.aws_region
       environments = [{ name = "PORT", value = "8085" }]
       secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
         { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
         { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
@@ -495,6 +497,7 @@ module "app_service" {
       log_region   = var.aws_region
       environments = [{ name = "PORT", value = "8086" }]
       secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
         { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
         { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
@@ -519,6 +522,7 @@ module "app_service" {
         { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "${local.app_base_url}/payments/status" }
       ]
       secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
         { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
         { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
@@ -544,6 +548,7 @@ module "app_service" {
         { name = "PAYMENT_DEFAULT_CLIENT_CALLBACK_URL", value = "${local.app_base_url}/dashboard/subscriptions" }
       ]
       secrets = [
+        { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
         { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
         { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
