@@ -334,8 +334,6 @@ module "app_service" {
         { name = "PORT", value = "3000" },
         { name = "HOSTNAME", value = "0.0.0.0" },
         { name = "API_PUBLIC_BASE_URL", value = "http://127.0.0.1:8080" },
-        { name = "NOTIFICATION_SERVICE_BASE_URL", value = "http://127.0.0.1:8088" },
-        { name = "ANALYTICS_SERVICE_BASE_URL", value = "http://127.0.0.1:8089" },
         { name = "EMAIL_DOMAIN", value = module.email.sending_domain }
       ]
       secrets = [
@@ -531,46 +529,6 @@ module "app_service" {
       ]
       ports       = [{ container_port = 8087, host_port = 8087, protocol = "tcp" }]
       healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8087/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
-    },
-    {
-      name         = "notification"
-      image        = var.notification_service_image_uri
-      cpu          = 64
-      memory       = 128
-      essential    = false
-      log_region   = var.aws_region
-      environments = [{ name = "PORT", value = "8088" }]
-      secrets = [
-        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
-        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
-        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
-        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
-        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] },
-        { name = "NOTIFICATION_API_KEY", valueFrom = module.app_secrets.arn_by_key["USER_SERVICE_API_KEY"] }
-      ]
-      ports       = [{ container_port = 8088, host_port = 8088, protocol = "tcp" }]
-      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8088/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
-    },
-    {
-      name       = "analytics"
-      image      = var.analytics_service_image_uri
-      cpu        = 64
-      memory     = 128
-      essential  = false
-      log_region = var.aws_region
-      environments = [
-        { name = "PORT", value = "8089" },
-        { name = "ANALYTICS_API_KEY", value = "local-analytics-api-key" }
-      ]
-      secrets = [
-        { name = "DB_HOST", valueFrom = module.app_secrets.arn_by_key["DB_HOST"] },
-        { name = "DB_PORT", valueFrom = module.app_secrets.arn_by_key["DB_PORT"] },
-        { name = "DB_USER", valueFrom = module.app_secrets.arn_by_key["DB_USER"] },
-        { name = "DB_PASSWORD", valueFrom = module.app_secrets.arn_by_key["DB_PASSWORD"] },
-        { name = "DB_NAME", valueFrom = module.app_secrets.arn_by_key["DB_NAME"] }
-      ]
-      ports       = [{ container_port = 8089, host_port = 8089, protocol = "tcp" }]
-      healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8089/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
     },
     {
       name       = "subscriptions"
