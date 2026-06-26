@@ -581,5 +581,29 @@ BEGIN
     )
     WHERE r.key IN ('ACADEMY_OWNER', 'ACADEMY_ADMIN')
     ON CONFLICT DO NOTHING;
+
+    IF to_regclass('users.users') IS NOT NULL THEN
+        INSERT INTO user_roles (id, user_id, role_id, organisation_id, application_id, resource_id, assigned_by)
+        SELECT
+            'user_role_super_admin_' || protected_user.id,
+            protected_user.id,
+            role.id,
+            NULL,
+            NULL,
+            NULL,
+            'SYSTEM'
+        FROM users.users protected_user
+        JOIN roles role ON role.key = 'SUPER_ADMIN'
+        WHERE protected_user.is_protected = true
+          AND NOT EXISTS (
+              SELECT 1
+              FROM user_roles existing_user_role
+              WHERE existing_user_role.user_id = protected_user.id
+                AND existing_user_role.role_id = role.id
+                AND existing_user_role.organisation_id IS NULL
+                AND existing_user_role.application_id IS NULL
+                AND existing_user_role.resource_id IS NULL
+          );
+    END IF;
 END;
 $$;
