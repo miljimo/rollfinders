@@ -15,16 +15,16 @@ if [ -d "${APP_ROOT:-/app}" ]; then
   cd "${APP_ROOT:-/app}"
 fi
 
+if [ -f apps/backend_api/migrations/authorisation/001_core_schema.sql ]; then
+  (cd apps/backend_api/migrations/authorisation && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+fi
+
 if [ -f apps/backend_api/migrations/users/001_core_schema.sql ]; then
   (cd apps/backend_api/migrations/users && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
 if [ -f apps/backend_api/migrations/payments/001_core_schema.sql ]; then
   (cd apps/backend_api/migrations/payments && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
-fi
-
-if [ -f apps/backend_api/migrations/authorisation/001_core_schema.sql ]; then
-  (cd apps/backend_api/migrations/authorisation && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
 if [ -f apps/backend_api/migrations/courses/001_coreSchema.sql ]; then
@@ -52,6 +52,17 @@ fi
 
 if [ -f apps/backend_api/migrations/subscriptions/001_core_schema.sql ]; then
   (cd apps/backend_api/migrations/subscriptions && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+fi
+
+if [ -d apps/backend_api/migrations/organisation ]; then
+  for dir in schema tables procedures functions; do
+    if [ -d "apps/backend_api/migrations/organisation/${dir}" ]; then
+      for file in apps/backend_api/migrations/organisation/${dir}/*.sql; do
+        [ -f "${file}" ] || continue
+        psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
+      done
+    fi
+  done
 fi
 
 if [ -d apps/backend_api/migrations/academy ]; then
