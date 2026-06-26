@@ -1,5 +1,33 @@
 SET search_path TO courses, public;
 
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'GiType') THEN
+    CREATE TYPE public."GiType" AS ENUM ('GI', 'NO_GI', 'BOTH');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'EventPricingType') THEN
+    CREATE TYPE public."EventPricingType" AS ENUM ('FIXED', 'FREE', 'DONATION');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'EventAudience') THEN
+    CREATE TYPE public."EventAudience" AS ENUM ('EXTERNAL_ONLY', 'EXTERNAL_AND_MEMBERS');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'CourseType') THEN
+    CREATE TYPE public."CourseType" AS ENUM ('OPEN_MAT', 'TRAINING', 'SPARRING', 'SEMINAR', 'WORKSHOP', 'COMPETITION', 'PRIVATE_LESSON');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'RecurrenceType') THEN
+    CREATE TYPE public."RecurrenceType" AS ENUM ('NONE', 'WEEKLY', 'MONTHLY', 'YEARLY');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typnamespace = 'public'::regnamespace AND typname = 'CourseActivityType') THEN
+    CREATE TYPE public."CourseActivityType" AS ENUM ('WARM_UP', 'DRILLING', 'TECHNICAL', 'ROLLING', 'SPARRING', 'COMPETITION', 'Q_AND_A', 'BREAK', 'LUNCH', 'DINNER', 'SOCIAL', 'CUSTOM');
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public."rollfindersCourseTypeId"(p_academy_id text, p_course_type text)
 RETURNS text
 LANGUAGE sql
