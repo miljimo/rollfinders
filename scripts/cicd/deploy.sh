@@ -63,11 +63,13 @@ CURRENT_TASK_DEFINITION_ARN="$(
     --query 'services[0].taskDefinition' \
     --output text
 )"
+TERRAFORM_TASK_DEFINITION_ARN="$(terraform output -raw ecs_task_definition_arn 2>/dev/null || true)"
+BASE_TASK_DEFINITION_ARN="${TERRAFORM_TASK_DEFINITION_ARN:-${CURRENT_TASK_DEFINITION_ARN}}"
 
 TASK_DEFINITION_PAYLOAD="$(
   aws ecs describe-task-definition \
     --region "${AWS_REGION}" \
-    --task-definition "${CURRENT_TASK_DEFINITION_ARN}" \
+    --task-definition "${BASE_TASK_DEFINITION_ARN}" \
     --query 'taskDefinition'
 )"
 
