@@ -29,7 +29,7 @@ export async function proxy(request: NextRequest) {
   const role = typeof token?.role === "string" ? token.role : null;
   const path = request.nextUrl.pathname;
 
-  if (!token) return loginRedirect(request);
+  if (!token) return NextResponse.next();
 
   if (path.startsWith("/dashboard/password")) {
     const url = new URL("/dashboard", request.url);
