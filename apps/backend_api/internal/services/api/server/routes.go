@@ -252,6 +252,10 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodGet, Path: WalletTransactions, Permission: PermissionWalletTransactionRead, ResourceType: ResourceTransaction, ResourceIDParam: ParamTransactionId},
 		}},
 
+		{Name: TransferService, Routes: []RouteDefinitionWithPermission{
+			{Method: http.MethodPost, Path: Transfers, Permission: PermissionTransferCreate},
+		}},
+
 		{Name: AuthorisationService, Routes: []RouteDefinitionWithPermission{
 			{Method: http.MethodPost, Path: AuthorisationPermissions, Permission: PermissionAuthorisationPermissionCreate},
 			{Method: http.MethodGet, Path: AuthorisationPermissions, Permission: PermissionAuthorisationPermissionRead},
@@ -369,6 +373,8 @@ func proxyKeyForService(service GatewayService) string {
 		return "subscriptions"
 	case WalletService:
 		return "wallet"
+	case TransferService:
+		return "transfer"
 	default:
 		return ""
 	}

@@ -1,17 +1,8 @@
-# Transfer Orchestration Service Engineering PRD
+# Transfer Service Engineering PRD
 
 ## Service Name
 
 Transfer Service
-
-Make sure this service is not duplicated with Payment Service or the wallet service , if so please remove the duplication from them and allow payment service to handle stripe payments , wallet related stuff
-
-
-This document defines clear responsibilities between the Payment, Wallet Service and the Transfer Service to avoid duplication.
-
-The Payment Service handles all Stripe payment operations.
-
-The Transfer Service handles wallet withdrawal workflow, approval, audit records, and orchestration.
 
 ## Version
 
@@ -19,426 +10,114 @@ The Transfer Service handles wallet withdrawal workflow, approval, audit records
 
 ## Purpose
 
-The Transfer Service is responsible for managing and recording wallet withdrawal requests , its only backend related.
+The Transfer Service initiates cash movement from one internal wallet to another internal wallet.
 
-The service DOES NOT move money.
+It is intentionally small. It does not own balances, ledger entries, payment provider state, payout approvals, bank details, or Stripe operations. Wallet Service remains the ledger and balance owner. Payment Service remains the Stripe and payment-provider owner.
 
-The service DOES NOT communicate directly with banks.
+## Boundary Decision
 
-The service DOES NOT own wallet balances.
+### Wallet Service
 
-The service orchestrates transfers between the Wallet to Wallet Service and the existing Payment Service.
+Wallet Service owns:
+
+* Wallets.
+* Balances.
+* Ledger entries.
+* Double-entry accounting.
+* Validation that wallets exist, are active, use the same currency, and have sufficient funds.
+* Idempotent wallet-to-wallet transaction creation.
 
-Stripe remains responsible for moving money from wallet to stripe account.
+### Payment Service
 
----
+Payment Service owns:
 
-# Responsibilities
+* Stripe payment operations.
+* Checkout, payment, refund, subscription payment, and provider webhook state.
+* Stripe Connect account and payout-provider concerns.
 
-The service SHALL:
+Payment Service must not own wallet ledger records or execute wallet-to-wallet balance movement.
 
-* Create transfer requests.
-* Validate withdrawal requests.
-* Record every transfer.
-* Support approval workflows.
-* Call the Payment Service after approval.
-* Receive transfer completion events.
-* Update transfer status.
-* Notify Wallet Service to finalize the wallet debit.
-* Maintain a complete audit history.
+### Transfer Service
 
-The service SHALL NOT:
+Transfer Service owns:
 
-* Hold money.
-* Own wallet balances.
-* Calculate balances.
-* Process card payments.
-* Store bank account details.
-* Call Stripe directly.
+* The transfer initiation API.
+* Request normalization.
+* Request-level validation for required source wallet, destination wallet, amount, currency, and idempotency key.
+* Delegation to Wallet Service to create the actual wallet transfer.
+* Returning Wallet Service's canonical transaction result.
 
----
+Transfer Service does not own transfer balances or ledger tables.
 
-# Supported Transfer Types
+## Minimum Scope
 
-Wallet → Stripe Connected Account
+The minimum Transfer Service provides one operation:
 
-Future
+```txt
+POST /v1/transfers
+```
 
-Wallet → Bank
+Request:
 
-Wallet → PayPal
+```json
+{
+  "source_wallet_id": "wal_source",
+  "destination_wallet_id": "wal_destination",
+  "amount": 2500,
+  "currency": "GBP",
+  "reference_type": "booking",
+  "reference_id": "booking_123",
+  "description": "Booking settlement"
+}
+```
 
-Wallet → Another Provider
+Required header:
 
----
+```txt
+Idempotency-Key: <stable-request-key>
+```
 
-# Preconditions
+Response:
 
-A transfer request can only be created when:
+```json
+{
+  "transfer": {
+    "id": "txn_123",
+    "type": "TRANSFER",
+    "status": "COMPLETED",
+    "amount": 2500,
+    "currency": "GBP",
+    "source_wallet_id": "wal_source",
+    "destination_wallet_id": "wal_destination",
+    "reference_type": "booking",
+    "reference_id": "booking_123",
+    "created_at": "2026-06-27T00:00:00Z"
+  }
+}
+```
 
-* User is authenticated.
-* User owns the wallet.
-* Wallet is Active.
-* Wallet has sufficient available balance.
-* User has a verified Stripe Connected Account.
-* Transfer amount is greater than zero.
+## Flow
 
----
+1. Caller sends `POST /v1/transfers` with an idempotency key.
+2. Transfer Service validates required request fields.
+3. Transfer Service normalizes currency to uppercase.
+4. Transfer Service calls Wallet Service `POST /v1/wallets/transfer`.
+5. Wallet Service performs ledger validation and creates the double-entry transaction.
+6. Transfer Service returns the canonical Wallet Service transaction.
 
-# Workflow
+## Out Of Scope
 
-## Step 1
+The minimum Transfer Service explicitly excludes:
 
-User logs into RollFinders.
-
-↓
-
-Select Withdraw.
-
-↓
-
-Enter amount.
-
-↓
-
-Submit request.
-
----
-
-## Step 2
-
-Transfer Service validates:
-
-* Wallet ownership
-* Wallet status
-* Available balance
-* Stripe account connected
-* Transfer limits
-
-If validation fails
-
-Return error.
-
----
-
-## Step 3
-
-Transfer Service requests Wallet Service to reserve the funds.
-
-Wallet status
-
-Reserved
-
-No money is debited yet.
-
----
-
-## Step 4
-
-Create Transfer Request.
-
-Status
-
-PENDING_APPROVAL
-
----
-
-## Step 5
-
-Administrator reviews request.
-
-Possible actions
-
-Approve
-
-Reject
-
-Cancel
-
----
-
-## Step 6
-
-If approved
-
-Call existing Payment Service.
-
-Example
-
-POST
-
-/payment/payout
-
-Payment Service already knows how to create Stripe transfers.
-
----
-
-## Step 7
-
-Payment Service communicates with Stripe.
-
-Stripe performs payout.
-
----
-
-## Step 8
-
-Payment Service publishes:
-
-TransferSucceeded
-
-or
-
-TransferFailed
-
----
-
-## Step 9
-
-Transfer Service updates status.
-
-If successful
-
-Notify Wallet Service
-
-Finalize debit.
-
-If failed
-
-Notify Wallet Service
-
-Release reservation.
-
----
-
-# Transfer Status
-
-CREATED
-
-VALIDATING
-
-PENDING_APPROVAL
-
-APPROVED
-
-PROCESSING
-
-COMPLETED
-
-FAILED
-
-REJECTED
-
-CANCELLED
-
----
-
-# Approval Rules
-
-Approval may be:
-
-Manual
-
-Automatic
-
-Automatic approval rules may include:
-
-Amount below configured threshold
-
-Trusted academy
-
-Verified Stripe account
-
-No compliance flags
-
----
-
-# Transfer Record
-
-Each transfer stores:
-
-Transfer ID
-
-Wallet ID
-
-Wallet Owner
-
-Stripe Account ID
-
-Amount
-
-Currency
-
-Reference
-
-Status
-
-Reason
-
-Requested By
-
-Approved By
-
-Approved At
-
-Completed At
-
-Failure Reason
-
-Payment Service Reference
-
-Stripe Transfer Reference
-
-Created At
-
-Updated At
-
----
-
-# REST API
-
-POST /transfers
-
-GET /transfers/{id}
-
-GET /transfers
-
-POST /transfers/{id}/approve
-
-POST /transfers/{id}/reject
-
-POST /transfers/{id}/cancel
-
-GET /transfers/pending
-
----
-
-# Events Published
-
-TransferRequested
-
-TransferApproved
-
-TransferRejected
-
-TransferCompleted
-
-TransferFailed
-
-TransferCancelled
-
----
-
-# Events Consumed
-
-WalletReserved
-
-WalletReleased
-
-PaymentTransferSucceeded
-
-PaymentTransferFailed
-
----
-
-# Database
-
-transfers
-
-* id
-* wallet_id
-* owner_id
-* stripe_account_id
-* amount
-* currency
-* status
-* payment_reference
-* stripe_reference
-* requested_by
-* approved_by
-* approved_at
-* completed_at
-* failure_reason
-* created_at
-* updated_at
-
-transfer_history
-
-* id
-* transfer_id
-* action
-* performed_by
-* previous_status
-* new_status
-* metadata
-* created_at
-
----
-
-# Security
-
-JWT authentication required.
-
-Users may only create transfers for wallets they own.
-
-Administrators approve or reject transfers.
-
-Every request must use an Idempotency-Key.
-
-Every action must be audited.
-
----
-
-# Business Rules
-
-Funds must be reserved before approval.
-
-Funds remain reserved until Stripe confirms success.
-
-Rejected or failed transfers release reserved funds.
-
-Wallet balances are updated only by the Wallet Service.
-
-Stripe remains the payment processor.
-
-The Transfer Service is an orchestration and audit service only.
-
----
-
-# Dependencies
-
-Consumes
-
-Wallet Service
-
-Identity Service
-
-Existing Payment Service
-
-Notification Service
-
-Publishes
-
-Wallet Service
-
-Reporting Service
-
-Analytics Service
-
-Notification Service
-
----
-
-# Future Extensions
-
-The architecture must support replacing the Payment Service with another provider without modifying the Transfer Service.
-
-Future provider implementations include:
-
-* Stripe
-* Adyen
-* PayPal
-* Wise
-* Bank APIs
-
-The Transfer Service must always remain provider-agnostic and focused on orchestration, approvals, auditability, and workflow management rather than payment execution.
+* Stripe payout orchestration.
+* Bank transfer orchestration.
+* Payment provider calls.
+* Approval workflows.
+* Reserve and release workflows.
+* Transfer audit tables.
+* Balance calculation.
+* Ledger ownership.
+* Wallet transaction reversal.
+* User-facing frontend dashboard work.
+
+Future work may add workflow state and approval records, but only after a boundary decision confirms that the feature is not better owned by Payment Service or Wallet Service.

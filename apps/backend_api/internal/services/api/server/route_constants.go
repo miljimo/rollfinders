@@ -19,6 +19,7 @@ const (
 	PaymentService       = gatewayroutes.PaymentService
 	SubscriptionService  = gatewayroutes.SubscriptionService
 	WalletService        = gatewayroutes.WalletService
+	TransferService      = gatewayroutes.TransferService
 )
 
 const (
@@ -153,6 +154,7 @@ const (
 	WalletsReverse                                       = gatewayroutes.WalletsReverse
 	WalletsAdjustment                                    = gatewayroutes.WalletsAdjustment
 	WalletTransactions                                   = gatewayroutes.WalletTransactions
+	Transfers                                            = gatewayroutes.Transfers
 )
 
 const (
@@ -258,6 +260,7 @@ const (
 	PermissionWalletReverse                      = gatewayroutes.PermissionWalletReverse
 	PermissionWalletAdjustment                   = gatewayroutes.PermissionWalletAdjustment
 	PermissionWalletTransactionRead              = gatewayroutes.PermissionWalletTransactionRead
+	PermissionTransferCreate                     = gatewayroutes.PermissionTransferCreate
 	PermissionUserCreate                         = gatewayroutes.PermissionUserCreate
 	PermissionUserDelete                         = gatewayroutes.PermissionUserDelete
 	PermissionUserRead                           = gatewayroutes.PermissionUserRead

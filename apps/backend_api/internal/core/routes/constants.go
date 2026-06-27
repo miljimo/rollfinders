@@ -48,6 +48,7 @@ const (
 	PaymentService       GatewayService = "payment-service"
 	SubscriptionService  GatewayService = "subscription-service"
 	WalletService        GatewayService = "wallet-service"
+	TransferService      GatewayService = "transfer-service"
 )
 
 const (
@@ -370,6 +371,13 @@ const (
 )
 
 const (
+	// Transfer Service API Gateways
+	Transfers GatewayTargetPath = "/v1/transfers"
+
+	PermissionTransferCreate GatewayPermissionName = "transfer.create"
+)
+
+const (
 	// Authorisation Service API Gateways
 	AuthorisationAuthorise                          GatewayTargetPath = "/v1/authorisation/authorise"
 	AuthorisationAuthorize                          GatewayTargetPath = "/v1/authorisation/authorize"
@@ -521,5 +529,6 @@ func GatewayResourceCatalog() map[GatewayPermissionName]GatewayResourceDefinitio
 		PermissionWalletReverse:                      createGatewayResource(PermissionWalletReverse, WalletsReverse),
 		PermissionWalletAdjustment:                   createGatewayResource(PermissionWalletAdjustment, WalletsAdjustment),
 		PermissionWalletTransactionRead:              createGatewayResource(PermissionWalletTransactionRead, WalletTransactions),
+		PermissionTransferCreate:                     createGatewayResource(PermissionTransferCreate, Transfers),
 	}
 }

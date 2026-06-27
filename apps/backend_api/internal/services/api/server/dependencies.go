@@ -30,6 +30,7 @@ func (s *server) dependencyReport(ctx context.Context) dependencyReport {
 		"booking":       s.cfg.BookingBaseURL,
 		"payments":      s.cfg.PaymentBaseURL,
 		"wallet":        s.cfg.WalletBaseURL,
+		"transfer":      s.cfg.TransferBaseURL,
 	}
 
 	results := make(map[string]dependencyResult, len(checks)+1)
