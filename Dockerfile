@@ -6,10 +6,8 @@ RUN npm ci --no-audit --no-fund --prefer-offline
 
 FROM node:22-alpine AS builder
 WORKDIR /app
-ARG GOOGLE_MAPS_API_KEY=""
 ARG NEXT_PUBLIC_POSTHOG_KEY=""
 ARG NEXT_PUBLIC_POSTHOG_HOST="https://eu.i.posthog.com"
-ENV GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
 ENV NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
 ENV NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
 COPY --from=deps /app/node_modules ./node_modules
@@ -41,10 +39,8 @@ CMD ["sh", "-c", "npx prisma migrate deploy && sh scripts/cicd/run-service-sql-m
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-ARG GOOGLE_MAPS_API_KEY=""
 ARG NEXT_PUBLIC_POSTHOG_KEY=""
 ARG NEXT_PUBLIC_POSTHOG_HOST="https://eu.i.posthog.com"
-ENV GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
 ENV NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
 ENV NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
 RUN apk add --no-cache curl postgresql-client \

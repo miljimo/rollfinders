@@ -29,6 +29,7 @@ import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
 import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
+import { getWalletBalance, listWalletTransactions, listWalletsPage, WalletServiceError, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -67,6 +68,7 @@ import { updatePlatformPaymentFees } from "./payments/paymentSettingsActions";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/bookingActions";
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
+import { WalletDashboard } from "./wallet/WalletDashboard";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 
@@ -81,6 +83,7 @@ const pageSize = 8;
 const usersPageSize = 10;
 const bookingsPageSize = 10;
 const paymentsPageSize = 10;
+const walletPageSize = 10;
 const platformAdminAcademyPageSize = 5;
 const academyDialogEventPageSize = 5;
 const claimPageSizes = [20, 50, 100];
@@ -174,7 +177,7 @@ async function attachAcademyOperationalMetadata(academies: AcademyServiceRecord[
 
 function selectedPanel(value: string | undefined) {
   if (value === "courses") return "open-mats";
-  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "bookings" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics" || value === "subscriptions") return value;
+  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "bookings" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics" || value === "subscriptions" || value === "wallet") return value;
   return "academies";
 }
 
@@ -193,6 +196,7 @@ function dashboardServiceDescription(label: string, academyAdmin: boolean) {
     "Payments": "Review payment activity, earnings, refunds, and payouts.",
     "Settings": "Manage dashboard account and platform settings.",
     "Subscriptions": "Manage products, plans, entitlements, and subscribers.",
+    "Wallet": "Manage internal wallets, ledger balances, reserves, and transfers.",
   };
   return descriptions[label] ?? "Open this RollFinders service dashboard.";
 }
@@ -202,7 +206,7 @@ function isPlatformOnlyPanel(panel: string) {
 }
 
 function isSuperOnlyPanel(panel: string) {
-  return panel === "platform-admin-academies" || panel === "analytics";
+  return panel === "platform-admin-academies" || panel === "analytics" || panel === "wallet";
 }
 
 async function resolvePaymentMetricVisibility(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<PaymentMetricVisibility> {
@@ -318,6 +322,7 @@ function dashboardPanelPath(panel: string) {
   if (panel === "bookings") return "/dashboard/bookings";
   if (panel === "open-mats") return "/dashboard/courses";
   if (panel === "payments") return "/dashboard/payment";
+  if (panel === "wallet") return "/dashboard/wallet";
   if (panel === "platform-admin-academies") return "/dashboard/academy-review";
   if (panel === "users") return "/dashboard/users";
   return panel === "dashboard" ? "/dashboard" : `/dashboard?panel=${encodeURIComponent(panel)}`;
@@ -410,6 +415,14 @@ type DashboardBookingsResult = {
   pagination: ServicePaginationMeta;
 };
 
+type DashboardWalletsResult = {
+  balances: WalletBalance[];
+  error?: string;
+  pagination: WalletPaginationMeta;
+  transactions: WalletTransaction[];
+  wallets: WalletRecord[];
+};
+
 function emptyServicePagination(limit: number, offset = 0): ServicePaginationMeta {
   return { count: 0, has_more: false, limit, offset };
 }
@@ -488,6 +501,34 @@ async function getDashboardBookings(page: number, academyId?: string | null): Pr
   }
 }
 
+async function getDashboardWallets(page: number, accessToken?: string): Promise<DashboardWalletsResult> {
+  const offset = (Math.max(1, page) - 1) * walletPageSize;
+  try {
+    const result = await listWalletsPage({ accessToken, limit: walletPageSize, offset });
+    const [balances, transactionGroups] = await Promise.all([
+      Promise.all(result.wallets.map((wallet) => getWalletBalance(wallet.id, accessToken).catch(() => null))),
+      Promise.all(result.wallets.map((wallet) => listWalletTransactions(wallet.id, accessToken).catch(() => []))),
+    ]);
+    return {
+      balances: balances.filter((balance): balance is WalletBalance => Boolean(balance)),
+      pagination: result.pagination,
+      transactions: transactionGroups.flat().sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
+      wallets: result.wallets,
+    };
+  } catch (error) {
+    if (error instanceof WalletServiceError) {
+      return {
+        balances: [],
+        error: error.status === 0 ? error.message : `Wallet service returned status ${error.status}.`,
+        pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 },
+        transactions: [],
+        wallets: [],
+      };
+    }
+    return { balances: [], error: "Wallet service is unavailable.", pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 }, transactions: [], wallets: [] };
+  }
+}
+
 export default async function AdminDashboardWorkspace({
   searchParams,
 }: {
@@ -540,6 +581,7 @@ export default async function AdminDashboardWorkspace({
   const userPage = pageFromParams(params, "usersPage");
   const bookingPage = pageFromParams(params, "bookingsPage");
   const paymentPage = pageFromParams(params, "paymentsPage");
+  const walletPage = pageFromParams(params, "walletPage");
   const payoutsPage = pageFromParams(params, "payoutsPage");
   const platformAcademyPage = pageFromParams(params, "platformAcademiesPage");
   const academyEventsPage = pageFromParams(params, "academyEventsPage");
@@ -665,6 +707,7 @@ export default async function AdminDashboardWorkspace({
     paymentPlatformSettings,
     paymentMetricVisibility,
     bookingResult,
+    walletResult,
     authorisationRolesPage,
     currentUserAuthorisationRoles,
     currentUserEffectivePermissions,
@@ -728,6 +771,9 @@ export default async function AdminDashboardWorkspace({
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
+    panel === "wallet"
+      ? getDashboardWallets(walletPage, currentUser.accessToken)
+      : Promise.resolve<DashboardWalletsResult>({ balances: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
     panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationRolesPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ roles: [], pagination: emptyAuthorisationPagination(pageSize) }),
     panel === "users" && usersView === "roles" ? listUserAuthorisationRoles(currentUser.id, currentUser) : Promise.resolve([]),
     panel === "users" ? listEffectiveUserPermissions(currentUser.id, {
@@ -813,6 +859,7 @@ export default async function AdminDashboardWorkspace({
           { active: panel === "analytics", href: "/dashboard/analytics", icon: "dashboard", label: "Analytics" } satisfies SidePanelItem,
           { active: panel === "platform-admin-academies", href: "/dashboard/academy-review", icon: "academies", label: "Academy Review" } satisfies SidePanelItem,
           { active: panel === "subscriptions", href: "/dashboard/subscriptions", icon: "payments", label: "Subscriptions" } satisfies SidePanelItem,
+          { active: panel === "wallet", href: "/dashboard/wallet", icon: "wallet", label: "Wallet" } satisfies SidePanelItem,
         ]
       : []),
     ...(elevatedAdmin
@@ -871,7 +918,7 @@ export default async function AdminDashboardWorkspace({
       icon: item.icon,
       label: item.href === "/dashboard/academies" ? "Academies" : item.label,
     }));
-  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users"].includes(panel);
+  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users", "wallet"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
@@ -1112,7 +1159,7 @@ export default async function AdminDashboardWorkspace({
         <section className={clsx("px-4 py-8 sm:px-8", dashboardLanding && "mx-auto max-w-[112rem] py-12")}>
           <div className={clsx("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", dashboardLanding && "gap-6")}>
             <div>
-              <h1 className={clsx("font-black text-slate-950", dashboardLanding ? "text-5xl tracking-normal" : "text-3xl")}>{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <h1 className={clsx("font-black text-slate-950", dashboardLanding ? "text-5xl tracking-normal" : "text-3xl")}>{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "wallet" ? "Wallet Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
               <p className={clsx("mt-2 text-slate-600", dashboardLanding && "text-xl")}>{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
@@ -1230,6 +1277,15 @@ export default async function AdminDashboardWorkspace({
                 paymentSettingsMessage={paymentSettingsMessage}
                 view={paymentsView}
               />
+            </AdminPanel>
+          ) : null}
+          {panel === "wallet" ? (
+            <AdminPanel
+              description="Manage internal platform wallets, balances, reserves, and ledger state."
+              id="wallet"
+              title="Wallet Service"
+            >
+              <WalletDashboard balances={walletResult.balances} error={walletResult.error} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} wallets={walletResult.wallets} />
             </AdminPanel>
           ) : null}
           {panel === "bookings" ? (

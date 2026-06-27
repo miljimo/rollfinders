@@ -170,6 +170,13 @@ variable "nextauth_secret" {
   default     = ""
 }
 
+variable "google_maps_api_key" {
+  type        = string
+  description = "Google Maps API key injected into the web task from SSM at runtime."
+  sensitive   = true
+  default     = ""
+}
+
 variable "super_admin_email" {
   type        = string
   description = "Protected super admin email ensured after every environment deployment."

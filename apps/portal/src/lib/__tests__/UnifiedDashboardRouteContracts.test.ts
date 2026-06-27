@@ -344,7 +344,7 @@ describe("unified dashboard route contracts", () => {
 
     assert.notEqual(navigationSource, "", "Expected admin navigation source to be present");
     assert.notEqual(mobileNavigationSource, "", "Expected dashboard service navigation source to be present");
-    for (const label of ["Dashboard", "Manage Users", "Analytics", "Academy Review", "Academy Claims", "Map", "Settings"]) {
+    for (const label of ["Dashboard", "Manage Users", "Analytics", "Academy Review", "Academy Claims", "Wallet", "Map", "Settings"]) {
       assert.match(navigationSource, new RegExp(`label:\\s*"${label}"`));
     }
     assert.match(navigationSource, /label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"/);
@@ -355,7 +355,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(navigationSource, /academyAdmin[\s\S]*href:\s*"\/dashboard\?panel=settings"[\s\S]*label:\s*"Settings"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\/academy-review"/);
     assert.match(navigationSource, /active:\s*!firstParam\(params\.panel\)/);
-    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Wallet"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
     assert.match(
       source,
       /\.filter\(\(item\) => item\.href !== "\/dashboard" && item\.href !== "\/dashboard\?panel=maps" && item\.href !== "\/dashboard\?panel=settings"\)/,
@@ -388,6 +388,7 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Users"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Analytics"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Review"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Wallet"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Claims"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Map"/);
   });
@@ -431,8 +432,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /panel === "open-mats" \? "Course\/Events Dashboard"/);
     assert.match(source, /panel === "bookings" \? "Bookings"/);
     assert.match(source, /panel === "payments" \? "Payment Dashboard"/);
+    assert.match(source, /panel === "wallet" \? "Wallet Dashboard"/);
     assert.match(source, /panel === "users" \? "Identity Access Management"/);
-    assert.match(source, /const hideSharedDashboardSections = \["academies", "open-mats", "bookings", "payments", "users"\]\.includes\(panel\)/);
+    assert.match(source, /const hideSharedDashboardSections = \["academies", "open-mats", "bookings", "payments", "users", "wallet"\]\.includes\(panel\)/);
     assert.match(source, /\{!dashboardLanding && !hideSharedDashboardSections \? \(/);
     assert.match(source, /getRowHref=\{\(booking\) => bookingEventHref\(booking\)\}/);
     assert.match(source, /<StatsPanel[\s\S]*title="Stats Board"[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);

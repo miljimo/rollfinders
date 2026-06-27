@@ -235,6 +235,7 @@ module "app_secrets" {
     DB_USER                 = var.db_username
     DB_PASSWORD             = random_password.db.result
     DB_NAME                 = var.db_name
+    GOOGLE_MAPS_API_KEY     = var.google_maps_api_key != "" ? var.google_maps_api_key : "__UNSET__"
     EMAIL_FROM              = var.email_from_address != "" ? var.email_from_address : "support@${module.email.sending_domain}"
     EMAIL_REPLY_TO          = var.email_reply_to_address != "" ? var.email_reply_to_address : "support@${module.email.sending_domain}"
     SMTP_HOST               = var.smtp_host != "" ? var.smtp_host : module.email.smtp_host
@@ -255,6 +256,7 @@ module "app_secrets" {
     "NEXTAUTH_SECRET",
     "DATABASE_URL",
     "DB_PASSWORD",
+    "GOOGLE_MAPS_API_KEY",
     "SMTP_USERNAME",
     "SMTP_PASSWORD",
     "CRON_SECRET",
@@ -341,6 +343,7 @@ module "app_service" {
         { name = "DATABASE_URL", valueFrom = module.app_secrets.arn_by_key["DATABASE_URL"] },
         { name = "NEXTAUTH_SECRET", valueFrom = module.app_secrets.arn_by_key["NEXTAUTH_SECRET"] },
         { name = "NEXTAUTH_URL", valueFrom = module.app_secrets.arn_by_key["NEXTAUTH_URL"] },
+        { name = "GOOGLE_MAPS_API_KEY", valueFrom = module.app_secrets.arn_by_key["GOOGLE_MAPS_API_KEY"] },
         { name = "EMAIL_FROM", valueFrom = module.app_secrets.arn_by_key["EMAIL_FROM"] },
         { name = "EMAIL_REPLY_TO", valueFrom = module.app_secrets.arn_by_key["EMAIL_REPLY_TO"] },
         { name = "SMTP_HOST", valueFrom = module.app_secrets.arn_by_key["SMTP_HOST"] },

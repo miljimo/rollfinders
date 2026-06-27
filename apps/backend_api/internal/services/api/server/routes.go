@@ -238,6 +238,20 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodPost, Path: BookingsBookingIdParticipantsParticipantIdAttendance, Permission: PermissionBookingParticipantAttendanceRecord, ResourceType: ResourceBooking, ResourceIDParam: ParamBookingId},
 		}},
 
+		{Name: WalletService, Routes: []RouteDefinitionWithPermission{
+			{Method: http.MethodGet, Path: Wallets, Permission: PermissionWalletSearch},
+			{Method: http.MethodPost, Path: Wallets, Permission: PermissionWalletCreate},
+			{Method: http.MethodGet, Path: WalletsWalletId, Permission: PermissionWalletRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
+			{Method: http.MethodGet, Path: WalletsWalletIdBalance, Permission: PermissionWalletRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
+			{Method: http.MethodGet, Path: WalletsWalletIdTransactions, Permission: PermissionWalletTransactionRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
+			{Method: http.MethodPost, Path: WalletsTransfer, Permission: PermissionWalletTransfer},
+			{Method: http.MethodPost, Path: WalletsReserve, Permission: PermissionWalletReserve},
+			{Method: http.MethodPost, Path: WalletsRelease, Permission: PermissionWalletRelease},
+			{Method: http.MethodPost, Path: WalletsReverse, Permission: PermissionWalletReverse},
+			{Method: http.MethodPost, Path: WalletsAdjustment, Permission: PermissionWalletAdjustment},
+			{Method: http.MethodGet, Path: WalletTransactions, Permission: PermissionWalletTransactionRead, ResourceType: ResourceTransaction, ResourceIDParam: ParamTransactionId},
+		}},
+
 		{Name: AuthorisationService, Routes: []RouteDefinitionWithPermission{
 			{Method: http.MethodPost, Path: AuthorisationPermissions, Permission: PermissionAuthorisationPermissionCreate},
 			{Method: http.MethodGet, Path: AuthorisationPermissions, Permission: PermissionAuthorisationPermissionRead},
@@ -353,6 +367,8 @@ func proxyKeyForService(service GatewayService) string {
 		return "payment"
 	case SubscriptionService:
 		return "subscriptions"
+	case WalletService:
+		return "wallet"
 	default:
 		return ""
 	}

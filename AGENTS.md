@@ -21,11 +21,11 @@ Read only the guideline files relevant to the task.
 Use this routing:
 
 ```txt
-Project structure/task location -> docs/guidelines/PROJECT_STRUCTURE.md
-Ticket creation                  -> docs/guidelines/ticket.md
+Project structure/task location   -> docs/guidelines/PROJECT_STRUCTURE.md
+Ticket creation                   -> docs/guidelines/ticket.md
 Go backend service work           -> docs/guidelines/GO_SERVICE.md
 Reusable UI component work        -> docs/guidelines/COMPONENT.md
-terraform resource provision     -> docs/guidelines/TERRAFORM.md
+terraform resource provision       -> docs/guidelines/TERRAFORM.md
 ```
 
 Do not load every guideline unless the task requires it.
@@ -98,6 +98,9 @@ docs/guidelines/   -> project rules
 Go, PostgreSQL, SQL migrations, Terraform, Python, Bash, Next.js, React, TypeScript.
 
 ---
+
+### New Sevice UI Integration to the Service Endpoint
+- Follow this when integrating a new service UI `docs/guidelines/APP_DASHBOARD.md`
 
 ## Deployment
 Follow this guide for deployment 

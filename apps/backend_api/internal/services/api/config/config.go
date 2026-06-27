@@ -26,6 +26,7 @@ type Config struct {
 	BookingBaseURL       string
 	PaymentBaseURL       string
 	SubscriptionBaseURL  string
+	WalletBaseURL        string
 	LegacyNextBaseURL    string
 }
 
@@ -50,6 +51,7 @@ func LoadFrom(env environments.Environment) (Config, error) {
 		BookingBaseURL:       cleanURL(env.GetWithDefault("BOOKING_PUBLIC_BASE_URL", "http://localhost:3005")),
 		PaymentBaseURL:       cleanURL(env.GetWithDefault("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002")),
 		SubscriptionBaseURL:  cleanURL(env.GetWithDefault("SUBSCRIPTION_PUBLIC_BASE_URL", "http://localhost:3008")),
+		WalletBaseURL:        cleanURL(env.GetWithDefault("WALLET_PUBLIC_BASE_URL", "http://localhost:3009")),
 		LegacyNextBaseURL:    cleanURL(env.GetWithDefault("LEGACY_NEXT_PUBLIC_BASE_URL", "http://localhost:3000")),
 	}
 	if cfg.Port == "" {
@@ -89,6 +91,7 @@ func (c Config) serviceURLs() map[string]string {
 		"BOOKING_PUBLIC_BASE_URL":       c.BookingBaseURL,
 		"PAYMENT_PUBLIC_BASE_URL":       c.PaymentBaseURL,
 		"SUBSCRIPTION_PUBLIC_BASE_URL":  c.SubscriptionBaseURL,
+		"WALLET_PUBLIC_BASE_URL":        c.WalletBaseURL,
 		"LEGACY_NEXT_PUBLIC_BASE_URL":   c.LegacyNextBaseURL,
 	}
 }

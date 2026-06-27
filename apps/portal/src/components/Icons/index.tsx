@@ -2,13 +2,32 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { Building2, CalendarDays, CreditCard,
-     ClipboardCheck, HelpCircle, Home, KeyRound, LockKeyhole, LogOut, Map, Settings, ShieldCheck, UserCog, Users } from "lucide-react";
+import {
+    ArrowLeftRight,
+    Banknote,
+    Building2,
+    CalendarDays,
+    CheckSquare,
+    CreditCard,
+    ClipboardCheck,
+    HelpCircle,
+    Home,
+    KeyRound,
+    Landmark,
+    LockKeyhole,
+    LogOut,
+    Map,
+    Settings,
+    ShieldCheck,
+    UserCog,
+    Users,
+    Wallet,
+} from "lucide-react";
 
 
 
 export type SidePanelIcon = "academies" | "claims"
-    | "accessKeys" | "bookings" | "dashboard" | "events" | "help" | "logout" | "map" | "mfa" | "payments" | "permissions" | "roles" | "settings" | "users";
+    | "accessKeys" | "approvals" | "bookings" | "dashboard" | "events" | "help" | "logout" | "map" | "mfa" | "payments" | "payouts" | "permissions" | "reserves" | "roles" | "settings" | "transactions" | "transfers" | "users" | "wallet";
 
 
 
@@ -29,6 +48,7 @@ export const Icon = ({ name, size = 20, className = "shrink-0", ariaHidden = tru
     const icons: Record<SidePanelIcon, ReactNode> = {
         academies: <Building2 {...iconProps} />,
         accessKeys: <KeyRound {...iconProps} />,
+        approvals: <CheckSquare {...iconProps} />,
         bookings: <ClipboardCheck {...iconProps} />,
         claims: <ClipboardCheck {...iconProps} />,
         dashboard: <Home {...iconProps} />,
@@ -38,10 +58,15 @@ export const Icon = ({ name, size = 20, className = "shrink-0", ariaHidden = tru
         map: <Map {...iconProps} />,
         mfa: <ShieldCheck {...iconProps} />,
         payments: <CreditCard {...iconProps} />,
+        payouts: <Landmark {...iconProps} />,
         permissions: <LockKeyhole {...iconProps} />,
+        reserves: <LockKeyhole {...iconProps} />,
         roles: <UserCog {...iconProps} />,
         settings: <Settings {...iconProps} />,
+        transactions: <Banknote {...iconProps} />,
+        transfers: <ArrowLeftRight {...iconProps} />,
         users: <Users {...iconProps} />,
+        wallet: <Wallet {...iconProps} />,
     };
 
 

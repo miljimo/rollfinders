@@ -28,7 +28,7 @@ load_build_env_var() {
 
 for env_file in .env.local .env; do
   if [[ -f "${env_file}" ]]; then
-    for build_var in GOOGLE_MAPS_API_KEY NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST; do
+    for build_var in NEXT_PUBLIC_POSTHOG_KEY NEXT_PUBLIC_POSTHOG_HOST; do
       load_build_env_var "${env_file}" "${build_var}"
     done
   fi
@@ -46,7 +46,6 @@ aws ecr get-login-password --region "${AWS_REGION}" \
 
 docker build \
   --target runner \
-  --build-arg "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" \
   --build-arg "NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}" \
   --build-arg "NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}" \
   -t "${IMAGE_URI}:${IMAGE_TAG}" \

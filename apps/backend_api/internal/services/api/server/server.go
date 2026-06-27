@@ -35,6 +35,7 @@ func New(opts Options) http.Handler {
 			"booking":       createNewProxyHandler(opts.Config.BookingBaseURL, "", ""),
 			"payment":       createNewProxyHandler(opts.Config.PaymentBaseURL, "", ""),
 			"subscriptions": createNewProxyHandler(opts.Config.SubscriptionBaseURL, "", ""),
+			"wallet":        createNewProxyHandler(opts.Config.WalletBaseURL, "", ""),
 			"legacy":        createNewProxyHandler(opts.Config.LegacyNextBaseURL, "/legacy", ""),
 		},
 	}

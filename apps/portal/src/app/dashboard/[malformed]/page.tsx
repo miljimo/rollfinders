@@ -16,6 +16,7 @@ const dashboardRouteAliases: Record<string, string> = {
   payment: "/dashboard/payment",
   payments: "/dashboard/payment",
   users: "/dashboard/users",
+  wallet: "/dashboard/wallet",
 };
 
 function appendSearchParams(params: URLSearchParams, searchParams: MalformedDashboardSearchParams) {

@@ -25,6 +25,7 @@ services:
       BOOKING_PUBLIC_BASE_URL: http://booking:8080
       PAYMENT_PUBLIC_BASE_URL: http://payments:8080
       SUBSCRIPTION_PUBLIC_BASE_URL: http://subscriptions:8080
+      WALLET_PUBLIC_BASE_URL: http://wallet:8080
       LEGACY_NEXT_PUBLIC_BASE_URL: http://app:3000
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
     ports:
@@ -47,6 +48,8 @@ services:
       payments:
         condition: service_healthy
       subscriptions:
+        condition: service_healthy
+      wallet:
         condition: service_healthy
     networks:
       - frontend

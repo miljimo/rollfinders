@@ -47,6 +47,7 @@ const (
 	BookingService       GatewayService = "booking-service"
 	PaymentService       GatewayService = "payment-service"
 	SubscriptionService  GatewayService = "subscription-service"
+	WalletService        GatewayService = "wallet-service"
 )
 
 const (
@@ -339,6 +340,36 @@ const (
 )
 
 const (
+	// Wallet Service API Gateways
+	Wallets                     GatewayTargetPath = "/v1/wallets"
+	WalletsWalletId             GatewayTargetPath = "/v1/wallets/{walletId}"
+	WalletsWalletIdBalance      GatewayTargetPath = "/v1/wallets/{walletId}/balance"
+	WalletsWalletIdTransactions GatewayTargetPath = "/v1/wallets/{walletId}/transactions"
+	WalletsTransfer             GatewayTargetPath = "/v1/wallets/transfer"
+	WalletsReserve              GatewayTargetPath = "/v1/wallets/reserve"
+	WalletsRelease              GatewayTargetPath = "/v1/wallets/release"
+	WalletsReverse              GatewayTargetPath = "/v1/wallets/reverse"
+	WalletsAdjustment           GatewayTargetPath = "/v1/wallets/adjustment"
+	WalletTransactions          GatewayTargetPath = "/v1/transactions/{transactionId}"
+
+	PermissionWalletCreate          GatewayPermissionName = "wallet.create"
+	PermissionWalletSearch          GatewayPermissionName = "wallet.search"
+	PermissionWalletRead            GatewayPermissionName = "wallet.read"
+	PermissionWalletTransfer        GatewayPermissionName = "wallet.transfer"
+	PermissionWalletReserve         GatewayPermissionName = "wallet.reserve"
+	PermissionWalletRelease         GatewayPermissionName = "wallet.release"
+	PermissionWalletReverse         GatewayPermissionName = "wallet.reverse"
+	PermissionWalletAdjustment      GatewayPermissionName = "wallet.adjustment"
+	PermissionWalletTransactionRead GatewayPermissionName = "wallet.transaction.read"
+
+	ResourceWallet      GatewayResourceType = "wallet"
+	ResourceTransaction GatewayResourceType = "wallet_transaction"
+
+	ParamWalletId      GatewayResourceIDParam = "walletId"
+	ParamTransactionId GatewayResourceIDParam = "transactionId"
+)
+
+const (
 	// Authorisation Service API Gateways
 	AuthorisationAuthorise                          GatewayTargetPath = "/v1/authorisation/authorise"
 	AuthorisationAuthorize                          GatewayTargetPath = "/v1/authorisation/authorize"
@@ -481,5 +512,14 @@ func GatewayResourceCatalog() map[GatewayPermissionName]GatewayResourceDefinitio
 		PermissionSubscriptionSubscriptionRead:       createGatewayResource(PermissionSubscriptionSubscriptionRead, SubscriptionApplicationSubscriptions),
 		PermissionSubscriptionSubscriptionManage:     createGatewayResource(PermissionSubscriptionSubscriptionManage, SubscriptionApplicationSubscriptions),
 		PermissionSubscriptionEntitlementRead:        createGatewayResource(PermissionSubscriptionEntitlementRead, SubscriptionApplicationEntitlements),
+		PermissionWalletCreate:                       createGatewayResource(PermissionWalletCreate, Wallets),
+		PermissionWalletSearch:                       createGatewayResource(PermissionWalletSearch, Wallets),
+		PermissionWalletRead:                         createGatewayResource(PermissionWalletRead, WalletsWalletId),
+		PermissionWalletTransfer:                     createGatewayResource(PermissionWalletTransfer, WalletsTransfer),
+		PermissionWalletReserve:                      createGatewayResource(PermissionWalletReserve, WalletsReserve),
+		PermissionWalletRelease:                      createGatewayResource(PermissionWalletRelease, WalletsRelease),
+		PermissionWalletReverse:                      createGatewayResource(PermissionWalletReverse, WalletsReverse),
+		PermissionWalletAdjustment:                   createGatewayResource(PermissionWalletAdjustment, WalletsAdjustment),
+		PermissionWalletTransactionRead:              createGatewayResource(PermissionWalletTransactionRead, WalletTransactions),
 	}
 }

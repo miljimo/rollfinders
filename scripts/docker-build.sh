@@ -19,7 +19,6 @@ IMAGE_TAG="${IMAGE_TAG:-local}"
 echo "==> Building Docker image ${IMAGE_NAME}:${IMAGE_TAG}"
 docker build \
   --target runner \
-  --build-arg "GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY:-}" \
   --build-arg "NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY:-}" \
   --build-arg "NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}" \
   -t "${IMAGE_NAME}:${IMAGE_TAG}" \
