@@ -9,7 +9,7 @@
 - Developer owner: Payments Backend Developer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket021ImplementWebhookIngestionEndpoint, Ticket038StripeConnectProviderAdapter, Ticket040RefundAllocationAwareness
-- Source PRD: `docs/services/payments/paymentService.md`
+- Source PRD: `docs/services/payments/proposal.md`
 
 ## Task
 

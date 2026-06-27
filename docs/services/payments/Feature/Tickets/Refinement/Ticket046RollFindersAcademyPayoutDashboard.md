@@ -9,7 +9,7 @@
 - Developer owner: Frontend Engineer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket045AcademyPayoutRequestApi
-- Source PRD: `docs/services/payments/LagenciesService.md`
+- Source PRD: `docs/services/payments/proposal.md`
 
 ## Task
 

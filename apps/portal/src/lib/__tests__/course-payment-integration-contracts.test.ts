@@ -263,6 +263,8 @@ describe("course payment service integration", () => {
     assert.match(paymentsClientSource, /createStripeConnectAccountLink/);
     assert.match(paymentsClientSource, /refreshStripePaymentAccountSetting/);
     assert.match(paymentsClientSource, /disconnectStripePaymentAccountSetting/);
+    assert.match(paymentsClientSource, /headers\["X-Subscription-Owner-Type"\]\s*=\s*actor\.ownerType/);
+    assert.match(paymentsClientSource, /headers\["X-Subscription-Owner-ID"\]\s*=\s*actor\.ownerId/);
     assert.match(connectRouteSource, /createStripeConnectAccountLink/);
     assert.match(refreshRouteSource, /refreshStripePaymentAccountSetting/);
     assert.match(disconnectRouteSource, /disconnectStripePaymentAccountSetting/);
@@ -283,7 +285,7 @@ describe("course payment service integration", () => {
     assert.doesNotMatch(disconnectRouteSource, /export async function GET/);
     assert.match(servicePersistenceSource, /account\.DetailsSubmitted && chargesEnabled && payoutsEnabled/);
     assert.match(dashboardSource, /rollfindersPlatformPaymentAccountStatus/);
-    assert.match(dashboardSource, /setting \?\? \(academyAdmin \? null : rollfindersPlatformPaymentAccountStatus\(\)\)/);
+    assert.match(dashboardSource, /fallback:\s*academyAdmin \? null : rollfindersPlatformPaymentAccountStatus\(\)/);
     assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);
   });
 

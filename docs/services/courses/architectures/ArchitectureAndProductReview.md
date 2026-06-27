@@ -8,7 +8,7 @@
 ## Sources Reviewed
 
 * `docs/services/courses/proposal.md`
-* `docs/services/payments/paymentService.md`
+* `docs/services/payments/proposal.md`
 * `docs/services/payments/architectures/ArchitectureReview.md`
 * `docs/services/payments/Feature/Tickets/Refinement/Readme.md`
 * `docs/services/payments/README.md`

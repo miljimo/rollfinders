@@ -380,6 +380,8 @@ type PaymentServiceActor = {
   accessToken?: string;
   actorUserId?: string;
   organisationId?: string | null;
+  ownerId?: string;
+  ownerType?: "academy" | "platform";
 };
 
 export async function getStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting | null> {
@@ -493,5 +495,9 @@ function paymentServiceHeaders(actor: PaymentServiceActor, base: Record<string, 
   if (actor.accessToken) headers.Authorization = `Bearer ${actor.accessToken}`;
   if (actor.actorUserId) headers["X-Actor-User-ID"] = actor.actorUserId;
   if (actor.organisationId) headers["X-Organisation-ID"] = actor.organisationId;
+  if (actor.ownerType && actor.ownerId) {
+    headers["X-Subscription-Owner-Type"] = actor.ownerType;
+    headers["X-Subscription-Owner-ID"] = actor.ownerId;
+  }
   return headers;
 }

@@ -9,7 +9,7 @@
 - Developer owner: Payments Backend Developer
 - Test owner: Tina Ugbekile, Test Engineer
 - Dependencies: Ticket006CreatePostgresqlMigrationFramework, Ticket007CreateCorePaymentSchema, Ticket033GenericPaymentServiceOpenApiContract
-- Source PRD: `docs/services/payments/paymentService.md`
+- Source PRD: `docs/services/payments/proposal.md`
 
 ## Task
 
