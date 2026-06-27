@@ -51,9 +51,9 @@ export function WalletDashboard({
     const balance = balances.find((item) => item.walletId === wallet.id);
     return {
       ...wallet,
-      availableBalance: balance?.availableBalance,
-      ledgerBalance: balance?.ledgerBalance,
-      reservedBalance: balance?.reservedBalance,
+      availableBalance: balance?.balance,
+      ledgerBalance: balance?.balance,
+      reservedBalance: 0,
     };
   });
   const page = Math.floor(pagination.offset / Math.max(1, pagination.limit)) + 1;

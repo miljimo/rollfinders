@@ -6,7 +6,7 @@ if (typeof window !== "undefined") {
   throw new Error("Wallet service calls are server-only.");
 }
 
-export type WalletOwnerType = "platform" | "academy" | "user" | "event" | "system";
+export type WalletOwnerType = "platform" | "academy" | "user" | "system";
 
 export type WalletRecord = {
   id: string;
@@ -21,15 +21,13 @@ export type WalletRecord = {
 export type WalletBalance = {
   walletId: string;
   currency: string;
-  availableBalance: number;
-  reservedBalance: number;
-  ledgerBalance: number;
+  balance: number;
 };
-
+type TransactionStatus  = "Pending" | "Approved" | "Cancelled" | "Processing"
 export type WalletTransaction = {
   id: string;
   type: string;
-  status: string;
+  status: TransactionStatus;
   amount: number;
   currency: string;
   sourceWalletId?: string;
@@ -69,8 +67,6 @@ type WalletBalanceResponse = {
   wallet_id: string;
   currency: string;
   available_balance: number;
-  reserved_balance: number;
-  ledger_balance: number;
 };
 
 type WalletTransactionResponse = {
@@ -150,9 +146,7 @@ function mapBalance(balance: WalletBalanceResponse): WalletBalance {
   return {
     walletId: balance.wallet_id,
     currency: balance.currency,
-    availableBalance: balance.available_balance,
-    reservedBalance: balance.reserved_balance,
-    ledgerBalance: balance.ledger_balance,
+    balance: balance.available_balance
   };
 }
 
@@ -160,7 +154,7 @@ function mapTransaction(transaction: WalletTransactionResponse): WalletTransacti
   return {
     id: transaction.id,
     type: transaction.type,
-    status: transaction.status,
+    status:  transaction.status as TransactionStatus,
     amount: transaction.amount,
     currency: transaction.currency,
     sourceWalletId: transaction.source_wallet_id,

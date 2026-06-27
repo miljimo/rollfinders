@@ -560,6 +560,7 @@ export default async function AdminDashboardWorkspace({
   const paymentsSearch = (firstParam(params.paymentsSearch) ?? "").trim();
   const paymentsView = selectedPaymentsDashboardView(firstParam(params.paymentsView));
   const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
+  const walletView = firstParam(params.walletView) === "transactions" ? "transactions" : "dashboard";
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
   const stripeConnectMessage = firstParam(params.stripeConnect);
   const stripeConnectError = firstParam(params.stripeConnectError);
@@ -885,6 +886,10 @@ export default async function AdminDashboardWorkspace({
     { href: "/dashboard/payment?paymentsView=payouts", label: "Payouts", active: panel === "payments" && paymentsView === "payouts" },
     { href: "/dashboard/payment?paymentsView=settings", label: "Payment Settings", active: panel === "payments" && paymentsView === "settings" },
   ];
+  const walletNavigationSections = [
+    { href: "/dashboard/wallet", icon: "dashboard", label: "Dashboard", active: panel === "wallet" && walletView === "dashboard" },
+    { href: "/dashboard/wallet?walletView=transactions", icon: "transactions", label: "Transactions", active: panel === "wallet" && walletView === "transactions" },
+  ] satisfies SidePanelItem["children"];
   const userNavigationSections = [
     { href: dashboardUsersHref(params, { usersView: "roles", usersPage: undefined }), icon: "roles", label: "Roles", active: panel === "users" && usersView === "roles" },
     { href: dashboardUsersHref(params, { usersView: "permissions", usersPage: undefined }), icon: "permissions", label: "Permissions", active: panel === "users" && usersView === "permissions" },
@@ -922,6 +927,8 @@ export default async function AdminDashboardWorkspace({
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
+    : activeServiceNavigationItem?.href === "/dashboard/wallet"
+      ? { ...activeServiceNavigationItem, children: walletNavigationSections }
     : activeServiceNavigationItem?.href === "/dashboard/users"
       ? { ...activeServiceNavigationItem, children: userNavigationSections }
       : activeServiceNavigationItem?.href === "/dashboard?panel=settings"

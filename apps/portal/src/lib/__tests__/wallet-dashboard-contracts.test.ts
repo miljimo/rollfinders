@@ -32,19 +32,20 @@ test("wallet dashboard route renders through the app dashboard shell", () => {
   assert.doesNotMatch(dashboard, /view=\{walletView\}/);
 });
 
-test("wallet dashboard has no nested wallet command menu", () => {
+test("wallet dashboard side panel exposes transaction command only", () => {
   const dashboard = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
   const walletDashboard = readSource("apps/portal/src/app/dashboard/wallet/WalletDashboard.tsx");
 
-  assert.doesNotMatch(dashboard, /const walletNavigationSections = \[/);
+  assert.match(dashboard, /const walletNavigationSections = \[/);
+  assert.match(dashboard, /href:\s*"\/dashboard\/wallet", icon:\s*"dashboard", label:\s*"Dashboard"/);
+  assert.match(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=transactions", icon:\s*"transactions", label:\s*"Transactions"/);
+  assert.match(dashboard, /href === "\/dashboard\/wallet"[\s\S]*children: walletNavigationSections/);
   assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=wallets", icon:\s*"wallet", label:\s*"Wallets"/);
-  assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=transactions", icon:\s*"transactions", label:\s*"Transactions"/);
   assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=transfers", icon:\s*"transfers", label:\s*"Transfers"/);
   assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=approvals", icon:\s*"approvals", label:\s*"Approvals"/);
   assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=payouts", icon:\s*"payouts", label:\s*"Payouts"/);
   assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=reserves", icon:\s*"reserves", label:\s*"Reserves"/);
   assert.doesNotMatch(dashboard, /href:\s*"\/dashboard\/wallet\?walletView=settings", icon:\s*"settings", label:\s*"Settings"/);
-  assert.doesNotMatch(dashboard, /href === "\/dashboard\/wallet"[\s\S]*children: walletNavigationSections/);
   assert.doesNotMatch(walletDashboard, /function WalletSidebar/);
   assert.doesNotMatch(walletDashboard, /Wallet dashboard sections/);
 });
