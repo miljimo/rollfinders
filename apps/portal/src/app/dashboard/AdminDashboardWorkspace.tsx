@@ -38,8 +38,8 @@ import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboar
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
-import { PaymentAccountSetup } from "@/components/PaymentAccountSetup";
-import { PaymentOverview, type PaymentOverviewMetric } from "@/components/PaymentOverview";
+import { PaymentAccountSetup } from "@/components/payments/PaymentAccountSetup";
+import { PaymentOverview, type PaymentOverviewMetric } from "@/components/payments/PaymentOverview";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";

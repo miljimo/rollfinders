@@ -205,8 +205,8 @@ describe("course payment service integration", () => {
 
   it("keeps Stripe Connect API keys out of dashboard-managed payment settings", () => {
     const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
-    const setupSource = readSource("apps/portal/src/components/PaymentAccountSetup/PaymentAccountSetup.tsx");
-    const setupTypesSource = readSource("apps/portal/src/components/PaymentAccountSetup/types.ts");
+    const setupSource = readSource("apps/portal/src/components/payments/PaymentAccountSetup/PaymentAccountSetup.tsx");
+    const setupTypesSource = readSource("apps/portal/src/components/payments/PaymentAccountSetup/types.ts");
     const stripeConnectSource = readSource("apps/portal/src/lib/stripe-connect.ts");
     const providerSource = readSource("apps/backend_api/internal/services/payments/server/provider.go");
     const schemaSource = readSource("prisma/schema.prisma");
