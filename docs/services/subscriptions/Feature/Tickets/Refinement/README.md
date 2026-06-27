@@ -39,3 +39,8 @@ Coordination rules:
 | 011 | [Integrate Payments And Plan Changes](Ticket011IntegratePaymentsAndPlanChanges.md) | Add upgrade/downgrade/payment handoff behavior. |
 | 012 | [Add Subscription Client And Gateway Route Contracts](Ticket012AddRollFindersClientAndGatewayIntegration.md) | Register protected subscription routes and client contracts without feature-flow cutover. |
 | 013 | [Add Regression And Contract Test Suite](Ticket013AddRegressionAndContractTestSuite.md) | Add automated tests for boundaries, plan rules, fallback, and entitlements. |
+| 014 | [Apply Scheduled Downgrades](Ticket014ApplyScheduledDowngrades.md) | Apply due downgrade plan changes and refresh entitlements. |
+| 015 | [Implement Cancellation And Reactivation](Ticket015ImplementCancellationAndReactivation.md) | Support end-of-period cancellation and pre-effective reactivation. |
+| 016 | [Implement Portal Plan Journey UI](Ticket016ImplementPortalPlanJourneyUI.md) | Render plan actions, checkout handoff, and pending state. |
+| 017 | [Add Subscription End-To-End Tests](Ticket017AddSubscriptionEndToEndTests.md) | Prove IAM and subscription decisions across core journeys. |
+| 018 | [Write Subscription Operational Runbook](Ticket018WriteSubscriptionOperationalRunbook.md) | Document operator diagnostics and recovery flows. |

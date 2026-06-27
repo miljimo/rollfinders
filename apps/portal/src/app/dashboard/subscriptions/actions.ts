@@ -9,11 +9,13 @@ import {
   createSubscriptionFeature,
   createSubscriptionPlan,
   createSubscriptionProduct,
+  cancelApplicationSubscription,
   deleteApplicationSubscription,
   deleteSubscriptionFeature,
   deleteSubscriptionPlan,
   deleteSubscriptionProduct,
   disableSubscriptionFeature,
+  reactivateApplicationSubscription,
   replaceSubscriptionPlanFeatures,
   replaceSubscriptionPlanProducts,
   SubscriptionServiceError,
@@ -77,11 +79,19 @@ function actionErrorMessage(err: unknown) {
   return "Subscription service request failed.";
 }
 
+function actionErrorCode(err: unknown) {
+  return err instanceof SubscriptionServiceError ? err.code : "";
+}
+
 function redirectWithActionError(view: string, err: unknown) {
   const params = new URLSearchParams({
     subscriptionsView: view,
     actionError: actionErrorMessage(err),
   });
+  const code = actionErrorCode(err);
+  if (code) {
+    params.set("actionErrorCode", code);
+  }
   redirect(`/dashboard/subscriptions?${params.toString()}`);
 }
 
@@ -312,15 +322,30 @@ export async function startPlanCheckoutAction(formData: FormData) {
 }
 
 export async function createSubscriptionAction(formData: FormData) {
+  let checkoutUrl = "";
   try {
-    await createApplicationSubscription({
-      applicationId: value(formData, "applicationId"),
-      organisationId: value(formData, "organisationId"),
-      planId: value(formData, "planId"),
-    }, await actor());
+    const applicationId = value(formData, "applicationId");
+    const organisationId = value(formData, "organisationId");
+    const planId = value(formData, "planId");
+    const currentActor = await actor();
+    const result = await createApplicationSubscription({
+      applicationId,
+      organisationId,
+      planId,
+    }, currentActor);
+    if (result.checkout_required && result.subscription?.id) {
+      const checkout = await createSubscriptionCheckout(result.subscription.id, {
+        planId,
+        organisationId,
+      }, currentActor);
+      checkoutUrl = checkout.checkout?.checkout_url ?? "";
+    }
     revalidatePath("/dashboard/subscriptions");
   } catch (err) {
     redirectWithActionError("subscribers", err);
+  }
+  if (checkoutUrl) {
+    redirect(checkoutUrl);
   }
   redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
 }
@@ -341,6 +366,26 @@ export async function updateSubscriberAction(formData: FormData) {
 export async function suspendSubscriberAction(formData: FormData) {
   try {
     await suspendApplicationSubscription(value(formData, "subscriptionId"), await actor());
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectWithActionError("subscribers", err);
+  }
+  redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
+}
+
+export async function cancelSubscriberAction(formData: FormData) {
+  try {
+    await cancelApplicationSubscription(value(formData, "subscriptionId"), await actor());
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectWithActionError("subscribers", err);
+  }
+  redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
+}
+
+export async function reactivateSubscriberAction(formData: FormData) {
+  try {
+    await reactivateApplicationSubscription(value(formData, "subscriptionId"), await actor());
     revalidatePath("/dashboard/subscriptions");
   } catch (err) {
     redirectWithActionError("subscribers", err);

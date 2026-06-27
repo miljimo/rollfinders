@@ -19,9 +19,16 @@ type server struct {
 	logger  *slog.Logger
 	repo    *repository
 	billing paymentBillingClient
+	org     organisationClient
+	authz   authorisationClient
 }
 
 func New(opts Options) http.Handler {
+	handler, _ := NewWithCleanup(context.Background(), opts)
+	return handler
+}
+
+func NewWithCleanup(ctx context.Context, opts Options) (http.Handler, func()) {
 	if opts.Logger == nil {
 		opts.Logger = slog.Default()
 	}
@@ -30,6 +37,14 @@ func New(opts Options) http.Handler {
 		logger: opts.Logger,
 		billing: paymentBillingClient{
 			baseURL: opts.Config.PaymentBaseURL,
+			client:  http.DefaultClient,
+		},
+		org: organisationClient{
+			baseURL: opts.Config.OrganisationBaseURL,
+			client:  http.DefaultClient,
+		},
+		authz: authorisationClient{
+			baseURL: opts.Config.AuthorisationBaseURL,
 			client:  http.DefaultClient,
 		},
 	}
@@ -41,6 +56,8 @@ func New(opts Options) http.Handler {
 			s.repo = repo
 		}
 	}
+	schedulerCtx, stopSchedulers := context.WithCancel(ctx)
+	s.startSchedulers(schedulerCtx)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", s.health)
@@ -66,23 +83,34 @@ func New(opts Options) http.Handler {
 	mux.HandleFunc("POST /v1/plans/{plan_key}/suspend", s.suspendPlan)
 	mux.HandleFunc("PUT /v1/plans/{plan_key}/features", s.replacePlanFeatures)
 	mux.HandleFunc("PUT /v1/plans/{plan_key}/products", s.replacePlanProducts)
+	mux.HandleFunc("GET /v1/owner-policies", s.listOwnerPolicies)
+	mux.HandleFunc("GET /v1/owner-policies/{owner_type}", s.getOwnerPolicy)
+	mux.HandleFunc("PUT /v1/owner-policies/{owner_type}", s.updateOwnerPolicy)
 	mux.HandleFunc("GET /v1/applications/{application_id}/available-product-features", s.availableProductFeatures)
 	mux.HandleFunc("GET /v1/applications/{application_id}/subscriptions", s.listSubscriptions)
 	mux.HandleFunc("POST /v1/applications/{application_id}/subscriptions", s.createSubscription)
+	mux.HandleFunc("GET /v1/applications/{application_id}/subscriptions/current", s.currentApplicationSubscription)
+	mux.HandleFunc("GET /v1/owners/{owner_type}/{owner_id}/subscriptions", s.listOwnerSubscriptions)
+	mux.HandleFunc("POST /v1/owners/{owner_type}/{owner_id}/subscriptions", s.createOwnerSubscription)
+	mux.HandleFunc("GET /v1/owners/{owner_type}/{owner_id}/subscriptions/current", s.currentOwnerSubscription)
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}", s.getSubscription)
 	mux.HandleFunc("PUT /v1/subscriptions/{subscription_id}", s.updateSubscription)
 	mux.HandleFunc("DELETE /v1/subscriptions/{subscription_id}", s.deleteSubscription)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/cancel", s.cancelSubscription)
+	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/reactivate", s.reactivateSubscription)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/suspend", s.suspendSubscription)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/change-plan", s.changePlan)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/checkout", s.createSubscriptionCheckout)
+	mux.HandleFunc("POST /v1/subscriptions/plan-changes/apply-due", s.applyDuePlanChanges)
+	mux.HandleFunc("POST /v1/subscriptions/plan-changes/{plan_change_id}/payment-result", s.recordPlanChangePaymentResult)
 	mux.HandleFunc("POST /v1/subscriptions/{subscription_id}/plan-changes", s.createPlanChange)
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}/plan-changes", s.listPlanChanges)
 	mux.HandleFunc("GET /v1/subscriptions/{subscription_id}/billing-events", s.listBillingEvents)
 	mux.HandleFunc("GET /v1/applications/{application_id}/entitlements", s.entitlements)
+	mux.HandleFunc("GET /v1/owners/{owner_type}/{owner_id}/entitlements", s.ownerEntitlements)
 	mux.HandleFunc("POST /v1/entitlements/check", s.checkEntitlement)
 
-	return withRequestID(s.accessLog(mux))
+	return withRequestID(s.accessLog(mux)), stopSchedulers
 }
 
 type statusRecorder struct {

@@ -11,15 +11,18 @@ import (
 )
 
 type Config struct {
-	Port               string
-	DatabaseURL        string
-	EnvironmentName    string
-	PaymentBaseURL     string
-	CheckoutSuccessURL string
-	CheckoutCancelURL  string
-	ReadTimeout        time.Duration
-	WriteTimeout       time.Duration
-	ShutdownTimeout    time.Duration
+	Port                       string
+	DatabaseURL                string
+	EnvironmentName            string
+	PaymentBaseURL             string
+	OrganisationBaseURL        string
+	AuthorisationBaseURL       string
+	CheckoutSuccessURL         string
+	CheckoutCancelURL          string
+	DowngradeSchedulerInterval time.Duration
+	ReadTimeout                time.Duration
+	WriteTimeout               time.Duration
+	ShutdownTimeout            time.Duration
 }
 
 func Load() (Config, error) {
@@ -28,10 +31,12 @@ func Load() (Config, error) {
 
 func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
-		Port:            env.GetWithDefault("PORT", "8080"),
-		DatabaseURL:     databaseURL(env),
-		EnvironmentName: env.GetWithDefault("ENVIRONMENT_NAME", env.GetWithDefault("APP_ENV", "local")),
-		PaymentBaseURL:  cleanURL(env.GetWithDefault("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002")),
+		Port:                 env.GetWithDefault("PORT", "8080"),
+		DatabaseURL:          databaseURL(env),
+		EnvironmentName:      env.GetWithDefault("ENVIRONMENT_NAME", env.GetWithDefault("APP_ENV", "local")),
+		PaymentBaseURL:       cleanURL(env.GetWithDefault("PAYMENT_PUBLIC_BASE_URL", "http://localhost:3002")),
+		OrganisationBaseURL:  cleanURL(env.GetWithDefault("ORGANISATION_PUBLIC_BASE_URL", "http://localhost:8086")),
+		AuthorisationBaseURL: cleanURL(env.GetWithDefault("AUTHORISATION_PUBLIC_BASE_URL", "http://localhost:8082")),
 		CheckoutSuccessURL: firstNonEmpty(
 			env.Get("SUBSCRIPTION_CHECKOUT_SUCCESS_URL"),
 			env.Get("PAYMENT_DEFAULT_CLIENT_CALLBACK_URL"),
@@ -41,9 +46,10 @@ func LoadFrom(env environments.Environment) (Config, error) {
 			env.Get("SUBSCRIPTION_CHECKOUT_CANCEL_URL"),
 			"http://localhost:3000/dashboard/subscriptions?billing=cancelled",
 		),
-		ReadTimeout:     durationOrDefault(env, "READ_TIMEOUT", 5*time.Second),
-		WriteTimeout:    durationOrDefault(env, "WRITE_TIMEOUT", 10*time.Second),
-		ShutdownTimeout: durationOrDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
+		DowngradeSchedulerInterval: durationOrDefault(env, "SUBSCRIPTION_DOWNGRADE_SCHEDULER_INTERVAL", 5*time.Minute),
+		ReadTimeout:                durationOrDefault(env, "READ_TIMEOUT", 5*time.Second),
+		WriteTimeout:               durationOrDefault(env, "WRITE_TIMEOUT", 10*time.Second),
+		ShutdownTimeout:            durationOrDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
 	}
 	if cfg.Port == "" {
 		return Config{}, errors.New("PORT must not be empty")

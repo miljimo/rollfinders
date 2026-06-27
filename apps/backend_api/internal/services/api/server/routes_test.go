@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -58,6 +59,114 @@ func TestServiceDefinitionsGroupRoutesByService(t *testing.T) {
 			t.Fatalf("duplicate service definition for %s", service.Name)
 		}
 		seen[service.Name] = true
+	}
+}
+
+func TestSubscriptionPlanJourneyRoutesAreRegistered(t *testing.T) {
+	expected := map[string]RouteDefinitionWithPermission{
+		http.MethodGet + " " + string(SubscriptionOwnerSubscriptions): {
+			Permission:      PermissionSubscriptionSubscriptionRead,
+			ResourceIDParam: ParamOwnerId,
+		},
+		http.MethodGet + " " + string(SubscriptionOwnerPolicies): {
+			Permission: PermissionSubscriptionPlanRead,
+		},
+		http.MethodGet + " " + string(SubscriptionOwnerPolicy): {
+			Permission:      PermissionSubscriptionPlanRead,
+			ResourceIDParam: ParamOwnerType,
+		},
+		http.MethodPut + " " + string(SubscriptionOwnerPolicy): {
+			Permission:      PermissionSubscriptionPlanManage,
+			ResourceIDParam: ParamOwnerType,
+		},
+		http.MethodPost + " " + string(SubscriptionOwnerSubscriptions): {
+			Permission:      PermissionSubscriptionSubscriptionManage,
+			ResourceIDParam: ParamOwnerId,
+		},
+		http.MethodGet + " " + string(SubscriptionApplicationSubscriptionCurrent): {
+			Permission:      PermissionSubscriptionSubscriptionRead,
+			ResourceIDParam: ParamApplicationId,
+		},
+		http.MethodGet + " " + string(SubscriptionOwnerSubscriptionCurrent): {
+			Permission:      PermissionSubscriptionSubscriptionRead,
+			ResourceIDParam: ParamOwnerId,
+		},
+		http.MethodGet + " " + string(SubscriptionOwnerEntitlements): {
+			Permission:      PermissionSubscriptionEntitlementRead,
+			ResourceIDParam: ParamOwnerId,
+		},
+		http.MethodPost + " " + string(SubscriptionRecordReactivate): {
+			Permission:      PermissionSubscriptionSubscriptionManage,
+			ResourceIDParam: ParamSubscriptionId,
+		},
+		http.MethodGet + " " + string(SubscriptionRecordPlanChanges): {
+			Permission:      PermissionSubscriptionSubscriptionRead,
+			ResourceIDParam: ParamSubscriptionId,
+		},
+		http.MethodPost + " " + string(SubscriptionRecordPlanChanges): {
+			Permission:      PermissionSubscriptionSubscriptionManage,
+			ResourceIDParam: ParamSubscriptionId,
+		},
+		http.MethodGet + " " + string(SubscriptionRecordBillingEvents): {
+			Permission:      PermissionSubscriptionSubscriptionRead,
+			ResourceIDParam: ParamSubscriptionId,
+		},
+		http.MethodPost + " " + string(SubscriptionPlanChangesApplyDue): {
+			Permission: PermissionSubscriptionSubscriptionManage,
+		},
+		http.MethodPost + " " + string(SubscriptionPlanChangePaymentResult): {
+			Permission:      PermissionSubscriptionSubscriptionManage,
+			ResourceIDParam: ParamPlanChangeId,
+		},
+	}
+
+	routes := map[string]GatewayRouteDefinition{}
+	for _, route := range gatewayRoutes() {
+		routes[route.Method+" "+string(route.Path)] = route
+	}
+
+	for key, want := range expected {
+		got, ok := routes[key]
+		if !ok {
+			t.Fatalf("expected subscription plan journey route %s", key)
+		}
+		if got.Service != SubscriptionService {
+			t.Fatalf("route %s service = %q, want %q", key, got.Service, SubscriptionService)
+		}
+		if got.Permission != want.Permission || got.ResourceIDParam != want.ResourceIDParam {
+			t.Fatalf("route %s metadata = permission %q resource param %q, want permission %q resource param %q", key, got.Permission, got.ResourceIDParam, want.Permission, want.ResourceIDParam)
+		}
+	}
+}
+
+func TestSubscriptionDenialAuditIncludesPRDFields(t *testing.T) {
+	source, err := os.ReadFile("authorisation.go")
+	if err != nil {
+		t.Fatalf("read authorisation.go: %v", err)
+	}
+	auditSource := string(source)
+
+	for _, field := range []string{
+		"subscription access denied",
+		"request_id",
+		"subject_id",
+		"owner_type",
+		"owner_id",
+		"application_id",
+		"organisation_id",
+		"resource_id",
+		"route",
+		"http_method",
+		"permission",
+		"feature_key",
+		"iam_decision",
+		"subscription_decision",
+		"final_decision",
+		"reason",
+	} {
+		if !strings.Contains(auditSource, field) {
+			t.Fatalf("subscription denial audit must include %q", field)
+		}
 	}
 }
 

@@ -82,6 +82,8 @@ func (c paymentBillingClient) createSubscriptionCheckout(req subscriptionCheckou
 	}
 	if req.PlanChangeID != "" {
 		body.Metadata["plan_change_id"] = req.PlanChangeID
+		body.Metadata["resource_type"] = "subscription_plan_change"
+		body.Metadata["resource_id"] = req.PlanChangeID
 	}
 	if strings.TrimSpace(req.OrganisationID) != "" {
 		body.Metadata["organisation_id"] = strings.TrimSpace(req.OrganisationID)

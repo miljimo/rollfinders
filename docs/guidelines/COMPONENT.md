@@ -1,12 +1,13 @@
 # Component-First UI Ticket Guide
 
-Use this guide when creating UI component tickets.
+Use this guide when creating UI component ticket.
 
 ## Core Rule
 
 One component = one folder = one ticket.
 
 Build reusable components before page UI.
+
 
 ---
 
@@ -371,6 +372,9 @@ Reusable action control for forms, dialogs, cards, and pages.
 * Use props for data.
 * Use `onClick` for actions.
 * Do not import services, routes, or APIs.
+
+## Reuse
+* Reused existing components to build complex components.
 
 ## Acceptance Criteria
 

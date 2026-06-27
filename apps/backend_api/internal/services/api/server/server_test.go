@@ -498,6 +498,12 @@ func TestSubscriptionControlledRouteChecksEntitlementBeforeProxying(t *testing.T
 	if entitlementPayload.OwnerType != "academy" || entitlementPayload.OwnerID != "academy_456" {
 		t.Fatalf("unexpected entitlement owner: %#v", entitlementPayload)
 	}
+	if entitlementPayload.SubjectID != "user_test" || entitlementPayload.Permission != "academy.update" {
+		t.Fatalf("unexpected entitlement actor permission context: %#v", entitlementPayload)
+	}
+	if entitlementPayload.Route != "/v1/academies/academy_456" || entitlementPayload.HTTPMethod != http.MethodPut {
+		t.Fatalf("unexpected entitlement route context: %#v", entitlementPayload)
+	}
 	if len(receivedPaths) != 1 || receivedPaths[0] != "/v1/academies/academy_456" {
 		t.Fatalf("expected downstream call after subscription allow, got %#v", receivedPaths)
 	}
@@ -533,6 +539,94 @@ func TestSubscriptionControlledRouteDeniesBeforeProxying(t *testing.T) {
 	}
 	if len(receivedPaths) != 0 {
 		t.Fatalf("downstream should not be called, got paths %#v", receivedPaths)
+	}
+}
+
+func TestSubscriptionDecisionIsScopedByOwnerContextNotUser(t *testing.T) {
+	receivedPaths := make([]string, 0, 2)
+	entitlementOwners := make([]string, 0, 2)
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/v1/authorize":
+			writeJSON(w, http.StatusOK, map[string]any{"authorized": true, "decision": "allow"})
+		case "/v1/entitlements/check":
+			var payload entitlementCheckRequest
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode entitlement request: %v", err)
+			}
+			entitlementOwners = append(entitlementOwners, payload.OwnerID)
+			if payload.SubjectID != "user_test" {
+				t.Fatalf("subject must remain the same user across owner contexts, got %#v", payload)
+			}
+			allowed := payload.OwnerID == "academy_paid"
+			reason := "PLAN_FEATURE_INCLUDED"
+			if !allowed {
+				reason = "PLAN_FEATURE_NOT_INCLUDED"
+			}
+			writeJSON(w, http.StatusOK, map[string]any{"allowed": allowed, "decision": map[bool]string{true: "allow", false: "deny"}[allowed], "reason": reason})
+		default:
+			receivedPaths = append(receivedPaths, r.URL.Path)
+			writeJSON(w, http.StatusOK, map[string]string{"service": "downstream"})
+		}
+	}))
+	defer downstream.Close()
+
+	handler := New(Options{Config: testConfig(downstream.URL), Logger: slog.Default()})
+	allowedReq := authorisedRequest(http.MethodPut, "/v1/academies/academy_paid")
+	allowedReq.Header.Set("X-Subscription-Owner-Type", "academy")
+	allowedReq.Header.Set("X-Subscription-Owner-ID", "academy_paid")
+	allowedRec := httptest.NewRecorder()
+	handler.ServeHTTP(allowedRec, allowedReq)
+	if allowedRec.Code != http.StatusOK {
+		t.Fatalf("expected paid academy request to pass, got %d %s", allowedRec.Code, allowedRec.Body.String())
+	}
+
+	deniedReq := authorisedRequest(http.MethodPut, "/v1/academies/academy_free")
+	deniedReq.Header.Set("X-Subscription-Owner-Type", "academy")
+	deniedReq.Header.Set("X-Subscription-Owner-ID", "academy_free")
+	deniedRec := httptest.NewRecorder()
+	handler.ServeHTTP(deniedRec, deniedReq)
+	if deniedRec.Code != http.StatusForbidden {
+		t.Fatalf("expected unpaid academy request to deny, got %d %s", deniedRec.Code, deniedRec.Body.String())
+	}
+	if !strings.Contains(deniedRec.Body.String(), "PLAN_FEATURE_NOT_INCLUDED") {
+		t.Fatalf("expected missing-plan-feature denial, got %s", deniedRec.Body.String())
+	}
+	if len(entitlementOwners) != 2 || entitlementOwners[0] != "academy_paid" || entitlementOwners[1] != "academy_free" {
+		t.Fatalf("entitlement checks must follow owner context, got %#v", entitlementOwners)
+	}
+	if len(receivedPaths) != 1 || receivedPaths[0] != "/v1/academies/academy_paid" {
+		t.Fatalf("only allowed owner should reach downstream, got %#v", receivedPaths)
+	}
+}
+
+func TestPublicRouteDoesNotCallSubscriptionEntitlement(t *testing.T) {
+	receivedPaths := make([]string, 0, 1)
+	entitlementCalls := 0
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/entitlements/check" {
+			entitlementCalls++
+			writeJSON(w, http.StatusOK, map[string]any{"allowed": false, "decision": "deny"})
+			return
+		}
+		receivedPaths = append(receivedPaths, r.URL.Path)
+		writeJSON(w, http.StatusOK, map[string]string{"service": "downstream"})
+	}))
+	defer downstream.Close()
+
+	handler := New(Options{Config: testConfig(downstream.URL), Logger: slog.Default()})
+	req := httptest.NewRequest(http.MethodGet, "/v1/academies", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected public route to pass, got %d %s", rec.Code, rec.Body.String())
+	}
+	if entitlementCalls != 0 {
+		t.Fatalf("public route must not call subscription entitlement service, got %d calls", entitlementCalls)
+	}
+	if len(receivedPaths) != 1 || receivedPaths[0] != "/v1/academies" {
+		t.Fatalf("expected public route to proxy, got %#v", receivedPaths)
 	}
 }
 

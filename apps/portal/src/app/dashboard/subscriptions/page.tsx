@@ -15,22 +15,27 @@ import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { getUserPermissionPanelModel, type AssignableUserFeature } from "@/lib/users-service";
 import {
   getApplicationEntitlements,
+  getCurrentApplicationSubscription,
   listApplicationSubscriptions,
   listSubscriptionBillingCycles,
   listSubscriptionFeatures,
   listSubscriptionFeaturesPage,
+  listSubscriptionBillingEvents,
   listSubscriptionPlansPage,
   listSubscriptionProducts,
   type ApplicationEntitlements,
+  type CurrentSubscriptionState,
   type OrganisationSubscription,
   type SubscriptionPagination,
   SubscriptionServiceError,
+  type SubscriptionBillingEvent,
   type SubscriptionFeature,
   type SubscriptionBillingCycle,
   type SubscriptionPlan,
   type SubscriptionProduct,
 } from "@/lib/subscriptions-service";
 import {
+  cancelSubscriberAction,
   createFeatureAction,
   createPlanAction,
   createProductAction,
@@ -44,6 +49,7 @@ import {
   suspendPlanAction,
   suspendProductAction,
   startPlanCheckoutAction,
+  reactivateSubscriberAction,
   updateSubscriberAction,
   updateFeatureAction,
   updatePlanAction,
@@ -182,10 +188,11 @@ export default async function SubscriptionsDashboardPage({
   const selectedFeatureId = (firstParam(params.featureId) ?? "").trim();
   const selectedSubscriptionId = (firstParam(params.subscriptionId) ?? "").trim();
   const applicationId = firstParam(params.applicationId) || process.env.ROLLFINDERS_APPLICATION_ID || "app_rollfinders";
+  const actionErrorCode = (firstParam(params.actionErrorCode) ?? "").trim();
   const actor = { id: user.id, role: user.role, email: user.email, academyId: user.academyId };
 
   let error: string | null = actionError || null;
-  const [products, features, featureResult, planResult, subscriptions, entitlements, organisations, applications, assignableFeatures, billingCycles] = await Promise.all([
+  const [products, features, featureResult, planResult, subscriptions, currentSubscriptionState, entitlements, organisations, applications, assignableFeatures, billingCycles] = await Promise.all([
     listSubscriptionProducts(actor).catch((err) => {
       error = serviceErrorMessage(err);
       return [];
@@ -194,6 +201,7 @@ export default async function SubscriptionsDashboardPage({
     listSubscriptionFeaturesPage(actor, { limit: featuresPageSize, offset: featuresOffset }).catch(() => ({ features: [], pagination: { limit: featuresPageSize, offset: featuresOffset, count: 0, has_more: false } })),
     listSubscriptionPlansPage(actor, { limit: plansPageSize, offset: plansOffset }).catch(() => ({ plans: [], pagination: { limit: plansPageSize, offset: plansOffset, count: 0, has_more: false } })),
     listApplicationSubscriptions(applicationId, actor).catch(() => []),
+    getCurrentApplicationSubscription(applicationId, actor).catch((): CurrentSubscriptionState => ({ subscription: null, pending_change: null, billing_events: [], cancellation: null })),
     getApplicationEntitlements(applicationId, actor).catch((): ApplicationEntitlements => ({ application_id: applicationId, features: [] })),
     listOrganisations(actor).catch(() => []),
     listOrganisationApplications(actor).catch(() => []),
@@ -213,6 +221,8 @@ export default async function SubscriptionsDashboardPage({
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId);
   const selectedSubscription = subscriptions.find((subscription) => subscription.id === selectedSubscriptionId);
+  const billingEvents = (await Promise.all(subscriptions.map((subscription) => listSubscriptionBillingEvents(subscription.id, actor).catch(() => [])))).flat();
+  const recoveryPrompt = subscriptionRecoveryPrompt(actionErrorCode || actionError, plans, entitlements);
 
   return (
     <div className="min-h-screen bg-[#f8faf7] text-slate-900">
@@ -232,8 +242,9 @@ export default async function SubscriptionsDashboardPage({
         </header>
         <section className="px-4 py-8 sm:px-8">
           {error ? <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div> : null}
+          {recoveryPrompt ? <SubscriptionRecoveryPrompt prompt={recoveryPrompt} /> : null}
 
-          <SubscriptionViewPanel activeView={activeView} applicationId={applicationId} applications={applications} entitlements={entitlements} featurePagination={featureResult.pagination} features={features} featuresSearch={featuresSearch} featureTableRows={featureResult.features} organisations={organisations} planPagination={planResult.pagination} plans={plans} plansPage={plansPage} plansSearch={plansSearch} products={products} productsPage={productsPage} productsSearch={productsSearch} subscribersPage={subscribersPage} subscribersSearch={subscribersSearch} subscriptions={subscriptions} />
+          <SubscriptionViewPanel activeView={activeView} applicationId={applicationId} applications={applications} billingEvents={billingEvents} currentSubscriptionState={currentSubscriptionState} entitlements={entitlements} featurePagination={featureResult.pagination} features={features} featuresSearch={featuresSearch} featureTableRows={featureResult.features} organisations={organisations} planPagination={planResult.pagination} plans={plans} plansPage={plansPage} plansSearch={plansSearch} products={products} productsPage={productsPage} productsSearch={productsSearch} subscribersPage={subscribersPage} subscribersSearch={subscribersSearch} subscriptions={subscriptions} />
         </section>
       </main>
       {dialog === "new-plan" ? (
@@ -304,10 +315,76 @@ function serviceErrorMessage(err: unknown) {
   return "Subscription Service is unavailable.";
 }
 
+type SubscriptionRecoveryAction = {
+  href: string;
+  label: string;
+  variant?: "primary" | "secondary";
+};
+
+type SubscriptionRecoveryPromptModel = {
+  title: string;
+  message: string;
+  actions: SubscriptionRecoveryAction[];
+};
+
+function subscriptionRecoveryPrompt(actionError: string, plans: SubscriptionPlan[], entitlements: ApplicationEntitlements): SubscriptionRecoveryPromptModel | null {
+  const reason = actionError.toUpperCase();
+  if (!reason.includes("SUBSCRIPTION_REQUIRED") && !reason.includes("PLAN_FEATURE_NOT_INCLUDED")) {
+    return null;
+  }
+  const sortedPlans = plans.filter((plan) => !plan.is_internal).sort((left, right) => left.price_minor - right.price_minor || left.name.localeCompare(right.name));
+  const freePlan = sortedPlans.find((plan) => plan.price_minor === 0 || plan.billing_cycle === "free");
+  const upgradePlan = sortedPlans.find((plan) => plan.id !== entitlements.plan_id && (!entitlements.plan_id || plan.price_minor > (sortedPlans.find((item) => item.id === entitlements.plan_id)?.price_minor ?? -1)));
+  const actions: SubscriptionRecoveryAction[] = [
+    { href: "/dashboard/subscriptions?subscriptionsView=plans", label: "View Plans", variant: "primary" },
+  ];
+  if (freePlan && !entitlements.subscription_id) {
+    actions.push({ href: `/dashboard/subscriptions?subscriptionsView=subscribers&dialog=new-subscriber&planId=${encodeURIComponent(freePlan.id)}`, label: "Start Free Plan", variant: "secondary" });
+  }
+  if (upgradePlan && entitlements.subscription_id) {
+    actions.push({ href: "/dashboard/subscriptions?subscriptionsView=plans", label: "Upgrade", variant: "secondary" });
+  }
+  actions.push({ href: "/contact", label: "Contact Support", variant: "secondary" });
+  if (reason.includes("SUBSCRIPTION_REQUIRED")) {
+    return {
+      title: "Subscription Required",
+      message: "This owner does not have an active subscription for the selected application.",
+      actions,
+    };
+  }
+  return {
+    title: "Plan Upgrade Required",
+    message: "The active plan does not include the requested feature.",
+    actions,
+  };
+}
+
+function SubscriptionRecoveryPrompt({ prompt }: { prompt: SubscriptionRecoveryPromptModel }) {
+  return (
+    <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-base font-black text-amber-950">{prompt.title}</h2>
+          <p className="mt-1 text-sm font-medium text-amber-900">{prompt.message}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {prompt.actions.map((action) => (
+            <Button key={`${action.label}-${action.href}`} href={action.href} variant={action.variant ?? "secondary"} className="min-h-10 justify-center px-3 text-sm">
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SubscriptionViewPanel({
   activeView,
   applicationId,
   applications,
+  billingEvents,
+  currentSubscriptionState,
   entitlements,
   featurePagination,
   features,
@@ -328,6 +405,8 @@ function SubscriptionViewPanel({
   activeView: SubscriptionView;
   applicationId: string;
   applications: OrganisationApplicationRecord[];
+  billingEvents: SubscriptionBillingEvent[];
+  currentSubscriptionState: CurrentSubscriptionState;
   entitlements: ApplicationEntitlements;
   featurePagination: SubscriptionPagination;
   features: SubscriptionFeature[];
@@ -497,10 +576,10 @@ function SubscriptionViewPanel({
   }
 
   if (activeView === "downgrade-requests") return <EmptyOperationalPanel title="Downgrade Requests" description="Downgrade request workflow storage and approvals are not connected yet." />;
-  if (activeView === "billing-events") return <EmptyOperationalPanel title="Billing Events" description="Billing event ingestion is not connected yet." />;
+  if (activeView === "billing-events") return <BillingEventsTable events={billingEvents} subscriptions={subscriptions} />;
   if (activeView === "usage-limits") return <EmptyOperationalPanel title="Usage Limits" description="Usage metering and limit enforcement are not connected yet." />;
 
-  return <AvailablePlansPanel currentPlanId={entitlements.plan_id} currentSubscriptionId={entitlements.subscription_id} features={features} page={plansPage} plans={plans.filter((plan) => !plan.is_internal)} products={products} />;
+  return <AvailablePlansPanel currentState={currentSubscriptionState} currentPlanId={currentSubscriptionState.subscription?.plan_id ?? entitlements.plan_id} currentSubscriptionId={currentSubscriptionState.subscription?.id ?? entitlements.subscription_id} features={features} page={plansPage} plans={plans.filter((plan) => !plan.is_internal)} products={products} />;
 }
 
 function filterPlans(plans: SubscriptionPlan[], search: string) {
@@ -535,6 +614,46 @@ function filterSubscriptions(subscriptions: OrganisationSubscription[], search: 
   const normalized = search.trim().toLowerCase();
   if (!normalized) return subscriptions;
   return subscriptions.filter((subscription) => [subscription.id, subscription.owner_type, subscription.owner_id, subscription.plan_id, subscription.status].join(" ").toLowerCase().includes(normalized));
+}
+
+function BillingEventsTable({ events, subscriptions }: { events: SubscriptionBillingEvent[]; subscriptions: OrganisationSubscription[] }) {
+  const subscriptionOwners = new Map(subscriptions.map((subscription) => [subscription.id, `${subscription.owner_type}:${subscription.owner_id}`]));
+  const sortedEvents = events.slice().sort((left, right) => Date.parse(right.created_at || "") - Date.parse(left.created_at || ""));
+  const rows = sortedEvents.map((event) => ({
+    id: event.id,
+    eventType: event.event_type,
+    status: event.status,
+    owner: subscriptionOwners.get(event.subscription_id) ?? event.subscription_id,
+    provider: event.provider || "subscription-service",
+    amount: `${event.currency || "GBP"} ${((event.amount_minor ?? 0) / 100).toFixed(2)}`,
+    reference: event.provider_reference || event.payment_id || event.plan_change_id || "-",
+    created: event.created_at ? new Date(event.created_at).toLocaleString("en-GB") : "-",
+  }));
+  const columns: TableColumn<(typeof rows)[number] & TableRecord>[] = [
+    { key: "eventType", title: "Event" },
+    { key: "status", title: "Status" },
+    { key: "owner", title: "Owner" },
+    { key: "provider", title: "Provider" },
+    { key: "amount", title: "Amount" },
+    { key: "reference", title: "Reference" },
+    { key: "created", title: "Created" },
+  ];
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-black text-slate-950">Billing Events</h2>
+          <p className="mt-1 text-sm text-slate-600">Review checkout, payment, downgrade, and lifecycle billing events for visible subscriptions.</p>
+        </div>
+        <Button href="/dashboard/subscriptions?subscriptionsView=subscribers" variant="secondary" className="min-h-10">
+          Subscribers
+        </Button>
+      </div>
+      <div className="mt-4">
+        <Table columns={columns} data={rows} emptyMessage="No billing events found." getRowHref={() => undefined} />
+      </div>
+    </section>
+  );
 }
 
 function localTablePage<T>(items: T[], page: number, pageSize = 10) {
@@ -582,7 +701,7 @@ function SubscriptionSearch({ name, placeholder, search, view }: { name: string;
   );
 }
 
-function AvailablePlansPanel({ currentPlanId, currentSubscriptionId, features, page, plans, products }: { currentPlanId?: string; currentSubscriptionId?: string; features: SubscriptionFeature[]; page: number; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
+function AvailablePlansPanel({ currentPlanId, currentState, currentSubscriptionId, features, page, plans, products }: { currentPlanId?: string; currentState: CurrentSubscriptionState; currentSubscriptionId?: string; features: SubscriptionFeature[]; page: number; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
   const pageSize = 6;
   const sortedPlans = plans.slice().sort((left, right) => left.price_minor - right.price_minor || left.name.localeCompare(right.name));
   const currentPlan = currentPlanId ? sortedPlans.find((plan) => plan.id === currentPlanId) : undefined;
@@ -594,6 +713,7 @@ function AvailablePlansPanel({ currentPlanId, currentSubscriptionId, features, p
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-black text-slate-950">Available Plans</h2>
       </div>
+      <CurrentSubscriptionNotice currentState={currentState} plans={plans} />
       <PlanFeatureComparisonCard currentPlan={currentPlan} currentPlanId={currentPlanId} currentSubscriptionId={currentSubscriptionId} features={features} plans={visiblePlans} products={products} />
       {totalPages > 1 ? (
         <div className="mt-5 flex items-center justify-between gap-3 border-t border-stone-100 pt-4 text-sm font-bold">
@@ -605,6 +725,22 @@ function AvailablePlansPanel({ currentPlanId, currentSubscriptionId, features, p
         </div>
       ) : null}
     </section>
+  );
+}
+
+function CurrentSubscriptionNotice({ currentState, plans }: { currentState: CurrentSubscriptionState; plans: SubscriptionPlan[] }) {
+  const pending = currentState.pending_change;
+  const cancellation = currentState.cancellation;
+  if (!pending && !cancellation) {
+    return null;
+  }
+  const planNames = new Map(plans.map((plan) => [plan.id, plan.name]));
+  const pendingPlan = pending?.to_plan_id ? planNames.get(pending.to_plan_id) ?? pending.to_plan_id : "";
+  return (
+    <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm font-semibold text-teal-900">
+      {pending ? <p>{pending.change_type} to {pendingPlan || "target plan"} is {pending.status}{pending.effective_at ? ` for ${new Date(pending.effective_at).toLocaleDateString("en-GB")}` : ""}.</p> : null}
+      {cancellation ? <p className={pending ? "mt-1" : ""}>Cancellation is scheduled{cancellation.cancel_at ? ` for ${new Date(cancellation.cancel_at).toLocaleDateString("en-GB")}` : ""}.</p> : null}
+    </div>
   );
 }
 
@@ -1244,7 +1380,10 @@ function SubscriptionsTable({ pagination, plans, subscriptions }: { pagination: 
 }
 
 function SubscriberActions({ status, subscriptionId }: { status: string; subscriptionId: string }) {
-  const suspended = status === "SUSPENDED";
+  const normalizedStatus = status.toLowerCase();
+  const suspended = normalizedStatus === "suspended";
+  const pendingCancellation = normalizedStatus === "cancel_at_period_end";
+  const terminal = normalizedStatus === "cancelled" || normalizedStatus === "failed";
   return (
     <ActionMenu label="Open subscriber actions">
       <Link href={`/dashboard/subscriptions?subscriptionsView=subscribers&dialog=edit-subscriber&subscriptionId=${encodeURIComponent(subscriptionId)}`} className={menuItemClass}>
@@ -1256,6 +1395,20 @@ function SubscriberActions({ status, subscriptionId }: { status: string; subscri
         <button type="submit" disabled={suspended} className={menuItemClass}>
           <PauseCircle size={18} aria-hidden />
           Suspend Subscription
+        </button>
+      </form>
+      <form action={cancelSubscriberAction}>
+        <input type="hidden" name="subscriptionId" value={subscriptionId} />
+        <button type="submit" disabled={pendingCancellation || terminal} className={menuItemClass}>
+          <PauseCircle size={18} aria-hidden />
+          Cancel At Period End
+        </button>
+      </form>
+      <form action={reactivateSubscriberAction}>
+        <input type="hidden" name="subscriptionId" value={subscriptionId} />
+        <button type="submit" disabled={!pendingCancellation} className={menuItemClass}>
+          <CheckCircle2 size={18} aria-hidden />
+          Reactivate Subscription
         </button>
       </form>
       <form action={deleteSubscriberAction}>

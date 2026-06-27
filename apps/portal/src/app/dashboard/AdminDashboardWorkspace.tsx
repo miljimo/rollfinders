@@ -37,14 +37,12 @@ import { DashboardServiceGrid, type DashboardServiceGridItem } from "@/component
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
-import { LogoutButton } from "@/components/LogoutButton";
 import { PaymentAccountSetup } from "@/components/PaymentAccountSetup";
 import { PaymentOverview, type PaymentOverviewMetric } from "@/components/PaymentOverview";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
-import { Icon } from "@/components/Icons";
 import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
 import { Table, TableRow, TableStatusBadge, type TableColumn } from "@/components/Table";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders, updateAcademy } from "../admin/academies/actions";
@@ -68,6 +66,7 @@ import { ViewEventDialog, type DashboardEventDetail } from "./ViewEventDialog";
 import { updatePlatformPaymentFees } from "./payments/paymentSettingsActions";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/bookingActions";
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
+import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 
@@ -428,10 +427,10 @@ function servicePaginationCurrentPage(pagination: ServicePaginationMeta) {
   return Math.floor(pagination.offset / Math.max(1, pagination.limit)) + 1;
 }
 
-async function getDashboardPayments(page: number, academyId?: string | null): Promise<DashboardPaymentsResult> {
+async function getDashboardPayments(page: number, accessToken?: string, academyId?: string | null): Promise<DashboardPaymentsResult> {
   const offset = (Math.max(1, page) - 1) * paymentsPageSize;
   try {
-    const result = await listCourseOccurrencePaymentsPage({ limit: paymentsPageSize, offset });
+    const result = await listCourseOccurrencePaymentsPage({ accessToken, limit: paymentsPageSize, offset });
     return {
       pagination: result.pagination,
       payments: academyId ? result.payments.filter((payment) => payment.metadata?.academy_id === academyId) : result.payments,
@@ -441,6 +440,38 @@ async function getDashboardPayments(page: number, academyId?: string | null): Pr
       return { error: error.status === 0 ? error.message : `Payment service returned status ${error.status}.`, pagination: emptyServicePagination(paymentsPageSize, offset), payments: [] };
     }
     return { error: "Payment service is unavailable.", pagination: emptyServicePagination(paymentsPageSize, offset), payments: [] };
+  }
+}
+
+async function getDashboardPaymentAccountSetting(input: {
+  accessToken?: string;
+  actorUserId: string;
+  fallback: PaymentAccountSettingView | null;
+  organisationId?: string | null;
+  ownerId: string;
+  ownerType: "academy" | "platform";
+}): Promise<{ error?: string; setting: PaymentAccountSettingView | null }> {
+  try {
+    const setting = await getStripePaymentAccountSetting({
+      accessToken: input.accessToken,
+      actorUserId: input.actorUserId,
+      organisationId: input.organisationId,
+      ownerId: input.ownerId,
+      ownerType: input.ownerType,
+    });
+    return { setting: setting ?? input.fallback };
+  } catch (error) {
+    if (error instanceof PaymentServiceError) {
+      return {
+        error: error.code === "not_authorised" || error.status === 403
+          ? "You are not authorised to view payment account settings."
+          : error.status === 0
+            ? error.message
+            : `Payment account settings returned status ${error.status}.`,
+        setting: input.fallback,
+      };
+    }
+    return { error: "Payment account settings are unavailable.", setting: input.fallback };
   }
 }
 
@@ -630,7 +661,7 @@ export default async function AdminDashboardWorkspace({
     platformAdminActivitySummary,
     assignedAcademyProfile,
     paymentResult,
-    paymentAccountSetting,
+    paymentAccountResult,
     paymentPlatformSettings,
     paymentMetricVisibility,
     bookingResult,
@@ -683,14 +714,16 @@ export default async function AdminDashboardWorkspace({
           return { ...academy, events };
         })()
       : Promise.resolve(null),
-    panel === "payments" ? getDashboardPayments(paymentPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ pagination: emptyServicePagination(paymentsPageSize), payments: [] }),
+    panel === "payments" ? getDashboardPayments(paymentPage, currentUser.accessToken, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ pagination: emptyServicePagination(paymentsPageSize), payments: [] }),
     panel === "payments"
-      ? getStripePaymentAccountSetting({
+      ? getDashboardPaymentAccountSetting({
+          accessToken: currentUser.accessToken,
           actorUserId: currentUser.id,
+          fallback: academyAdmin ? null : rollfindersPlatformPaymentAccountStatus(),
           organisationId: currentUser.academyId,
           ownerId: paymentAccountOwner.ownerId,
           ownerType: paymentAccountOwner.ownerType,
-        }).then((setting) => setting ?? (academyAdmin ? null : rollfindersPlatformPaymentAccountStatus()))
+        })
       : Promise.resolve(null),
     panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
@@ -708,6 +741,8 @@ export default async function AdminDashboardWorkspace({
     panel === "users" && usersView === "permissions" ? listOrganisationApplications(currentUser) : Promise.resolve([]),
   ]);
   const authorisationRoles = authorisationRolesPage.roles;
+  const paymentAccountSetting = paymentAccountResult?.setting ?? null;
+  const effectivePaymentSettingsError = paymentSettingsError ?? paymentAccountResult?.error;
   const authorisationPermissionCatalog = authorisationPermissionPage.permissions;
   const rolePermissionAssociations = panel === "users" && (usersView === "roles" || usersView === "permissions")
     ? await Promise.all(authorisationRoles.map(async (role) => ({
@@ -1047,45 +1082,14 @@ export default async function AdminDashboardWorkspace({
         <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24">
           <div className="size-11 lg:hidden" aria-hidden />
           <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-4">
-            <ActionMenu
-              buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
-              label="Open account profile menu"
-              menuClassName="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl"
-              trigger={(
-                <>
-                  <span className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</span>
-                  <ChevronDown size={18} aria-hidden className="text-slate-400" />
-                </>
-              )}
-            >
-              <div className="flex items-start gap-3 border-b border-stone-100 pb-4">
-                <div className="grid size-14 shrink-0 place-items-center rounded-full bg-teal-100 text-lg font-black text-teal-800" aria-hidden>{initials(account?.name ?? account?.email ?? currentUser.email)}</div>
-                <div className="min-w-0">
-                  <p className="break-words text-lg font-black text-slate-950">{account?.name ?? currentUser.email}</p>
-                  <p className="mt-1 break-all text-sm font-semibold text-slate-500">{account?.email ?? currentUser.email}</p>
-                  <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(account?.role ?? currentUser.role)}</p>
-                </div>
-              </div>
-              <nav className="mt-4 grid gap-1 border-b border-stone-100 pb-4 lg:hidden" aria-label="Service dashboards">
-                {dashboardServiceNavigationItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    aria-current={item.active ? "page" : undefined}
-                    className={clsx(
-                      "inline-flex min-h-11 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
-                      item.active ? "font-bold text-stone-950" : "font-medium text-stone-700 hover:bg-stone-50 hover:text-stone-950",
-                    )}
-                  >
-                    <Icon name={item.icon} size={17} className="shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                ))}
-              </nav>
-              <div className="mt-3 flex justify-end">
-                <LogoutButton />
-              </div>
-            </ActionMenu>
+            <DashboardAccountDropDownMenu
+              accountEmail={account?.email ?? currentUser.email}
+              accountName={account?.name ?? currentUser.email}
+              accountRole={roleLabel(account?.role ?? currentUser.role)}
+              avatarLabel={initials(account?.name ?? account?.email ?? currentUser.email)}
+              profileHref="/dashboard?panel=settings&settingsAction=edit-profile"
+              settingsHref="/dashboard?panel=settings"
+            />
           </div>
         </header>
 
@@ -1222,7 +1226,7 @@ export default async function AdminDashboardWorkspace({
                 searchParams={params}
                 stripeConnectError={stripeConnectError}
                 stripeConnectMessage={stripeConnectMessage}
-                paymentSettingsError={paymentSettingsError}
+                paymentSettingsError={effectivePaymentSettingsError}
                 paymentSettingsMessage={paymentSettingsMessage}
                 view={paymentsView}
               />

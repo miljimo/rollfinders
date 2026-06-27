@@ -248,12 +248,12 @@ export async function createCourseOccurrenceCheckout(
   };
 }
 
-export async function listCourseOccurrencePayments({ limit = 100 }: { limit?: number } = {}): Promise<PaymentRecord[]> {
-  const result = await listCourseOccurrencePaymentsPage({ limit });
+export async function listCourseOccurrencePayments({ accessToken, limit = 100 }: { accessToken?: string; limit?: number } = {}): Promise<PaymentRecord[]> {
+  const result = await listCourseOccurrencePaymentsPage({ accessToken, limit });
   return result.payments;
 }
 
-export async function listCourseOccurrencePaymentsPage({ limit = 10, offset = 0 }: { limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+export async function listCourseOccurrencePaymentsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
   const params = new URLSearchParams({
     client_id: "rollfinders",
     offset: String(offset),
@@ -263,6 +263,7 @@ export async function listCourseOccurrencePaymentsPage({ limit = 10, offset = 0 
   const response = await fetch(`${paymentServiceUrl()}/v1/payments?${params.toString()}`, {
     method: "GET",
     cache: "no-store",
+    headers: paymentServiceHeaders({ accessToken }),
   });
   if (!response.ok) {
     throw new PaymentServiceError(`Payment service history request failed with status ${response.status}.`, response.status);
@@ -376,6 +377,7 @@ export async function createPaymentRefund(input: CreatePaymentRefundInput): Prom
 }
 
 type PaymentServiceActor = {
+  accessToken?: string;
   actorUserId?: string;
   organisationId?: string | null;
 };
@@ -488,6 +490,7 @@ function mapPaymentAccountSetting(setting: PaymentAccountSettingResponse): Payme
 
 function paymentServiceHeaders(actor: PaymentServiceActor, base: Record<string, string> = {}) {
   const headers = { ...base };
+  if (actor.accessToken) headers.Authorization = `Bearer ${actor.accessToken}`;
   if (actor.actorUserId) headers["X-Actor-User-ID"] = actor.actorUserId;
   if (actor.organisationId) headers["X-Organisation-ID"] = actor.organisationId;
   return headers;

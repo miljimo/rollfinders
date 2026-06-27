@@ -1196,6 +1196,8 @@ PLAN_FEATURE_NOT_INCLUDED
 
 The billing and plan journey defines how an eligible admin subscribes an owner to a plan, upgrades to a higher plan, requests or applies a downgrade, cancels a plan, and keeps active plan entitlements enforced across the platform.
 
+All billing and plan actions must be owner-scoped. The actor starts the action, but the subscription and resulting entitlements belong to the selected `owner_type` and `owner_id`.
+
 The system must keep billing, subscription state, and access enforcement separate:
 
 ```text
@@ -1205,6 +1207,15 @@ Authorisation Service owns user role and permission decisions.
 API Gateway combines entitlement and permission checks before forwarding protected requests.
 Portal renders the plan journey and admin controls.
 ```
+
+Final feature access requires both:
+
+```text
+owner subscription entitlement
+user IAM permission for the requested resource/action
+```
+
+Subscription entitlement alone must not bypass IAM permission checks. IAM permission alone must not unlock subscription-controlled product features.
 
 ## 26.1 View Plans
 
@@ -1235,17 +1246,20 @@ When a user selects `Subscribe`:
 
 ```text
 Portal sends request to Subscription Service through API Gateway.
+API Gateway verifies the actor can manage subscriptions for the selected owner scope.
 Subscription Service validates owner, organisation, application, and plan.
 If plan is free/manual, Subscription Service activates subscription.
 If plan is paid, Subscription Service creates pending subscription.
 Subscription Service requests checkout from Payment Service.
 Portal redirects user to checkout.
-Payment Service confirms payment.
-Subscription Service activates subscription.
+Payment Service confirms payment through a payment-result callback.
+Subscription Service activates subscription only after successful payment confirmation.
 Entitlements are published for the owner.
 ```
 
 The created subscription belongs to the selected owner, not automatically to the user who started the checkout.
+
+Failed, cancelled, or expired checkout must leave the subscription pending or failed and must not publish paid entitlements.
 
 ## 26.3 Upgrade Flow
 
@@ -1254,10 +1268,12 @@ When a user selects `Upgrade`:
 ```text
 Subscription Service creates upgrade plan-change request.
 Payment Service creates checkout if payment is required.
-On successful payment, Subscription Service applies upgrade immediately.
+On successful payment-result callback, Subscription Service applies upgrade immediately.
 Entitlements are recalculated immediately for the owner.
 API Gateway enforces upgraded features on the next request.
 ```
+
+If payment fails, the plan-change status becomes failed, the existing plan remains active, and no upgraded entitlements are granted.
 
 ## 26.4 Downgrade Flow
 
@@ -1267,10 +1283,12 @@ Downgrades should default to end of billing period.
 User requests downgrade.
 Subscription Service creates pending downgrade.
 Current plan remains active until current_period_end.
-At effective date, downgrade is applied.
+At effective date, the scheduled downgrade job or admin endpoint applies the downgrade.
 Entitlements are recalculated for the owner.
 Removed features become unavailable.
 ```
+
+The scheduled downgrade apply operation must be idempotent and must only apply due plan changes with status `scheduled`.
 
 Immediate downgrade may be added later as an admin-only action.
 
@@ -1281,6 +1299,7 @@ When a user switches to a same-price plan:
 ```text
 Subscription Service creates switch request.
 If no payment is required, switch applies immediately.
+If payment is required, switch applies only after successful payment-result callback.
 Entitlements are recalculated.
 ```
 
@@ -1296,6 +1315,8 @@ At period end, subscription becomes cancelled.
 Paid entitlements are removed or owner moves to default/free plan if configured.
 ```
 
+Cancellation must be reversible until the effective cancellation date.
+
 ## 26.7 Reactivate Flow
 
 Before cancellation becomes effective:
@@ -1307,7 +1328,42 @@ Subscription remains active.
 Entitlements continue.
 ```
 
-## 26.8 Journey Service Responsibilities
+## 26.8 Payment Result Handling
+
+Payment Service must notify Subscription Service after checkout completion.
+
+The payment-result message must identify:
+
+```text
+plan_change_id
+payment_id
+checkout_id
+status
+paid_at
+failure_reason
+```
+
+On success:
+
+```text
+Subscription Service validates the plan change.
+Subscription Service records payment_confirmed.
+Subscription Service applies the subscription or plan change.
+Subscription Service records a billing event.
+Subscription Service recalculates entitlements.
+```
+
+On failure, cancellation, or expiry:
+
+```text
+Subscription Service marks the plan change failed.
+Subscription Service records a payment_failed billing event.
+Current subscription entitlements remain unchanged.
+```
+
+The callback must be idempotent so repeated payment events do not apply the same plan change twice.
+
+## 26.9 Journey Service Responsibilities
 
 ### Portal
 
@@ -1324,6 +1380,7 @@ Entitlements continue.
 * Call Authorisation Service before proxying protected subscription routes.
 * Enforce both owner entitlement and IAM permission decisions for protected business routes.
 * Deny by default when no explicit allow is returned.
+* Keep subscription management permission checks inside the actor's owner boundary.
 
 ### Subscription Service
 
@@ -1331,7 +1388,8 @@ Entitlements continue.
 * Create pending subscriptions and plan changes.
 * Decide whether a plan action requires payment.
 * Request checkout creation from Payment Service.
-* Apply successful plan changes.
+* Apply successful plan changes after payment confirmation.
+* Apply scheduled downgrades when their effective date is due.
 * Publish active entitlements.
 * Expose current subscription and plan-change state.
 
@@ -1340,7 +1398,7 @@ Entitlements continue.
 * Create checkout sessions for paid plan actions.
 * Record payment status.
 * Receive provider callbacks and webhooks.
-* Notify Subscription Service of successful or failed payment.
+* Notify Subscription Service of successful, failed, cancelled, or expired payment.
 * Store payment references against generic subscription resources.
 
 ### Authorisation Service

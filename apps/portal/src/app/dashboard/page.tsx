@@ -1,10 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ChevronDown, Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
+import { Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
 import { GiType, Role, UserStatus, type CourseType, type Prisma } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
-import { LogoutButton } from "@/components/LogoutButton";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { Table, type TableColumn, type TableRecord } from "@/components/Table";
 import { courseHref, coursePriceLabel } from "@/lib/courses";
@@ -14,8 +13,8 @@ import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
 import { EditProfileForm } from "./settings/EditProfileForm";
+import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 import AdminDashboardWorkspace from "./AdminDashboardWorkspace";
-import { ActionMenu } from "../admin/ActionMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -209,29 +208,14 @@ export default async function DashboardPage({
       <main className="transition-[padding] duration-200 lg:pl-[var(--admin-side-panel-width,16rem)]">
         <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
           <div className="size-11 lg:hidden" aria-hidden />
-          <ActionMenu
-            buttonClassName="inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition hover:bg-slate-50"
-            label="Open account profile menu"
-            menuClassName="absolute right-0 z-20 mt-3 w-80 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-xl"
-            trigger={(
-              <>
-                <span className="flex size-11 items-center justify-center rounded-full bg-teal-100 text-sm font-black text-teal-800" aria-hidden>{initials}</span>
-                <ChevronDown size={18} aria-hidden className="text-slate-400" />
-              </>
-            )}
-          >
-            <div className="flex items-start gap-3 border-b border-stone-100 pb-4">
-              <div className="grid size-14 shrink-0 place-items-center rounded-full bg-teal-100 text-lg font-black text-teal-800" aria-hidden>{initials}</div>
-              <div className="min-w-0">
-                <p className="break-words text-lg font-black text-slate-950">{accountLabel}</p>
-                <p className="mt-1 break-all text-sm font-semibold text-slate-500">{user.email}</p>
-                <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800">{roleLabel(user.role)}</p>
-              </div>
-            </div>
-            <div className="mt-3 flex justify-end">
-              <LogoutButton />
-            </div>
-          </ActionMenu>
+          <DashboardAccountDropDownMenu
+            accountEmail={user.email}
+            accountName={accountLabel}
+            accountRole={roleLabel(user.role)}
+            avatarLabel={initials}
+            profileHref="/dashboard?panel=profile"
+            settingsHref="/dashboard?panel=settings"
+          />
         </header>
 
         <section className="px-4 py-8 sm:px-8">

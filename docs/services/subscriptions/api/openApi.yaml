@@ -1,0 +1,551 @@
+openapi: 3.1.0
+info:
+  title: RollFinders Subscription Service API
+  version: 0.1.0
+  description: >
+    Contract for subscription products, product features, plans, owner
+    subscriptions, plan changes, billing events, and entitlement decisions.
+servers:
+  - url: /v1
+security:
+  - gatewayAuthorisation: []
+paths:
+  /healthz:
+    get:
+      summary: Liveness check
+      security: []
+      responses:
+        "200":
+          description: Service process is running.
+  /readyz:
+    get:
+      summary: Readiness check
+      security: []
+      responses:
+        "200":
+          description: Service dependencies are ready.
+        "503":
+          description: Required dependencies are unavailable.
+  /products:
+    get:
+      summary: List subscription products
+      x-permission: subscription.product.read
+      responses:
+        "200":
+          description: Product list.
+    post:
+      summary: Create subscription product
+      x-permission: subscription.product.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Product"
+      responses:
+        "201":
+          description: Product created.
+  /products/{product_key}:
+    get:
+      summary: Get subscription product
+      x-permission: subscription.product.read
+      parameters:
+        - $ref: "#/components/parameters/ProductKey"
+      responses:
+        "200":
+          description: Product detail.
+    put:
+      summary: Update subscription product
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/ProductKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Product"
+      responses:
+        "200":
+          description: Product updated.
+    delete:
+      summary: Retire subscription product
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/ProductKey"
+      responses:
+        "200":
+          description: Product retired.
+  /product-features:
+    get:
+      summary: List product features
+      x-permission: subscription.product.read
+      responses:
+        "200":
+          description: Feature list.
+    post:
+      summary: Create product feature
+      x-permission: subscription.product.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductFeature"
+      responses:
+        "201":
+          description: Feature created.
+  /product-features/{feature_key}:
+    get:
+      summary: Get product feature
+      x-permission: subscription.product.read
+      parameters:
+        - $ref: "#/components/parameters/FeatureKey"
+      responses:
+        "200":
+          description: Feature detail.
+    put:
+      summary: Update product feature
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/FeatureKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductFeature"
+      responses:
+        "200":
+          description: Feature updated.
+    delete:
+      summary: Retire product feature
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/FeatureKey"
+      responses:
+        "200":
+          description: Feature retired.
+  /plans:
+    get:
+      summary: List plans
+      x-permission: subscription.plan.read
+      responses:
+        "200":
+          description: Plan list.
+    post:
+      summary: Create plan
+      x-permission: subscription.plan.manage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Plan"
+      responses:
+        "201":
+          description: Plan created.
+  /plans/{plan_key}:
+    get:
+      summary: Get plan
+      x-permission: subscription.plan.read
+      parameters:
+        - $ref: "#/components/parameters/PlanKey"
+      responses:
+        "200":
+          description: Plan detail with explicit feature allowlist.
+    put:
+      summary: Update plan
+      x-permission: subscription.plan.manage
+      parameters:
+        - $ref: "#/components/parameters/PlanKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Plan"
+      responses:
+        "200":
+          description: Plan updated.
+    delete:
+      summary: Retire plan
+      x-permission: subscription.plan.manage
+      parameters:
+        - $ref: "#/components/parameters/PlanKey"
+      responses:
+        "200":
+          description: Plan retired.
+  /plans/{plan_key}/features:
+    put:
+      summary: Replace plan feature allowlist
+      x-permission: subscription.plan.manage
+      parameters:
+        - $ref: "#/components/parameters/PlanKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                feature_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Explicit plan features replaced.
+  /applications/{application_id}/available-product-features:
+    get:
+      summary: List product features available to an application
+      x-permission: subscription.available_features.read
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Enabled product features or bootstrap candidates.
+  /applications/{application_id}/subscriptions:
+    get:
+      summary: List application subscriptions
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Subscription list.
+    post:
+      summary: Create application subscription
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created; paid plans remain checkout_pending.
+  /applications/{application_id}/subscriptions/current:
+    get:
+      summary: Get current application subscription state
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Current subscription, pending change, cancellation, and billing events.
+  /owners/{owner_type}/{owner_id}/subscriptions:
+    get:
+      summary: List owner subscriptions
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/OwnerType"
+        - $ref: "#/components/parameters/OwnerId"
+      responses:
+        "200":
+          description: Owner subscriptions.
+    post:
+      summary: Create owner subscription
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/OwnerType"
+        - $ref: "#/components/parameters/OwnerId"
+      responses:
+        "201":
+          description: Owner subscription created.
+  /owners/{owner_type}/{owner_id}/subscriptions/current:
+    get:
+      summary: Get current owner subscription state
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/OwnerType"
+        - $ref: "#/components/parameters/OwnerId"
+      responses:
+        "200":
+          description: Current owner subscription state.
+  /subscriptions/{subscription_id}:
+    get:
+      summary: Get subscription
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Subscription detail.
+    put:
+      summary: Update subscription
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Subscription updated.
+    delete:
+      summary: Delete subscription record
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "204":
+          description: Subscription deleted.
+  /subscriptions/{subscription_id}/cancel:
+    post:
+      summary: Cancel subscription at period end
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Cancellation scheduled.
+  /subscriptions/{subscription_id}/reactivate:
+    post:
+      summary: Reactivate a subscription before cancellation takes effect
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Subscription reactivated.
+  /subscriptions/{subscription_id}/checkout:
+    post:
+      summary: Start checkout for a paid subscription plan action
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "201":
+          description: Checkout created or free/manual plan applied.
+  /subscriptions/{subscription_id}/plan-changes:
+    get:
+      summary: List plan changes
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Plan changes.
+    post:
+      summary: Create plan change
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "201":
+          description: Plan change created.
+  /subscriptions/{subscription_id}/billing-events:
+    get:
+      summary: List subscription billing events
+      x-permission: subscription.subscription.read
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Billing events.
+  /subscriptions/plan-changes/apply-due:
+    post:
+      summary: Apply due scheduled downgrades
+      x-permission: subscription.subscription.manage
+      responses:
+        "200":
+          description: Due scheduled downgrades applied idempotently.
+  /subscriptions/plan-changes/{plan_change_id}/payment-result:
+    post:
+      summary: Record payment result for a plan change
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/PlanChangeId"
+      responses:
+        "200":
+          description: Payment result recorded and successful plan changes applied.
+  /applications/{application_id}/entitlements:
+    get:
+      summary: Get application entitlements
+      x-permission: subscription.entitlement.read
+      parameters:
+        - $ref: "#/components/parameters/ApplicationId"
+      responses:
+        "200":
+          description: Active feature grants for the application.
+  /owners/{owner_type}/{owner_id}/entitlements:
+    get:
+      summary: Get owner entitlements
+      x-permission: subscription.entitlement.read
+      parameters:
+        - $ref: "#/components/parameters/OwnerType"
+        - $ref: "#/components/parameters/OwnerId"
+      responses:
+        "200":
+          description: Active feature grants for the owner.
+  /entitlements/check:
+    post:
+      summary: Check whether an owner has a subscription-controlled feature
+      x-permission: subscription.entitlement.read
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EntitlementCheckRequest"
+      responses:
+        "200":
+          description: Entitlement decision.
+components:
+  securitySchemes:
+    gatewayAuthorisation:
+      type: http
+      scheme: bearer
+      description: API Gateway forwards only after Authorisation Service permission checks.
+  parameters:
+    ApplicationId:
+      name: application_id
+      in: path
+      required: true
+      schema:
+        type: string
+    OwnerType:
+      name: owner_type
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [academy, organisation, practitioner, partner, platform, application, user]
+    OwnerId:
+      name: owner_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ProductKey:
+      name: product_key
+      in: path
+      required: true
+      schema:
+        type: string
+    FeatureKey:
+      name: feature_key
+      in: path
+      required: true
+      schema:
+        type: string
+    PlanKey:
+      name: plan_key
+      in: path
+      required: true
+      schema:
+        type: string
+    SubscriptionId:
+      name: subscription_id
+      in: path
+      required: true
+      schema:
+        type: string
+    PlanChangeId:
+      name: plan_change_id
+      in: path
+      required: true
+      schema:
+        type: string
+  schemas:
+    Product:
+      type: object
+      required: [id, service_id, name, status, is_selectable]
+      properties:
+        id:
+          type: string
+        service_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, RETIRED]
+        is_selectable:
+          type: boolean
+    ProductFeature:
+      type: object
+      required: [id, product_id, feature_key, name, status, is_selectable, subscription_controlled]
+      properties:
+        id:
+          type: string
+        product_id:
+          type: string
+        feature_key:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, RETIRED]
+        is_selectable:
+          type: boolean
+        subscription_controlled:
+          type: boolean
+        metadata:
+          type: object
+    Plan:
+      type: object
+      required: [id, name, status, currency, price_minor, billing_cycle]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [ACTIVE, INACTIVE, RETIRED]
+        currency:
+          type: string
+        price_minor:
+          type: integer
+        billing_cycle:
+          type: string
+          enum: [free, month, year, manual]
+        feature_ids:
+          type: array
+          items:
+            type: string
+    CreateSubscriptionRequest:
+      type: object
+      required: [plan_id]
+      properties:
+        application_id:
+          type: string
+        organisation_id:
+          type: string
+        owner_type:
+          type: string
+        owner_id:
+          type: string
+        plan_id:
+          type: string
+        status:
+          type: string
+    EntitlementCheckRequest:
+      type: object
+      required: [owner_type, owner_id, feature_key]
+      properties:
+        owner_type:
+          type: string
+        owner_id:
+          type: string
+        feature_key:
+          type: string
+        subject_id:
+          type: string
+        permission:
+          type: string
+        application_id:
+          type: string
+        organisation_id:
+          type: string
+        resource_id:
+          type: string
+        route:
+          type: string
+        http_method:
+          type: string

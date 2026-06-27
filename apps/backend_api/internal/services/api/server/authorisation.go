@@ -34,6 +34,8 @@ type entitlementCheckRequest struct {
 	OrganisationID string `json:"organisation_id,omitempty"`
 	ApplicationID  string `json:"application_id,omitempty"`
 	ResourceID     string `json:"resource_id,omitempty"`
+	Route          string `json:"route,omitempty"`
+	HTTPMethod     string `json:"http_method,omitempty"`
 }
 
 type entitlementCheckResponse struct {
@@ -98,6 +100,7 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 			if reason == "" {
 				reason = "PLAN_FEATURE_NOT_INCLUDED"
 			}
+			s.auditSubscriptionDenial(r, entitlementRequest, reason)
 			writeError(w, r, http.StatusForbidden, reason, "Subscription plan does not allow this feature.", map[string]string{
 				"feature_key": entitlementRequest.FeatureKey,
 				"owner_type":  entitlementRequest.OwnerType,
@@ -107,6 +110,26 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 	return true
+}
+
+func (s *server) auditSubscriptionDenial(r *http.Request, checkRequest entitlementCheckRequest, reason string) {
+	s.logger.Warn("subscription access denied",
+		"request_id", requestIDFrom(r),
+		"subject_id", checkRequest.SubjectID,
+		"owner_type", checkRequest.OwnerType,
+		"owner_id", checkRequest.OwnerID,
+		"application_id", checkRequest.ApplicationID,
+		"organisation_id", checkRequest.OrganisationID,
+		"resource_id", checkRequest.ResourceID,
+		"route", r.URL.Path,
+		"http_method", r.Method,
+		"permission", checkRequest.Permission,
+		"feature_key", checkRequest.FeatureKey,
+		"iam_decision", "allow",
+		"subscription_decision", "deny",
+		"final_decision", "deny",
+		"reason", reason,
+	)
 }
 
 func (s *server) authorize(authRequest authoriseRequest) (bool, error) {
@@ -182,6 +205,8 @@ func (s *server) entitlementRequestFromRoute(r *http.Request, match routeMatch, 
 		OrganisationID: organisationIDFrom(r),
 		ApplicationID:  s.cfg.ApplicationID,
 		ResourceID:     resourceID,
+		Route:          r.URL.Path,
+		HTTPMethod:     r.Method,
 	}
 }
 

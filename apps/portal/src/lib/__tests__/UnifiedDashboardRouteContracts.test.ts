@@ -118,21 +118,23 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(standardProfileAction, /data:[\s\S]*\b(role|status|academyId|disabled|isProtected)\b/);
   });
 
-  it("dashboard top account trigger keeps the popup menu while using compact initials and chevron", () => {
+  it("dashboard top account trigger uses the shared account dropdown menu", () => {
     const standardSource = readSource("apps/portal/src/app/dashboard/page.tsx");
     const adminSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
-    const academiesTableSource = readSource("apps/portal/src/app/dashboard/academies/AcademiesTable.tsx");
+    const accountMenuSource = readSource("apps/portal/src/app/dashboard/DashboardAccountDropDownMenu.tsx");
 
     for (const source of [standardSource, adminSource]) {
-      assert.match(source, /<ActionMenu[\s\S]*label="Open account profile menu"/);
-      assert.match(source, /trigger=\{\(\s*<>\s*[\s\S]*rounded-full bg-teal-100[\s\S]*<ChevronDown/);
-      assert.match(source, /<LogoutButton/);
+      assert.match(source, /<DashboardAccountDropDownMenu/);
+      assert.doesNotMatch(source, /label="Open account profile menu"/);
+      assert.doesNotMatch(source, /<LogoutButton/);
     }
 
-    const standardMenuSource = standardSource.match(/<ActionMenu[\s\S]*?<\/ActionMenu>/)?.[0] ?? "";
-    const adminMenuSource = adminSource.match(/<ActionMenu[\s\S]*?<\/ActionMenu>/)?.[0] ?? "";
-    assert.doesNotMatch(standardMenuSource, /href="\/dashboard\?panel=settings"|>Settings<\/Link>/);
-    assert.doesNotMatch(adminMenuSource, /href="\/dashboard\?panel=settings"|>Settings<\/Link>/);
+    assert.match(standardSource, /profileHref="\/dashboard\?panel=profile"/);
+    assert.match(standardSource, /settingsHref="\/dashboard\?panel=settings"/);
+    assert.match(adminSource, /profileHref="\/dashboard\?panel=settings&settingsAction=edit-profile"/);
+    assert.match(adminSource, /settingsHref="\/dashboard\?panel=settings"/);
+    assert.match(accountMenuSource, /<UserAccountDropDownMenu/);
+    assert.match(accountMenuSource, /signOut\(\{ callbackUrl: logoutCallbackUrl\(\) \}\)/);
   });
 
   it("standard users are not treated as admin roles for admin APIs or admin page guards", () => {
@@ -335,13 +337,13 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(profileHelper, /prisma\.user|tx\.user/);
   });
 
-  it("admin top service menu keeps footer-only Map and Settings out of primary navigation", () => {
+  it("admin side-panel service navigation keeps footer-only Map and Settings out of primary navigation", () => {
     const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
     const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
-    const serviceMenuSource = source.match(/function DashboardServiceMenu[\s\S]*?\n}\n\nfunction NewUserDialog/)?.[0] ?? "";
+    const mobileNavigationSource = source.match(/const dashboardServiceNavigationItems = adminNavigationItems[\s\S]*?;/)?.[0] ?? "";
 
     assert.notEqual(navigationSource, "", "Expected admin navigation source to be present");
-    assert.notEqual(serviceMenuSource, "", "Expected dashboard service menu source to be present");
+    assert.notEqual(mobileNavigationSource, "", "Expected dashboard service navigation source to be present");
     for (const label of ["Dashboard", "Manage Users", "Analytics", "Academy Review", "Academy Claims", "Map", "Settings"]) {
       assert.match(navigationSource, new RegExp(`label:\\s*"${label}"`));
     }
@@ -359,12 +361,11 @@ describe("unified dashboard route contracts", () => {
       /\.filter\(\(item\) => item\.href !== "\/dashboard" && item\.href !== "\/dashboard\?panel=maps" && item\.href !== "\/dashboard\?panel=settings"\)/,
     );
     assert.match(source, /\.map\(\(item\) => item\.href === "\/dashboard\/academies" \? \{ \.\.\.item, label: "Academies" \} : item\)/);
-    assert.match(source, /<DashboardServiceMenu items=\{dashboardServiceNavigationItems\} \/>/);
     assert.match(source, /mobileNavigationItems=\{dashboardServiceNavigationItems\}/);
     assert.match(source, /navigationItems=\{serviceNavigationItems\}/);
     assert.match(source, /footerNavigationItems=\{sidePanelFooterNavigationItems\}/);
     assert.match(source, /const\s+mapNavigationItem\s*=\s*adminNavigationItems\.find\(\(item\) => item\.href === "\/dashboard\?panel=maps"\)/);
-    assert.match(source, /\.\.\.\(mapNavigationItem \? \[mapNavigationItem\] : \[\]\)[\s\S]*\.\.\.\(settingsNavigationItem \? \[settingsNavigationItem\] : \[\]\)/);
+    assert.match(source, /\.\.\.\(mapNavigationItem \? \[mapNavigationItem\] : \[\]\)[\s\S]*\.\.\.\(settingsNavigationItem && panel !== "settings" \? \[settingsNavigationItem\] : \[\]\)/);
     assert.match(source, /const paymentNavigationSections = \[/);
     assert.match(source, /label:\s*"Overview"/);
     assert.match(source, /label:\s*"Transactions"/);
@@ -377,17 +378,11 @@ describe("unified dashboard route contracts", () => {
     for (const period of ["Daily", "Weekly", "Monthly", "Yearly"]) {
       assert.match(source, new RegExp(`label:\\s*"${period}"`));
     }
-    assert.match(serviceMenuSource, /className="hidden min-w-0 overflow-x-auto md:block"/);
-    assert.match(serviceMenuSource, /aria-label="Service dashboards"/);
-    assert.match(source, /<div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-4">[\s\S]*<DashboardServiceMenu items=\{dashboardServiceNavigationItems\} \/>[\s\S]*<ActionMenu/);
-    assert.match(source, /<nav className="mt-4 grid gap-1 border-b border-stone-100 pb-4 lg:hidden" aria-label="Service dashboards">/);
-    assert.match(serviceMenuSource, /<div className="ml-auto flex min-w-max items-center justify-end gap-1">/);
-    assert.match(serviceMenuSource, /text-sm transition-colors/);
-    assert.match(serviceMenuSource, /<Icon name=\{item\.icon\}/);
-    assert.match(serviceMenuSource, /item\.active \? "font-bold text-stone-950"/);
-    assert.doesNotMatch(serviceMenuSource, /bg-teal-700 text-white shadow-sm/);
-    assert.doesNotMatch(serviceMenuSource, /bg-sky-50/);
-    assert.doesNotMatch(source, /const dashboardServiceNavigationItems[\s\S]*label:\s*"Map"[\s\S]*<DashboardServiceMenu/);
+    assert.match(source, /<div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-4">[\s\S]*<DashboardAccountDropDownMenu/);
+    assert.match(mobileNavigationSource, /item\.href !== "\/dashboard\?panel=maps"/);
+    assert.match(mobileNavigationSource, /item\.href !== "\/dashboard\?panel=settings"/);
+    assert.doesNotMatch(mobileNavigationSource, /label:\s*"Map"/);
+    assert.doesNotMatch(mobileNavigationSource, /label:\s*"Settings"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Academies"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Courses\/Sessions"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Users"/);

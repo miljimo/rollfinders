@@ -124,12 +124,23 @@ const (
 	SubscriptionPlanSuspend                              = gatewayroutes.SubscriptionPlanSuspend
 	SubscriptionPlanFeatures                             = gatewayroutes.SubscriptionPlanFeatures
 	SubscriptionPlanProducts                             = gatewayroutes.SubscriptionPlanProducts
+	SubscriptionOwnerPolicies                            = gatewayroutes.SubscriptionOwnerPolicies
+	SubscriptionOwnerPolicy                              = gatewayroutes.SubscriptionOwnerPolicy
 	SubscriptionApplicationAvailableFeatures             = gatewayroutes.SubscriptionApplicationAvailableFeatures
 	SubscriptionApplicationSubscriptions                 = gatewayroutes.SubscriptionApplicationSubscriptions
+	SubscriptionApplicationSubscriptionCurrent           = gatewayroutes.SubscriptionApplicationSubscriptionCurrent
+	SubscriptionOwnerSubscriptions                       = gatewayroutes.SubscriptionOwnerSubscriptions
+	SubscriptionOwnerSubscriptionCurrent                 = gatewayroutes.SubscriptionOwnerSubscriptionCurrent
+	SubscriptionOwnerEntitlements                        = gatewayroutes.SubscriptionOwnerEntitlements
+	SubscriptionPlanChangesApplyDue                      = gatewayroutes.SubscriptionPlanChangesApplyDue
+	SubscriptionPlanChangePaymentResult                  = gatewayroutes.SubscriptionPlanChangePaymentResult
 	SubscriptionRecord                                   = gatewayroutes.SubscriptionRecord
 	SubscriptionRecordCancel                             = gatewayroutes.SubscriptionRecordCancel
+	SubscriptionRecordReactivate                         = gatewayroutes.SubscriptionRecordReactivate
 	SubscriptionRecordChangePlan                         = gatewayroutes.SubscriptionRecordChangePlan
 	SubscriptionRecordCheckout                           = gatewayroutes.SubscriptionRecordCheckout
+	SubscriptionRecordPlanChanges                        = gatewayroutes.SubscriptionRecordPlanChanges
+	SubscriptionRecordBillingEvents                      = gatewayroutes.SubscriptionRecordBillingEvents
 	SubscriptionApplicationEntitlements                  = gatewayroutes.SubscriptionApplicationEntitlements
 )
 
@@ -259,6 +270,7 @@ const (
 	ResourcePaymentBillingSubscription = gatewayroutes.ResourcePaymentBillingSubscription
 	ResourcePayoutRequest              = gatewayroutes.ResourcePayoutRequest
 	ResourceSubscription               = gatewayroutes.ResourceSubscription
+	ResourcePlanChange                 = gatewayroutes.ResourcePlanChange
 	ResourcePlan                       = gatewayroutes.ResourcePlan
 	ResourceProduct                    = gatewayroutes.ResourceProduct
 	ResourceFeature                    = gatewayroutes.ResourceFeature
@@ -283,6 +295,9 @@ const (
 	ParamPaymentId                    = gatewayroutes.ParamPaymentId
 	ParamPayoutRequestId              = gatewayroutes.ParamPayoutRequestId
 	ParamSubscriptionId               = gatewayroutes.ParamSubscriptionId
+	ParamPlanChangeId                 = gatewayroutes.ParamPlanChangeId
+	ParamOwnerType                    = gatewayroutes.ParamOwnerType
+	ParamOwnerId                      = gatewayroutes.ParamOwnerId
 	ParamPlanKey                      = gatewayroutes.ParamPlanKey
 	ParamProductKey                   = gatewayroutes.ParamProductKey
 	ParamFeatureKey                   = gatewayroutes.ParamFeatureKey

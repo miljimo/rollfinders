@@ -135,6 +135,8 @@ CREATE TABLE IF NOT EXISTS subscriptions.plan_products (
 
 CREATE TABLE IF NOT EXISTS subscriptions.subscriptions (
     id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    application_id text NOT NULL DEFAULT '',
+    organisation_id text NOT NULL DEFAULT '',
     owner_type text NOT NULL DEFAULT 'application' CHECK (owner_type IN ('application', 'organisation', 'academy', 'practitioner', 'partner', 'platform', 'user')),
     owner_id text NOT NULL,
     plan_id text NOT NULL REFERENCES subscriptions.plans(id) ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -148,6 +150,10 @@ CREATE TABLE IF NOT EXISTS subscriptions.subscriptions (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE subscriptions.subscriptions
+    ADD COLUMN IF NOT EXISTS application_id text NOT NULL DEFAULT '',
+    ADD COLUMN IF NOT EXISTS organisation_id text NOT NULL DEFAULT '';
 
 DO $$
 DECLARE
@@ -236,6 +242,34 @@ CREATE TABLE IF NOT EXISTS subscriptions.subscription_billing_events (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS subscriptions.subscription_audit_events (
+    id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    subscription_id text REFERENCES subscriptions.subscriptions(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    application_id text NOT NULL DEFAULT '',
+    organisation_id text NOT NULL DEFAULT '',
+    owner_type text NOT NULL DEFAULT '',
+    owner_id text NOT NULL DEFAULT '',
+    event_type text NOT NULL,
+    previous_status text NOT NULL DEFAULT '',
+    new_status text NOT NULL DEFAULT '',
+    previous_plan_id text NOT NULL DEFAULT '',
+    new_plan_id text NOT NULL DEFAULT '',
+    actor_id text NOT NULL DEFAULT '',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS subscriptions.subscription_plan_audit_events (
+    id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    plan_id text REFERENCES subscriptions.plans(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    event_type text NOT NULL,
+    previous_status text NOT NULL DEFAULT '',
+    new_status text NOT NULL DEFAULT '',
+    actor_id text NOT NULL DEFAULT '',
+    metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_one_active_owner_subscription
 ON subscriptions.subscriptions (owner_type, owner_id)
 WHERE status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'active', 'past_due', 'scheduled_downgrade', 'cancel_at_period_end', 'suspended');
@@ -262,6 +296,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_product_features_product_feature
 CREATE INDEX IF NOT EXISTS subscriptions_plan_features_feature_idx ON subscriptions.plan_features(feature_id);
 CREATE INDEX IF NOT EXISTS subscriptions_plan_products_product_idx ON subscriptions.plan_products(product_id);
 CREATE INDEX IF NOT EXISTS subscriptions_subscriptions_owner_idx ON subscriptions.subscriptions(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS subscriptions_subscriptions_application_idx ON subscriptions.subscriptions(application_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_subscriptions_organisation_idx ON subscriptions.subscriptions(organisation_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS subscriptions_owner_policies_owner_type_idx ON subscriptions.subscription_owner_policies(owner_type);
 CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_subscription_idx ON subscriptions.subscription_plan_changes(subscription_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_application_idx ON subscriptions.subscription_plan_changes(application_id, created_at DESC);
@@ -269,6 +305,9 @@ CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_organisation_idx ON subscr
 CREATE INDEX IF NOT EXISTS subscriptions_plan_changes_status_idx ON subscriptions.subscription_plan_changes(status, effective_at);
 CREATE INDEX IF NOT EXISTS subscriptions_billing_events_subscription_idx ON subscriptions.subscription_billing_events(subscription_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS subscriptions_billing_events_plan_change_idx ON subscriptions.subscription_billing_events(plan_change_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_audit_events_subscription_idx ON subscriptions.subscription_audit_events(subscription_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_audit_events_owner_idx ON subscriptions.subscription_audit_events(owner_type, owner_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS subscriptions_plan_audit_events_plan_idx ON subscriptions.subscription_plan_audit_events(plan_id, created_at DESC);
 
 INSERT INTO subscriptions.products (id, service_id, name, description, status, is_selectable)
 VALUES

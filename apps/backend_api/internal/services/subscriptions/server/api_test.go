@@ -146,6 +146,9 @@ func TestPaymentSubscriptionCheckoutClient(t *testing.T) {
 	if received.Metadata["subscription_id"] != "sub_test" || received.Metadata["plan_change_id"] != "plan_change_test" {
 		t.Fatalf("expected subscription metadata on payment billing request, got %+v", received.Metadata)
 	}
+	if received.Metadata["resource_type"] != "subscription_plan_change" || received.Metadata["resource_id"] != "plan_change_test" {
+		t.Fatalf("expected generic subscription plan-change resource metadata, got %+v", received.Metadata)
+	}
 }
 
 func TestFeatureNameUniqueWithinProductServiceContract(t *testing.T) {
@@ -170,6 +173,40 @@ func TestFeatureNameUniqueWithinProductServiceContract(t *testing.T) {
 	}
 }
 
+func TestSubscriptionOpenAPIContractExists(t *testing.T) {
+	contract, err := os.ReadFile("../../../../../../docs/services/subscriptions/api/openApi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(contract)
+	for _, required := range []string{
+		"openapi: 3.1.0",
+		"/healthz:",
+		"/readyz:",
+		"/products:",
+		"/product-features:",
+		"/plans:",
+		"/applications/{application_id}/available-product-features:",
+		"/applications/{application_id}/subscriptions:",
+		"/applications/{application_id}/subscriptions/current:",
+		"/owners/{owner_type}/{owner_id}/subscriptions:",
+		"/subscriptions/{subscription_id}/plan-changes:",
+		"/subscriptions/{subscription_id}/billing-events:",
+		"/subscriptions/plan-changes/apply-due:",
+		"/subscriptions/plan-changes/{plan_change_id}/payment-result:",
+		"/applications/{application_id}/entitlements:",
+		"/entitlements/check:",
+		"x-permission: subscription.product.read",
+		"x-permission: subscription.subscription.manage",
+		"x-permission: subscription.entitlement.read",
+		"security: []",
+	} {
+		if !strings.Contains(source, required) {
+			t.Fatalf("subscription OpenAPI contract must include %q", required)
+		}
+	}
+}
+
 func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 	schema, err := os.ReadFile("../../../../migrations/subscriptions/001_core_schema.sql")
 	if err != nil {
@@ -187,11 +224,36 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	organisation, err := os.ReadFile("organisation.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	authorisation, err := os.ReadFile("authorisation.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := os.ReadFile("../config/config.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	scheduler, err := os.ReadFile("scheduler.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	command, err := os.ReadFile("../../../../cmd/services/subscriptions/api/main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	schemaSource := string(schema)
 	repositorySource := string(repository)
 	apiSource := string(api)
 	serverSource := string(server)
+	organisationSource := string(organisation)
+	authorisationSource := string(authorisation)
+	configSource := string(config)
+	schedulerSource := string(scheduler)
+	commandSource := string(command)
 
 	for _, required := range []string{
 		"CREATE TABLE IF NOT EXISTS subscriptions.subscription_owner_policies",
@@ -204,9 +266,64 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 		"'practitioner'",
 		"'platform'",
 		"'application'",
+		"GET /v1/owner-policies",
+		"GET /v1/owner-policies/{owner_type}",
+		"PUT /v1/owner-policies/{owner_type}",
+		"listOwnerPolicies",
+		"updateOwnerPolicy",
 	} {
-		if !strings.Contains(schemaSource, required) {
+		if !strings.Contains(schemaSource+serverSource+repositorySource, required) {
 			t.Fatalf("subscription schema must include productPatch owner policy contract fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"application_id text NOT NULL DEFAULT ''",
+		"organisation_id text NOT NULL DEFAULT ''",
+		"CREATE INDEX IF NOT EXISTS subscriptions_subscriptions_application_idx",
+		"CREATE INDEX IF NOT EXISTS subscriptions_subscriptions_organisation_idx",
+		"ApplicationID  string",
+		"OrganisationID string",
+		"COALESCE(application_id, '')",
+		"COALESCE(organisation_id, '')",
+		"getApplication",
+		"/v1/applications/%s",
+		"application.OrganisationID",
+		"organisationID != application.OrganisationID",
+	} {
+		if !strings.Contains(schemaSource+repositorySource+apiSource+organisationSource, required) {
+			t.Fatalf("subscription lifecycle storage must include application/organisation contract fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'active', 'past_due', 'scheduled_downgrade', 'cancel_at_period_end', 'suspended')",
+		"return Subscription{}, errConflict",
+	} {
+		if !strings.Contains(repositorySource, required) {
+			t.Fatalf("subscription lifecycle repository must reject duplicate active subscriptions with fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"CREATE TABLE IF NOT EXISTS subscriptions.subscription_audit_events",
+		"subscriptions_audit_events_subscription_idx",
+		"subscriptions_audit_events_owner_idx",
+		"previous_status text NOT NULL DEFAULT ''",
+		"new_status text NOT NULL DEFAULT ''",
+		"previous_plan_id text NOT NULL DEFAULT ''",
+		"new_plan_id text NOT NULL DEFAULT ''",
+		"createSubscriptionAuditEvent",
+		"subscription_created",
+		"subscription_status_updated",
+		"subscription_cancel_scheduled",
+		"subscription_reactivated",
+		"subscription_deleted",
+		"plan_change_applied",
+		"scheduled_downgrade_applied",
+	} {
+		if !strings.Contains(schemaSource+repositorySource, required) {
+			t.Fatalf("subscription lifecycle audit must include fragment %q", required)
 		}
 	}
 
@@ -242,14 +359,188 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 	}
 
 	for _, required := range []string{
+		"setFeatureStatus(ctx, id, \"RETIRED\")",
+		"UPDATE product_features SET status = 'RETIRED'",
+		"UPDATE products SET status = 'RETIRED'",
+		"status = 'ACTIVE'",
+		"is_selectable = true",
+	} {
+		if !strings.Contains(repositorySource, required) {
+			t.Fatalf("feature lifecycle must preserve historical plan references and filter inactive features with fragment %q", required)
+		}
+	}
+	if strings.Contains(repositorySource, "DELETE FROM plan_features WHERE feature_id") {
+		t.Fatal("feature deletion must not delete historical plan feature references")
+	}
+	if strings.Contains(repositorySource, "DELETE FROM plan_products\n\t\tWHERE product_id") || strings.Contains(repositorySource, "DELETE FROM product_features WHERE product_id") {
+		t.Fatal("product deletion must retire product data without deleting historical plan references")
+	}
+
+	for _, required := range []string{
+		"FROM plan_features pf",
+		"JOIN product_features f ON f.id = pf.feature_id",
+		"JOIN products p ON p.id = f.product_id",
+		"pf.limit_value",
+		"AND f.status = 'ACTIVE'",
+		"AND f.is_selectable = true",
+		"AND p.status = 'ACTIVE'",
+		"AND p.is_selectable = true",
+		"FeatureIDs         []string",
+		"raw[\"features\"]",
+		"raw[\"included_feature_ids\"]",
+		"raw[\"feature_ids\"]",
+		"s.repo.replacePlanFeatures(r.Context(), result.ID",
+	} {
+		if !strings.Contains(repositorySource+apiSource, required) {
+			t.Fatalf("plan feature allowlists must be explicit and active-only with fragment %q", required)
+		}
+	}
+
+	if strings.Contains(repositorySource, "FROM plan_products pp\n\t\tJOIN products p ON p.id = pp.product_id\n\t\tJOIN product_features f ON f.product_id = p.id") {
+		t.Fatal("plan features must not be inferred from plan_products")
+	}
+
+	for _, required := range []string{
+		"CREATE TABLE IF NOT EXISTS subscriptions.subscription_plan_audit_events",
+		"subscriptions_plan_audit_events_plan_idx",
+		"createPlanAuditEvent",
+		"plan_created",
+		"plan_updated",
+		"plan_features_replaced",
+		"feature_ids",
+	} {
+		if !strings.Contains(schemaSource+repositorySource, required) {
+			t.Fatalf("plan audit trail must include fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"organisationClient",
+		"/v1/applications/%s/services?limit=100",
+		"organisation_service",
+		"bootstrap_fallback",
+		"candidate_data",
+		"enabledServices",
+		"enabledProductIDs",
+		"product.ServiceID",
+		"feature.ProductID",
+		"ORGANISATION_PUBLIC_BASE_URL",
+		"AUTHORISATION_PUBLIC_BASE_URL",
+		"authorisationClient",
+		"/v1/permissions?limit=100",
+		"bootstrapCandidatesFromPermissions",
+		"bootstrap_candidates",
+		"Candidate:   true",
+	} {
+		if !strings.Contains(apiSource+serverSource+repositorySource+schemaSource+organisationSource+authorisationSource+configSource, required) {
+			t.Fatalf("available product-feature loading must include Organisation Service filtering/fallback fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
 		"owner_type",
 		"feature_key",
 		"subscription_controlled",
 		"SUBSCRIPTION_REQUIRED",
 		"PLAN_FEATURE_NOT_INCLUDED",
+		"if errors.Is(err, errNotFound) {\n\t\t\tresponse.Allowed = false\n\t\t\tresponse.Decision = \"DENY\"\n\t\t\tresponse.Reason = \"PLAN_FEATURE_NOT_INCLUDED\"",
+		"SubjectID      string `json:\"subject_id\"`",
+		"Permission     string `json:\"permission\"`",
+		"Route          string `json:\"route\"`",
+		"HTTPMethod     string `json:\"http_method\"`",
+		"auditEntitlementDenial",
+		"subscription_check_denied",
+		"subscription_decision",
+		"final_decision",
 	} {
 		if !strings.Contains(apiSource, required) && !strings.Contains(repositorySource, required) && !strings.Contains(serverSource, required) {
 			t.Fatalf("entitlement decision surface must include %q for API gateway enforcement", required)
+		}
+	}
+
+	for _, required := range []string{
+		"GET /v1/applications/{application_id}/subscriptions/current",
+		"GET /v1/owners/{owner_type}/{owner_id}/subscriptions",
+		"POST /v1/owners/{owner_type}/{owner_id}/subscriptions",
+		"GET /v1/owners/{owner_type}/{owner_id}/subscriptions/current",
+		"GET /v1/owners/{owner_type}/{owner_id}/entitlements",
+		"POST /v1/subscriptions/{subscription_id}/reactivate",
+		"POST /v1/subscriptions/plan-changes/apply-due",
+		"POST /v1/subscriptions/plan-changes/{plan_change_id}/payment-result",
+	} {
+		if !strings.Contains(serverSource, required) {
+			t.Fatalf("server must register subscription route %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"listSubscriptionsByOwner",
+		"entitlementsByOwner",
+		"cancelSubscriptionAtPeriodEnd",
+		"reactivateSubscription",
+		"applyDueScheduledDowngrades",
+		"applyScheduledDowngrade",
+		"recordPlanChangePaymentResult",
+	} {
+		if !strings.Contains(repositorySource, required) {
+			t.Fatalf("repository must expose owner-scoped subscription helper %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"currentApplicationSubscription",
+		"currentSubscriptionForOwner",
+		"currentSubscriptionResponse",
+		"\"pending_change\"",
+		"\"billing_events\"",
+		"\"cancellation\"",
+		"requested\", \"checkout_pending\", \"payment_confirmed\", \"scheduled",
+		"listBillingEvents(ctx, item.ID",
+	} {
+		if !strings.Contains(apiSource, required) {
+			t.Fatalf("current subscription response must include pending change, billing, and cancellation state with fragment %q", required)
+		}
+	}
+
+	if !strings.Contains(repositorySource, "AND (status != 'cancel_at_period_end' OR cancel_at IS NULL OR cancel_at > now())") {
+		t.Fatal("entitlement queries must stop granting cancelled-at-period-end subscriptions after cancel_at has passed")
+	}
+
+	for _, required := range []string{
+		"status = 'scheduled'",
+		"status = 'applied'",
+		"scheduled_downgrade_applied",
+		"FOR UPDATE",
+		"payment_confirmed",
+		"payment_failed",
+	} {
+		if !strings.Contains(repositorySource, required) {
+			t.Fatalf("repository must implement idempotent scheduled downgrade application fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"DowngradeSchedulerInterval",
+		"SUBSCRIPTION_DOWNGRADE_SCHEDULER_INTERVAL",
+		"startSchedulers",
+		"runDowngradeScheduler",
+		"applyDueScheduledDowngrades(ctx, time.Now().UTC(), 100)",
+		"NewWithCleanup",
+	} {
+		if !strings.Contains(configSource+schedulerSource+apiSource+commandSource, required) {
+			t.Fatalf("scheduled downgrade worker must include fragment %q", required)
+		}
+	}
+
+	for _, required := range []string{
+		"checkoutRequired := plan.PriceMinor > 0 && stripeBillableCycle(plan.BillingCycle)",
+		"if checkoutRequired && activatesSubscription(item.Status)",
+		"\"checkout_required\": checkoutRequired",
+		"planPriceMinor > 0 && stripeBillableCycle(planBillingCycle) && activatesSubscription(item.Status)",
+		"item.Status = \"checkout_pending\"",
+	} {
+		if !strings.Contains(apiSource+repositorySource, required) {
+			t.Fatalf("paid subscription creation must stay checkout_pending before payment success with fragment %q", required)
 		}
 	}
 }

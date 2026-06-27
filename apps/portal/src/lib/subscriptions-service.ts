@@ -71,6 +71,33 @@ export type SubscriptionBillingCycle = {
   name: string;
 };
 
+export type SubscriptionBillingEvent = {
+  id: string;
+  subscription_id: string;
+  plan_change_id?: string;
+  payment_id?: string;
+  event_type: string;
+  status: string;
+  amount_minor: number;
+  currency: string;
+  provider: string;
+  provider_reference?: string;
+  created_at: string;
+};
+
+export type SubscriptionPlanChange = {
+  id: string;
+  subscription_id: string;
+  from_plan_id?: string;
+  to_plan_id?: string;
+  change_type: string;
+  status: string;
+  effective_at?: string | null;
+  checkout_id?: string;
+  payment_id?: string;
+  created_at: string;
+};
+
 export type OrganisationSubscription = {
   id: string;
   owner_type: string;
@@ -81,6 +108,16 @@ export type OrganisationSubscription = {
   billing_period_end: string;
 };
 
+export type CurrentSubscriptionState = {
+  subscription?: OrganisationSubscription | null;
+  pending_change?: SubscriptionPlanChange | null;
+  billing_events?: SubscriptionBillingEvent[];
+  cancellation?: {
+    status?: string;
+    cancel_at?: string | null;
+  } | null;
+};
+
 export type SubscriptionCheckoutResponse = {
   checkout_required: boolean;
   checkout?: {
@@ -88,6 +125,11 @@ export type SubscriptionCheckoutResponse = {
     session_id?: string;
     provider?: string;
   };
+  subscription?: OrganisationSubscription;
+};
+
+export type CreateSubscriptionResponse = {
+  checkout_required?: boolean;
   subscription?: OrganisationSubscription;
 };
 
@@ -112,6 +154,7 @@ export class SubscriptionServiceError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code = "",
   ) {
     super(message);
     this.name = "SubscriptionServiceError";
@@ -131,6 +174,7 @@ function headers(actor?: SubscriptionActor | null) {
 async function parseResponse(response: Response) {
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
+    const code = typeof body?.error?.code === "string" ? body.error.code : "";
     const message =
       typeof body?.error?.message === "string"
         ? body.error.message
@@ -139,7 +183,7 @@ async function parseResponse(response: Response) {
           : typeof body?.message === "string"
             ? body.message
         : `Subscription service request failed with status ${response.status}.`;
-    throw new SubscriptionServiceError(message, response.status);
+    throw new SubscriptionServiceError(message, response.status, code);
   }
   return body;
 }
@@ -286,7 +330,11 @@ export async function createApplicationSubscription(input: {
   return request(`/v1/applications/${encodeURIComponent(applicationId)}/subscriptions`, actor, {
     method: "POST",
     body: JSON.stringify({ owner_type: "application", owner_id: applicationId, organisation_id: input.organisationId, plan_id: input.planId }),
-  });
+  }) as Promise<CreateSubscriptionResponse>;
+}
+
+export async function getCurrentApplicationSubscription(applicationId = defaultApplicationId(), actor?: SubscriptionActor | null) {
+  return request(`/v1/applications/${encodeURIComponent(applicationId)}/subscriptions/current`, actor) as Promise<CurrentSubscriptionState>;
 }
 
 export async function updateApplicationSubscription(subscriptionId: string, input: { planId: string; status: string }, actor?: SubscriptionActor | null) {
@@ -300,8 +348,21 @@ export async function suspendApplicationSubscription(subscriptionId: string, act
   return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/suspend`, actor, { method: "POST" });
 }
 
+export async function cancelApplicationSubscription(subscriptionId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, actor, { method: "POST" });
+}
+
+export async function reactivateApplicationSubscription(subscriptionId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/reactivate`, actor, { method: "POST" });
+}
+
 export async function deleteApplicationSubscription(subscriptionId: string, actor?: SubscriptionActor | null) {
   return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}`, actor, { method: "DELETE" });
+}
+
+export async function listSubscriptionBillingEvents(subscriptionId: string, actor?: SubscriptionActor | null) {
+  const result = await request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/billing-events?limit=100`, actor) as { billing_events?: SubscriptionBillingEvent[] };
+  return result.billing_events ?? [];
 }
 
 export async function createSubscriptionCheckout(subscriptionId: string, input: {
