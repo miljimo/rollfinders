@@ -348,6 +348,16 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 		}
 	}
 
+	for _, required := range []string{
+		"('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000008'",
+		"('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000008'",
+		"('30000000-0000-4000-8000-000000000005', 'platform', false, false, NULL)",
+	} {
+		if !strings.Contains(schemaSource, required) {
+			t.Fatalf("subscription bootstrap must include default payment entitlement fragment %q", required)
+		}
+	}
+
 	for _, source := range []struct {
 		name string
 		body string
