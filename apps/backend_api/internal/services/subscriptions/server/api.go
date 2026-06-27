@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -830,12 +831,23 @@ func (s *server) changePlan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "plan_id is required.")
 		return
 	}
-	item, err := s.repo.setSubscriptionStatus(r.Context(), r.PathValue("subscription_id"), "ACTIVE", req.PlanID)
+	subscription, planChange, billingEvent, checkoutRequired, err := s.recordPlanChange(r.Context(), r.PathValue("subscription_id"), createPlanChangeRequest{
+		PlanID: req.PlanID,
+	})
 	if err != nil {
 		s.handleError(w, r, err, "subscription change plan failed")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"subscription": item})
+	status := http.StatusOK
+	if checkoutRequired {
+		status = http.StatusAccepted
+	}
+	writeJSON(w, status, map[string]any{
+		"subscription":      subscription,
+		"plan_change":       planChange,
+		"billing_event":     billingEvent,
+		"checkout_required": checkoutRequired,
+	})
 }
 
 type createPlanChangeRequest struct {
@@ -1082,30 +1094,46 @@ func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
 		return
 	}
+	subscription, result, event, checkoutRequired, err := s.recordPlanChange(r.Context(), r.PathValue("subscription_id"), req)
+	if errors.Is(err, errInvalidRequest) {
+		writeError(w, r, http.StatusBadRequest, "invalid_request", err.Error())
+		return
+	}
+	if err != nil {
+		s.handleError(w, r, err, "plan change create failed")
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"subscription":      subscription,
+		"plan_change":       result,
+		"billing_event":     event,
+		"checkout_required": checkoutRequired,
+	})
+}
+
+var errInvalidRequest = errors.New("invalid request")
+
+func (s *server) recordPlanChange(ctx context.Context, subscriptionID string, req createPlanChangeRequest) (Subscription, PlanChange, BillingEvent, bool, error) {
 	toPlanID := strings.TrimSpace(req.ToPlanID)
 	if toPlanID == "" {
 		toPlanID = strings.TrimSpace(req.PlanID)
 	}
-	subscription, err := s.repo.getSubscription(r.Context(), r.PathValue("subscription_id"))
+	subscription, err := s.repo.getSubscription(ctx, subscriptionID)
 	if err != nil {
-		s.handleError(w, r, err, "subscription get for plan change failed")
-		return
+		return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 	}
 	if toPlanID == "" && req.ChangeType != "cancel" && req.ChangeType != "reactivate" {
-		writeError(w, r, http.StatusBadRequest, "invalid_request", "plan_id or to_plan_id is required.")
-		return
+		return Subscription{}, PlanChange{}, BillingEvent{}, false, fmt.Errorf("%w: plan_id or to_plan_id is required", errInvalidRequest)
 	}
-	fromPlan, err := s.repo.getPlan(r.Context(), subscription.PlanID)
+	fromPlan, err := s.repo.getPlan(ctx, subscription.PlanID)
 	if err != nil {
-		s.handleError(w, r, err, "current plan get for plan change failed")
-		return
+		return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 	}
 	toPlan := Plan{}
 	if toPlanID != "" {
-		toPlan, err = s.repo.getPlan(r.Context(), toPlanID)
+		toPlan, err = s.repo.getPlan(ctx, toPlanID)
 		if err != nil {
-			s.handleError(w, r, err, "target plan get for plan change failed")
-			return
+			return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 		}
 	}
 	changeType := strings.TrimSpace(req.ChangeType)
@@ -1113,8 +1141,7 @@ func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
 		changeType = inferPlanChangeType(fromPlan, toPlan)
 	}
 	if !validPlanChangeType(changeType) {
-		writeError(w, r, http.StatusBadRequest, "invalid_request", "change_type is invalid.")
-		return
+		return Subscription{}, PlanChange{}, BillingEvent{}, false, fmt.Errorf("%w: change_type is invalid", errInvalidRequest)
 	}
 	status := "requested"
 	var effectiveAt *time.Time
@@ -1150,10 +1177,9 @@ func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
 		CheckoutID:     strings.TrimSpace(req.CheckoutID),
 		RequestedBy:    strings.TrimSpace(req.RequestedBy),
 	}
-	result, err := s.repo.createPlanChange(r.Context(), item)
+	result, err := s.repo.createPlanChange(ctx, item)
 	if err != nil {
-		s.handleError(w, r, err, "plan change create failed")
-		return
+		return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 	}
 	eventType := "plan_change_requested"
 	if checkoutRequired {
@@ -1162,13 +1188,12 @@ func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
 		eventType = "plan_change_scheduled"
 	} else if status == "applied" {
 		eventType = "plan_change_applied"
-		_, err = s.repo.setSubscriptionStatus(r.Context(), subscription.ID, "active", toPlanID)
+		subscription, err = s.repo.setSubscriptionStatus(ctx, subscription.ID, "active", toPlanID)
 		if err != nil {
-			s.handleError(w, r, err, "subscription apply plan change failed")
-			return
+			return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 		}
 	}
-	event, err := s.repo.createBillingEvent(r.Context(), BillingEvent{
+	event, err := s.repo.createBillingEvent(ctx, BillingEvent{
 		SubscriptionID: subscription.ID,
 		PlanChangeID:   result.ID,
 		PaymentID:      result.PaymentID,
@@ -1180,14 +1205,9 @@ func (s *server) createPlanChange(w http.ResponseWriter, r *http.Request) {
 		Metadata:       json.RawMessage(`{}`),
 	})
 	if err != nil {
-		s.handleError(w, r, err, "billing event create failed")
-		return
+		return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{
-		"plan_change":       result,
-		"billing_event":     event,
-		"checkout_required": checkoutRequired,
-	})
+	return subscription, result, event, checkoutRequired, nil
 }
 
 func checkoutMetadata(checkoutURL string) json.RawMessage {

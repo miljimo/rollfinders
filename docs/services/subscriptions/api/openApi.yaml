@@ -76,6 +76,15 @@ paths:
       responses:
         "200":
           description: Product retired.
+  /products/{product_key}/suspend:
+    post:
+      summary: Suspend subscription product
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/ProductKey"
+      responses:
+        "200":
+          description: Product suspended.
   /product-features:
     get:
       summary: List product features
@@ -126,6 +135,22 @@ paths:
       responses:
         "200":
           description: Feature retired.
+  /product-features/{feature_key}/disable:
+    post:
+      summary: Disable product feature
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/FeatureKey"
+      responses:
+        "200":
+          description: Feature disabled.
+  /plans/billing-cycles:
+    get:
+      summary: List supported billing cycles
+      x-permission: subscription.plan.read
+      responses:
+        "200":
+          description: Supported billing cycles.
   /plans:
     get:
       summary: List plans
@@ -176,6 +201,15 @@ paths:
       responses:
         "200":
           description: Plan retired.
+  /plans/{plan_key}/suspend:
+    post:
+      summary: Suspend plan
+      x-permission: subscription.plan.manage
+      parameters:
+        - $ref: "#/components/parameters/PlanKey"
+      responses:
+        "200":
+          description: Plan suspended.
   /plans/{plan_key}/features:
     put:
       summary: Replace plan feature allowlist
@@ -196,6 +230,56 @@ paths:
       responses:
         "200":
           description: Explicit plan features replaced.
+  /plans/{plan_key}/products:
+    put:
+      summary: Replace plan product grouping
+      x-permission: subscription.plan.manage
+      parameters:
+        - $ref: "#/components/parameters/PlanKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Plan product grouping replaced.
+  /owner-policies:
+    get:
+      summary: List subscription owner policies
+      x-permission: subscription.product.read
+      responses:
+        "200":
+          description: Owner policies.
+  /owner-policies/{owner_type}:
+    get:
+      summary: Get subscription owner policy
+      x-permission: subscription.product.read
+      parameters:
+        - $ref: "#/components/parameters/OwnerType"
+      responses:
+        "200":
+          description: Owner policy.
+    put:
+      summary: Update subscription owner policy
+      x-permission: subscription.product.manage
+      parameters:
+        - $ref: "#/components/parameters/OwnerType"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerPolicy"
+      responses:
+        "200":
+          description: Owner policy updated.
   /applications/{application_id}/available-product-features:
     get:
       summary: List product features available to an application
@@ -309,6 +393,39 @@ paths:
       responses:
         "200":
           description: Subscription reactivated.
+  /subscriptions/{subscription_id}/suspend:
+    post:
+      summary: Suspend subscription
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      responses:
+        "200":
+          description: Subscription suspended.
+  /subscriptions/{subscription_id}/change-plan:
+    post:
+      summary: Legacy payment-safe plan change endpoint
+      description: >
+        Creates a plan-change record. Billable target plans remain checkout_pending
+        until the billing provider confirms payment.
+      x-permission: subscription.subscription.manage
+      parameters:
+        - $ref: "#/components/parameters/SubscriptionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id:
+                  type: string
+      responses:
+        "200":
+          description: Free/manual change applied or downgrade scheduled.
+        "202":
+          description: Billable plan change accepted and awaiting checkout/payment.
   /subscriptions/{subscription_id}/checkout:
     post:
       summary: Start checkout for a paid subscription plan action
@@ -509,6 +626,18 @@ components:
           type: array
           items:
             type: string
+    OwnerPolicy:
+      type: object
+      required: [owner_type, subscription_supported, subscription_required]
+      properties:
+        owner_type:
+          type: string
+        subscription_supported:
+          type: boolean
+        subscription_required:
+          type: boolean
+        default_plan_id:
+          type: string
     CreateSubscriptionRequest:
       type: object
       required: [plan_id]

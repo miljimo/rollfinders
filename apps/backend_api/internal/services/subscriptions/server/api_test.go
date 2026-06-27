@@ -185,11 +185,16 @@ func TestSubscriptionOpenAPIContractExists(t *testing.T) {
 		"/readyz:",
 		"/products:",
 		"/product-features:",
+		"/product-features/{feature_key}/disable:",
 		"/plans:",
+		"/plans/billing-cycles:",
 		"/applications/{application_id}/available-product-features:",
+		"/owner-policies:",
+		"/owner-policies/{owner_type}:",
 		"/applications/{application_id}/subscriptions:",
 		"/applications/{application_id}/subscriptions/current:",
 		"/owners/{owner_type}/{owner_id}/subscriptions:",
+		"/subscriptions/{subscription_id}/change-plan:",
 		"/subscriptions/{subscription_id}/plan-changes:",
 		"/subscriptions/{subscription_id}/billing-events:",
 		"/subscriptions/plan-changes/apply-due:",
@@ -538,6 +543,7 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 		"\"checkout_required\": checkoutRequired",
 		"planPriceMinor > 0 && stripeBillableCycle(planBillingCycle) && activatesSubscription(item.Status)",
 		"item.Status = \"checkout_pending\"",
+		"recordPlanChange(r.Context(), r.PathValue(\"subscription_id\")",
 	} {
 		if !strings.Contains(apiSource+repositorySource, required) {
 			t.Fatalf("paid subscription creation must stay checkout_pending before payment success with fragment %q", required)
