@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Edit3, PauseCircle, Plus, Search, Trash2, XCircle } from "lucide-react";
+import { CheckCircle2, Edit3, PauseCircle, Plus, Trash2, XCircle } from "lucide-react";
 import { Role } from "@prisma/client";
 import { ActionMenu } from "../../admin/ActionMenu";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
+import { DataTableWithSearch } from "@/components/data-table-with-search";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { Table, type TableColumn, type TableRecord } from "@/components/Table";
 import { listOrganisationApplications, listOrganisations, type OrganisationApplicationRecord, type OrganisationRecord } from "@/lib/organisation-service";
@@ -430,30 +431,16 @@ function SubscriptionViewPanel({
     const currentPage = Math.max(1, pageFromOffset);
     const totalPages = planPagination.has_more ? currentPage + 1 : currentPage;
     return (
-      <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-950">Plans</h2>
-            <p className="mt-1 text-sm text-slate-600">Each plan grants only the selected feature IDs.</p>
-          </div>
-          <Button href="/dashboard/subscriptions?subscriptionsView=plans&dialog=new-plan" variant="primary" className="min-h-12 shadow-sm">
-            <Plus size={18} aria-hidden />
-            New Plan
-          </Button>
-        </div>
-        <PlansSearch search={plansSearch} />
-        <div className="mt-4">
-          <PlansTable
-            plans={filteredPlans}
-            pagination={{
-              page: currentPage,
-              previousHref: subscriptionHref({ subscriptionsView: "plans", plansPage: currentPage - 1, plansSearch: plansSearch || undefined }),
-              nextHref: subscriptionHref({ subscriptionsView: "plans", plansPage: currentPage + 1, plansSearch: plansSearch || undefined }),
-              totalPages,
-            }}
-          />
-        </div>
-      </section>
+      <PlansTable
+        plans={filteredPlans}
+        search={plansSearch}
+        pagination={{
+          page: currentPage,
+          previousHref: subscriptionHref({ subscriptionsView: "plans", plansPage: currentPage - 1, plansSearch: plansSearch || undefined }),
+          nextHref: subscriptionHref({ subscriptionsView: "plans", plansPage: currentPage + 1, plansSearch: plansSearch || undefined }),
+          totalPages,
+        }}
+      />
     );
   }
 
@@ -461,31 +448,17 @@ function SubscriptionViewPanel({
     const filteredProducts = filterProducts(products, productsSearch);
     const pagedProducts = localTablePage(filteredProducts, productsPage);
     return (
-      <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-950">Products</h2>
-            <p className="mt-1 text-sm text-slate-600">Manage products that group subscription features.</p>
-          </div>
-          <Button href="/dashboard/subscriptions?subscriptionsView=products&dialog=new-product" variant="primary" className="min-h-12 shadow-sm">
-            <Plus size={18} aria-hidden />
-            New Product
-          </Button>
-        </div>
-        <SubscriptionSearch name="productsSearch" placeholder="Search products" search={productsSearch} view="products" />
-        <div className="mt-4">
-          <ProductsTable
-            products={pagedProducts.items}
-            features={features}
-            pagination={{
-              page: pagedProducts.currentPage,
-              previousHref: subscriptionHref({ subscriptionsView: "products", productsPage: pagedProducts.currentPage - 1, productsSearch: productsSearch || undefined }),
-              nextHref: subscriptionHref({ subscriptionsView: "products", productsPage: pagedProducts.currentPage + 1, productsSearch: productsSearch || undefined }),
-              totalPages: pagedProducts.totalPages,
-            }}
-          />
-        </div>
-      </section>
+      <ProductsTable
+        products={pagedProducts.items}
+        features={features}
+        search={productsSearch}
+        pagination={{
+          page: pagedProducts.currentPage,
+          previousHref: subscriptionHref({ subscriptionsView: "products", productsPage: pagedProducts.currentPage - 1, productsSearch: productsSearch || undefined }),
+          nextHref: subscriptionHref({ subscriptionsView: "products", productsPage: pagedProducts.currentPage + 1, productsSearch: productsSearch || undefined }),
+          totalPages: pagedProducts.totalPages,
+        }}
+      />
     );
   }
 
@@ -495,31 +468,17 @@ function SubscriptionViewPanel({
     const currentPage = Math.max(1, pageFromOffset);
     const totalPages = featurePagination.has_more ? currentPage + 1 : currentPage;
     return (
-      <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-950">Features</h2>
-            <p className="mt-1 text-sm text-slate-600">Manage product privileges that plans can grant.</p>
-          </div>
-          <Button href="/dashboard/subscriptions?subscriptionsView=features&dialog=new-feature" variant="primary" className="min-h-12 shadow-sm">
-            <Plus size={18} aria-hidden />
-            New Feature
-          </Button>
-        </div>
-        <SubscriptionSearch name="featuresSearch" placeholder="Search features" search={featuresSearch} view="features" />
-        <div className="mt-4">
-          <FeaturesTable
-            features={filteredFeatures}
-            pagination={{
-              page: currentPage,
-              previousHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage - 1, featuresSearch: featuresSearch || undefined }),
-              nextHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage + 1, featuresSearch: featuresSearch || undefined }),
-              totalPages,
-            }}
-            products={products}
-          />
-        </div>
-      </section>
+      <FeaturesTable
+        features={filteredFeatures}
+        search={featuresSearch}
+        pagination={{
+          page: currentPage,
+          previousHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage - 1, featuresSearch: featuresSearch || undefined }),
+          nextHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage + 1, featuresSearch: featuresSearch || undefined }),
+          totalPages,
+        }}
+        products={products}
+      />
     );
   }
 
@@ -547,31 +506,17 @@ function SubscriptionViewPanel({
     const filteredSubscriptions = filterSubscriptions(subscriptions, subscribersSearch);
     const pagedSubscriptions = localTablePage(filteredSubscriptions, subscribersPage);
     return (
-      <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black text-slate-950">Subscribers</h2>
-            <p className="mt-1 text-sm text-slate-600">Create and review subscriptions by organisation and application.</p>
-          </div>
-          <Button href="/dashboard/subscriptions?subscriptionsView=subscribers&dialog=new-subscriber" variant="primary" className="min-h-12 shadow-sm">
-            <Plus size={18} aria-hidden />
-            New Subscriber
-          </Button>
-        </div>
-        <SubscriptionSearch name="subscribersSearch" placeholder="Search subscribers" search={subscribersSearch} view="subscribers" />
-        <div className="mt-4">
-          <SubscriptionsTable
-            plans={plans}
-            subscriptions={pagedSubscriptions.items}
-            pagination={{
-              page: pagedSubscriptions.currentPage,
-              previousHref: subscriptionHref({ subscriptionsView: "subscribers", subscribersPage: pagedSubscriptions.currentPage - 1, subscribersSearch: subscribersSearch || undefined }),
-              nextHref: subscriptionHref({ subscriptionsView: "subscribers", subscribersPage: pagedSubscriptions.currentPage + 1, subscribersSearch: subscribersSearch || undefined }),
-              totalPages: pagedSubscriptions.totalPages,
-            }}
-          />
-        </div>
-      </section>
+      <SubscriptionsTable
+        plans={plans}
+        search={subscribersSearch}
+        subscriptions={pagedSubscriptions.items}
+        pagination={{
+          page: pagedSubscriptions.currentPage,
+          previousHref: subscriptionHref({ subscriptionsView: "subscribers", subscribersPage: pagedSubscriptions.currentPage - 1, subscribersSearch: subscribersSearch || undefined }),
+          nextHref: subscriptionHref({ subscriptionsView: "subscribers", subscribersPage: pagedSubscriptions.currentPage + 1, subscribersSearch: subscribersSearch || undefined }),
+          totalPages: pagedSubscriptions.totalPages,
+        }}
+      />
     );
   }
 
@@ -665,40 +610,6 @@ function localTablePage<T>(items: T[], page: number, pageSize = 10) {
     items: items.slice(start, start + pageSize),
     totalPages,
   };
-}
-
-function PlansSearch({ search }: { search: string }) {
-  return (
-    <form action="/dashboard/subscriptions" className="mt-4 flex min-w-0 gap-2">
-      <input type="hidden" name="subscriptionsView" value="plans" />
-      <input
-        name="plansSearch"
-        defaultValue={search}
-        placeholder="Search plans"
-        className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
-      />
-      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label="Search plans">
-        <Search size={20} aria-hidden />
-      </Button>
-    </form>
-  );
-}
-
-function SubscriptionSearch({ name, placeholder, search, view }: { name: string; placeholder: string; search: string; view: SubscriptionView }) {
-  return (
-    <form action="/dashboard/subscriptions" className="mt-4 flex min-w-0 gap-2">
-      <input type="hidden" name="subscriptionsView" value={view} />
-      <input
-        name={name}
-        defaultValue={search}
-        placeholder={placeholder}
-        className="min-h-12 min-w-0 flex-1 rounded-md border border-stone-300 px-4 text-sm"
-      />
-      <Button type="submit" size="icon" variant="primary" className="min-h-12 w-14" aria-label={placeholder}>
-        <Search size={20} aria-hidden />
-      </Button>
-    </form>
-  );
 }
 
 function AvailablePlansPanel({ currentPlanId, currentState, currentSubscriptionId, features, page, plans, products }: { currentPlanId?: string; currentState: CurrentSubscriptionState; currentSubscriptionId?: string; features: SubscriptionFeature[]; page: number; plans: SubscriptionPlan[]; products: SubscriptionProduct[] }) {
@@ -1204,7 +1115,7 @@ function PlanForm({ action, billingCycles, buttonLabel, compact = false, importP
   );
 }
 
-function PlansTable({ pagination, plans }: { pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; plans: SubscriptionPlan[] }) {
+function PlansTable({ pagination, plans, search }: { pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; plans: SubscriptionPlan[]; search: string }) {
   const rows = plans.map((plan) => ({
     id: plan.id,
     planId: plan.id,
@@ -1227,7 +1138,22 @@ function PlansTable({ pagination, plans }: { pagination: { page: number; previou
     { key: "actions", title: "Actions", headerClassName: "text-right", className: "text-right", render: (_value, row) => <PlanActions planId={String(row.planId)} status={String(row.status)} /> },
   ];
   return (
-    <Table
+    <DataTableWithSearch
+      title="Plans"
+      description="Each plan grants only the selected feature IDs."
+      search={{
+        action: "/dashboard/subscriptions",
+        name: "plansSearch",
+        value: search,
+        placeholder: "Search plans",
+        hiddenFields: { subscriptionsView: "plans" },
+      }}
+      headerActions={
+        <Button href="/dashboard/subscriptions?subscriptionsView=plans&dialog=new-plan" variant="primary" className="min-h-12 shadow-sm">
+          <Plus size={18} aria-hidden />
+          New Plan
+        </Button>
+      }
       columns={columns}
       data={rows}
       emptyMessage="No plans found."
@@ -1264,7 +1190,7 @@ function PlanActions({ planId, status }: { planId: string; status: string }) {
   );
 }
 
-function ProductsTable({ features, pagination, products }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[] }) {
+function ProductsTable({ features, pagination, products, search }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[]; search: string }) {
   const rows = products.map((product) => ({
     id: product.id,
     productId: product.id,
@@ -1280,7 +1206,30 @@ function ProductsTable({ features, pagination, products }: { features: Subscript
     { key: "status", title: "Status" },
     { key: "actions", title: "Actions", headerClassName: "text-right", className: "text-right", render: (_value, row) => <ProductActions productId={String(row.productId)} status={String(row.status)} /> },
   ];
-  return <Table columns={columns} data={rows} emptyMessage="No subscription products found." getRowHref={() => undefined} pagination={pagination} />;
+  return (
+    <DataTableWithSearch
+      title="Products"
+      description="Manage products that group subscription features."
+      search={{
+        action: "/dashboard/subscriptions",
+        name: "productsSearch",
+        value: search,
+        placeholder: "Search products",
+        hiddenFields: { subscriptionsView: "products" },
+      }}
+      headerActions={
+        <Button href="/dashboard/subscriptions?subscriptionsView=products&dialog=new-product" variant="primary" className="min-h-12 shadow-sm">
+          <Plus size={18} aria-hidden />
+          New Product
+        </Button>
+      }
+      columns={columns}
+      data={rows}
+      emptyMessage="No subscription products found."
+      getRowHref={() => undefined}
+      pagination={pagination}
+    />
+  );
 }
 
 function ProductActions({ productId, status }: { productId: string; status: string }) {
@@ -1309,7 +1258,7 @@ function ProductActions({ productId, status }: { productId: string; status: stri
   );
 }
 
-function FeaturesTable({ features, pagination, products }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[] }) {
+function FeaturesTable({ features, pagination, products, search }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[]; search: string }) {
   const productNames = new Map(products.map((product) => [product.id, product.name]));
   const rows = features.map((feature) => ({
     id: feature.id,
@@ -1330,7 +1279,30 @@ function FeaturesTable({ features, pagination, products }: { features: Subscript
     { key: "status", title: "Status" },
     { key: "actions", title: "Action", headerClassName: "text-right", className: "text-right", render: (_value, row) => <FeatureActions featureId={String(row.featureId)} status={String(row.status)} /> },
   ];
-  return <Table columns={columns} data={rows} emptyMessage="No subscription features found." getRowHref={() => undefined} pagination={pagination} />;
+  return (
+    <DataTableWithSearch
+      title="Features"
+      description="Manage product privileges that plans can grant."
+      search={{
+        action: "/dashboard/subscriptions",
+        name: "featuresSearch",
+        value: search,
+        placeholder: "Search features",
+        hiddenFields: { subscriptionsView: "features" },
+      }}
+      headerActions={
+        <Button href="/dashboard/subscriptions?subscriptionsView=features&dialog=new-feature" variant="primary" className="min-h-12 shadow-sm">
+          <Plus size={18} aria-hidden />
+          New Feature
+        </Button>
+      }
+      columns={columns}
+      data={rows}
+      emptyMessage="No subscription features found."
+      getRowHref={() => undefined}
+      pagination={pagination}
+    />
+  );
 }
 
 function FeatureActions({ featureId, status }: { featureId: string; status: string }) {
@@ -1359,7 +1331,7 @@ function FeatureActions({ featureId, status }: { featureId: string; status: stri
   );
 }
 
-function SubscriptionsTable({ pagination, plans, subscriptions }: { pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; plans: SubscriptionPlan[]; subscriptions: OrganisationSubscription[] }) {
+function SubscriptionsTable({ pagination, plans, search, subscriptions }: { pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; plans: SubscriptionPlan[]; search: string; subscriptions: OrganisationSubscription[] }) {
   const planNames = new Map(plans.map((plan) => [plan.id, plan.name]));
   const rows = subscriptions.map((subscription) => ({
     id: subscription.id,
@@ -1376,7 +1348,30 @@ function SubscriptionsTable({ pagination, plans, subscriptions }: { pagination: 
     { key: "status", title: "Status" },
     { key: "actions", title: "Action", headerClassName: "text-right", className: "text-right", render: (_value, row) => <SubscriberActions status={String(row.status)} subscriptionId={String(row.subscriptionId)} /> },
   ];
-  return <Table columns={columns} data={rows} emptyMessage="No application subscriptions found." getRowHref={() => undefined} pagination={pagination} />;
+  return (
+    <DataTableWithSearch
+      title="Subscribers"
+      description="Create and review subscriptions by organisation and application."
+      search={{
+        action: "/dashboard/subscriptions",
+        name: "subscribersSearch",
+        value: search,
+        placeholder: "Search subscribers",
+        hiddenFields: { subscriptionsView: "subscribers" },
+      }}
+      headerActions={
+        <Button href="/dashboard/subscriptions?subscriptionsView=subscribers&dialog=new-subscriber" variant="primary" className="min-h-12 shadow-sm">
+          <Plus size={18} aria-hidden />
+          New Subscriber
+        </Button>
+      }
+      columns={columns}
+      data={rows}
+      emptyMessage="No application subscriptions found."
+      getRowHref={() => undefined}
+      pagination={pagination}
+    />
+  );
 }
 
 function SubscriberActions({ status, subscriptionId }: { status: string; subscriptionId: string }) {
