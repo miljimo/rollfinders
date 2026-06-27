@@ -20,7 +20,6 @@ export function GridItemDashboard({ className, item }: GridItemDashboardProps) {
   return (
     <Link
       href={item.href}
-      
       className={clsx(
         "group relative flex min-h-52 items-center gap-6 rounded-lg border border-stone-200 bg-white p-7 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
         className,

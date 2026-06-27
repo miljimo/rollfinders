@@ -20,7 +20,7 @@ const cardSizeClasses = [
   "md:col-span-6 xl:col-span-4",
 ];
 
-export const GridDashboard = ({ items }: { items: GridDashboardItem[] })  =>{
+export function GridDashboard({ items }: { items: GridDashboardItem[] }) {
   const [search, setSearch] = useState("");
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
