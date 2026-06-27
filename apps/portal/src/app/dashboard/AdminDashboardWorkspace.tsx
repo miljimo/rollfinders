@@ -34,7 +34,7 @@ import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, Even
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
-import { DashboardServiceGrid, type DashboardServiceGridItem } from "@/components/DashboardServiceGrid";
+import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboard";
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
@@ -915,7 +915,7 @@ export default async function AdminDashboardWorkspace({
     .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
     .map((item) => item.href === "/dashboard/academies" ? { ...item, label: "Academies" } : item);
   const dashboardLanding = !firstParam(params.panel);
-  const dashboardGridItems: DashboardServiceGridItem[] = adminNavigationItems
+  const dashboardGridItems: GridDashboardItem[] = adminNavigationItems
     .filter((item) => item.href !== "/dashboard")
     .map((item) => ({
       description: dashboardServiceDescription(item.label, academyAdmin),
@@ -1171,7 +1171,7 @@ export default async function AdminDashboardWorkspace({
             </div>
           </div>
 
-          {dashboardLanding ? <DashboardServiceGrid items={dashboardGridItems} /> : null}
+          {dashboardLanding ? <GridDashboard items={dashboardGridItems} /> : null}
 
           {!dashboardLanding && !hideSharedDashboardSections ? (
             <>

@@ -69,16 +69,16 @@ export const metadata: Metadata = {
 type SearchParams = Record<string, string | string[] | undefined>;
 type SubscriptionView = "overview" | "plans" | "products" | "features" | "entitlements" | "subscribers" | "downgrade-requests" | "billing-events" | "usage-limits";
 
-const subscriptionSections: { href: string; label: string; view: SubscriptionView }[] = [
-  { href: "/dashboard/subscriptions", label: "Subscription Overview", view: "overview" },
-  { href: "/dashboard/subscriptions?subscriptionsView=plans", label: "Plans", view: "plans" },
-  { href: "/dashboard/subscriptions?subscriptionsView=products", label: "Products", view: "products" },
-  { href: "/dashboard/subscriptions?subscriptionsView=features", label: "Features", view: "features" },
-  { href: "/dashboard/subscriptions?subscriptionsView=entitlements", label: "Entitlements", view: "entitlements" },
-  { href: "/dashboard/subscriptions?subscriptionsView=subscribers", label: "Subscribers", view: "subscribers" },
-  { href: "/dashboard/subscriptions?subscriptionsView=downgrade-requests", label: "Downgrade Requests", view: "downgrade-requests" },
-  { href: "/dashboard/subscriptions?subscriptionsView=billing-events", label: "Billing Events", view: "billing-events" },
-  { href: "/dashboard/subscriptions?subscriptionsView=usage-limits", label: "Usage Limits", view: "usage-limits" },
+const subscriptionSections: { href: string; icon: SidePanelItem["icon"]; label: string; view: SubscriptionView }[] = [
+  { href: "/dashboard/subscriptions", icon: "dashboard", label: "Subscription Overview", view: "overview" },
+  { href: "/dashboard/subscriptions?subscriptionsView=plans", icon: "plans", label: "Plans", view: "plans" },
+  { href: "/dashboard/subscriptions?subscriptionsView=products", icon: "products", label: "Products", view: "products" },
+  { href: "/dashboard/subscriptions?subscriptionsView=features", icon: "features", label: "Features", view: "features" },
+  { href: "/dashboard/subscriptions?subscriptionsView=entitlements", icon: "entitlements", label: "Entitlements", view: "entitlements" },
+  { href: "/dashboard/subscriptions?subscriptionsView=subscribers", icon: "subscribers", label: "Subscribers", view: "subscribers" },
+  { href: "/dashboard/subscriptions?subscriptionsView=downgrade-requests", icon: "downgrades", label: "Downgrade Requests", view: "downgrade-requests" },
+  { href: "/dashboard/subscriptions?subscriptionsView=billing-events", icon: "transactions", label: "Billing Events", view: "billing-events" },
+  { href: "/dashboard/subscriptions?subscriptionsView=usage-limits", icon: "limits", label: "Usage Limits", view: "usage-limits" },
 ];
 
 const menuItemClass = "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-stone-400 disabled:hover:bg-transparent";
@@ -144,7 +144,7 @@ function navItems(activeView: SubscriptionView): SidePanelItem[] {
   return [
     {
       active: true,
-      children: subscriptionSections.map((section) => ({ active: section.view === activeView, href: section.href, label: section.label })),
+      children: subscriptionSections.map((section) => ({ active: section.view === activeView, href: section.href, icon: section.icon, label: section.label })),
       href: "/dashboard/subscriptions",
       icon: "payments",
       label: "Subscriptions",

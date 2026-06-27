@@ -285,6 +285,52 @@ WHEN loading is true, THEN duplicate clicks are prevented.
 
 ---
 
+# Component Definition Standard
+Rule
+
+All React components MUST use arrow function syntax.
+
+Named function declarations are NOT allowed.
+
+**Required Definition**
+
+```typescript
+type ComponentProps = {
+  // props
+};
+
+export const ComponentName = ({}: ComponentProps) => {
+  // Implementation
+
+  return (
+    <>
+      {/* UI */}
+    </>
+  );
+};
+```
+
+
+
+**Bad Definations**
+```typescript
+ export function  ComponentName({}:ComponentProps){
+
+}
+```
+**Additional Rules**
+- Every component MUST define a ComponentProps type or interface.
+- Every component MUST be exported using export const.
+- One component per file.
+- Component filename MUST match the component name.
+- Components MUST use PascalCase.
+- Hooks MUST be declared before JSX.
+- Helper functions MUST be declared below hooks and above the return statement.
+- Avoid inline functions inside JSX unless necessary.
+- Prefer early returns to nested conditionals.
+- Components should remain focused on a single responsibility.
+
+
 # Example Ticket
 
 # Name: 001 - Create Button Component
