@@ -246,7 +246,7 @@ Additional validation required before production deployment:
 ## Acceptance Criteria
 
 - WHEN this ticket is reviewed, THEN the release candidate source commit and deployment target are clear.
-- WHEN production approval is requested, THEN it names commit `23e60ecef24b446a78af8cbd652ad15ee078b205`, migration plan, config changes, and rollback plan.
+- WHEN production approval is requested, THEN it names commit `9553624907808ffa4a7b42886d56b666e1dd6d97`, migration plan, config changes, and rollback plan.
 - WHEN production deployment runs, THEN it uses immutable image URIs and records image digests.
 - WHEN deployment completes, THEN production health, dashboard, wallet, payment, and users smoke checks pass.
 - WHEN any production gate fails, THEN rollback steps are followed and evidence is recorded.
