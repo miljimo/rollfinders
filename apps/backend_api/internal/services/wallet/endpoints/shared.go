@@ -28,11 +28,11 @@ func writeError(w http.ResponseWriter, err error) {
 	code := "wallet_error"
 	message := "Wallet request could not be completed."
 	switch {
-	case errors.Is(err, domain.ErrWalletNotFound), errors.Is(err, domain.ErrReservationNotFound), errors.Is(err, domain.ErrTransactionNotFound):
+	case errors.Is(err, domain.ErrWalletNotFound), errors.Is(err, domain.ErrTransactionNotFound):
 		status, code, message = http.StatusNotFound, "not_found", err.Error()
-	case errors.Is(err, domain.ErrInvalidAmount), errors.Is(err, domain.ErrInvalidCurrency), errors.Is(err, domain.ErrIdempotencyRequired):
+	case errors.Is(err, domain.ErrInvalidAmount), errors.Is(err, domain.ErrInvalidCurrency), errors.Is(err, domain.ErrInvalidOwner), errors.Is(err, domain.ErrInvalidWalletType), errors.Is(err, domain.ErrInvalidWalletPair), errors.Is(err, domain.ErrIdempotencyRequired):
 		status, code, message = http.StatusBadRequest, "validation_error", err.Error()
-	case errors.Is(err, domain.ErrWalletInactive), errors.Is(err, domain.ErrWalletReadOnly), errors.Is(err, domain.ErrCurrencyMismatch), errors.Is(err, domain.ErrInsufficientFunds), errors.Is(err, domain.ErrReservationInactive), errors.Is(err, domain.ErrAlreadyReversed):
+	case errors.Is(err, domain.ErrWalletInactive), errors.Is(err, domain.ErrWalletReadOnly), errors.Is(err, domain.ErrCurrencyMismatch), errors.Is(err, domain.ErrInsufficientFunds), errors.Is(err, domain.ErrAlreadyReversed):
 		status, code, message = http.StatusConflict, "business_rule_violation", err.Error()
 	}
 	writeJSON(w, status, errorBody{Error: errorDetail{Code: code, Message: message}})

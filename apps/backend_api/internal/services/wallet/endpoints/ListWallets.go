@@ -23,10 +23,11 @@ func ListWallets(svc *service.Service) http.HandlerFunc {
 		limit := intQuery(r, "limit", 10)
 		offset := intQuery(r, "offset", 0)
 		page, err := svc.ListWallets(r.Context(), repository.ListWalletsInput{
-			OwnerType: domain.OwnerType(r.URL.Query().Get("owner_type")),
-			OwnerID:   r.URL.Query().Get("owner_id"),
-			Limit:     limit,
-			Offset:    offset,
+			Type:     domain.WalletType(firstQuery(r, "wallet_type", "walletType")),
+			OwnerID:  firstQuery(r, "owner_id", "ownerId"),
+			Currency: domain.Currency(r.URL.Query().Get("currency")),
+			Limit:    limit,
+			Offset:   offset,
 		})
 		if err != nil {
 			writeError(w, err)
@@ -45,6 +46,15 @@ func ListWallets(svc *service.Service) http.HandlerFunc {
 		}
 		writeJSON(w, http.StatusOK, map[string]interface{}{"wallets": page.Wallets, "pagination": meta})
 	}
+}
+
+func firstQuery(r *http.Request, keys ...string) string {
+	for _, key := range keys {
+		if value := r.URL.Query().Get(key); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func intQuery(r *http.Request, key string, fallback int) int {

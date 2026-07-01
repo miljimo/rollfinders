@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"rollfinders/internal/services/wallet/environments"
+	"rollfinders/internal/core/environments"
 )
 
 type Config struct {
@@ -31,6 +31,9 @@ func LoadFrom(env environments.Environment) (Config, error) {
 	}
 	if cfg.Port == "" {
 		return Config{}, errors.New("PORT must not be empty")
+	}
+	if cfg.DatabaseURL == "" {
+		return Config{}, errors.New("DATABASE_URL must not be empty")
 	}
 	return cfg, nil
 }

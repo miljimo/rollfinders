@@ -2,9 +2,9 @@ CREATE SCHEMA IF NOT EXISTS wallet;
 
 CREATE TABLE IF NOT EXISTS wallet.wallets (
     id text PRIMARY KEY,
-    owner_type text NOT NULL CHECK (owner_type IN ('platform', 'academy', 'user', 'event', 'system')),
+    wallet_type text NOT NULL CHECK (wallet_type IN ('internal', 'external')),
     owner_id text NOT NULL,
-    currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    currency text NOT NULL CHECK (currency IN ('GBP', 'Points')),
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'frozen', 'suspended', 'closed')),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
@@ -14,8 +14,6 @@ CREATE TABLE IF NOT EXISTS wallet.wallet_transactions (
     id text PRIMARY KEY,
     type text NOT NULL CHECK (type IN (
         'TRANSFER',
-        'RESERVE',
-        'RELEASE',
         'REVERSAL',
         'MANUAL_CREDIT',
         'MANUAL_DEBIT',
@@ -29,7 +27,7 @@ CREATE TABLE IF NOT EXISTS wallet.wallet_transactions (
     )),
     status text NOT NULL CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'REVERSED', 'CANCELLED')),
     amount bigint NOT NULL CHECK (amount > 0),
-    currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    currency text NOT NULL CHECK (currency IN ('GBP', 'Points')),
     source_wallet_id text REFERENCES wallet.wallets(id),
     destination_wallet_id text REFERENCES wallet.wallets(id),
     reference_type text,
@@ -45,21 +43,10 @@ CREATE TABLE IF NOT EXISTS wallet.wallet_ledger_entries (
     wallet_id text NOT NULL REFERENCES wallet.wallets(id),
     debit_amount bigint NOT NULL DEFAULT 0 CHECK (debit_amount >= 0),
     credit_amount bigint NOT NULL DEFAULT 0 CHECK (credit_amount >= 0),
-    currency text NOT NULL CHECK (currency ~ '^[A-Z]{3}$'),
+    currency text NOT NULL CHECK (currency IN ('GBP', 'Points')),
     description text,
     created_at timestamptz NOT NULL DEFAULT now(),
     CHECK ((debit_amount > 0 AND credit_amount = 0) OR (credit_amount > 0 AND debit_amount = 0))
-);
-
-CREATE TABLE IF NOT EXISTS wallet.wallet_reservations (
-    id text PRIMARY KEY,
-    wallet_id text NOT NULL REFERENCES wallet.wallets(id),
-    transaction_id text NOT NULL REFERENCES wallet.wallet_transactions(id),
-    amount bigint NOT NULL CHECK (amount > 0),
-    status text NOT NULL CHECK (status IN ('ACTIVE', 'RELEASED', 'CAPTURED', 'EXPIRED')),
-    expires_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS wallet.balance_snapshots (
@@ -104,8 +91,8 @@ CREATE TRIGGER wallet_ledger_entries_no_update
 BEFORE UPDATE OR DELETE ON wallet.wallet_ledger_entries
 FOR EACH ROW EXECUTE FUNCTION wallet.prevent_ledger_mutation();
 
-CREATE INDEX IF NOT EXISTS wallet_wallets_owner_idx ON wallet.wallets(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS wallet_wallets_owner_idx ON wallet.wallets(owner_id);
+CREATE INDEX IF NOT EXISTS wallet_wallets_type_currency_idx ON wallet.wallets(wallet_type, currency);
 CREATE INDEX IF NOT EXISTS wallet_transactions_source_idx ON wallet.wallet_transactions(source_wallet_id);
 CREATE INDEX IF NOT EXISTS wallet_transactions_destination_idx ON wallet.wallet_transactions(destination_wallet_id);
 CREATE INDEX IF NOT EXISTS wallet_ledger_entries_wallet_idx ON wallet.wallet_ledger_entries(wallet_id);
-CREATE INDEX IF NOT EXISTS wallet_reservations_wallet_status_idx ON wallet.wallet_reservations(wallet_id, status);

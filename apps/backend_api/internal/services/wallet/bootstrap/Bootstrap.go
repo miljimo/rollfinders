@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
@@ -9,6 +10,10 @@ import (
 	"rollfinders/internal/services/wallet/repository"
 )
 
-func Handler(cfg config.Config, logger *slog.Logger) http.Handler {
-	return wallet.New(wallet.Options{Config: cfg, Logger: logger, Repo: repository.NewInMemoryRepository()})
+func Handler(ctx context.Context, cfg config.Config, logger *slog.Logger) (http.Handler, func(), error) {
+	repo, err := repository.NewPostgresRepository(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	return wallet.New(wallet.Options{Config: cfg, Logger: logger, Repo: repo}), func() { _ = repo.Close() }, nil
 }

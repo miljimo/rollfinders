@@ -9,57 +9,43 @@ import (
 	"testing"
 
 	"rollfinders/internal/services/wallet/config"
+	"rollfinders/internal/services/wallet/repository"
 )
 
 func TestWalletServiceFinancialFlow(t *testing.T) {
-	handler := New(Options{Config: config.Config{MetricsEnabled: true}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))})
+	handler := testHandler()
 
-	platform := createWallet(t, handler, "platform", "rollfinders", "GBP")
-	academy := createWallet(t, handler, "academy", "academy_1", "GBP")
+	internalWallet := createWallet(t, handler, "internal", "owner_rollfinders", "GBP")
+	externalWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")
+	if internalWallet.Type != "internal" || externalWallet.Type != "external" {
+		t.Fatalf("expected wallet type to be returned, got internal=%+v external=%+v", internalWallet, externalWallet)
+	}
 	walletPage := getWallets(t, handler)
 	if len(walletPage.Wallets) != 2 || walletPage.Pagination.Total != 2 {
 		t.Fatalf("expected wallet list to include created wallets, got %+v", walletPage)
 	}
 
-	adjustment := postJSON(t, handler, "/v1/wallets/adjustment", "seed-platform", map[string]interface{}{
-		"wallet_id": platform.ID, "counter_wallet_id": academy.ID, "type": "MANUAL_CREDIT", "amount": 10000, "currency": "GBP", "reason": "seed funds", "administrator_id": "SYSTEM", "reference": "seed_1",
+	adjustment := postJSON(t, handler, "/v1/wallets/adjustment", "seed-internal", map[string]interface{}{
+		"wallet_id": internalWallet.ID, "counter_wallet_id": externalWallet.ID, "type": "MANUAL_CREDIT", "amount": 10000, "currency": "GBP", "reason": "seed funds", "administrator_id": "SYSTEM", "reference": "seed_1",
 	}, http.StatusCreated)
 	if adjustment["id"] == "" {
 		t.Fatalf("expected adjustment transaction id")
 	}
 
 	transfer := postJSON(t, handler, "/v1/wallets/transfer", "transfer-1", map[string]interface{}{
-		"source_wallet_id": platform.ID, "destination_wallet_id": academy.ID, "amount": 2500, "currency": "GBP", "reference_type": "booking", "reference_id": "booking_1",
+		"source_wallet_id": internalWallet.ID, "destination_wallet_id": externalWallet.ID, "amount": 2500, "currency": "GBP", "reference_type": "booking", "reference_id": "booking_1",
 	}, http.StatusCreated)
 	if transfer["type"] != "TRANSFER" {
 		t.Fatalf("expected transfer transaction, got %#v", transfer)
 	}
 
-	platformBalance := getBalance(t, handler, platform.ID)
-	if platformBalance.AvailableBalance != 7500 {
-		t.Fatalf("expected platform balance 7500, got %+v", platformBalance)
+	internalBalance := getBalance(t, handler, internalWallet.ID)
+	if internalBalance.Available != 7500 {
+		t.Fatalf("expected internal wallet balance 7500, got %+v", internalBalance)
 	}
-	academyBalance := getBalance(t, handler, academy.ID)
-	if academyBalance.AvailableBalance != -7500 {
-		t.Fatalf("expected academy counter balance -7500 after manual credit plus transfer, got %+v", academyBalance)
-	}
-
-	reserveBody := postJSON(t, handler, "/v1/wallets/reserve", "reserve-1", map[string]interface{}{
-		"wallet_id": platform.ID, "amount": 1000, "currency": "GBP", "reference_type": "hold", "reference_id": "hold_1",
-	}, http.StatusCreated)
-	reservation := reserveBody["reservation"].(map[string]interface{})
-	if reservation["status"] != "ACTIVE" {
-		t.Fatalf("expected active reservation, got %#v", reservation)
-	}
-	platformBalance = getBalance(t, handler, platform.ID)
-	if platformBalance.AvailableBalance != 6500 || platformBalance.ReservedBalance != 1000 {
-		t.Fatalf("expected reservation to reduce available balance, got %+v", platformBalance)
-	}
-
-	postJSON(t, handler, "/v1/wallets/release", "release-1", map[string]interface{}{"reservation_id": reservation["id"]}, http.StatusOK)
-	platformBalance = getBalance(t, handler, platform.ID)
-	if platformBalance.AvailableBalance != 7500 || platformBalance.ReservedBalance != 0 {
-		t.Fatalf("expected release to restore available balance, got %+v", platformBalance)
+	externalBalance := getBalance(t, handler, externalWallet.ID)
+	if externalBalance.Available != -7500 {
+		t.Fatalf("expected external counter balance -7500 after manual credit plus transfer, got %+v", externalBalance)
 	}
 
 	reversal := postJSON(t, handler, "/v1/wallets/reverse", "reverse-1", map[string]interface{}{
@@ -68,16 +54,19 @@ func TestWalletServiceFinancialFlow(t *testing.T) {
 	if reversal["type"] != "REVERSAL" {
 		t.Fatalf("expected reversal transaction, got %#v", reversal)
 	}
-	platformBalance = getBalance(t, handler, platform.ID)
-	if platformBalance.AvailableBalance != 10000 {
-		t.Fatalf("expected reversal to restore platform balance, got %+v", platformBalance)
+	internalBalance = getBalance(t, handler, internalWallet.ID)
+	if internalBalance.Available != 10000 {
+		t.Fatalf("expected reversal to restore internal wallet balance, got %+v", internalBalance)
+	}
+	if internalBalance.Reserved != 0 {
+		t.Fatalf("expected reserved balance to remain zero without reservations, got %+v", internalBalance)
 	}
 }
 
 func TestWalletServiceRejectsInsufficientFundsAndRequiresIdempotency(t *testing.T) {
-	handler := New(Options{Config: config.Config{}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))})
-	source := createWallet(t, handler, "platform", "rollfinders", "GBP")
-	destination := createWallet(t, handler, "academy", "academy_1", "GBP")
+	handler := testHandler()
+	source := createWallet(t, handler, "internal", "owner_source", "GBP")
+	destination := createWallet(t, handler, "external", "owner_destination", "GBP")
 
 	postJSON(t, handler, "/v1/wallets/transfer", "transfer-empty", map[string]interface{}{
 		"source_wallet_id": source.ID, "destination_wallet_id": destination.ID, "amount": 1, "currency": "GBP",
@@ -86,12 +75,18 @@ func TestWalletServiceRejectsInsufficientFundsAndRequiresIdempotency(t *testing.
 	postJSON(t, handler, "/v1/wallets/transfer", "", map[string]interface{}{
 		"source_wallet_id": source.ID, "destination_wallet_id": destination.ID, "amount": 1, "currency": "GBP",
 	}, http.StatusBadRequest)
+	postJSON(t, handler, "/v1/wallets/transfer", "same-wallet", map[string]interface{}{
+		"source_wallet_id": source.ID, "destination_wallet_id": source.ID, "amount": 1, "currency": "GBP",
+	}, http.StatusBadRequest)
+	postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{"wallet_type": "platform", "owner_id": "owner_source", "currency": "GBP"}, http.StatusBadRequest)
+	postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{"wallet_type": "internal", "owner_id": "", "currency": "GBP"}, http.StatusBadRequest)
+	postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{"wallet_type": "internal", "owner_id": "rollfinders", "currency": "AUD"}, http.StatusBadRequest)
 }
 
 func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
-	handler := New(Options{Config: config.Config{}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil))})
-	source := createWallet(t, handler, "platform", "rollfinders", "GBP")
-	destination := createWallet(t, handler, "academy", "academy_1", "GBP")
+	handler := testHandler()
+	source := createWallet(t, handler, "internal", "owner_source", "GBP")
+	destination := createWallet(t, handler, "external", "owner_destination", "GBP")
 	postJSON(t, handler, "/v1/wallets/adjustment", "seed", map[string]interface{}{
 		"wallet_id": source.ID, "counter_wallet_id": destination.ID, "type": "MANUAL_CREDIT", "amount": 100, "currency": "GBP", "reason": "seed", "administrator_id": "SYSTEM", "reference": "seed",
 	}, http.StatusCreated)
@@ -106,18 +101,25 @@ func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
 		t.Fatalf("expected idempotent replay, got %v and %v", first["id"], second["id"])
 	}
 	balance := getBalance(t, handler, source.ID)
-	if balance.AvailableBalance != 50 {
+	if balance.Available != 50 {
 		t.Fatalf("expected only one transfer to be applied, got %+v", balance)
 	}
 }
 
+func testHandler() http.Handler {
+	return New(Options{Config: config.Config{MetricsEnabled: true}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), Repo: repository.NewInMemoryRepository()})
+}
+
 type walletResponse struct {
-	ID string `json:"id"`
+	ID       string `json:"id"`
+	Type     string `json:"wallet_type"`
+	OwnerID  string `json:"owner_id"`
+	Currency string `json:"currency"`
 }
 
 type balanceResponse struct {
-	AvailableBalance int64 `json:"available_balance"`
-	ReservedBalance  int64 `json:"reserved_balance"`
+	Available int64 `json:"available_balance"`
+	Reserved  int64 `json:"reserved_balance"`
 }
 
 type walletsResponse struct {
@@ -127,14 +129,27 @@ type walletsResponse struct {
 	} `json:"pagination"`
 }
 
-func createWallet(t *testing.T, handler http.Handler, ownerType string, ownerID string, currency string) walletResponse {
+func createWallet(t *testing.T, handler http.Handler, walletType string, ownerID string, currency string) walletResponse {
 	t.Helper()
-	body := postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{"owner_type": ownerType, "owner_id": ownerID, "currency": currency}, http.StatusCreated)
-	id, _ := body["id"].(string)
-	if id == "" {
+	body := postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{"wallet_type": walletType, "owner_id": ownerID, "currency": currency}, http.StatusCreated)
+	wallet := walletResponse{
+		ID:       stringValue(body["id"]),
+		Type:     stringValue(body["wallet_type"]),
+		OwnerID:  stringValue(body["owner_id"]),
+		Currency: stringValue(body["currency"]),
+	}
+	if wallet.ID == "" {
 		t.Fatalf("expected wallet id in %#v", body)
 	}
-	return walletResponse{ID: id}
+	if wallet.Type != walletType || wallet.OwnerID != ownerID || wallet.Currency != currency {
+		t.Fatalf("expected wallet contract to include type, owner, currency; got %+v", wallet)
+	}
+	return wallet
+}
+
+func stringValue(value interface{}) string {
+	text, _ := value.(string)
+	return text
 }
 
 func getBalance(t *testing.T, handler http.Handler, walletID string) balanceResponse {

@@ -15,6 +15,8 @@ test("wallet service client uses API gateway wallet endpoints", () => {
   assert.match(source, /\/v1\/wallets\/\$\{encodeURIComponent\(walletId\)\}\/balance/);
   assert.match(source, /\/v1\/wallets\/\$\{encodeURIComponent\(walletId\)\}\/transactions/);
   assert.match(source, /\/v1\/wallets`, \{[\s\S]*method:\s*"POST"/);
+  assert.match(source, /wallet_type:\s*input\.walletType/);
+  assert.doesNotMatch(source, /owner_type:\s*input\.ownerType/);
   assert.match(source, /Authorization/);
 });
 

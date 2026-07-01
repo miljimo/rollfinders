@@ -19,6 +19,18 @@ func New(wallet WalletClient) *Service {
 	return &Service{wallet: wallet}
 }
 
+func validCurrency(currency string) bool {
+	if strings.EqualFold(currency, "Points") {
+		return true
+	}
+	switch currency {
+	case "GBP":
+		return true
+	default:
+		return false
+	}
+}
+
 func (svc *Service) InitiateTransfer(ctx context.Context, input domain.TransferRequest) (domain.TransferInitiation, error) {
 	input.SourceWalletID = strings.TrimSpace(input.SourceWalletID)
 	input.DestinationWalletID = strings.TrimSpace(input.DestinationWalletID)
@@ -30,7 +42,7 @@ func (svc *Service) InitiateTransfer(ctx context.Context, input domain.TransferR
 	if input.Amount <= 0 {
 		return domain.TransferInitiation{}, domain.ErrInvalidAmount
 	}
-	if len(input.Currency) != 3 {
+	if !validCurrency(input.Currency) {
 		return domain.TransferInitiation{}, domain.ErrInvalidCurrency
 	}
 	if input.IdempotencyKey == "" {

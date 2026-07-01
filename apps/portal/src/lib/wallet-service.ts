@@ -6,13 +6,14 @@ if (typeof window !== "undefined") {
   throw new Error("Wallet service calls are server-only.");
 }
 
-export type WalletOwnerType = "platform" | "academy" | "user" | "system";
+export type WalletType = "internal" | "external";
+export type WalletCurrency = "GBP" | "Points";
 
 export type WalletRecord = {
   id: string;
-  ownerType: WalletOwnerType;
+  walletType: WalletType;
   ownerId: string;
-  currency: string;
+  currency: WalletCurrency;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -20,7 +21,7 @@ export type WalletRecord = {
 
 export type WalletBalance = {
   walletId: string;
-  currency: string;
+  currency: WalletCurrency;
   balance: number;
 };
 type TransactionStatus  = "Pending" | "Approved" | "Cancelled" | "Processing"
@@ -29,7 +30,7 @@ export type WalletTransaction = {
   type: string;
   status: TransactionStatus;
   amount: number;
-  currency: string;
+  currency: WalletCurrency;
   sourceWalletId?: string;
   destinationWalletId?: string;
   referenceType?: string;
@@ -55,9 +56,9 @@ export type PaginatedWallets = {
 
 type WalletRecordResponse = {
   id: string;
-  owner_type: WalletOwnerType;
+  wallet_type: WalletType;
   owner_id: string;
-  currency: string;
+  currency: WalletCurrency;
   status: string;
   created_at: string;
   updated_at: string;
@@ -65,7 +66,7 @@ type WalletRecordResponse = {
 
 type WalletBalanceResponse = {
   wallet_id: string;
-  currency: string;
+  currency: WalletCurrency;
   available_balance: number;
 };
 
@@ -74,7 +75,7 @@ type WalletTransactionResponse = {
   type: string;
   status: string;
   amount: number;
-  currency: string;
+  currency: WalletCurrency;
   source_wallet_id?: string;
   destination_wallet_id?: string;
   reference_type?: string;
@@ -133,7 +134,7 @@ async function parseResponse<T>(response: Response, fallbackMessage: string): Pr
 function mapWallet(record: WalletRecordResponse): WalletRecord {
   return {
     id: record.id,
-    ownerType: record.owner_type,
+    walletType: record.wallet_type,
     ownerId: record.owner_id,
     currency: record.currency,
     status: record.status,
@@ -171,14 +172,16 @@ export async function listWalletsPage(input: {
   accessToken?: string;
   limit?: number;
   offset?: number;
+  currency?: WalletCurrency;
   ownerId?: string;
-  ownerType?: WalletOwnerType;
+  walletType?: WalletType;
 } = {}): Promise<PaginatedWallets> {
   const params = new URLSearchParams();
   params.set("limit", String(input.limit ?? 10));
   params.set("offset", String(input.offset ?? 0));
-  if (input.ownerType) params.set("owner_type", input.ownerType);
+  if (input.walletType) params.set("wallet_type", input.walletType);
   if (input.ownerId) params.set("owner_id", input.ownerId);
+  if (input.currency) params.set("currency", input.currency);
   const response = await fetch(`${walletServiceUrl()}/v1/wallets?${params.toString()}`, {
     cache: "no-store",
     headers: authHeaders(input.accessToken),
@@ -209,16 +212,16 @@ export async function listWalletTransactions(walletId: string, accessToken?: str
 
 export async function createWallet(input: {
   accessToken?: string;
-  ownerType: WalletOwnerType;
+  walletType: WalletType;
   ownerId: string;
-  currency: string;
+  currency: WalletCurrency;
 }): Promise<WalletRecord> {
   const response = await fetch(`${walletServiceUrl()}/v1/wallets`, {
     method: "POST",
     cache: "no-store",
     headers: authHeaders(input.accessToken, { "Content-Type": "application/json" }),
     body: JSON.stringify({
-      owner_type: input.ownerType,
+      wallet_type: input.walletType,
       owner_id: input.ownerId,
       currency: input.currency,
     }),

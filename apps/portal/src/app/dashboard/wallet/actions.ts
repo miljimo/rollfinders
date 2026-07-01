@@ -4,16 +4,18 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/admin";
-import { createWallet, type WalletOwnerType } from "@/lib/wallet-service";
+import { createWallet, type WalletCurrency, type WalletType } from "@/lib/wallet-service";
 
-const ownerTypes = new Set(["platform", "academy", "user", "event", "system"]);
+const walletTypes = new Set<WalletType>(["internal", "external"]);
+const walletCurrencies = new Set<WalletCurrency>(["GBP", "Points"]);
 
 export async function createDashboardWallet(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const ownerType = String(formData.get("ownerType") ?? "platform") as WalletOwnerType;
+  const walletType = String(formData.get("walletType") ?? "external").toLowerCase() as WalletType;
   const ownerId = String(formData.get("ownerId") ?? "").trim();
-  const currency = String(formData.get("currency") ?? "GBP").trim().toUpperCase();
+  const currencyValue = String(formData.get("currency") ?? "GBP").trim();
+  const currency = (currencyValue.toLowerCase() === "points" ? "Points" : currencyValue.toUpperCase()) as WalletCurrency;
   const returnTo = safeWalletReturnPath(String(formData.get("returnTo") ?? "/dashboard/wallet"));
 
   const redirectUrl = new URL(returnTo, "http://localhost");
@@ -21,13 +23,13 @@ export async function createDashboardWallet(formData: FormData) {
   params.delete("walletDialog");
   params.delete("walletError");
   params.delete("walletResult");
-  if (!ownerTypes.has(ownerType) || !ownerId || !/^[A-Z]{3}$/.test(currency)) {
+  if (!walletTypes.has(walletType) || !ownerId || !walletCurrencies.has(currency)) {
     params.set("walletResult", "invalid");
     redirect(`${redirectUrl.pathname}?${params.toString()}`);
   }
 
   try {
-    await createWallet({ accessToken: user.accessToken, ownerType, ownerId, currency });
+    await createWallet({ accessToken: user.accessToken, walletType, ownerId, currency });
     params.set("walletResult", "created");
   } catch (error) {
     params.set("walletResult", "failed");

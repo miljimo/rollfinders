@@ -13,7 +13,7 @@ type adjustmentRequest struct {
 	CounterWalletID string                 `json:"counter_wallet_id"`
 	Type            domain.TransactionType `json:"type"`
 	Amount          int64                  `json:"amount"`
-	Currency        string                 `json:"currency"`
+	Currency        domain.Currency        `json:"currency"`
 	Reason          string                 `json:"reason"`
 	AdministratorID string                 `json:"administrator_id"`
 	Reference       string                 `json:"reference"`

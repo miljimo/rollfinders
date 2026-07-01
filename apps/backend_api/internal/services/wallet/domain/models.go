@@ -4,20 +4,21 @@ import "time"
 
 type Wallet struct {
 	ID        string       `json:"id"`
-	OwnerType OwnerType    `json:"owner_type"`
+	Type      WalletType   `json:"wallet_type"`
 	OwnerID   string       `json:"owner_id"`
-	Currency  string       `json:"currency"`
+	Currency  Currency     `json:"currency"`
 	Status    WalletStatus `json:"status"`
 	CreatedAt time.Time    `json:"created_at"`
 	UpdatedAt time.Time    `json:"updated_at"`
 }
 
 type Balance struct {
-	WalletID         string `json:"wallet_id"`
-	Currency         string `json:"currency"`
-	AvailableBalance int64  `json:"available_balance"`
-	ReservedBalance  int64  `json:"reserved_balance"`
-	LedgerBalance    int64  `json:"ledger_balance"`
+	WalletID string   `json:"wallet_id"`
+	Currency Currency `json:"currency"`
+	// Money the wallets holds
+	Available int64 `json:"available_balance"`
+	Reserved  int64 `json:"reserved_balance"`
+	Balance   int64 `json:"balance"`
 }
 
 type Transaction struct {
@@ -25,7 +26,7 @@ type Transaction struct {
 	Type                TransactionType   `json:"type"`
 	Status              TransactionStatus `json:"status"`
 	Amount              int64             `json:"amount"`
-	Currency            string            `json:"currency"`
+	Currency            Currency          `json:"currency"`
 	SourceWalletID      string            `json:"source_wallet_id,omitempty"`
 	DestinationWalletID string            `json:"destination_wallet_id,omitempty"`
 	ReferenceType       string            `json:"reference_type,omitempty"`
@@ -35,24 +36,13 @@ type Transaction struct {
 	CreatedAt           time.Time         `json:"created_at"`
 }
 
-type LedgerEntry struct {
+type Statement struct {
 	ID            string    `json:"id"`
 	TransactionID string    `json:"transaction_id"`
 	WalletID      string    `json:"wallet_id"`
-	DebitAmount   int64     `json:"debit_amount"`
-	CreditAmount  int64     `json:"credit_amount"`
-	Currency      string    `json:"currency"`
+	Debit         int64     `json:"debit"`
+	Credit        int64     `json:"credit"`
+	Currency      Currency  `json:"currency"`
 	Description   string    `json:"description,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
-}
-
-type Reservation struct {
-	ID            string            `json:"id"`
-	WalletID      string            `json:"wallet_id"`
-	TransactionID string            `json:"transaction_id"`
-	Amount        int64             `json:"amount"`
-	Status        ReservationStatus `json:"status"`
-	ExpiresAt     *time.Time        `json:"expires_at,omitempty"`
-	CreatedAt     time.Time         `json:"created_at"`
-	UpdatedAt     time.Time         `json:"updated_at"`
 }

@@ -1,17 +1,19 @@
 package domain
 
-type OwnerType string
+type WalletType string
+type Currency string
 type WalletStatus string
 type TransactionType string
 type TransactionStatus string
-type ReservationStatus string
 
 const (
-	OwnerPlatform OwnerType = "platform"
-	OwnerAcademy  OwnerType = "academy"
-	OwnerUser     OwnerType = "user"
-	OwnerEvent    OwnerType = "event"
-	OwnerSystem   OwnerType = "system"
+	WalletInternal WalletType = "internal"
+	WalletExternal WalletType = "external"
+)
+
+const (
+	CurrencyGBP    Currency = "GBP"
+	CurrencyPoints Currency = "Points"
 )
 
 const (
@@ -23,8 +25,6 @@ const (
 
 const (
 	TransactionTransfer         TransactionType = "TRANSFER"
-	TransactionReserve          TransactionType = "RESERVE"
-	TransactionRelease          TransactionType = "RELEASE"
 	TransactionReversal         TransactionType = "REVERSAL"
 	TransactionManualCredit     TransactionType = "MANUAL_CREDIT"
 	TransactionManualDebit      TransactionType = "MANUAL_DEBIT"
@@ -42,13 +42,7 @@ const (
 	TransactionProcessing TransactionStatus = "PROCESSING"
 	TransactionCompleted  TransactionStatus = "COMPLETED"
 	TransactionFailed     TransactionStatus = "FAILED"
+	TransactionAWaiting   TransactionStatus = "AWAITING"
 	TransactionReversed   TransactionStatus = "REVERSED"
 	TransactionCancelled  TransactionStatus = "CANCELLED"
-)
-
-const (
-	ReservationActive   ReservationStatus = "ACTIVE"
-	ReservationReleased ReservationStatus = "RELEASED"
-	ReservationCaptured ReservationStatus = "CAPTURED"
-	ReservationExpired  ReservationStatus = "EXPIRED"
 )

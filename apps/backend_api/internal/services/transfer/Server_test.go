@@ -73,6 +73,9 @@ func TestTransferServiceValidatesMinimumRequest(t *testing.T) {
 	postJSON(t, handler, "/v1/transfers", "bad-amount", map[string]interface{}{
 		"source_wallet_id": "wal_source", "destination_wallet_id": "wal_destination", "amount": 0, "currency": "GBP",
 	}, http.StatusBadRequest)
+	postJSON(t, handler, "/v1/transfers", "bad-currency", map[string]interface{}{
+		"source_wallet_id": "wal_source", "destination_wallet_id": "wal_destination", "amount": 2500, "currency": "AUD",
+	}, http.StatusBadRequest)
 }
 
 func postJSON(t *testing.T, handler http.Handler, path string, idempotencyKey string, payload map[string]interface{}, expectedStatus int) map[string]interface{} {

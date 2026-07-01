@@ -9,9 +9,11 @@ import (
 )
 
 type createWalletRequest struct {
-	OwnerType domain.OwnerType `json:"owner_type"`
-	OwnerID   string           `json:"owner_id"`
-	Currency  string           `json:"currency"`
+	WalletType      domain.WalletType `json:"walletType"`
+	WalletTypeSnake domain.WalletType `json:"wallet_type"`
+	OwnerID         string            `json:"ownerId"`
+	OwnerIDSnake    string            `json:"owner_id"`
+	Currency        domain.Currency   `json:"currency"`
 }
 
 func CreateWallet(svc *service.Service) http.HandlerFunc {
@@ -21,7 +23,15 @@ func CreateWallet(svc *service.Service) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, errorBody{Error: errorDetail{Code: "invalid_json", Message: "Request body must be valid JSON."}})
 			return
 		}
-		wallet, err := svc.CreateWallet(r.Context(), repository.CreateWalletInput{OwnerType: req.OwnerType, OwnerID: req.OwnerID, Currency: req.Currency})
+		walletType := req.WalletType
+		if walletType == "" {
+			walletType = req.WalletTypeSnake
+		}
+		ownerID := req.OwnerID
+		if ownerID == "" {
+			ownerID = req.OwnerIDSnake
+		}
+		wallet, err := svc.CreateWallet(r.Context(), repository.CreateWalletInput{Type: walletType, OwnerID: ownerID, Currency: req.Currency})
 		if err != nil {
 			writeError(w, err)
 			return

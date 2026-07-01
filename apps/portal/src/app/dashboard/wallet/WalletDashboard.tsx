@@ -13,7 +13,7 @@ type WalletRow = WalletRecord & {
 };
 
 const walletColumns: TableColumn<WalletRow>[] = [
-  { key: "ownerType", title: "Owner Type", render: (_, row) => <span className="font-bold capitalize text-slate-950">{row.ownerType}</span> },
+  { key: "walletType", title: "Wallet Type", render: (_, row) => <span className="font-bold capitalize text-slate-950">{row.walletType}</span> },
   { key: "ownerId", title: "Owner ID", render: (_, row) => <span className="break-all font-mono text-xs text-slate-700">{row.ownerId}</span> },
   { key: "currency", title: "Currency", render: (_, row) => <span className="font-bold">{row.currency}</span> },
   { key: "availableBalance", title: "Available Balance", render: (_, row) => money(row.availableBalance ?? 0, row.currency) },
