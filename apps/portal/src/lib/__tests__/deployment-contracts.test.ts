@@ -129,7 +129,7 @@ describe("deployment safety contracts", () => {
     const deploy = readSource("scripts/cicd/deploy.sh");
 
     assert.match(deploy, /IMAGES_ALREADY_MATCH=/);
-    assert.match(deploy, /if \[\[ "\$\{IMAGES_ALREADY_MATCH\}" == "true" \]\]/);
+    assert.match(deploy, /if \[\[ "\$\{IMAGES_ALREADY_MATCH\}" == "true" && "\$\{CURRENT_TASK_DEFINITION_ARN\}" == "\$\{BASE_TASK_DEFINITION_ARN\}" \]\]/);
     assert.match(deploy, /aws ecs wait services-stable/);
   });
 

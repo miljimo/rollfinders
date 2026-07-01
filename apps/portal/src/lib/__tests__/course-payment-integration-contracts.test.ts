@@ -332,7 +332,7 @@ describe("course payment service integration", () => {
   it("cancels pending booking payments and requests refunds for received payments through the payment service", () => {
     const paymentSource = readSource("apps/portal/src/lib/payments.ts");
     const bookingSource = readSource("apps/portal/src/lib/bookings.ts");
-    const dashboardActionSource = readSource("apps/portal/src/app/dashboard/bookingActions.ts");
+    const dashboardActionSource = readSource("apps/portal/src/app/dashboard/bookings/bookingActions.ts");
     const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
     const stripeProviderSource = readSource("apps/backend_api/internal/services/payments/server/provider.go");
 

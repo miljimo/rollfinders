@@ -444,9 +444,10 @@ async function getDashboardPayments(page: number, accessToken?: string, academyI
   const offset = (Math.max(1, page) - 1) * paymentsPageSize;
   try {
     const result = await listCourseOccurrencePaymentsPage({ accessToken, limit: paymentsPageSize, offset });
+    const payments = result.payments;
     return {
       pagination: result.pagination,
-      payments: academyId ? result.payments.filter((payment) => payment.metadata?.academy_id === academyId) : result.payments,
+      payments: academyId ? payments.filter((payment) => payment.metadata?.academy_id === academyId) : payments,
     };
   } catch (error) {
     if (error instanceof PaymentServiceError) {
@@ -2159,6 +2160,56 @@ function SettingsDashboardContent({
     "recent-audits": "Audits",
     "weekly-activity": "Activities Summary",
   }[effectiveSettingsAction];
+  const settingsActionItems: QuickActionPanelItem[] = [
+    {
+      active: effectiveSettingsAction === "edit-profile",
+      title: "Edit Profile",
+      description: "Update your dashboard account profile",
+      href: "/dashboard?panel=settings&settingsAction=edit-profile",
+      icon: <User size={24} aria-hidden />,
+      id: "edit-profile",
+    },
+    {
+      active: effectiveSettingsAction === "change-password",
+      title: "Change Password",
+      description: "Set a new password for your dashboard account",
+      href: "/dashboard?panel=settings&settingsAction=change-password",
+      icon: <KeyRound size={24} aria-hidden />,
+      id: "change-password",
+    },
+    ...(elevatedAdmin
+      ? [
+          {
+            active: effectiveSettingsAction === "email-options",
+            title: "Email Options",
+            description: "Process queue runs and inspect delivery issues",
+            href: "/dashboard?panel=settings&settingsAction=email-options",
+            icon: <Mail size={24} aria-hidden />,
+            id: "email-options",
+          },
+          {
+            active: effectiveSettingsAction === "recent-audits",
+            title: "Recent Audits",
+            description: "Review recent administrative audit activity",
+            href: "/dashboard?panel=settings&settingsAction=recent-audits",
+            icon: <ShieldCheck size={24} aria-hidden />,
+            id: "recent-audits",
+          },
+        ] satisfies QuickActionPanelItem[]
+      : []),
+    ...(canViewWeeklyActivity
+      ? [
+          {
+            active: effectiveSettingsAction === "weekly-activity",
+            title: "Weekly Activity Summary",
+            description: "Review current-week contribution momentum",
+            href: "/dashboard?panel=settings&settingsAction=weekly-activity",
+            icon: <BarChart3 size={24} aria-hidden />,
+            id: "weekly-activity",
+          } satisfies QuickActionPanelItem,
+        ]
+      : []),
+  ];
 
   return (
     <section className="px-4 py-8 sm:px-8">
@@ -2171,6 +2222,8 @@ function SettingsDashboardContent({
           <RefreshCw size={16} aria-hidden /> Refresh
         </Button>
       </div>
+
+      <QuickActionPanel className="mt-7" items={settingsActionItems} />
 
       <SettingsDetailPanel title={selectedSettingsTitle}>
         {effectiveSettingsAction === "change-password" ? (

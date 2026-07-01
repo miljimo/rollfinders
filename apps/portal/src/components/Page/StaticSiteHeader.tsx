@@ -18,6 +18,7 @@ export function StaticSiteHeader() {
           className="hidden items-center gap-1 md:flex [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center"
           aria-label="Primary navigation"
         >
+          <NavLink href="/dashboard">Dashboard</NavLink>
           {navItems.map(([label, href]) => (
             <NavLink key={href} href={href}>
               {label}
@@ -33,6 +34,7 @@ export function StaticSiteHeader() {
             className="absolute right-0 z-30 mt-2 grid w-[min(16rem,calc(100vw-2rem))] gap-1 rounded-lg border border-stone-200 bg-white p-2 text-left shadow-xl [&_a]:flex [&_a]:min-h-11 [&_a]:items-center"
             aria-label="Mobile primary navigation"
           >
+            <NavLink href="/dashboard">Dashboard</NavLink>
             {navItems.map(([label, href]) => (
               <NavLink key={href} href={href}>
                 {label}
