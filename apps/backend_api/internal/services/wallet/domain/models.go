@@ -12,6 +12,20 @@ type Wallet struct {
 	UpdatedAt time.Time    `json:"updated_at"`
 }
 
+type LinkedAccount struct {
+	ID                string                      `json:"id"`
+	WalletID          string                      `json:"wallet_id"`
+	Provider          LinkedAccountProvider       `json:"provider"`
+	ProviderAccountID string                      `json:"provider_account_id,omitempty"`
+	ConnectionType    LinkedAccountConnectionType `json:"connection_type"`
+	Status            LinkedAccountStatus         `json:"status"`
+	DisplayName       string                      `json:"display_name,omitempty"`
+	ExternalReference string                      `json:"external_reference,omitempty"`
+	Currency          Currency                    `json:"currency"`
+	CreatedAt         time.Time                   `json:"created_at"`
+	UpdatedAt         time.Time                   `json:"updated_at"`
+}
+
 type Balance struct {
 	WalletID string   `json:"wallet_id"`
 	Currency Currency `json:"currency"`

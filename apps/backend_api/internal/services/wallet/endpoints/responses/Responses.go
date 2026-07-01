@@ -5,6 +5,7 @@ import "rollfinders/internal/services/wallet/domain"
 type WalletResponse = domain.Wallet
 type BalanceResponse = domain.Balance
 type TransactionResponse = domain.Transaction
+type LinkedAccountResponse = domain.LinkedAccount
 
 type GetTransactionResponse struct {
 	Transaction   *domain.Transaction `json:"transaction"`
@@ -13,6 +14,10 @@ type GetTransactionResponse struct {
 
 type ListWalletTransactionsResponse struct {
 	Data []domain.Transaction `json:"data"`
+}
+
+type ListLinkedAccountsResponse struct {
+	Data []domain.LinkedAccount `json:"data"`
 }
 
 type PaginationMeta struct {

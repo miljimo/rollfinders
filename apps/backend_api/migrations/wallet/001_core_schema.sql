@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS wallet.balance_snapshots (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS wallet.linked_wallet_accounts (
+    id text PRIMARY KEY,
+    wallet_id text NOT NULL REFERENCES wallet.wallets(id),
+    provider text NOT NULL CHECK (provider IN ('STRIPE', 'PAYPAL', 'CARD', 'BANK')),
+    provider_account_id text,
+    connection_type text NOT NULL CHECK (connection_type IN ('TOPUP', 'PAYOUT', 'BOTH')),
+    status text NOT NULL CHECK (status IN ('PENDING', 'CONNECTED', 'FAILED', 'DISABLED')),
+    display_name text,
+    external_reference text,
+    currency text NOT NULL CHECK (currency IN ('GBP', 'Points')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS wallet.wallet_audit_events (
     id text PRIMARY KEY,
     aggregate_type text NOT NULL,
@@ -93,6 +107,8 @@ FOR EACH ROW EXECUTE FUNCTION wallet.prevent_ledger_mutation();
 
 CREATE INDEX IF NOT EXISTS wallet_wallets_owner_idx ON wallet.wallets(owner_id);
 CREATE INDEX IF NOT EXISTS wallet_wallets_type_currency_idx ON wallet.wallets(wallet_type, currency);
+CREATE INDEX IF NOT EXISTS wallet_linked_wallet_accounts_wallet_idx ON wallet.linked_wallet_accounts(wallet_id);
+CREATE INDEX IF NOT EXISTS wallet_linked_wallet_accounts_provider_idx ON wallet.linked_wallet_accounts(provider, provider_account_id);
 CREATE INDEX IF NOT EXISTS wallet_transactions_source_idx ON wallet.wallet_transactions(source_wallet_id);
 CREATE INDEX IF NOT EXISTS wallet_transactions_destination_idx ON wallet.wallet_transactions(destination_wallet_id);
 CREATE INDEX IF NOT EXISTS wallet_ledger_entries_wallet_idx ON wallet.wallet_ledger_entries(wallet_id);

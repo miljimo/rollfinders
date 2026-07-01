@@ -8,6 +8,9 @@ if (typeof window !== "undefined") {
 
 export type WalletType = "internal" | "external";
 export type WalletCurrency = "GBP" | "Points";
+export type LinkedAccountProvider = "STRIPE" | "PAYPAL" | "CARD" | "BANK";
+export type LinkedAccountConnectionType = "TOPUP" | "PAYOUT" | "BOTH";
+export type LinkedAccountStatus = "PENDING" | "CONNECTED" | "FAILED" | "DISABLED";
 
 export type WalletRecord = {
   id: string;
@@ -38,6 +41,20 @@ export type WalletTransaction = {
   idempotencyKey?: string;
   originalTransactionId?: string;
   createdAt: string;
+};
+
+export type LinkedWalletAccount = {
+  id: string;
+  walletId: string;
+  provider: LinkedAccountProvider;
+  providerAccountId?: string;
+  connectionType: LinkedAccountConnectionType;
+  status: LinkedAccountStatus;
+  displayName?: string;
+  externalReference?: string;
+  currency: WalletCurrency;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type WalletPaginationMeta = {
@@ -85,6 +102,20 @@ type WalletTransactionResponse = {
   created_at: string;
 };
 
+type LinkedWalletAccountResponse = {
+  id: string;
+  wallet_id: string;
+  provider: LinkedAccountProvider;
+  provider_account_id?: string;
+  connection_type: LinkedAccountConnectionType;
+  status: LinkedAccountStatus;
+  display_name?: string;
+  external_reference?: string;
+  currency: WalletCurrency;
+  created_at: string;
+  updated_at: string;
+};
+
 type WalletPageResponse = {
   wallets?: WalletRecordResponse[];
   pagination?: WalletPaginationMeta;
@@ -92,6 +123,10 @@ type WalletPageResponse = {
 
 type WalletTransactionsResponse = {
   data?: WalletTransactionResponse[];
+};
+
+type LinkedWalletAccountsResponse = {
+  data?: LinkedWalletAccountResponse[];
 };
 
 type ErrorResponse = {
@@ -168,6 +203,22 @@ function mapTransaction(transaction: WalletTransactionResponse): WalletTransacti
   };
 }
 
+function mapLinkedAccount(account: LinkedWalletAccountResponse): LinkedWalletAccount {
+  return {
+    id: account.id,
+    walletId: account.wallet_id,
+    provider: account.provider,
+    providerAccountId: account.provider_account_id,
+    connectionType: account.connection_type,
+    status: account.status,
+    displayName: account.display_name,
+    externalReference: account.external_reference,
+    currency: account.currency,
+    createdAt: account.created_at,
+    updatedAt: account.updated_at,
+  };
+}
+
 export async function listWalletsPage(input: {
   accessToken?: string;
   limit?: number;
@@ -208,6 +259,15 @@ export async function listWalletTransactions(walletId: string, accessToken?: str
   });
   const body = await parseResponse<WalletTransactionsResponse>(response, "Wallet transaction request failed.");
   return (body.data ?? []).map(mapTransaction);
+}
+
+export async function listLinkedWalletAccounts(walletId: string, accessToken?: string): Promise<LinkedWalletAccount[]> {
+  const response = await fetch(`${walletServiceUrl()}/v1/wallets/${encodeURIComponent(walletId)}/linked-accounts`, {
+    cache: "no-store",
+    headers: authHeaders(accessToken),
+  });
+  const body = await parseResponse<LinkedWalletAccountsResponse>(response, "Wallet linked account request failed.");
+  return (body.data ?? []).map(mapLinkedAccount);
 }
 
 export async function createWallet(input: {

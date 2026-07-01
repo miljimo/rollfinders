@@ -29,7 +29,7 @@ import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
 import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
-import { getWalletBalance, listWalletTransactions, listWalletsPage, WalletServiceError, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
+import { getWalletBalance, listLinkedWalletAccounts, listWalletTransactions, listWalletsPage, WalletServiceError, type LinkedWalletAccount, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -68,6 +68,7 @@ import { updatePlatformPaymentFees } from "./payments/paymentSettingsActions";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/bookingActions";
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
+import { WalletTransfer } from "./wallet/WalletTransfer";
 import { WalletDashboard } from "./wallet/WalletDashboard";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
@@ -418,6 +419,7 @@ type DashboardBookingsResult = {
 type DashboardWalletsResult = {
   balances: WalletBalance[];
   error?: string;
+  linkedAccounts: LinkedWalletAccount[];
   pagination: WalletPaginationMeta;
   transactions: WalletTransaction[];
   wallets: WalletRecord[];
@@ -506,12 +508,14 @@ async function getDashboardWallets(page: number, accessToken?: string): Promise<
   const offset = (Math.max(1, page) - 1) * walletPageSize;
   try {
     const result = await listWalletsPage({ accessToken, limit: walletPageSize, offset });
-    const [balances, transactionGroups] = await Promise.all([
+    const [balanceResults, linkedAccountGroups, transactionGroups] = await Promise.all([
       Promise.all(result.wallets.map((wallet) => getWalletBalance(wallet.id, accessToken).catch(() => null))),
+      Promise.all(result.wallets.map((wallet) => wallet.walletType === "external" ? listLinkedWalletAccounts(wallet.id, accessToken).catch(() => []) : Promise.resolve([]))),
       Promise.all(result.wallets.map((wallet) => listWalletTransactions(wallet.id, accessToken).catch(() => []))),
     ]);
     return {
-      balances: balances.filter((balance): balance is WalletBalance => Boolean(balance)),
+      balances: balanceResults.filter((balance): balance is WalletBalance => Boolean(balance)),
+      linkedAccounts: linkedAccountGroups.flat(),
       pagination: result.pagination,
       transactions: transactionGroups.flat().sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
       wallets: result.wallets,
@@ -519,14 +523,15 @@ async function getDashboardWallets(page: number, accessToken?: string): Promise<
   } catch (error) {
     if (error instanceof WalletServiceError) {
       return {
-        balances: [],
         error: error.status === 0 ? error.message : `Wallet service returned status ${error.status}.`,
+        balances: [],
+        linkedAccounts: [],
         pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 },
         transactions: [],
         wallets: [],
       };
     }
-    return { balances: [], error: "Wallet service is unavailable.", pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 }, transactions: [], wallets: [] };
+    return { error: "Wallet service is unavailable.", balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 }, transactions: [], wallets: [] };
   }
 }
 
@@ -562,6 +567,7 @@ export default async function AdminDashboardWorkspace({
   const paymentsView = selectedPaymentsDashboardView(firstParam(params.paymentsView));
   const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
   const walletView = firstParam(params.walletView) === "transactions" ? "transactions" : "dashboard";
+  const walletDialog = firstParam(params.walletDialog);
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
   const stripeConnectMessage = firstParam(params.stripeConnect);
   const stripeConnectError = firstParam(params.stripeConnectError);
@@ -710,6 +716,7 @@ export default async function AdminDashboardWorkspace({
     paymentMetricVisibility,
     bookingResult,
     walletResult,
+    canCreateWalletTransfer,
     authorisationRolesPage,
     currentUserAuthorisationRoles,
     currentUserEffectivePermissions,
@@ -775,7 +782,10 @@ export default async function AdminDashboardWorkspace({
     panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
     panel === "wallet"
       ? getDashboardWallets(walletPage, currentUser.accessToken)
-      : Promise.resolve<DashboardWalletsResult>({ balances: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
+      : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
+    panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction"
+      ? authorize(currentUser, "wallet.transfer", { applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders" })
+      : Promise.resolve(false),
     panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationRolesPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ roles: [], pagination: emptyAuthorisationPagination(pageSize) }),
     panel === "users" && usersView === "roles" ? listUserAuthorisationRoles(currentUser.id, currentUser) : Promise.resolve([]),
     panel === "users" ? listEffectiveUserPermissions(currentUser.id, {
@@ -1291,9 +1301,9 @@ export default async function AdminDashboardWorkspace({
             <AdminPanel
               description="Manage internal platform wallets, balances, reserves, and ledger state."
               id="wallet"
-              title="Wallet Service"
+              title={walletView === "transactions" ? "Transactions" : "Wallets"}
             >
-              <WalletDashboard balances={walletResult.balances} error={walletResult.error} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} wallets={walletResult.wallets} />
+              <WalletDashboard error={walletResult.error} linkedAccounts={walletResult.linkedAccounts} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} view={walletView} wallets={walletResult.wallets} />
             </AdminPanel>
           ) : null}
           {panel === "bookings" ? (
@@ -1425,6 +1435,9 @@ export default async function AdminDashboardWorkspace({
       ) : null}
       {panel === "open-mats" && dialog === "view-event" && selectedDialogEvent ? (
         <ViewEventDialog event={selectedDialogEvent} />
+      ) : null}
+      {panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction" ? (
+        <WalletTransferDialog balances={walletResult.balances} canCreateTransfer={canCreateWalletTransfer} wallets={walletResult.wallets} />
       ) : null}
     </div>
   );
@@ -1856,6 +1869,26 @@ function CreateCourseDialog({ academies, cloneSource, instructorUsers }: { acade
     <DialogShell closeHref="/dashboard/courses" description={cloning ? "Create a new course from the selected course details." : "Create an Open Mat by default, or choose another course type."} title={cloning ? "Clone Course" : "New Course"}>
       <OpenMatForm academies={academies} action={createCourse} cancelHref="/dashboard/courses" courseTypeMode="select" event={clonedEvent} instructorUsers={instructorUsers} returnTo="/dashboard/courses" submitLabel={cloning ? "Create Clone" : "New Course"} />
     </DialogShell>
+  );
+}
+
+function WalletTransferDialog({ balances, canCreateTransfer, wallets }: { balances: WalletBalance[]; canCreateTransfer: boolean; wallets: WalletRecord[] }) {
+  return (
+    <DialogShell closeHref="/dashboard/wallet?walletView=transactions" description="Create a wallet-to-wallet transfer from the wallet service dashboard." title="Wallet Transfer">
+      {canCreateTransfer ? (
+        <WalletTransfer balances={balances} cancelHref="/dashboard/wallet?walletView=transactions" wallets={wallets} />
+      ) : (
+        <WalletTransferPermissionMessage />
+      )}
+    </DialogShell>
+  );
+}
+
+function WalletTransferPermissionMessage() {
+  return (
+    <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold text-amber-900">
+      You do not have permission to create wallet transfers. Ask an administrator to assign the wallet.transfer privilege to your account.
+    </div>
   );
 }
 

@@ -95,6 +95,10 @@ func (svc *Service) GetWallet(ctx context.Context, id string) (*domain.Wallet, e
 	return svc.repo.GetWallet(ctx, id)
 }
 
+func (svc *Service) ListLinkedAccounts(ctx context.Context, walletID string) ([]domain.LinkedAccount, error) {
+	return svc.repo.ListLinkedAccounts(ctx, strings.TrimSpace(walletID))
+}
+
 func (svc *Service) GetBalance(ctx context.Context, walletID string) (*domain.Balance, error) {
 	return svc.repo.GetBalance(ctx, walletID)
 }

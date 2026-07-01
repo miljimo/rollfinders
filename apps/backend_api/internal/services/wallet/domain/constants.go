@@ -5,6 +5,9 @@ type Currency string
 type WalletStatus string
 type TransactionType string
 type TransactionStatus string
+type LinkedAccountProvider string
+type LinkedAccountConnectionType string
+type LinkedAccountStatus string
 
 const (
 	WalletInternal WalletType = "internal"
@@ -14,6 +17,26 @@ const (
 const (
 	CurrencyGBP    Currency = "GBP"
 	CurrencyPoints Currency = "Points"
+)
+
+const (
+	LinkedAccountProviderStripe LinkedAccountProvider = "STRIPE"
+	LinkedAccountProviderPayPal LinkedAccountProvider = "PAYPAL"
+	LinkedAccountProviderCard   LinkedAccountProvider = "CARD"
+	LinkedAccountProviderBank   LinkedAccountProvider = "BANK"
+)
+
+const (
+	LinkedAccountTopUp  LinkedAccountConnectionType = "TOPUP"
+	LinkedAccountPayout LinkedAccountConnectionType = "PAYOUT"
+	LinkedAccountBoth   LinkedAccountConnectionType = "BOTH"
+)
+
+const (
+	LinkedAccountPending   LinkedAccountStatus = "PENDING"
+	LinkedAccountConnected LinkedAccountStatus = "CONNECTED"
+	LinkedAccountFailed    LinkedAccountStatus = "FAILED"
+	LinkedAccountDisabled  LinkedAccountStatus = "DISABLED"
 )
 
 const (

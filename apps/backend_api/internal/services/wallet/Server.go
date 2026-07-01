@@ -47,6 +47,7 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/wallets/reverse", []string{http.MethodPost}, endpoints.ReverseTransaction(svc))
 	mustHandle("/v1/wallets/adjustment", []string{http.MethodPost}, endpoints.CreateAdjustment(svc))
 	mustHandle("/v1/wallets/{id}", []string{http.MethodGet}, endpoints.GetWallet(svc))
+	mustHandle("/v1/wallets/{id}/linked-accounts", []string{http.MethodGet}, endpoints.ListLinkedAccounts(svc))
 	mustHandle("/v1/wallets/{id}/balance", []string{http.MethodGet}, endpoints.GetWalletBalance(svc))
 	mustHandle("/v1/wallets/{id}/transactions", []string{http.MethodGet}, endpoints.ListWalletTransactions(svc))
 	mustHandle("/v1/transactions/{id}", []string{http.MethodGet}, endpoints.GetTransaction(svc))
@@ -67,6 +68,7 @@ func walletAPIIndex(w http.ResponseWriter, _ *http.Request) {
 			{"method": http.MethodPost, "path": "/v1/wallets/reverse", "description": "Reverse transaction"},
 			{"method": http.MethodPost, "path": "/v1/wallets/adjustment", "description": "Create wallet adjustment"},
 			{"method": http.MethodGet, "path": "/v1/wallets/{id}", "description": "Get wallet"},
+			{"method": http.MethodGet, "path": "/v1/wallets/{id}/linked-accounts", "description": "List wallet linked external accounts"},
 			{"method": http.MethodGet, "path": "/v1/wallets/{id}/balance", "description": "Get wallet balance"},
 			{"method": http.MethodGet, "path": "/v1/wallets/{id}/transactions", "description": "List wallet transactions"},
 			{"method": http.MethodGet, "path": "/v1/transactions/{id}", "description": "Get transaction"},

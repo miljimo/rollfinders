@@ -1,24 +1,24 @@
-import { BookOpen, LockKeyhole, Wallet, TriangleAlert, Info, CheckCircle2 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { TriangleAlert, Info, CheckCircle2, Plus } from "lucide-react";
 
+import { Button } from "@/components/Button";
 import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
-import type { WalletBalance, WalletPaginationMeta, WalletRecord, WalletTransaction } from "@/lib/wallet-service";
+import type { LinkedWalletAccount, WalletPaginationMeta, WalletRecord, WalletTransaction } from "@/lib/wallet-service";
 
 type WalletDashboardSearchParams = Record<string, string | string[] | undefined>;
+type WalletDashboardView = "dashboard" | "transactions";
 
 type WalletRow = WalletRecord & {
-  availableBalance?: number;
-  reservedBalance?: number;
-  ledgerBalance?: number;
+  linkedAccount?: LinkedWalletAccount;
 };
+
+const transactionPageSize = 5;
 
 const walletColumns: TableColumn<WalletRow>[] = [
   { key: "walletType", title: "Wallet Type", render: (_, row) => <span className="font-bold capitalize text-slate-950">{row.walletType}</span> },
   { key: "ownerId", title: "Owner ID", render: (_, row) => <span className="break-all font-mono text-xs text-slate-700">{row.ownerId}</span> },
   { key: "currency", title: "Currency", render: (_, row) => <span className="font-bold">{row.currency}</span> },
-  { key: "availableBalance", title: "Available Balance", render: (_, row) => money(row.availableBalance ?? 0, row.currency) },
-  { key: "reservedBalance", title: "Reserved Balance", render: (_, row) => money(row.reservedBalance ?? 0, row.currency) },
-  { key: "ledgerBalance", title: "Ledger Balance", render: (_, row) => money(row.ledgerBalance ?? 0, row.currency) },
+  { key: "linkedAccount", title: "Linked Account", render: (_, row) => <LinkedAccountSummary account={row.linkedAccount} walletType={row.walletType} /> },
+  { key: "providerAccountId", title: "Provider Account", render: (_, row) => <ProviderAccount account={row.linkedAccount} /> },
   { key: "status", title: "Status", render: (_, row) => <TableStatusBadge status={row.status} /> },
 ];
 
@@ -33,99 +33,93 @@ const transactionColumns: TableColumn<WalletTransaction>[] = [
 ];
 
 export function WalletDashboard({
-  balances,
   error,
+  linkedAccounts,
   pagination,
   searchParams,
   transactions,
+  view = "dashboard",
   wallets,
 }: {
-  balances: WalletBalance[];
   error?: string;
+  linkedAccounts: LinkedWalletAccount[];
   pagination: WalletPaginationMeta;
   searchParams: WalletDashboardSearchParams;
   transactions: WalletTransaction[];
+  view?: WalletDashboardView;
   wallets: WalletRecord[];
 }) {
   const rows = wallets.map((wallet) => {
-    const balance = balances.find((item) => item.walletId === wallet.id);
     return {
       ...wallet,
-      availableBalance: balance?.balance,
-      ledgerBalance: balance?.balance,
-      reservedBalance: 0,
+      linkedAccount: linkedAccounts.find((account) => account.walletId === wallet.id),
     };
   });
   const page = Math.floor(pagination.offset / Math.max(1, pagination.limit)) + 1;
   const totalPages = Math.max(1, Math.ceil(pagination.total / Math.max(1, pagination.limit)));
-  const summary = rows.reduce(
-    (acc, wallet) => {
-      acc.available += wallet.availableBalance ?? 0;
-      acc.reserved += wallet.reservedBalance ?? 0;
-      acc.ledger += wallet.ledgerBalance ?? 0;
-      return acc;
-    },
-    { available: 0, ledger: 0, reserved: 0 },
-  );
 
   return (
     <div className="grid gap-5">
-      <section className="grid gap-4 xl:grid-cols-3">
-        <WalletMetric
-          detail="Funds available to use"
-          icon={Wallet}
-          label="Available Balance"
-          tone="teal"
-          value={money(summary.available, "GBP")}
-        />
-        <WalletMetric
-          detail="Funds reserved for holds"
-          icon={LockKeyhole}
-          label="Reserved Balance"
-          tone="amber"
-          value={money(summary.reserved, "GBP")}
-        />
-        <WalletMetric
-          detail="Total ledger balance"
-          icon={BookOpen}
-          label="Ledger Balance"
-          tone="blue"
-          value={money(summary.ledger, "GBP")}
-        />
-      </section>
-
       {error ? <WalletMessage message={error} tone="warning" /> : null}
 
-      <Table
-        title="Wallets"
-        columns={walletColumns}
-        data={rows}
-        emptyMessage="No wallets found."
-        getRowId={(row) => row.id}
-        minWidthClassName="min-w-[900px]"
-        pagination={{
-          nextHref: pagination.has_more ? walletPageHref(searchParams, page + 1, pagination.limit) : undefined,
-          page,
-          previousHref: page > 1 ? walletPageHref(searchParams, page - 1, pagination.limit) : undefined,
-          totalPages,
-        }}
-      />
-
-      <WalletTransactionsDashboard transactions={transactions} />
+      {view === "transactions" ? (
+        <WalletTransactionsDashboard searchParams={searchParams} transactions={transactions} />
+      ) : (
+        <Table
+          title="Wallets"
+          columns={walletColumns}
+          data={rows}
+          emptyMessage="No wallets found."
+          getRowId={(row) => row.id}
+          minWidthClassName="min-w-[900px]"
+          pagination={{
+            nextHref: pagination.has_more ? walletPageHref(searchParams, page + 1, pagination.limit) : undefined,
+            page,
+            previousHref: page > 1 ? walletPageHref(searchParams, page - 1, pagination.limit) : undefined,
+            totalPages,
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function WalletTransactionsDashboard({ transactions }: { transactions: WalletTransaction[] }) {
+function WalletTransactionsDashboard({
+  searchParams,
+  transactions,
+}: {
+  searchParams: WalletDashboardSearchParams;
+  transactions: WalletTransaction[];
+}) {
+  const page = pageFromSearchParams(searchParams, "transactionPage");
+  const totalPages = Math.max(1, Math.ceil(transactions.length / transactionPageSize));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * transactionPageSize;
+  const paginatedTransactions = transactions.slice(start, start + transactionPageSize);
+
   return (
-    <Table
-      title="Transactions"
-      columns={transactionColumns}
-      data={transactions.slice(0, 10)}
-      emptyMessage="No wallet transactions found."
-      getRowId={(row) => row.id}
-      minWidthClassName="min-w-[980px]"
-    />
+    <section>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-2xl font-black text-stone-950">Transactions</h2>
+        <Button href="/dashboard/wallet?walletView=transactions&walletDialog=create-transaction" variant="primary" className="min-h-10 px-4 shadow-sm">
+          <Plus size={18} aria-hidden />
+          Create
+        </Button>
+      </div>
+      <Table
+        columns={transactionColumns}
+        data={paginatedTransactions}
+        emptyMessage="No wallet transactions found."
+        getRowId={(row, rowIndex) => `${row.id}-${start + rowIndex}`}
+        minWidthClassName="min-w-[980px]"
+        pagination={{
+          nextHref: currentPage < totalPages ? transactionPageHref(searchParams, currentPage + 1) : undefined,
+          page: currentPage,
+          previousHref: currentPage > 1 ? transactionPageHref(searchParams, currentPage - 1) : undefined,
+          totalPages,
+        }}
+      />
+    </section>
   );
 }
 
@@ -134,39 +128,25 @@ function WalletId({ value }: { value?: string }) {
   return <span className="break-all font-mono text-xs text-slate-700">{value}</span>;
 }
 
-function WalletMetric({
-  detail,
-  icon: Icon,
-  label,
-  tone,
-  value,
-}: {
-  detail: string;
-  icon: LucideIcon;
-  label: string;
-  tone: "amber" | "blue" | "teal";
-  value: string;
-}) {
-  const tones = {
-    amber: "border-amber-200 bg-amber-50/40 text-amber-800 icon:bg-amber-100",
-    blue: "border-blue-200 bg-blue-50/40 text-blue-800 icon:bg-blue-100",
-    teal: "border-teal-200 bg-teal-50/50 text-teal-800 icon:bg-teal-100",
-  };
-  const [cardTone, iconTone] = tones[tone].split(" icon:");
-
+function LinkedAccountSummary({ account, walletType }: { account?: LinkedWalletAccount; walletType: string }) {
+  if (walletType !== "external") return <span className="text-slate-500">Internal</span>;
+  if (!account) return <span className="font-semibold text-amber-700">Not linked</span>;
   return (
-    <div className={`rounded-lg border p-5 shadow-sm ${cardTone}`}>
-      <div className="flex items-center gap-5">
-        <span className={`grid size-14 shrink-0 place-items-center rounded-full ${iconTone}`}>
-          <Icon size={26} aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-bold text-slate-700">{label}</p>
-          <p className="mt-1 text-3xl font-black text-slate-950">{value}</p>
-          <p className="mt-1 text-sm font-medium text-slate-600">{detail}</p>
-        </div>
-      </div>
-    </div>
+    <span className="grid gap-1">
+      <span className="font-bold text-slate-950">{account.displayName || account.provider}</span>
+      <span className="text-xs font-semibold text-slate-500">{account.connectionType}</span>
+    </span>
+  );
+}
+
+function ProviderAccount({ account }: { account?: LinkedWalletAccount }) {
+  if (!account) return <span className="text-slate-500">None</span>;
+  return (
+    <span className="grid gap-1">
+      <span className="font-bold text-slate-950">{account.provider}</span>
+      {account.providerAccountId ? <span className="break-all font-mono text-xs text-slate-700">{account.providerAccountId}</span> : null}
+      <TableStatusBadge status={account.status} />
+    </span>
   );
 }
 
@@ -207,6 +187,29 @@ function walletPageHref(searchParams: WalletDashboardSearchParams, page: number,
   if (page > 1) params.set("walletPage", String(page));
   const query = params.toString();
   return query ? `/dashboard/wallet?${query}` : "/dashboard/wallet";
+}
+
+function transactionPageHref(searchParams: WalletDashboardSearchParams, page: number) {
+  const params = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (!value || key === "transactionPage" || key === "walletResult" || key === "walletError" || key === "walletDialog") return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => params.append(key, item));
+      return;
+    }
+    params.set(key, value);
+  });
+  params.set("walletView", "transactions");
+  if (page > 1) params.set("transactionPage", String(page));
+  const query = params.toString();
+  return query ? `/dashboard/wallet?${query}` : "/dashboard/wallet?walletView=transactions";
+}
+
+function pageFromSearchParams(searchParams: WalletDashboardSearchParams, key: string) {
+  const value = searchParams[key];
+  const raw = Array.isArray(value) ? value[0] : value;
+  const page = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(page) && page > 0 ? page : 1;
 }
 
 function money(amountMinor: number, currency: string) {

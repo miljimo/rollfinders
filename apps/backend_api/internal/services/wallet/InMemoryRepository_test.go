@@ -15,6 +15,7 @@ import (
 type InMemoryRepository struct {
 	mu               sync.Mutex
 	wallets          map[string]domain.Wallet
+	linkedAccounts   map[string][]domain.LinkedAccount
 	transactions     map[string]domain.Transaction
 	statements       map[string][]domain.Statement
 	idempotencyIndex map[string]string
@@ -24,6 +25,7 @@ type InMemoryRepository struct {
 func NewInMemoryRepository() *InMemoryRepository {
 	return &InMemoryRepository{
 		wallets:          map[string]domain.Wallet{},
+		linkedAccounts:   map[string][]domain.LinkedAccount{},
 		transactions:     map[string]domain.Transaction{},
 		statements:       map[string][]domain.Statement{},
 		idempotencyIndex: map[string]string{},
@@ -46,6 +48,12 @@ func (repo *InMemoryRepository) CreateWallet(_ context.Context, input dataaccess
 	}
 	repo.wallets[wallet.ID] = wallet
 	return &wallet, nil
+}
+
+func (repo *InMemoryRepository) addLinkedAccount(account domain.LinkedAccount) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	repo.linkedAccounts[account.WalletID] = append(repo.linkedAccounts[account.WalletID], account)
 }
 
 func (repo *InMemoryRepository) ListWallets(_ context.Context, input dataaccess.ListWalletsInput) (dataaccess.WalletPage, error) {
@@ -110,6 +118,15 @@ func (repo *InMemoryRepository) GetBalance(_ context.Context, walletID string) (
 		Reserved:  0,
 		Balance:   balance,
 	}, nil
+}
+
+func (repo *InMemoryRepository) ListLinkedAccounts(_ context.Context, walletID string) ([]domain.LinkedAccount, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	if _, err := repo.getWallet(walletID); err != nil {
+		return nil, err
+	}
+	return append([]domain.LinkedAccount(nil), repo.linkedAccounts[walletID]...), nil
 }
 
 func (repo *InMemoryRepository) ListWalletTransactions(_ context.Context, walletID string) ([]domain.Transaction, error) {

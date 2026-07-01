@@ -41,6 +41,22 @@ func WalletTotal(row databases.DBRow) int {
 	return int(Int64(row, "total_count"))
 }
 
+func LinkedAccountFromRow(row databases.DBRow) domain.LinkedAccount {
+	return domain.LinkedAccount{
+		ID:                String(row, "id"),
+		WalletID:          String(row, "wallet_id"),
+		Provider:          domain.LinkedAccountProvider(String(row, "provider")),
+		ProviderAccountID: String(row, "provider_account_id"),
+		ConnectionType:    domain.LinkedAccountConnectionType(String(row, "connection_type")),
+		Status:            domain.LinkedAccountStatus(String(row, "status")),
+		DisplayName:       String(row, "display_name"),
+		ExternalReference: String(row, "external_reference"),
+		Currency:          domain.Currency(String(row, "currency")),
+		CreatedAt:         Time(row, "created_at"),
+		UpdatedAt:         Time(row, "updated_at"),
+	}
+}
+
 func BalanceFromFirst(rows databases.DBResults) (domain.Balance, error) {
 	row, err := First(rows)
 	if err != nil {

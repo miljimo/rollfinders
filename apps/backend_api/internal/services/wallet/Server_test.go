@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"rollfinders/internal/services/wallet/config"
+	"rollfinders/internal/services/wallet/domain"
 )
 
 func TestWalletServiceFinancialFlow(t *testing.T) {
@@ -105,6 +107,44 @@ func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
 	}
 }
 
+func TestWalletServiceListsLinkedAccountsForExternalWallet(t *testing.T) {
+	handler, repo := testHandlerWithRepo()
+	externalWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")
+	now := time.Now().UTC()
+	repo.addLinkedAccount(domain.LinkedAccount{
+		ID:                "lwa_stripe_1",
+		WalletID:          externalWallet.ID,
+		Provider:          domain.LinkedAccountProviderStripe,
+		ProviderAccountID: "acct_123",
+		ConnectionType:    domain.LinkedAccountBoth,
+		Status:            domain.LinkedAccountConnected,
+		DisplayName:       "Stripe Connect",
+		ExternalReference: "acct_123",
+		Currency:          domain.CurrencyGBP,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/wallets/"+externalWallet.ID+"/linked-accounts", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected linked account status 200, got %d body %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data []domain.LinkedAccount `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode linked accounts: %v", err)
+	}
+	if len(body.Data) != 1 {
+		t.Fatalf("expected one linked account, got %+v", body.Data)
+	}
+	if body.Data[0].Provider != domain.LinkedAccountProviderStripe || body.Data[0].ProviderAccountID != "acct_123" {
+		t.Fatalf("expected stripe linked account details, got %+v", body.Data[0])
+	}
+}
+
 func TestWalletServiceRootReturnsEndpointIndex(t *testing.T) {
 	handler := testHandler()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -131,7 +171,13 @@ func TestWalletServiceRootReturnsEndpointIndex(t *testing.T) {
 }
 
 func testHandler() http.Handler {
-	return New(Options{Config: config.Config{MetricsEnabled: true}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), Repo: NewInMemoryRepository()})
+	handler, _ := testHandlerWithRepo()
+	return handler
+}
+
+func testHandlerWithRepo() (http.Handler, *InMemoryRepository) {
+	repo := NewInMemoryRepository()
+	return New(Options{Config: config.Config{MetricsEnabled: true}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), Repo: repo}), repo
 }
 
 type walletResponse struct {

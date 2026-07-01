@@ -83,6 +83,31 @@ AS $$
     LIMIT p_limit OFFSET p_offset;
 $$;
 
+CREATE OR REPLACE FUNCTION wallet.list_linked_wallet_accounts(p_wallet_id text)
+RETURNS TABLE (
+    id text,
+    wallet_id text,
+    provider text,
+    provider_account_id text,
+    connection_type text,
+    status text,
+    display_name text,
+    external_reference text,
+    currency text,
+    created_at timestamptz,
+    updated_at timestamptz
+)
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT a.id, a.wallet_id, a.provider, COALESCE(a.provider_account_id, ''),
+           a.connection_type, a.status, COALESCE(a.display_name, ''),
+           COALESCE(a.external_reference, ''), a.currency, a.created_at, a.updated_at
+    FROM wallet.linked_wallet_accounts a
+    WHERE a.wallet_id = p_wallet_id
+    ORDER BY a.created_at DESC;
+$$;
+
 CREATE OR REPLACE FUNCTION wallet.get_balance(p_wallet_id text)
 RETURNS TABLE (
     wallet_id text,
@@ -316,6 +341,10 @@ BEGIN
     RETURN QUERY SELECT * FROM wallet.replay_transaction(p_idempotency_key);
     IF FOUND THEN
         RETURN;
+    END IF;
+
+    IF p_source_wallet_id = p_destination_wallet_id THEN
+        RAISE EXCEPTION 'source and destination wallet IDs must be different';
     END IF;
 
     SELECT * INTO source_wallet FROM wallet.wallets w WHERE w.id = p_source_wallet_id FOR UPDATE;

@@ -612,7 +612,7 @@ function legacyPermissionFallback(actor: AuthorisationActor, permission: string)
     return role === "PLATFORM_ADMIN" || role === "ACADEMY_ADMIN" || role === "ACADEMY_OWNER";
   }
 
-  if (permission.startsWith("payment.") || permission.startsWith("payout.") || permission.startsWith("organisation.")) {
+  if (permission.startsWith("payment.") || permission.startsWith("payout.") || permission.startsWith("organisation.") || permission.startsWith("wallet.")) {
     return role === "PLATFORM_ADMIN";
   }
 
