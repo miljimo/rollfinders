@@ -32,15 +32,17 @@ Blocked for production deployment. This ticket prepares the production release p
 ### Source
 
 - Branch: `master`
-- Commit/Tag: `23e60ecef24b446a78af8cbd652ad15ee078b205`
-- Short commit: `23e60ec Split side panel control components`
+- Commit/Tag: `9553624907808ffa4a7b42886d56b666e1dd6d97`
+- Short commit: `9553624 Stabilize portal release validation`
 - Ticket: `RELEASE-20260630`
 - PR: Not assigned in this ticket
 
 ### Release Contents
 
-This production candidate includes the latest committed `master` state through `23e60ec`:
+This production candidate includes the latest committed `master` application state through `9553624`:
 
+- `9553624` Stabilize portal release validation.
+- `224f7de` Prepare production release ticket.
 - `23e60ec` Split side panel control components.
 - `9e52a7a` Move payment components under payments namespace.
 - `c6ecc4c` Add reusable data table search component.
@@ -94,7 +96,7 @@ Migration validation must include:
 
 ### Deployment Steps
 
-1. Confirm production approval is explicit and names this source commit: `23e60ecef24b446a78af8cbd652ad15ee078b205`.
+1. Confirm production approval is explicit and names this source commit: `9553624907808ffa4a7b42886d56b666e1dd6d97`.
 2. Confirm the worktree is clean and `master` points at the approved commit.
 3. Run preflight validation:
 
@@ -196,41 +198,21 @@ Steps:
 
 ## Local Validation Evidence
 
-Completed locally in this Codex session on 2026-06-30 against commit `23e60ecef24b446a78af8cbd652ad15ee078b205`:
+Completed locally in this Codex session on 2026-07-01 against commit `9553624907808ffa4a7b42886d56b666e1dd6d97`:
 
 ```bash
-npm run typecheck
 node --import tsx --test "apps/portal/src/components/{GridDashboard,SidePanelControl,Table}/__tests__/*.test.tsx" apps/portal/src/lib/__tests__/wallet-dashboard-contracts.test.ts
+npm run test
 cd apps/backend_api && go test ./...
 npm run build
 ```
 
 Results:
 
-- TypeScript check passed.
 - Release-specific component, table, side panel, and wallet dashboard tests passed: 17/17.
+- Full portal suite passed through `npm run test`: 266 passed, 1 skipped, 0 failed.
 - Backend Go tests passed across `apps/backend_api`.
 - Next.js production build passed.
-
-Full historical unit/contract suite status:
-
-```bash
-npm run test
-```
-
-Result: failed. Known failing areas observed in this run:
-
-- `apps/portal/src/app/admin/__tests__/PlatformAdminActivitySummaryPanel.test.tsx` fails because a test imports a `server-only` module path through `organisation-service.ts`.
-- Unified dashboard route contract failures:
-  - `public navigation exposes Dashboard instead of Login`
-  - `admin settings use quick actions to inject one selected settings detail panel`
-- Course creation/management contract failure:
-  - `allows Course analytics alongside legacy Open Mat analytics`
-- Course payment service integration failures:
-  - `exposes a scoped payments dashboard for academy and elevated admins`
-  - `cancels pending booking payments and requests refunds for received payments through the payment service`
-- Deployment safety contract failure:
-  - script assertion still expects `if [[ "${IMAGES_ALREADY_MATCH}" == "true" ]]`, while the implementation also checks the current/base task definition match.
 
 Production public health check from this workstation:
 
@@ -245,9 +227,8 @@ Result: blocked locally by DNS resolution failure:
 curl: (6) Could not resolve host: rollfinders.com
 ```
 
-Additional validation required before production approval:
+Additional validation required before production deployment:
 
-- Resolve or explicitly waive the full historical contract failures.
 - Verify production DNS and public health from a network that resolves `rollfinders.com`.
 - Run Terraform plan review for production.
 - Build production images and record immutable image digests.
@@ -256,9 +237,8 @@ Additional validation required before production approval:
 
 ## Production Blockers
 
-- Explicit production approval is missing. Approval must name environment `production`, source commit `23e60ecef24b446a78af8cbd652ad15ee078b205`, migration plan, config changes, and rollback plan.
-- `npm run test` is not green.
-- Production DNS/public health could not be verified from this workstation.
+- Explicit production approval is missing. Approval must name environment `production`, source commit `9553624907808ffa4a7b42886d56b666e1dd6d97`, migration plan, config changes, and rollback plan.
+- Production DNS and health checks could not be verified from this workstation because `rollfinders.com` did not resolve locally.
 - Production image artifacts and digests have not been built or recorded.
 - Production Terraform plan has not been reviewed.
 - Production migration status has not been verified.
