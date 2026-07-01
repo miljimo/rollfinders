@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"rollfinders/internal/core/handlers"
+	"rollfinders/internal/services/wallet/endpoints/responses"
 	"rollfinders/internal/services/wallet/service"
 )
 
@@ -14,6 +15,6 @@ func GetWallet(svc *service.Service) http.HandlerFunc {
 			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		_ = handlers.SuccessWithData(w, wallet, http.StatusOK)
+		_ = handlers.SuccessWithData(w, (*responses.WalletResponse)(wallet), http.StatusOK)
 	}
 }

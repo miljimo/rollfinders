@@ -7,15 +7,15 @@ import (
 
 	"rollfinders/internal/core/handlers"
 	"rollfinders/internal/services/wallet/config"
+	"rollfinders/internal/services/wallet/dataaccess"
 	"rollfinders/internal/services/wallet/endpoints"
-	"rollfinders/internal/services/wallet/repository"
 	"rollfinders/internal/services/wallet/service"
 )
 
 type Options struct {
 	Config config.Config
 	Logger *slog.Logger
-	Repo   repository.Repository
+	Repo   dataaccess.Repository
 }
 
 func New(opts Options) http.Handler {
@@ -33,6 +33,7 @@ func New(opts Options) http.Handler {
 			panic(err)
 		}
 	}
+	mustHandle("/", []string{http.MethodGet}, walletAPIIndex)
 	mustHandle("/healthz", []string{http.MethodGet}, func(w http.ResponseWriter, _ *http.Request) { handlers.WriteOK(w, map[string]string{"status": "ok"}) })
 	mustHandle("/readyz", []string{http.MethodGet}, func(w http.ResponseWriter, _ *http.Request) {
 		handlers.WriteOK(w, map[string]string{"status": "ready"})
@@ -50,6 +51,27 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/wallets/{id}/transactions", []string{http.MethodGet}, endpoints.ListWalletTransactions(svc))
 	mustHandle("/v1/transactions/{id}", []string{http.MethodGet}, endpoints.GetTransaction(svc))
 	return accessLog(opts.Logger, router)
+}
+
+func walletAPIIndex(w http.ResponseWriter, _ *http.Request) {
+	handlers.WriteOK(w, map[string]any{
+		"service": "wallet",
+		"version": "v1",
+		"endpoints": []map[string]string{
+			{"method": http.MethodGet, "path": "/healthz", "description": "Liveness check"},
+			{"method": http.MethodGet, "path": "/readyz", "description": "Readiness check"},
+			{"method": http.MethodGet, "path": "/metrics", "description": "Service metrics"},
+			{"method": http.MethodGet, "path": "/v1/wallets", "description": "List wallets"},
+			{"method": http.MethodPost, "path": "/v1/wallets", "description": "Create wallet"},
+			{"method": http.MethodPost, "path": "/v1/wallets/transfer", "description": "Transfer wallet funds"},
+			{"method": http.MethodPost, "path": "/v1/wallets/reverse", "description": "Reverse transaction"},
+			{"method": http.MethodPost, "path": "/v1/wallets/adjustment", "description": "Create wallet adjustment"},
+			{"method": http.MethodGet, "path": "/v1/wallets/{id}", "description": "Get wallet"},
+			{"method": http.MethodGet, "path": "/v1/wallets/{id}/balance", "description": "Get wallet balance"},
+			{"method": http.MethodGet, "path": "/v1/wallets/{id}/transactions", "description": "List wallet transactions"},
+			{"method": http.MethodGet, "path": "/v1/transactions/{id}", "description": "Get transaction"},
+		},
+	})
 }
 
 type statusRecorder struct {

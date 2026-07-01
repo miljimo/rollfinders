@@ -1,4 +1,4 @@
-package repository
+package wallet
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"rollfinders/internal/services/wallet/dataaccess"
 	"rollfinders/internal/services/wallet/domain"
 )
 
@@ -15,25 +16,22 @@ type InMemoryRepository struct {
 	mu               sync.Mutex
 	wallets          map[string]domain.Wallet
 	transactions     map[string]domain.Transaction
-	ledgerEntries    map[string][]domain.Statement
+	statements       map[string][]domain.Statement
 	idempotencyIndex map[string]string
 	reversed         map[string]string
 }
 
-// NewInMemoryRepository returns a process-local fake repository for service tests.
-// Production wallet service bootstrap must use NewPostgresRepository so wallet
-// state is stored in Postgres and survives process restarts.
 func NewInMemoryRepository() *InMemoryRepository {
 	return &InMemoryRepository{
 		wallets:          map[string]domain.Wallet{},
 		transactions:     map[string]domain.Transaction{},
-		ledgerEntries:    map[string][]domain.Statement{},
+		statements:       map[string][]domain.Statement{},
 		idempotencyIndex: map[string]string{},
 		reversed:         map[string]string{},
 	}
 }
 
-func (repo *InMemoryRepository) CreateWallet(_ context.Context, input CreateWalletInput) (domain.Wallet, error) {
+func (repo *InMemoryRepository) CreateWallet(_ context.Context, input dataaccess.CreateWalletInput) (*domain.Wallet, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	now := time.Now().UTC()
@@ -47,19 +45,13 @@ func (repo *InMemoryRepository) CreateWallet(_ context.Context, input CreateWall
 		UpdatedAt: now,
 	}
 	repo.wallets[wallet.ID] = wallet
-	return wallet, nil
+	return &wallet, nil
 }
 
-func (repo *InMemoryRepository) ListWallets(_ context.Context, input ListWalletsInput) (WalletPage, error) {
+func (repo *InMemoryRepository) ListWallets(_ context.Context, input dataaccess.ListWalletsInput) (dataaccess.WalletPage, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
-	limit := input.Limit
-	if limit <= 0 {
-		limit = 10
-	}
-	if limit > 100 {
-		limit = 100
-	}
+	limit := testClampLimit(input.Limit)
 	offset := input.Offset
 	if offset < 0 {
 		offset = 0
@@ -90,29 +82,33 @@ func (repo *InMemoryRepository) ListWallets(_ context.Context, input ListWallets
 		}
 		wallets = wallets[offset:end]
 	}
-	return WalletPage{Wallets: wallets, Total: total, Limit: limit, Offset: offset}, nil
+	return dataaccess.WalletPage{Wallets: wallets, Total: total, Limit: limit, Offset: offset}, nil
 }
 
-func (repo *InMemoryRepository) GetWallet(_ context.Context, id string) (domain.Wallet, error) {
+func (repo *InMemoryRepository) GetWallet(_ context.Context, id string) (*domain.Wallet, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
-	return repo.getWallet(id)
+	wallet, err := repo.getWallet(id)
+	if err != nil {
+		return nil, err
+	}
+	return &wallet, nil
 }
 
-func (repo *InMemoryRepository) GetBalance(_ context.Context, walletID string) (domain.Balance, error) {
+func (repo *InMemoryRepository) GetBalance(_ context.Context, walletID string) (*domain.Balance, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	wallet, err := repo.getWallet(walletID)
 	if err != nil {
-		return domain.Balance{}, err
+		return nil, err
 	}
-	ledger := repo.ledgerBalance(walletID)
-	return domain.Balance{
+	balance := repo.ledgerBalance(walletID)
+	return &domain.Balance{
 		WalletID:  walletID,
 		Currency:  wallet.Currency,
-		Available: ledger,
+		Available: balance,
 		Reserved:  0,
-		Balance:   ledger,
+		Balance:   balance,
 	}, nil
 }
 
@@ -124,7 +120,7 @@ func (repo *InMemoryRepository) ListWalletTransactions(_ context.Context, wallet
 	}
 	seen := map[string]bool{}
 	result := []domain.Transaction{}
-	for _, entries := range repo.ledgerEntries {
+	for _, entries := range repo.statements {
 		for _, entry := range entries {
 			if entry.WalletID == walletID && !seen[entry.TransactionID] {
 				seen[entry.TransactionID] = true
@@ -132,104 +128,96 @@ func (repo *InMemoryRepository) ListWalletTransactions(_ context.Context, wallet
 			}
 		}
 	}
+	sort.Slice(result, func(left, right int) bool {
+		return result[left].CreatedAt.After(result[right].CreatedAt)
+	})
 	return result, nil
 }
 
-func (repo *InMemoryRepository) GetTransaction(_ context.Context, id string) (domain.Transaction, []domain.Statement, error) {
+func (repo *InMemoryRepository) GetTransaction(_ context.Context, id string) (*domain.Transaction, []domain.Statement, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	transaction, ok := repo.transactions[id]
 	if !ok {
-		return domain.Transaction{}, nil, domain.ErrTransactionNotFound
+		return nil, nil, domain.ErrTransactionNotFound
 	}
-	return transaction, append([]domain.Statement(nil), repo.ledgerEntries[id]...), nil
+	return &transaction, append([]domain.Statement(nil), repo.statements[id]...), nil
 }
 
-func (repo *InMemoryRepository) Transfer(_ context.Context, input TransferInput) (domain.Transaction, error) {
+func (repo *InMemoryRepository) Transfer(_ context.Context, input dataaccess.TransferInput) (*domain.Transaction, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	if transaction, ok := repo.replay(input.IdempotencyKey); ok {
-		return transaction, nil
+		return &transaction, nil
 	}
 	source, err := repo.activeWallet(input.SourceWalletID)
 	if err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	destination, err := repo.activeWallet(input.DestinationWalletID)
 	if err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if source.Currency != destination.Currency || source.Currency != input.Currency {
-		return domain.Transaction{}, domain.ErrCurrencyMismatch
+		return nil, domain.ErrCurrencyMismatch
 	}
 	if repo.ledgerBalance(source.ID) < input.Amount {
-		return domain.Transaction{}, domain.ErrInsufficientFunds
+		return nil, domain.ErrInsufficientFunds
 	}
-	return repo.createDoubleEntry(input.Type, source.ID, destination.ID, input.Amount, source.Currency, input.ReferenceType, input.ReferenceID, input.IdempotencyKey, input.Description, ""), nil
+	transaction := repo.createDoubleEntry(input.Type, source.ID, destination.ID, input.Amount, source.Currency, input.ReferenceType, input.ReferenceID, input.IdempotencyKey, input.Description, "")
+	return &transaction, nil
 }
 
-func (repo *InMemoryRepository) Reverse(_ context.Context, input ReverseInput) (domain.Transaction, error) {
+func (repo *InMemoryRepository) Reverse(_ context.Context, input dataaccess.ReverseInput) (*domain.Transaction, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	if transaction, ok := repo.replay(input.IdempotencyKey); ok {
-		return transaction, nil
+		return &transaction, nil
 	}
 	original, ok := repo.transactions[input.TransactionID]
 	if !ok {
-		return domain.Transaction{}, domain.ErrTransactionNotFound
+		return nil, domain.ErrTransactionNotFound
 	}
-	if _, ok := repo.reversed[original.ID]; ok {
-		return domain.Transaction{}, domain.ErrAlreadyReversed
+	if repo.reversed[input.TransactionID] != "" || original.Type == domain.TransactionReversal {
+		return nil, domain.ErrAlreadyReversed
 	}
-	entries := repo.ledgerEntries[original.ID]
-	reversal := repo.createTransaction(domain.TransactionReversal, original.Amount, original.Currency, original.DestinationWalletID, original.SourceWalletID, input.ReferenceType, input.ReferenceID, input.IdempotencyKey, original.ID)
-	now := time.Now().UTC()
-	for _, entry := range entries {
-		repo.ledgerEntries[reversal.ID] = append(repo.ledgerEntries[reversal.ID], domain.Statement{
-			ID:            newID("led"),
-			TransactionID: reversal.ID,
-			WalletID:      entry.WalletID,
-			Debit:         entry.Credit,
-			Credit:        entry.Debit,
-			Currency:      entry.Currency,
-			Description:   input.Description,
-			CreatedAt:     now,
-		})
+	entries := repo.statements[input.TransactionID]
+	if len(entries) != 2 {
+		return nil, domain.ErrTransactionNotFound
 	}
-	repo.reversed[original.ID] = reversal.ID
-	original.Status = domain.TransactionReversed
-	repo.transactions[original.ID] = original
-	return reversal, nil
+	sourceID := entries[1].WalletID
+	destinationID := entries[0].WalletID
+	reversal := repo.createDoubleEntry(domain.TransactionReversal, sourceID, destinationID, original.Amount, original.Currency, input.ReferenceType, input.ReferenceID, input.IdempotencyKey, input.Description, original.ID)
+	repo.reversed[input.TransactionID] = reversal.ID
+	return &reversal, nil
 }
 
-func (repo *InMemoryRepository) Adjust(_ context.Context, input AdjustmentInput) (domain.Transaction, error) {
+func (repo *InMemoryRepository) Adjust(_ context.Context, input dataaccess.AdjustmentInput) (*domain.Transaction, error) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	if transaction, ok := repo.replay(input.IdempotencyKey); ok {
-		return transaction, nil
-	}
-	if input.Type != domain.TransactionManualCredit && input.Type != domain.TransactionManualDebit && input.Type != domain.TransactionSystemAdjustment {
-		input.Type = domain.TransactionSystemAdjustment
+		return &transaction, nil
 	}
 	target, err := repo.activeWallet(input.WalletID)
 	if err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	counter, err := repo.activeWallet(input.CounterWalletID)
 	if err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if target.Currency != counter.Currency || target.Currency != input.Currency {
-		return domain.Transaction{}, domain.ErrCurrencyMismatch
+		return nil, domain.ErrCurrencyMismatch
 	}
 	sourceID, destinationID := counter.ID, target.ID
 	if input.Type == domain.TransactionManualDebit {
 		sourceID, destinationID = target.ID, counter.ID
-		if repo.ledgerBalance(target.ID) < input.Amount {
-			return domain.Transaction{}, domain.ErrInsufficientFunds
-		}
 	}
-	return repo.createDoubleEntry(input.Type, sourceID, destinationID, input.Amount, target.Currency, "manual_adjustment", input.Reference, input.IdempotencyKey, input.Reason, ""), nil
+	if input.Type != domain.TransactionManualCredit && input.Type != domain.TransactionManualDebit && input.Type != domain.TransactionSystemAdjustment {
+		input.Type = domain.TransactionSystemAdjustment
+	}
+	transaction := repo.createDoubleEntry(input.Type, sourceID, destinationID, input.Amount, target.Currency, "manual_adjustment", input.Reference, input.IdempotencyKey, input.Reason, "")
+	return &transaction, nil
 }
 
 func (repo *InMemoryRepository) getWallet(id string) (domain.Wallet, error) {
@@ -245,9 +233,6 @@ func (repo *InMemoryRepository) activeWallet(id string) (domain.Wallet, error) {
 	if err != nil {
 		return domain.Wallet{}, err
 	}
-	if wallet.Status == domain.WalletClosed {
-		return domain.Wallet{}, domain.ErrWalletReadOnly
-	}
 	if wallet.Status != domain.WalletActive {
 		return domain.Wallet{}, domain.ErrWalletInactive
 	}
@@ -258,19 +243,32 @@ func (repo *InMemoryRepository) replay(key string) (domain.Transaction, bool) {
 	if key == "" {
 		return domain.Transaction{}, false
 	}
-	id, ok := repo.idempotencyIndex[key]
-	if !ok {
+	id := repo.idempotencyIndex[key]
+	if id == "" {
 		return domain.Transaction{}, false
 	}
 	return repo.transactions[id], true
 }
 
+func (repo *InMemoryRepository) ledgerBalance(walletID string) int64 {
+	var balance int64
+	for _, entries := range repo.statements {
+		for _, entry := range entries {
+			if entry.WalletID != walletID {
+				continue
+			}
+			balance += entry.Credit - entry.Debit
+		}
+	}
+	return balance
+}
+
 func (repo *InMemoryRepository) createDoubleEntry(kind domain.TransactionType, sourceID string, destinationID string, amount int64, currency domain.Currency, referenceType string, referenceID string, key string, description string, originalID string) domain.Transaction {
 	transaction := repo.createTransaction(kind, amount, currency, sourceID, destinationID, referenceType, referenceID, key, originalID)
 	now := time.Now().UTC()
-	repo.ledgerEntries[transaction.ID] = []domain.Statement{
-		{ID: newID("led"), TransactionID: transaction.ID, WalletID: sourceID, Debit: amount, Currency: currency, Description: description, CreatedAt: now},
-		{ID: newID("led"), TransactionID: transaction.ID, WalletID: destinationID, Credit: amount, Currency: currency, Description: description, CreatedAt: now},
+	repo.statements[transaction.ID] = []domain.Statement{
+		{ID: newID("stm"), TransactionID: transaction.ID, WalletID: sourceID, Debit: amount, Currency: currency, Description: description, CreatedAt: now},
+		{ID: newID("stm"), TransactionID: transaction.ID, WalletID: destinationID, Credit: amount, Currency: currency, Description: description, CreatedAt: now},
 	}
 	return transaction
 }
@@ -297,23 +295,20 @@ func (repo *InMemoryRepository) createTransaction(kind domain.TransactionType, a
 	return transaction
 }
 
-func (repo *InMemoryRepository) ledgerBalance(walletID string) int64 {
-	var balance int64
-	for _, entries := range repo.ledgerEntries {
-		for _, entry := range entries {
-			if entry.WalletID == walletID {
-				balance += entry.Credit
-				balance -= entry.Debit
-			}
-		}
-	}
-	return balance
-}
-
 func newID(prefix string) string {
 	var bytes [12]byte
 	if _, err := rand.Read(bytes[:]); err != nil {
 		return prefix + "_" + time.Now().UTC().Format("20060102150405.000000000")
 	}
 	return prefix + "_" + hex.EncodeToString(bytes[:])
+}
+
+func testClampLimit(limit int) int {
+	if limit <= 0 {
+		return 10
+	}
+	if limit > 100 {
+		return 100
+	}
+	return limit
 }

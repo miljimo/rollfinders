@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"rollfinders/internal/services/wallet/config"
-	"rollfinders/internal/services/wallet/repository"
 )
 
 func TestWalletServiceFinancialFlow(t *testing.T) {
@@ -106,8 +105,33 @@ func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
 	}
 }
 
+func TestWalletServiceRootReturnsEndpointIndex(t *testing.T) {
+	handler := testHandler()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected root status 200, got %d body %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Service   string              `json:"service"`
+		Endpoints []map[string]string `json:"endpoints"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode root response: %v", err)
+	}
+	if body.Service != "wallet" {
+		t.Fatalf("expected wallet service index, got %#v", body.Service)
+	}
+	if len(body.Endpoints) == 0 {
+		t.Fatalf("expected root response to list endpoints")
+	}
+}
+
 func testHandler() http.Handler {
-	return New(Options{Config: config.Config{MetricsEnabled: true}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), Repo: repository.NewInMemoryRepository()})
+	return New(Options{Config: config.Config{MetricsEnabled: true}, Logger: slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)), Repo: NewInMemoryRepository()})
 }
 
 type walletResponse struct {

@@ -4,30 +4,21 @@ import (
 	"net/http"
 
 	"rollfinders/internal/core/handlers"
-	"rollfinders/internal/services/wallet/domain"
-	"rollfinders/internal/services/wallet/repository"
+	"rollfinders/internal/services/wallet/dataaccess"
+	"rollfinders/internal/services/wallet/endpoints/requests"
+	"rollfinders/internal/services/wallet/endpoints/responses"
 	"rollfinders/internal/services/wallet/service"
 )
 
-type transferRequest struct {
-	SourceWalletID      string          `json:"source_wallet_id"`
-	DestinationWalletID string          `json:"destination_wallet_id"`
-	Amount              int64           `json:"amount"`
-	Currency            domain.Currency `json:"currency"`
-	ReferenceType       string          `json:"reference_type"`
-	ReferenceID         string          `json:"reference_id"`
-	Description         string          `json:"description"`
-}
-
 func CreateTransfer(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req transferRequest
+		var req requests.CreateTransferRequest
 		if err := handlers.Json(r, &req); err != nil {
 			handlers.ErrorWithStatus(w, handlers.NewStatusError(http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.", err, nil), http.StatusInternalServerError)
 			return
 		}
 
-		transferObj := repository.TransferInput{
+		transferObj := dataaccess.TransferInput{
 			SourceWalletID:      req.SourceWalletID,
 			DestinationWalletID: req.DestinationWalletID,
 			Amount:              req.Amount,
@@ -42,6 +33,6 @@ func CreateTransfer(svc *service.Service) http.HandlerFunc {
 			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		_ = handlers.SuccessWithData(w, transaction, http.StatusCreated)
+		_ = handlers.SuccessWithData(w, (*responses.TransactionResponse)(transaction), http.StatusCreated)
 	}
 }

@@ -4,15 +4,15 @@ import (
 	"context"
 	"strings"
 
+	"rollfinders/internal/services/wallet/dataaccess"
 	"rollfinders/internal/services/wallet/domain"
-	"rollfinders/internal/services/wallet/repository"
 )
 
 type Service struct {
-	repo repository.Repository
+	repo dataaccess.Repository
 }
 
-func New(repo repository.Repository) *Service {
+func New(repo dataaccess.Repository) *Service {
 	return &Service{repo: repo}
 }
 
@@ -68,34 +68,34 @@ func requireKey(key string) error {
 	return nil
 }
 
-func (svc *Service) CreateWallet(ctx context.Context, input repository.CreateWalletInput) (domain.Wallet, error) {
+func (svc *Service) CreateWallet(ctx context.Context, input dataaccess.CreateWalletInput) (*domain.Wallet, error) {
 	input.Type = normalizeWalletType(input.Type)
 	input.OwnerID = strings.TrimSpace(input.OwnerID)
-	input.Currency = domain.Currency(repository.NormalizeCurrency(string(input.Currency)))
+	input.Currency = domain.Currency(dataaccess.NormalizeCurrency(string(input.Currency)))
 	if err := validateWalletType(input.Type); err != nil {
-		return domain.Wallet{}, err
+		return nil, err
 	}
 	if err := validateOwner(input.OwnerID); err != nil {
-		return domain.Wallet{}, err
+		return nil, err
 	}
 	if err := validateCurrency(input.Currency); err != nil {
-		return domain.Wallet{}, err
+		return nil, err
 	}
 	return svc.repo.CreateWallet(ctx, input)
 }
 
-func (svc *Service) ListWallets(ctx context.Context, input repository.ListWalletsInput) (repository.WalletPage, error) {
+func (svc *Service) ListWallets(ctx context.Context, input dataaccess.ListWalletsInput) (dataaccess.WalletPage, error) {
 	input.Type = normalizeWalletType(input.Type)
 	input.OwnerID = strings.TrimSpace(input.OwnerID)
-	input.Currency = domain.Currency(repository.NormalizeCurrency(string(input.Currency)))
+	input.Currency = domain.Currency(dataaccess.NormalizeCurrency(string(input.Currency)))
 	return svc.repo.ListWallets(ctx, input)
 }
 
-func (svc *Service) GetWallet(ctx context.Context, id string) (domain.Wallet, error) {
+func (svc *Service) GetWallet(ctx context.Context, id string) (*domain.Wallet, error) {
 	return svc.repo.GetWallet(ctx, id)
 }
 
-func (svc *Service) GetBalance(ctx context.Context, walletID string) (domain.Balance, error) {
+func (svc *Service) GetBalance(ctx context.Context, walletID string) (*domain.Balance, error) {
 	return svc.repo.GetBalance(ctx, walletID)
 }
 
@@ -103,49 +103,49 @@ func (svc *Service) ListWalletTransactions(ctx context.Context, walletID string)
 	return svc.repo.ListWalletTransactions(ctx, walletID)
 }
 
-func (svc *Service) GetTransaction(ctx context.Context, id string) (domain.Transaction, []domain.Statement, error) {
+func (svc *Service) GetTransaction(ctx context.Context, id string) (*domain.Transaction, []domain.Statement, error) {
 	return svc.repo.GetTransaction(ctx, id)
 }
 
-func (svc *Service) Transfer(ctx context.Context, input repository.TransferInput) (domain.Transaction, error) {
+func (svc *Service) Transfer(ctx context.Context, input dataaccess.TransferInput) (*domain.Transaction, error) {
 	input.SourceWalletID = strings.TrimSpace(input.SourceWalletID)
 	input.DestinationWalletID = strings.TrimSpace(input.DestinationWalletID)
-	input.Currency = domain.Currency(repository.NormalizeCurrency(string(input.Currency)))
+	input.Currency = domain.Currency(dataaccess.NormalizeCurrency(string(input.Currency)))
 	if input.Type == "" {
 		input.Type = domain.TransactionTransfer
 	}
 	if err := requireKey(input.IdempotencyKey); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if err := validateWalletPair(input.SourceWalletID, input.DestinationWalletID); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if err := validateAmount(input.Amount); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if err := validateCurrency(input.Currency); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	return svc.repo.Transfer(ctx, input)
 }
 
-func (svc *Service) Reverse(ctx context.Context, input repository.ReverseInput) (domain.Transaction, error) {
+func (svc *Service) Reverse(ctx context.Context, input dataaccess.ReverseInput) (*domain.Transaction, error) {
 	if err := requireKey(input.IdempotencyKey); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	return svc.repo.Reverse(ctx, input)
 }
 
-func (svc *Service) Adjust(ctx context.Context, input repository.AdjustmentInput) (domain.Transaction, error) {
-	input.Currency = domain.Currency(repository.NormalizeCurrency(string(input.Currency)))
+func (svc *Service) Adjust(ctx context.Context, input dataaccess.AdjustmentInput) (*domain.Transaction, error) {
+	input.Currency = domain.Currency(dataaccess.NormalizeCurrency(string(input.Currency)))
 	if err := requireKey(input.IdempotencyKey); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if err := validateAmount(input.Amount); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	if err := validateCurrency(input.Currency); err != nil {
-		return domain.Transaction{}, err
+		return nil, err
 	}
 	return svc.repo.Adjust(ctx, input)
 }

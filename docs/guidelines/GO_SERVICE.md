@@ -1,6 +1,6 @@
 # Go Service Responsibility and API Structure
 
-Use this for services under:
+Use this for services folder structures:
 
 ```txt
 apps/backend_api/internal/services/<service_name>/
@@ -68,20 +68,19 @@ Services with API endpoints must use:
 apps/backend_api/internal/services/<service_name>/
   Server.go
 
-  domain/
-    <StructName>.go
+  dataaccess/
+    utils.go
     errors.go
     constants.go
-
-  repository/
-    Repository.go
-    PostgresRepository.go
-
-  service/
-    Service.go
-    <UseCaseName>.go
-
+    Create<Resource>.go
+    Get<Resource>.go
+    List<Resource>Pagination.go
+    Update<Resource>.go
+    Delete<Resource>.go
+     
   endpoints/
+    request/<Resource>.go
+    response/<Resource>.go
     Create<Resource>.go
     Get<Resource>.go
     List<Resource>.go
@@ -90,38 +89,8 @@ apps/backend_api/internal/services/<service_name>/
 
   bootstrap/
     Bootstrap.go
+    utils.go
 
-  README.md
-```
-
-Example:
-
-```txt
-apps/backend_api/internal/services/subscriptions/
-  Server.go
-  domain/
-    Subscription.go
-    SubscriptionPlan.go
-    Product.go
-    ProductFeature.go
-    errors.go
-    constants.go
-  repository/
-    Repository.go
-    PostgresRepository.go
-  service/
-    Service.go
-    CreateSubscription.go
-    CreatePlan.go
-  endpoints/
-    CreateSubscription.go
-    GetSubscription.go
-    ListSubscriptions.go
-    CreatePlan.go
-    GetPlan.go
-    ListPlans.go
-  bootstrap/
-    Bootstrap.go
   README.md
 ```
 
