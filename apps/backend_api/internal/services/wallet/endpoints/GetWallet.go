@@ -11,9 +11,9 @@ func GetWallet(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		wallet, err := svc.GetWallet(r.Context(), handlers.Param(r, "id"))
 		if err != nil {
-			writeError(w, err)
+			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusOK, wallet)
+		_ = handlers.SuccessWithData(w, wallet, http.StatusOK)
 	}
 }

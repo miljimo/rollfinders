@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"rollfinders/internal/core/handlers"
 	"rollfinders/internal/services/wallet/domain"
 	"rollfinders/internal/services/wallet/repository"
 	"rollfinders/internal/services/wallet/service"
@@ -30,7 +31,7 @@ func ListWallets(svc *service.Service) http.HandlerFunc {
 			Offset:   offset,
 		})
 		if err != nil {
-			writeError(w, err)
+			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
 		nextOffset := page.Offset + len(page.Wallets)
@@ -44,7 +45,7 @@ func ListWallets(svc *service.Service) http.HandlerFunc {
 		if meta.HasMore {
 			meta.NextOffset = nextOffset
 		}
-		writeJSON(w, http.StatusOK, map[string]interface{}{"wallets": page.Wallets, "pagination": meta})
+		_ = handlers.SuccessWithData(w, map[string]interface{}{"wallets": page.Wallets, "pagination": meta}, http.StatusOK)
 	}
 }
 

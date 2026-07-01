@@ -3,6 +3,7 @@ package endpoints
 import (
 	"net/http"
 
+	"rollfinders/internal/core/handlers"
 	"rollfinders/internal/services/wallet/domain"
 	"rollfinders/internal/services/wallet/repository"
 	"rollfinders/internal/services/wallet/service"
@@ -19,8 +20,8 @@ type createWalletRequest struct {
 func CreateWallet(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createWalletRequest
-		if err := decodeJSON(r, &req); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorBody{Error: errorDetail{Code: "invalid_json", Message: "Request body must be valid JSON."}})
+		if err := handlers.Json(r, &req); err != nil {
+			handlers.ErrorWithStatus(w, handlers.NewStatusError(http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.", err, nil), http.StatusInternalServerError)
 			return
 		}
 		walletType := req.WalletType
@@ -33,9 +34,9 @@ func CreateWallet(svc *service.Service) http.HandlerFunc {
 		}
 		wallet, err := svc.CreateWallet(r.Context(), repository.CreateWalletInput{Type: walletType, OwnerID: ownerID, Currency: req.Currency})
 		if err != nil {
-			writeError(w, err)
+			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusCreated, wallet)
+		_ = handlers.SuccessWithData(w, wallet, http.StatusCreated)
 	}
 }

@@ -11,9 +11,9 @@ func GetWalletBalance(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		balance, err := svc.GetBalance(r.Context(), handlers.Param(r, "id"))
 		if err != nil {
-			writeError(w, err)
+			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusOK, balance)
+		_ = handlers.SuccessWithData(w, balance, http.StatusOK)
 	}
 }

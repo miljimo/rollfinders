@@ -149,8 +149,6 @@ const (
 	WalletsWalletIdBalance                               = gatewayroutes.WalletsWalletIdBalance
 	WalletsWalletIdTransactions                          = gatewayroutes.WalletsWalletIdTransactions
 	WalletsTransfer                                      = gatewayroutes.WalletsTransfer
-	WalletsReserve                                       = gatewayroutes.WalletsReserve
-	WalletsRelease                                       = gatewayroutes.WalletsRelease
 	WalletsReverse                                       = gatewayroutes.WalletsReverse
 	WalletsAdjustment                                    = gatewayroutes.WalletsAdjustment
 	WalletTransactions                                   = gatewayroutes.WalletTransactions
@@ -255,8 +253,6 @@ const (
 	PermissionWalletSearch                       = gatewayroutes.PermissionWalletSearch
 	PermissionWalletRead                         = gatewayroutes.PermissionWalletRead
 	PermissionWalletTransfer                     = gatewayroutes.PermissionWalletTransfer
-	PermissionWalletReserve                      = gatewayroutes.PermissionWalletReserve
-	PermissionWalletRelease                      = gatewayroutes.PermissionWalletRelease
 	PermissionWalletReverse                      = gatewayroutes.PermissionWalletReverse
 	PermissionWalletAdjustment                   = gatewayroutes.PermissionWalletAdjustment
 	PermissionWalletTransactionRead              = gatewayroutes.PermissionWalletTransactionRead

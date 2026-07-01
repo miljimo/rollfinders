@@ -245,8 +245,6 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodGet, Path: WalletsWalletIdBalance, Permission: PermissionWalletRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
 			{Method: http.MethodGet, Path: WalletsWalletIdTransactions, Permission: PermissionWalletTransactionRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
 			{Method: http.MethodPost, Path: WalletsTransfer, Permission: PermissionWalletTransfer},
-			{Method: http.MethodPost, Path: WalletsReserve, Permission: PermissionWalletReserve},
-			{Method: http.MethodPost, Path: WalletsRelease, Permission: PermissionWalletRelease},
 			{Method: http.MethodPost, Path: WalletsReverse, Permission: PermissionWalletReverse},
 			{Method: http.MethodPost, Path: WalletsAdjustment, Permission: PermissionWalletAdjustment},
 			{Method: http.MethodGet, Path: WalletTransactions, Permission: PermissionWalletTransactionRead, ResourceType: ResourceTransaction, ResourceIDParam: ParamTransactionId},

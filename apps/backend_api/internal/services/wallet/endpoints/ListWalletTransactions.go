@@ -11,9 +11,9 @@ func ListWalletTransactions(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		transactions, err := svc.ListWalletTransactions(r.Context(), handlers.Param(r, "id"))
 		if err != nil {
-			writeError(w, err)
+			handlers.ErrorWithStatus(w, walletStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]interface{}{"data": transactions})
+		_ = handlers.SuccessWithData(w, map[string]interface{}{"data": transactions}, http.StatusOK)
 	}
 }
