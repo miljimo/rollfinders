@@ -32,15 +32,16 @@ Blocked for production deployment. This ticket prepares the production release p
 ### Source
 
 - Branch: `master`
-- Commit/Tag: `83c9ccdf3a05a1bef66d534bd7bb4a703406df3d`
-- Short commit: `83c9ccd Fix production release approval commit`
+- Commit/Tag: `9553624907808ffa4a7b42886d56b666e1dd6d97`
+- Short commit: `9553624 Stabilize portal release validation`
 - Ticket: `RELEASE-20260630`
 - PR: Not assigned in this ticket
 
 ### Release Contents
 
-This production candidate includes the latest committed and pushed `master` state through `83c9ccd`:
+This production candidate deploys the application code from `9553624`. Later commits on `master` are release-ticket metadata updates only and do not change the application artifact:
 
+- `811d3e9` Record pushed production release candidate.
 - `83c9ccd` Fix production release approval commit.
 - `3972fb7` Update production release ticket evidence.
 - `9553624` Stabilize portal release validation.
@@ -98,7 +99,7 @@ Migration validation must include:
 
 ### Deployment Steps
 
-1. Confirm production approval is explicit and names this source commit: `83c9ccdf3a05a1bef66d534bd7bb4a703406df3d`.
+1. Confirm production approval is explicit and names this application source commit: `9553624907808ffa4a7b42886d56b666e1dd6d97`.
 2. Confirm the worktree is clean and `master` points at the approved commit.
 3. Run preflight validation:
 
@@ -200,7 +201,7 @@ Steps:
 
 ## Local Validation Evidence
 
-Completed locally in this Codex session on 2026-07-01 against application commit `9553624907808ffa4a7b42886d56b666e1dd6d97`; the latest release-ticket-only commit is `83c9ccdf3a05a1bef66d534bd7bb4a703406df3d`:
+Completed locally in this Codex session on 2026-07-01 against application commit `9553624907808ffa4a7b42886d56b666e1dd6d97`; latest `master` also includes release-ticket-only metadata commits:
 
 ```bash
 node --import tsx --test "apps/portal/src/components/{GridDashboard,SidePanelControl,Table}/__tests__/*.test.tsx" apps/portal/src/lib/__tests__/wallet-dashboard-contracts.test.ts
@@ -218,7 +219,7 @@ Results:
 - Backend Go tests passed across `apps/backend_api`.
 - Next.js production build passed.
 - Deployment shell syntax checks passed for the release deployment scripts.
-- `master` was pushed to `origin/master` at `83c9ccdf3a05a1bef66d534bd7bb4a703406df3d`.
+- `master` was pushed to `origin/master` with the application commit and release-ticket metadata commits.
 
 Production public health check from this workstation:
 
@@ -243,7 +244,7 @@ Additional validation required before production deployment:
 
 ## Production Blockers
 
-- Explicit production approval is missing. Approval must name environment `production`, source commit `83c9ccdf3a05a1bef66d534bd7bb4a703406df3d`, migration plan, config changes, and rollback plan.
+- Explicit production approval is missing. Approval must name environment `production`, application source commit `9553624907808ffa4a7b42886d56b666e1dd6d97`, migration plan, config changes, and rollback plan.
 - Production DNS and health checks could not be verified from this workstation because `rollfinders.com` did not resolve locally.
 - Production image artifacts and digests have not been built or recorded.
 - Production Terraform plan has not been reviewed.
@@ -252,7 +253,7 @@ Additional validation required before production deployment:
 ## Acceptance Criteria
 
 - WHEN this ticket is reviewed, THEN the release candidate source commit and deployment target are clear.
-- WHEN production approval is requested, THEN it names commit `83c9ccdf3a05a1bef66d534bd7bb4a703406df3d`, migration plan, config changes, and rollback plan.
+- WHEN production approval is requested, THEN it names application commit `9553624907808ffa4a7b42886d56b666e1dd6d97`, migration plan, config changes, and rollback plan.
 - WHEN production deployment runs, THEN it uses immutable image URIs and records image digests.
 - WHEN deployment completes, THEN production health, dashboard, wallet, payment, and users smoke checks pass.
 - WHEN any production gate fails, THEN rollback steps are followed and evidence is recorded.
