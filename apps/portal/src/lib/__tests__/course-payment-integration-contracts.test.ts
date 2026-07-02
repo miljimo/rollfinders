@@ -225,8 +225,8 @@ describe("course payment service integration", () => {
 
     const settingsSource = dashboardSource.match(/function PaymentsSettingsView[\s\S]*?function PaymentsPanel/)?.[0] ?? "";
     assert.notEqual(settingsSource, "", "Expected PaymentsSettingsView source to be present");
-    assert.match(settingsSource, /\/api\/payments\/stripe-connect\?owner=\$\{ownerQuery\}/);
-    assert.match(settingsSource, /<form action=\{`\/api\/payments\/stripe-connect\/disconnect\?owner=\$\{ownerQuery\}`\} method="post">/);
+    assert.doesNotMatch(settingsSource, /\/api\/payments\/stripe-connect/);
+    assert.doesNotMatch(settingsSource, /Set Up Stripe Connect|Manage Stripe Account|Disconnect Payment Account|Danger Zone/);
     assert.doesNotMatch(settingsSource, /<Button href=\{`\/api\/payments\/stripe-connect\/disconnect/);
     assert.doesNotMatch(settingsSource, /Stripe API Key/i);
     assert.doesNotMatch(settingsSource, /name=["'](?:api|secret|key|publishable)/i);
@@ -286,7 +286,6 @@ describe("course payment service integration", () => {
     assert.match(servicePersistenceSource, /account\.DetailsSubmitted && chargesEnabled && payoutsEnabled/);
     assert.match(dashboardSource, /rollfindersPlatformPaymentAccountStatus/);
     assert.match(dashboardSource, /fallback:\s*academyAdmin \? null : rollfindersPlatformPaymentAccountStatus\(\)/);
-    assert.match(dashboardSource, /const ownerQuery = academyAdmin \? "academy" : "platform"/);
   });
 
   it("hides platform payment revenue metrics from academy admins", () => {

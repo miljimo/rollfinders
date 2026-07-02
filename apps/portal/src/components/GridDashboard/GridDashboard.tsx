@@ -1,24 +1,9 @@
 "use client";
 
-import { clsx } from "clsx";
 import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { GridItemDashboard, type GridDashboardItem } from "./GridItemDashboard";
-
-const cardSizeClasses = [
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-3",
-  "md:col-span-6 xl:col-span-4",
-  "md:col-span-6 xl:col-span-4",
-  "md:col-span-6 xl:col-span-4",
-];
 
 export function GridDashboard({ items }: { items: GridDashboardItem[] }) {
   const [search, setSearch] = useState("");
@@ -43,16 +28,15 @@ export function GridDashboard({ items }: { items: GridDashboardItem[] }) {
           />
         </label>
       </div>
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-12 xl:gap-6">
-        {filteredItems.map((item, index) => (
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-5 xl:gap-6">
+        {filteredItems.map((item) => (
           <GridItemDashboard
             key={item.href}
             item={item}
-            className={clsx(cardSizeClasses[index % cardSizeClasses.length])}
           />
         ))}
         {!filteredItems.length ? (
-          <p className="rounded-lg border border-stone-200 bg-white p-7 text-lg font-semibold text-slate-600 md:col-span-12">
+          <p className="rounded-lg border border-stone-200 bg-white p-7 text-lg font-semibold text-slate-600">
             No apps found.
           </p>
         ) : null}

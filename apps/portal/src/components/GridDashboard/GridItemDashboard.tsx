@@ -21,18 +21,18 @@ export function GridItemDashboard({ className, item }: GridItemDashboardProps) {
     <Link
       href={item.href}
       className={clsx(
-        "group relative flex min-h-52 items-center gap-6 rounded-lg border border-stone-200 bg-white p-7 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
+        "group flex min-h-52 items-center gap-5 rounded-lg border border-stone-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2 sm:gap-6 sm:p-7",
         className,
       )}
     >
       <span className="grid size-20 shrink-0 place-items-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100 transition group-hover:bg-teal-100">
         <Icon name={item.icon} size={34} className="shrink-0" />
       </span>
-      <span className="min-w-0">
-        <span className="block text-2xl font-black text-slate-950">{item.label}</span>
-        <span className="mt-3 block max-w-72 text-lg font-medium leading-8 text-slate-600">{item.description}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xl font-black leading-tight text-slate-950 [overflow-wrap:anywhere] sm:text-2xl">{item.label}</span>
+        <span className="mt-3 block text-base font-medium leading-7 text-slate-600 [overflow-wrap:anywhere] sm:text-lg sm:leading-8">{item.description}</span>
       </span>
-      <ChevronRight size={28} className="absolute bottom-10 right-8 text-teal-700 transition group-hover:translate-x-1" aria-hidden />
+      <ChevronRight size={28} className="shrink-0 self-end text-teal-700 transition group-hover:translate-x-1" aria-hidden />
     </Link>
   );
 }

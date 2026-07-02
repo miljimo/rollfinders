@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { clsx } from "clsx";
-import { ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Landmark, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Tag, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "../map/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-domain-data";
@@ -573,8 +573,6 @@ export default async function AdminDashboardWorkspace({
   const walletDialog = firstParam(params.walletDialog);
   const walletActionError = firstParam(params.walletError);
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
-  const stripeConnectMessage = firstParam(params.stripeConnect);
-  const stripeConnectError = firstParam(params.stripeConnectError);
   const paymentSettingsMessage = firstParam(params.paymentSettingsMessage);
   const paymentSettingsError = firstParam(params.paymentSettingsError);
   const bookingActionError = firstParam(params.bookingActionError);
@@ -1294,7 +1292,7 @@ export default async function AdminDashboardWorkspace({
           {panel === "payments" ? (
             <AdminPanel
               action={paymentsView === "payouts" ? null : <PaymentsDashboardActions payments={paymentResult.payments} />}
-              description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : paymentsView === "settings" ? academyAdmin ? "Set up and manage the academy payout account." : "Manage the RollFinders payment account and platform payment setup." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
+              description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : paymentsView === "settings" ? academyAdmin ? "Review academy payment settings." : "Manage platform payment fees and settings." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
               search={paymentsView === "overview" ? <PaymentsPanelSearch search={paymentsSearch} /> : null}
               title={paymentsView === "transactions" ? "Transactions" : paymentsView === "earnings" ? "Earnings" : paymentsView === "refunds" ? "Refunds" : paymentsView === "payouts" ? "Payouts" : paymentsView === "settings" ? "Payment Settings" : "Payments Dashboard"}
@@ -1309,8 +1307,6 @@ export default async function AdminDashboardWorkspace({
                 result={paymentResult}
                 search={paymentsSearch}
                 searchParams={params}
-                stripeConnectError={stripeConnectError}
-                stripeConnectMessage={stripeConnectMessage}
                 paymentSettingsError={effectivePaymentSettingsError}
                 paymentSettingsMessage={paymentSettingsMessage}
                 view={paymentsView}
@@ -2058,21 +2054,25 @@ function walletOwnerPickerHref(params: AdminSearchParams, ownerId: string) {
 function WalletDetailsDialog({ closeHref, linkedAccount, wallet }: { closeHref: string; linkedAccount?: LinkedWalletAccount; wallet: WalletRecord }) {
   const canLinkExternalAccount = wallet.walletType === "external" && !linkedAccount;
   const canContinueStripeConnect = wallet.walletType === "external" && linkedAccount?.provider === "STRIPE" && linkedAccount.status === "PENDING";
-  const rows = [
-    { label: "Wallet ID", value: wallet.id },
-    { label: "Wallet Type", value: wallet.walletType },
-    { label: "Owner ID", value: wallet.ownerId },
-    { label: "Currency", value: wallet.currency },
-    { label: "Status", value: wallet.status },
-    { label: "Linked Account", value: linkedAccount ? linkedAccount.displayName || linkedAccount.provider : wallet.walletType === "external" ? "Not linked" : "Internal wallet" },
-    { label: "Provider Account", value: linkedAccount?.providerAccountId || "None" },
-    { label: "Connected Wallets", value: linkedAccount ? String(linkedAccount.connectedWalletCount) : "None" },
-    { label: "Created", value: formatDate(wallet.createdAt) },
-    { label: "Updated", value: formatDate(wallet.updatedAt) },
+  const providerLabel = linkedAccount?.displayName || linkedAccount?.provider || "Not linked";
+  const walletInfoRows = [
+    { icon: <Wallet size={22} aria-hidden />, label: "Wallet ID", value: wallet.id, tone: "blue" },
+    { icon: <Tag size={22} aria-hidden />, label: "Wallet Type", value: titleCase(wallet.walletType), tone: "purple", badge: true },
+    { icon: <User size={22} aria-hidden />, label: "Owner ID", value: wallet.ownerId, tone: "blue" },
+    { icon: <CreditCard size={22} aria-hidden />, label: "Currency", value: wallet.currency, tone: "green" },
+    { icon: <Activity size={22} aria-hidden />, label: "Status", value: titleCase(wallet.status), tone: "green", badge: true },
+    { icon: <CalendarDays size={22} aria-hidden />, label: "Created", value: formatDate(wallet.createdAt), tone: "blue" },
+    { icon: <Clock size={22} aria-hidden />, label: "Updated", value: formatDate(wallet.updatedAt), tone: "blue" },
   ];
+  const linkedAccountRows = linkedAccount ? [
+    { icon: <Landmark size={22} aria-hidden />, label: "Linked Account / Provider", value: providerLabel },
+    { icon: <User size={22} aria-hidden />, label: "Provider Account", value: linkedAccount.providerAccountId || linkedAccount.externalReference || "None" },
+    { icon: <Activity size={22} aria-hidden />, label: "Provider Status", value: titleCase(linkedAccount.status), badge: true },
+    { icon: <Link2 size={22} aria-hidden />, label: "Connection Type", value: linkedAccount.connectionType },
+  ] : [];
 
   return (
-    <DialogShell closeHref={closeHref} description="Review wallet owner, type, currency, and status." title="Wallet Details">
+    <DialogShell closeHref={closeHref} description="Review wallet owner, type, currency, and status." maxWidthClass="max-w-6xl" title="Wallet Details">
       {canLinkExternalAccount ? (
         <div className="mt-5 flex justify-end">
           <Button href={`/dashboard/wallet/${encodeURIComponent(wallet.id)}/link-account`} variant="primary">
@@ -2089,16 +2089,72 @@ function WalletDetailsDialog({ closeHref, linkedAccount, wallet }: { closeHref: 
           </Button>
         </div>
       ) : null}
-      <dl className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        {rows.map((row) => (
-          <div key={row.label} className="grid gap-1 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-4">
-            <dt className="text-sm font-black text-stone-600">{row.label}</dt>
-            <dd className="break-all text-sm font-semibold text-slate-950">{row.value}</dd>
+      <section className="mt-5 rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-700">
+            <Info size={23} aria-hidden />
+          </span>
+          <h3 className="text-xl font-black text-slate-950">Wallet Information</h3>
+        </div>
+        <dl className="mt-5 grid md:grid-cols-2">
+          {walletInfoRows.map((row, index) => (
+            <WalletDetailsRow key={row.label} icon={row.icon} label={row.label} tone={row.tone} value={row.badge ? <WalletDetailsBadge status={String(row.value)} /> : row.value} className={clsx(index % 2 === 0 ? "md:border-r md:pr-5" : "md:pl-5", index > 1 && "border-t")} />
+          ))}
+        </dl>
+      </section>
+      {wallet.walletType === "external" && linkedAccount ? (
+        <section className="mt-5 rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-md bg-violet-50 text-violet-700">
+              <Link2 size={23} aria-hidden />
+            </span>
+            <h3 className="text-xl font-black text-slate-950">Linked Accounts</h3>
           </div>
-        ))}
-      </dl>
+          <dl className="mt-5 grid gap-0">
+            {linkedAccountRows.map((row) => (
+              <WalletDetailsRow key={row.label} icon={row.icon} label={row.label} tone="purple" value={row.badge ? <WalletDetailsBadge status={String(row.value)} /> : row.value} />
+            ))}
+          </dl>
+        </section>
+      ) : null}
     </DialogShell>
   );
+}
+
+function WalletDetailsRow({ className, icon, label, tone, value }: { className?: string; icon: ReactNode; label: string; tone: string; value: ReactNode }) {
+  return (
+    <div className={clsx("grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-3 border-b border-stone-100 py-4 last:border-b-0", className)}>
+      <span className={clsx("inline-flex size-11 shrink-0 items-center justify-center rounded-md", walletDetailsIconToneClass(tone))}>
+        {icon}
+      </span>
+      <div className="grid gap-1 sm:grid-cols-[minmax(9rem,0.8fr)_minmax(0,1.2fr)] sm:items-center">
+        <dt className="text-sm font-bold text-slate-600">{label}</dt>
+        <dd className="min-w-0 break-all text-sm font-black text-slate-950 sm:text-right">{value}</dd>
+      </div>
+    </div>
+  );
+}
+
+function WalletDetailsBadge({ status }: { status: string }) {
+  return <span className={clsx("inline-flex min-h-8 items-center justify-center rounded-full px-4 text-sm font-black", walletDetailsBadgeClass(status))}>{status}</span>;
+}
+
+function walletDetailsIconToneClass(tone: string) {
+  if (tone === "green") return "bg-emerald-50 text-emerald-700";
+  if (tone === "purple") return "bg-violet-50 text-violet-700";
+  return "bg-blue-50 text-blue-700";
+}
+
+function walletDetailsBadgeClass(status: string) {
+  const value = status.toLowerCase();
+  if (value === "active" || value === "connected") return "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100";
+  if (value === "pending" || value === "inactive") return "bg-amber-50 text-amber-800 ring-1 ring-amber-100";
+  if (value === "failed" || value === "disabled") return "bg-red-50 text-red-800 ring-1 ring-red-100";
+  return "bg-violet-50 text-violet-800 ring-1 ring-violet-100";
+}
+
+function titleCase(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : value;
 }
 
 function DisconnectWalletLinkedAccountDialog({ closeHref, linkedAccount, wallet }: { closeHref: string; linkedAccount: LinkedWalletAccount; wallet: WalletRecord }) {
@@ -3856,42 +3912,22 @@ function PaymentsPayoutsView({
 
 function PaymentsSettingsView({
   academyAdmin,
-  paymentAccountSetting,
   paymentPlatformSettings,
   paymentSettingsError,
   paymentSettingsMessage,
-  stripeConnectError,
-  stripeConnectMessage,
 }: {
   academyAdmin: boolean;
-  paymentAccountSetting: PaymentAccountSettingView | null;
   paymentPlatformSettings: PaymentPlatformSettings;
   paymentSettingsError?: string;
   paymentSettingsMessage?: string;
-  stripeConnectError?: string;
-  stripeConnectMessage?: string;
 }) {
-  const connected = Boolean(paymentAccountSetting?.providerAccountId);
-  const verified = connected && paymentAccountSetting?.status === "verified";
-  const ownerQuery = academyAdmin ? "academy" : "platform";
-  const accountName = academyAdmin ? "Academy Stripe Connect" : "RollFinders Stripe Connect";
-  const manageLabel = connected ? "Manage Stripe Account" : "Set Up Stripe Connect";
-  const accountDescription = academyAdmin ? "Connected payout account" : "Connected platform account";
   const platformFeePercent = platformFeePercentage(paymentPlatformSettings);
   const fixedPlatformFee = paymentPlatformSettings.platformFeeFixedMinor / 100;
   const settingsNotice = paymentSettingsError
     ? { tone: "error", text: paymentSettingsError }
-    : stripeConnectError
-      ? { tone: "error", text: stripeConnectError }
-      : paymentSettingsMessage === "platform-fees-updated"
+    : paymentSettingsMessage === "platform-fees-updated"
         ? { tone: "success", text: "Platform fees have been updated." }
-        : stripeConnectMessage === "connected"
-          ? { tone: "success", text: "Stripe account setup was completed and the account status has been refreshed." }
-          : stripeConnectMessage === "refreshed"
-            ? { tone: "success", text: "Stripe account status has been refreshed." }
-            : stripeConnectMessage === "disconnected"
-              ? { tone: "success", text: "Stripe account has been disconnected from RollFinders." }
-              : null;
+        : null;
 
   return (
     <div className="grid gap-5">
@@ -3905,38 +3941,6 @@ function PaymentsSettingsView({
           {settingsNotice.text}
         </div>
       ) : null}
-      <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-        <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr_0.8fr_0.8fr_auto] xl:items-center">
-          <div className="flex min-w-0 items-center gap-4">
-            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-gradient-to-br from-indigo-500 to-teal-600 text-3xl font-black text-white" aria-hidden>
-              S
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
-                <h3 className="text-xl font-black text-slate-950">{accountName}</h3>
-                <span className={clsx("rounded-md px-2 py-1 text-xs font-black ring-1", verified ? "bg-teal-50 text-teal-800 ring-teal-100" : "bg-amber-50 text-amber-800 ring-amber-100")}>
-                  {verified ? "Verified" : connected ? "Verification Required" : "Setup required"}
-                </span>
-              </div>
-              <p className="mt-1 text-sm font-semibold text-slate-500">{accountDescription}</p>
-            </div>
-          </div>
-          {[
-            { label: "Payouts", status: paymentAccountSetting?.payoutsEnabled ? "Enabled" : "Pending", helper: paymentAccountSetting?.payoutsEnabled ? "Payouts are active" : "Connect Stripe to enable payouts" },
-            { label: "Charges", status: paymentAccountSetting?.chargesEnabled ? "Enabled" : "Pending", helper: paymentAccountSetting?.chargesEnabled ? "You can accept payments" : "Payment acceptance is paused" },
-            { label: "Account", status: verified ? "Verified" : "Incomplete", helper: verified ? "All good to go" : "Finish Stripe onboarding" },
-          ].map((item) => (
-            <div key={item.label} className="border-stone-200 xl:border-l xl:pl-6">
-              <p className="text-sm font-black text-slate-950">{item.label}</p>
-              <p className={clsx("mt-2 text-sm font-black", item.status === "Enabled" || item.status === "Verified" ? "text-teal-800" : "text-amber-700")}>• {item.status}</p>
-              <p className="mt-2 text-sm font-semibold text-slate-500">{item.helper}</p>
-            </div>
-          ))}
-          <Button href={`/api/payments/stripe-connect?owner=${ownerQuery}`} variant="secondary">
-            {manageLabel}
-          </Button>
-        </div>
-      </section>
 
       {!academyAdmin ? (
         <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
@@ -3944,7 +3948,7 @@ function PaymentsSettingsView({
             <div>
               <h3 className="text-xl font-black text-slate-950">Platform Fees</h3>
               <p className="mt-1 text-sm font-semibold text-slate-600">
-                These fees are applied to academy Stripe Connect payments before the academy payout amount is calculated.
+                These fees are applied to academy payments before the academy payout amount is calculated.
               </p>
               <dl className="mt-5 grid gap-3 text-sm font-semibold text-slate-600">
                 <div className="flex justify-between gap-4">
@@ -3991,23 +3995,6 @@ function PaymentsSettingsView({
           </div>
         </section>
       ) : null}
-
-      <section className="rounded-lg border border-red-100 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-          <span className="grid h-12 w-12 place-items-center rounded-full bg-red-50 text-red-600 ring-1 ring-red-100" aria-hidden>
-            <Trash2 size={24} />
-          </span>
-          <div>
-            <h3 className="text-lg font-black text-slate-950">Danger Zone</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-600">Permanently disconnect your payment account. This action cannot be undone.</p>
-          </div>
-          <form action={`/api/payments/stripe-connect/disconnect?owner=${ownerQuery}`} method="post">
-            <Button type="submit" variant="danger">
-              Disconnect Payment Account
-            </Button>
-          </form>
-        </div>
-      </section>
     </div>
   );
 }
@@ -4028,8 +4015,6 @@ function PaymentsPanel({
   result,
   search,
   searchParams,
-  stripeConnectError,
-  stripeConnectMessage,
   view,
 }: {
   academyAdmin: boolean;
@@ -4043,8 +4028,6 @@ function PaymentsPanel({
   result: DashboardPaymentsResult;
   search: string;
   searchParams: AdminSearchParams;
-  stripeConnectError?: string;
-  stripeConnectMessage?: string;
   view: string;
 }) {
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
@@ -4106,12 +4089,9 @@ function PaymentsPanel({
     return (
       <PaymentsSettingsView
         academyAdmin={academyAdmin}
-        paymentAccountSetting={paymentAccountSetting}
         paymentPlatformSettings={paymentPlatformSettings}
         paymentSettingsError={paymentSettingsError}
         paymentSettingsMessage={paymentSettingsMessage}
-        stripeConnectError={stripeConnectError}
-        stripeConnectMessage={stripeConnectMessage}
       />
     );
   }
