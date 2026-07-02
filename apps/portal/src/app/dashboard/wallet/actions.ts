@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentUser } from "@/lib/admin";
 import { authorize } from "@/lib/authorisation-service";
-import { createWallet, createWalletTransfer, type WalletCurrency, type WalletType } from "@/lib/wallet-service";
+import { createLinkedWalletAccount, createWallet, createWalletTransfer, type LinkedAccountConnectionType, type LinkedAccountProvider, type WalletCurrency, type WalletType } from "@/lib/wallet-service";
 
 const walletTypes = new Set<WalletType>(["internal", "external"]);
 const walletCurrencies = new Set<WalletCurrency>(["GBP", "Points"]);
@@ -88,6 +88,55 @@ export async function createDashboardWalletTransfer(formData: FormData) {
     params.set("walletResult", "transfer-created");
   } catch (error) {
     params.set("walletResult", "transfer-failed");
+    if (error instanceof Error) params.set("walletError", error.message);
+  }
+
+  revalidatePath("/dashboard/wallet");
+  redirect(`${redirectUrl.pathname}?${params.toString()}`);
+}
+
+export async function disconnectDashboardWalletLinkedAccount(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const returnTo = safeWalletReturnPath(String(formData.get("returnTo") ?? "/dashboard/wallet"));
+  const redirectUrl = new URL(returnTo, "http://localhost");
+  const params = redirectUrl.searchParams;
+  params.delete("walletDialog");
+  params.delete("walletError");
+  params.delete("walletResult");
+
+  const walletId = String(formData.get("walletId") ?? "").trim();
+  const provider = String(formData.get("provider") ?? "").trim().toUpperCase() as LinkedAccountProvider;
+  const providerAccountId = String(formData.get("providerAccountId") ?? "").trim();
+  const connectionType = String(formData.get("connectionType") ?? "").trim().toUpperCase() as LinkedAccountConnectionType;
+  const displayName = String(formData.get("displayName") ?? "").trim();
+  const externalReference = String(formData.get("externalReference") ?? "").trim();
+  const currencyValue = String(formData.get("currency") ?? "GBP").trim();
+  const currency = (currencyValue.toLowerCase() === "points" ? "Points" : currencyValue.toUpperCase()) as WalletCurrency;
+
+  if (!walletId || !provider || !connectionType || !walletCurrencies.has(currency)) {
+    params.set("walletResult", "disconnect-invalid");
+    params.set("walletError", "Wallet linked account could not be disconnected.");
+    redirect(`${redirectUrl.pathname}?${params.toString()}`);
+  }
+
+  try {
+    await createLinkedWalletAccount({
+      accessToken: user.accessToken,
+      actorUserId: user.id,
+      walletId,
+      provider,
+      providerAccountId,
+      connectionType,
+      status: "DISABLED",
+      displayName,
+      externalReference,
+      currency,
+    });
+    params.set("walletResult", "linked-account-disconnected");
+  } catch (error) {
+    params.set("walletResult", "disconnect-failed");
     if (error instanceof Error) params.set("walletError", error.message);
   }
 

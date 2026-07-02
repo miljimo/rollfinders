@@ -5,6 +5,7 @@ import { Button } from "@/components/Button";
 import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
 import type { LinkedWalletAccount, WalletPaginationMeta, WalletRecord, WalletTransaction } from "@/lib/wallet-service";
 import { ActionMenu } from "../../admin/ActionMenu";
+import { disconnectDashboardWalletLinkedAccount } from "./actions";
 
 type WalletDashboardSearchParams = Record<string, string | string[] | undefined>;
 type WalletDashboardView = "dashboard" | "transactions";
@@ -69,7 +70,7 @@ export function WalletDashboard({
   const rows = wallets.map((wallet) => {
     return {
       ...wallet,
-      linkedAccount: linkedAccounts.find((account) => account.walletId === wallet.id),
+      linkedAccount: linkedAccounts.find((account) => account.walletId === wallet.id && account.status !== "DISABLED"),
     };
   });
   const page = Math.floor(pagination.offset / Math.max(1, pagination.limit)) + 1;
@@ -195,6 +196,7 @@ function TransactionActionMenu({ transaction }: { transaction: WalletTransaction
 function WalletActionMenu({ wallet }: { wallet: WalletRow }) {
   const externalWalletWithoutAccount = wallet.walletType === "external" && !wallet.linkedAccount;
   const pendingStripeAccount = isPendingStripeLinkedAccount(wallet.linkedAccount);
+  const canDisconnectLinkedAccount = wallet.walletType === "external" && !!wallet.linkedAccount;
 
   return (
     <ActionMenu
@@ -214,6 +216,21 @@ function WalletActionMenu({ wallet }: { wallet: WalletRow }) {
         <Link href={walletLinkAccountHref(wallet)} className={walletMenuItemClass} role="menuitem">
           Continue Stripe Connect
         </Link>
+      ) : null}
+      {canDisconnectLinkedAccount && wallet.linkedAccount ? (
+        <form action={disconnectDashboardWalletLinkedAccount}>
+          <input type="hidden" name="returnTo" value="/dashboard/wallet" />
+          <input type="hidden" name="walletId" value={wallet.id} />
+          <input type="hidden" name="provider" value={wallet.linkedAccount.provider} />
+          <input type="hidden" name="providerAccountId" value={wallet.linkedAccount.providerAccountId} />
+          <input type="hidden" name="connectionType" value={wallet.linkedAccount.connectionType} />
+          <input type="hidden" name="displayName" value={wallet.linkedAccount.displayName} />
+          <input type="hidden" name="externalReference" value={wallet.linkedAccount.externalReference} />
+          <input type="hidden" name="currency" value={wallet.currency} />
+          <button type="submit" className={walletMenuItemClass} role="menuitem">
+            Disconnect Linked Account
+          </button>
+        </form>
       ) : null}
     </ActionMenu>
   );

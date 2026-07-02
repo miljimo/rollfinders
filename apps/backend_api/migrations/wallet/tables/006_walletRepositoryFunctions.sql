@@ -202,6 +202,11 @@ BEGIN
         SET status = 'active',
             updated_at = p_updated_at
         WHERE wallet.wallets.id = p_wallet_id;
+    ELSIF p_status IN ('DISABLED', 'FAILED') THEN
+        UPDATE wallet.wallets
+        SET status = 'inactive',
+            updated_at = p_updated_at
+        WHERE wallet.wallets.id = p_wallet_id;
     END IF;
 
     RETURN QUERY
