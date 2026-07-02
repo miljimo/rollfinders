@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser } from "@/lib/admin";
+import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { authorize } from "@/lib/authorisation-service";
+import { disconnectStripePaymentAccountSetting } from "@/lib/payments";
 import { createLinkedWalletAccount, createWallet, createWalletTransfer, type LinkedAccountConnectionType, type LinkedAccountProvider, type WalletCurrency, type WalletType } from "@/lib/wallet-service";
 
 const walletTypes = new Set<WalletType>(["internal", "external"]);
@@ -122,6 +123,16 @@ export async function disconnectDashboardWalletLinkedAccount(formData: FormData)
   }
 
   try {
+    if (provider === "STRIPE") {
+      const ownerType = user.academyId && !isPlatformAdminRole(user.role) ? "academy" : "platform";
+      await disconnectStripePaymentAccountSetting({
+        accessToken: user.accessToken,
+        actorUserId: user.id,
+        organisationId: user.academyId,
+        ownerId: ownerType === "academy" ? user.academyId! : "rollfinders",
+        ownerType,
+      });
+    }
     await createLinkedWalletAccount({
       accessToken: user.accessToken,
       actorUserId: user.id,

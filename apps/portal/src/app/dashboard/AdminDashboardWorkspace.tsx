@@ -71,7 +71,7 @@ import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/book
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 import { WalletTransfer } from "./wallet/WalletTransfer";
-import { createDashboardWallet, createDashboardWalletTransfer } from "./wallet/actions";
+import { createDashboardWallet, createDashboardWalletTransfer, disconnectDashboardWalletLinkedAccount } from "./wallet/actions";
 import { selectedWallet, selectedWalletTransaction, transactionDetailsCloseHref, walletDetailsCloseHref, WalletDashboard } from "./wallet/WalletDashboard";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
@@ -838,11 +838,11 @@ export default async function AdminDashboardWorkspace({
   const selectedWalletTransactionForDialog = panel === "wallet" && walletView === "transactions" && walletDialog === "transaction-details"
     ? selectedWalletTransaction(walletResult.transactions, params)
     : null;
-  const selectedWalletForDialog = panel === "wallet" && walletView === "dashboard" && walletDialog === "wallet-details"
+  const selectedWalletForDialog = panel === "wallet" && walletView === "dashboard" && (walletDialog === "wallet-details" || walletDialog === "disconnect-linked-account")
     ? selectedWallet(walletResult.wallets, params)
     : null;
   const selectedWalletLinkedAccount = selectedWalletForDialog
-    ? walletResult.linkedAccounts.find((account) => account.walletId === selectedWalletForDialog.id)
+    ? walletResult.linkedAccounts.find((account) => account.walletId === selectedWalletForDialog.id && account.status !== "DISABLED")
     : undefined;
   const selectedDialogAcademy = panel === "academies" && (dialog === "view-academy" || dialog === "edit-academy") && academyDialogId
     ? await (async () => {
@@ -1467,6 +1467,9 @@ export default async function AdminDashboardWorkspace({
       ) : null}
       {panel === "wallet" && walletView === "dashboard" && walletDialog === "wallet-details" && selectedWalletForDialog ? (
         <WalletDetailsDialog closeHref={walletDetailsCloseHref(params)} linkedAccount={selectedWalletLinkedAccount} wallet={selectedWalletForDialog} />
+      ) : null}
+      {panel === "wallet" && walletView === "dashboard" && walletDialog === "disconnect-linked-account" && selectedWalletForDialog && selectedWalletLinkedAccount ? (
+        <DisconnectWalletLinkedAccountDialog closeHref={walletDetailsCloseHref(params)} linkedAccount={selectedWalletLinkedAccount} wallet={selectedWalletForDialog} />
       ) : null}
       {panel === "wallet" && walletView === "transactions" && walletDialog === "transaction-details" && selectedWalletTransactionForDialog ? (
         <WalletTransactionDetailsDialog closeHref={transactionDetailsCloseHref(params)} transaction={selectedWalletTransactionForDialog} />
@@ -2093,6 +2096,51 @@ function WalletDetailsDialog({ closeHref, linkedAccount, wallet }: { closeHref: 
           </div>
         ))}
       </dl>
+    </DialogShell>
+  );
+}
+
+function DisconnectWalletLinkedAccountDialog({ closeHref, linkedAccount, wallet }: { closeHref: string; linkedAccount: LinkedWalletAccount; wallet: WalletRecord }) {
+  const providerLabel = linkedAccount.displayName || linkedAccount.provider;
+  const providerAccount = linkedAccount.providerAccountId || linkedAccount.externalReference || "Not available";
+
+  return (
+    <DialogShell closeHref={closeHref} description="Review the impact before disconnecting this external wallet account." title="Disconnect Linked Account">
+      <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-950">
+        Disconnecting this linked account will disconnect {providerLabel} from the payment service and disable the wallet link. The external wallet will become inactive until a provider account is linked again.
+      </div>
+      <dl className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+        {[
+          { label: "Wallet ID", value: wallet.id },
+          { label: "Wallet Status", value: wallet.status },
+          { label: "Linked Account", value: providerLabel },
+          { label: "Provider", value: linkedAccount.provider },
+          { label: "Provider Account", value: providerAccount },
+          { label: "Connection Type", value: linkedAccount.connectionType },
+        ].map((row) => (
+          <div key={row.label} className="grid gap-1 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-4">
+            <dt className="text-sm font-black text-stone-600">{row.label}</dt>
+            <dd className="break-all text-sm font-semibold text-slate-950">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <form action={disconnectDashboardWalletLinkedAccount} className="mt-5 flex flex-wrap justify-end gap-3 border-t border-stone-200 pt-4">
+        <input type="hidden" name="returnTo" value="/dashboard/wallet" />
+        <input type="hidden" name="walletId" value={wallet.id} />
+        <input type="hidden" name="provider" value={linkedAccount.provider} />
+        <input type="hidden" name="providerAccountId" value={linkedAccount.providerAccountId} />
+        <input type="hidden" name="connectionType" value={linkedAccount.connectionType} />
+        <input type="hidden" name="displayName" value={linkedAccount.displayName} />
+        <input type="hidden" name="externalReference" value={linkedAccount.externalReference} />
+        <input type="hidden" name="currency" value={wallet.currency} />
+        <Button href={closeHref} variant="secondary">
+          Cancel
+        </Button>
+        <Button type="submit" variant="primary" className="bg-red-700 hover:bg-red-800">
+          <Ban size={18} aria-hidden />
+          Disconnect Account
+        </Button>
+      </form>
     </DialogShell>
   );
 }

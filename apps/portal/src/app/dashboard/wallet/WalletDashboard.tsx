@@ -5,7 +5,6 @@ import { Button } from "@/components/Button";
 import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
 import type { LinkedWalletAccount, WalletPaginationMeta, WalletRecord, WalletTransaction } from "@/lib/wallet-service";
 import { ActionMenu } from "../../admin/ActionMenu";
-import { disconnectDashboardWalletLinkedAccount } from "./actions";
 
 type WalletDashboardSearchParams = Record<string, string | string[] | undefined>;
 type WalletDashboardView = "dashboard" | "transactions";
@@ -218,19 +217,9 @@ function WalletActionMenu({ wallet }: { wallet: WalletRow }) {
         </Link>
       ) : null}
       {canDisconnectLinkedAccount && wallet.linkedAccount ? (
-        <form action={disconnectDashboardWalletLinkedAccount}>
-          <input type="hidden" name="returnTo" value="/dashboard/wallet" />
-          <input type="hidden" name="walletId" value={wallet.id} />
-          <input type="hidden" name="provider" value={wallet.linkedAccount.provider} />
-          <input type="hidden" name="providerAccountId" value={wallet.linkedAccount.providerAccountId} />
-          <input type="hidden" name="connectionType" value={wallet.linkedAccount.connectionType} />
-          <input type="hidden" name="displayName" value={wallet.linkedAccount.displayName} />
-          <input type="hidden" name="externalReference" value={wallet.linkedAccount.externalReference} />
-          <input type="hidden" name="currency" value={wallet.currency} />
-          <button type="submit" className={walletMenuItemClass} role="menuitem">
-            Disconnect Linked Account
-          </button>
-        </form>
+        <Link href={walletDisconnectLinkedAccountHref(wallet.id)} className={walletMenuItemClass} role="menuitem">
+          Disconnect Linked Account
+        </Link>
       ) : null}
     </ActionMenu>
   );
@@ -352,6 +341,10 @@ function walletDetailsHref(searchParams: WalletDashboardSearchParams, walletId: 
 
 function walletLinkAccountHref(wallet: Pick<WalletRecord, "currency" | "id">) {
   return `/dashboard/wallet/${encodeURIComponent(wallet.id)}/link-account`;
+}
+
+function walletDisconnectLinkedAccountHref(walletId: string) {
+  return `/dashboard/wallet?walletDialog=disconnect-linked-account&walletId=${encodeURIComponent(walletId)}`;
 }
 
 function isPendingStripeLinkedAccount(account?: LinkedWalletAccount) {
