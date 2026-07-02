@@ -110,6 +110,29 @@ func StatementFromRow(row databases.DBRow) domain.Statement {
 	}
 }
 
+func ReservationFromFirst(rows databases.DBResults) (domain.Reservation, error) {
+	row, err := First(rows)
+	if err != nil {
+		return domain.Reservation{}, err
+	}
+	return ReservationFromRow(row), nil
+}
+
+func ReservationFromRow(row databases.DBRow) domain.Reservation {
+	return domain.Reservation{
+		ID:             String(row, "id"),
+		WalletID:       String(row, "wallet_id"),
+		Amount:         Int64(row, "amount"),
+		Currency:       domain.Currency(String(row, "currency")),
+		Status:         domain.ReservationStatus(String(row, "status")),
+		ReferenceType:  String(row, "reference_type"),
+		ReferenceID:    String(row, "reference_id"),
+		IdempotencyKey: String(row, "idempotency_key"),
+		CreatedAt:      Time(row, "created_at"),
+		UpdatedAt:      Time(row, "updated_at"),
+	}
+}
+
 func String(row databases.DBRow, key string) string {
 	value := row[key]
 	if value == nil {

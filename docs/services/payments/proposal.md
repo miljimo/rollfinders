@@ -12,11 +12,13 @@
 
 ## Purpose
 
-This proposal combines the Payment Service subscription billing and academy payout request requirements into one Payment Service proposal.
+This proposal defines the Payment Service as the provider-orchestration service for checkout, payment, refund, billing, provider account, webhook, and provider event state.
 
-The Payment Service is responsible for generic provider payment capabilities, including provider billing, recurring subscription payment records, invoices, payment lifecycle records, payout requests, payout approvals, payout settlement state, and provider webhook processing.
+The Payment Service is responsible for generic provider payment capabilities, including provider billing, recurring subscription payment records, invoices, payment lifecycle records, provider account onboarding, refund state, idempotency, provider webhook processing, and payment fact publication.
 
 The service must remain generic. RollFinders-specific catalogue, entitlement, plan, academy, and dashboard decisions must stay outside the Payment Service.
+
+Wallet Service is the financial ledger and balance source of truth. Transfer Service owns payout and withdrawal movement workflow records. Payment Service must not calculate spendable balances or own ledger settlement state.
 
 ---
 
@@ -30,10 +32,9 @@ Payment Service owns:
 * Invoices.
 * Failed payments and retry records.
 * Provider webhook state.
-* Payee payout destinations.
-* Payout request records.
-* Payout request approvals, holds, rejections, cancellations, and paid settlement state.
-* Payment and payout audit history.
+* Payment provider account onboarding and provider account status.
+* Payment, refund, and provider audit history.
+* Payment fact events such as `payment.succeeded`, `payment.refunded`, `payment.failed`, and provider-account status changes.
 
 Payment Service does not own:
 
@@ -47,8 +48,18 @@ Payment Service does not own:
 * Academy records.
 * API access decisions.
 * Service dashboard permissions.
+* Wallet balances.
+* Spendable, held, reserved, or paid payout balance calculations.
+* Wallet ledger entries.
+* Wallet reservations.
+* Payout or withdrawal transfer workflow records.
+* Payout approval, rejection, hold, release, or mark-paid state.
 
 RollFinders Subscription Service owns product catalogue, plan catalogue, subscriber records, plan changes, and active entitlements. When a paid subscription action needs money movement, Subscription Service requests Payment Service billing checkout and stores the returned payment or checkout reference.
+
+Wallet Service owns ledger posting for payment success, refund, commission, subscription, reward, and payout accounting. Payment Service emits provider-confirmed facts; the API/orchestration layer or event consumers call Wallet Service to credit, debit, reserve, release, or finalize wallet funds.
+
+Transfer Service owns transfer request records and lifecycle for wallet-to-wallet movements and wallet-to-external-account payout/withdrawal movements. Payment Service may execute provider payout APIs behind an adapter when asked by orchestration, but Transfer Service remains the workflow source of truth and Wallet Service remains the ledger source of truth.
 
 The public/gateway `/v1/subscriptions/...` route family is reserved for RollFinders Subscription Service subscription records and plan actions. Payment Service billing endpoints use `/v1/billing/subscriptions/...` to avoid duplicating or shadowing Subscription Service routes.
 
@@ -185,31 +196,34 @@ RollFinders must never call Stripe Billing directly.
 
 ---
 
-## Academy Payout Requests
+## Legacy Academy Payout Request APIs
 
 ### Purpose
 
-Production currently allows course, event, booking, and donation payments to be collected into the RollFinders platform account. RollFinders needs a controlled way for academies to request payout of eligible funds without giving academies direct access to the platform Stripe account.
+Production has legacy Payment Service payout request APIs for academy payout workflows. These APIs are transitional and must not be expanded as the canonical balance or payout workflow.
 
-This section defines the academy payout request workflow for the current platform-settlement model. It is compatible with the longer-term generic Payment Service model where an academy is a payee and future payments may settle directly to an academy Stripe Connect account.
+The target model is wallet-first:
+
+* Wallet Service calculates payee balance from ledger entries and active reservations.
+* Wallet Service reserves, releases, and finalizes funds.
+* Transfer Service records payout or withdrawal transfer requests and lifecycle.
+* Payment Service records provider state and may execute provider payout/refund APIs through provider adapters when orchestrated.
 
 ### Goals
 
-* Allow verified academies to request payout of eligible earnings.
-* Keep RollFinders as the financial system of record for payments, payout requests, approvals, and settlement status.
-* Allow Platform Admin and Super Admin users to approve, reject, hold, or mark payout requests as paid.
-* Prevent payout requests when an academy has no verified payout destination.
-* Prevent double payout of the same payment allocation.
-* Preserve an audit trail for every state change.
-* Keep business rules in the Payment Service, not the frontend.
+* Preserve existing Payment Service payout endpoints while callers migrate.
+* Mark Payment Service payee balance data as legacy.
+* Move new balance reads and payout eligibility checks to Wallet Service.
+* Move new payout/withdrawal workflow records to Transfer Service.
+* Keep provider-specific execution behind Payment Service provider adapters where needed.
 
 ### Non-Goals
 
-* Direct marketplace split payment implementation.
 * Raw bank-account collection in RollFinders.
 * Manual editing of Stripe balances.
 * Replacing provider reconciliation.
 * Giving academy users access to RollFinders Stripe dashboard.
+* Adding new payments-owned payout balance, settlement ledger, or approval workflow behavior.
 
 ### Roles
 
@@ -243,17 +257,17 @@ Can:
 
 ### Payout Eligibility
 
-The Payment Service must calculate available payout balance using payment records and ledger entries, not frontend totals.
+Wallet Service must calculate available payout balance using wallet ledger entries and active reservations, not frontend totals and not Payment Service payment aggregation.
 
 Eligible funds must satisfy all of the following:
 
-* Payment canonical status is `succeeded`.
-* Payment belongs to the requesting academy/payee.
-* Payment is not refunded, disputed, cancelled, or already fully allocated to a paid payout.
+* Wallet ledger reflects provider-confirmed payment success for the requesting academy/payee.
+* Wallet ledger reflects any platform commission, refund, reversal, dispute, or adjustment.
+* Funds are not already reserved by an active wallet reservation.
 * Refund windows, reserve periods, or configurable hold periods have passed when configured.
-* Academy payout destination is verified and enabled.
+* Academy payout destination is linked and enabled on the relevant wallet.
 * The requested amount is greater than or equal to the minimum payout amount.
-* The requested amount is less than or equal to available payout balance.
+* The requested amount is less than or equal to Wallet Service available balance.
 
 ### Payout Request Statuses
 
@@ -267,45 +281,43 @@ Eligible funds must satisfy all of the following:
 * `cancelled`
 * `failed`
 
-Status transitions must be enforced by the Payment Service.
+New payout/withdrawal status transitions must be enforced by Transfer Service. Existing Payment Service payout statuses are legacy compatibility only.
 
 ### Functional Requirements
 
 #### Academy Balance
 
-The Payment Service must expose academy/payee balance data:
+Wallet Service must expose academy/payee wallet balance data:
 
-* Gross paid.
-* Platform fees.
-* Refunds.
-* Disputes.
-* Held amount.
-* Pending payout requests.
-* Paid payouts.
-* Available payout amount.
+* Available balance.
+* Reserved balance.
+* Ledger balance.
+* Wallet transaction history.
+* Linked payout accounts.
+
+Payment Service `GET /v1/payees/{payee_id}/balances` is legacy compatibility. Its response must identify that it is not the canonical wallet balance.
 
 #### Create Payout Request
 
 Academy Admin can create a payout request for an amount up to the available payout balance.
 
-The service must:
+New payout creation must:
 
 * Validate academy ownership or trusted caller scope.
-* Validate payout destination readiness.
-* Calculate available balance server-side.
-* Reserve eligible ledger entries for the request.
-* Persist the request as `pending_review`.
-* Return the canonical payout request record.
-* Emit a payout request event.
+* Validate Wallet linked payout destination readiness.
+* Ask Wallet Service to reserve funds.
+* Persist the payout/withdrawal transfer request in Transfer Service.
+* Return the canonical transfer request record and wallet reservation reference.
+* Emit a transfer/payout request event.
 
 #### Approve Payout Request
 
 Platform Admin or Super Admin can approve a pending request.
 
-The service must:
+The workflow must:
 
 * Validate the request is still pending.
-* Recalculate the available reserved amount.
+* Keep the Wallet reservation active.
 * Move the request to `approved`.
 * Store approver, timestamp, and notes.
 * Emit a payout approved event.
@@ -314,10 +326,10 @@ The service must:
 
 Platform Admin or Super Admin can reject a pending or held request.
 
-The service must:
+The workflow must:
 
 * Require a rejection reason.
-* Release reserved ledger entries.
+* Ask Wallet Service to release the reservation.
 * Move the request to `rejected`.
 * Store actor, timestamp, and notes.
 * Emit a payout rejected event.
@@ -336,10 +348,10 @@ The service must:
 
 Platform Admin or Super Admin can mark an approved payout request as paid when payout has been completed through Stripe, bank transfer, or another provider process.
 
-The service must:
+The workflow must:
 
 * Require a provider or manual settlement reference.
-* Mark reserved ledger entries as settled.
+* Ask Wallet Service to finalize the reservation to the external linked wallet.
 * Move payout request to `paid`.
 * Store paid timestamp, actor, provider reference, and notes.
 * Emit a payout paid event.
@@ -348,9 +360,9 @@ The service must:
 
 Academy Admin can cancel only their own `pending_review` request.
 
-The service must:
+The workflow must:
 
-* Release reserved ledger entries.
+* Ask Wallet Service to release the reservation.
 * Move the request to `cancelled`.
 * Emit a payout cancelled event.
 
@@ -362,7 +374,7 @@ All routes must be versioned under `/v1`.
 
 `GET /v1/payees/{payee_id}/balances`
 
-Returns balance summary for a payee.
+Legacy compatibility endpoint. New callers must read Wallet Service balances instead.
 
 Filters:
 
@@ -375,7 +387,7 @@ Filters:
 
 `POST /v1/payees/{payee_id}/payout-requests`
 
-Creates a payout request.
+Legacy compatibility endpoint. New callers must create payout or withdrawal transfer requests through Transfer Service and Wallet Service reservation APIs.
 
 Request:
 
@@ -451,29 +463,30 @@ Application reads must use SQL functions.
 
 Procedure and function names must use camelCase.
 
-New tables should include:
+Legacy tables may exist for compatibility:
 
 * `payout_requests`
 * `payout_request_entries`
 * `payout_request_status_history`
 * `payout_request_audit_events`
 
-`payout_request_entries` must link each payout request to the payment allocation or settlement ledger entries being paid out.
+These tables must not be extended as the canonical ledger or balance model. Canonical balance state belongs in `wallet` schema tables, including wallet ledger entries and wallet reservations.
 
 ### RollFinders Integration
 
 RollFinders must map:
 
-* Academy to Payment Service payee.
-* Academy Stripe Connect account to payee payout destination.
+* Academy to Wallet owner/payee wallet.
+* Academy Stripe Connect account to Wallet linked payout account, with provider onboarding handled by Payment Service.
 * Course/event/donation payments to payment resources.
-* Academy admin payout dashboard to payout request APIs.
+* Academy admin payout dashboard balance reads to Wallet Service.
+* Academy admin payout and withdrawal requests to Transfer Service plus Wallet reservation APIs.
 
 The UI must:
 
 * Show available payout balance.
 * Show payout request history.
-* Let Academy Admin request payout only when the Payment Service says the account and balance are eligible.
+* Let Academy Admin request payout only when Wallet Service and Transfer Service say the account and balance are eligible.
 * Let Platform Admin and Super Admin approve, reject, hold, release, and mark paid.
 * Display clear reasons when payout is unavailable.
 
@@ -481,17 +494,17 @@ The UI must not:
 
 * Calculate available balance independently.
 * Decide payout eligibility independently.
-* Mark payout as paid without calling the Payment Service.
+* Mark payout as paid without finalizing the Wallet reservation and updating the Transfer Service workflow.
 
 ### Payout Acceptance Criteria
 
-If an academy has succeeded platform-settled payments and those payments are eligible for payout, when the Academy Admin requests payout, then the Payment Service creates a `pending_review` payout request and reserves the eligible ledger entries.
+If an academy has wallet-credited funds eligible for payout, when the Academy Admin requests payout, then Transfer Service creates the payout/withdrawal request and Wallet Service reserves the eligible funds.
 
-If an academy has no verified payout destination, when it attempts to request payout, then the Payment Service rejects the request with `payee_account_not_enabled`.
+If an academy has no verified payout destination, when it attempts to request payout, then the workflow rejects the request with `payee_account_not_enabled` or the wallet-linked-account equivalent.
 
 If a payout request is approved and marked paid, when the academy balance is queried, then the paid amount is no longer available for payout.
 
-If a payment is refunded or disputed before payout approval, when available balance is recalculated, then that payment is excluded from payout eligibility.
+If a payment is refunded or disputed before payout approval, when available balance is recalculated, then Wallet Service ledger entries and reservations exclude those funds from payout eligibility.
 
 If a payout request is rejected or cancelled, when the academy balance is queried, then the reserved amount is released back to available balance if still eligible.
 
@@ -505,10 +518,8 @@ If a payout request is rejected or cancelled, when the academy balance is querie
 
 #### Not Done
 
-* Academy payout request API.
-* Payment Service payout eligibility calculation.
-* Payout request reservation ledger.
-* Platform approval workflow.
-* Mark-paid workflow.
+* Wallet-first payout request workflow through Transfer Service.
+* Wallet canonical payee balance endpoint selection in the UI.
+* Wallet reservation integration for payout approval/rejection/mark-paid.
 * Academy payout request dashboard.
-* Provider payout reconciliation for requested payouts.
+* Provider payout reconciliation for requested payouts through Payment Service provider adapters.

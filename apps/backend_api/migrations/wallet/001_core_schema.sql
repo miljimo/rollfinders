@@ -57,6 +57,20 @@ CREATE TABLE IF NOT EXISTS wallet.balance_snapshots (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS wallet.wallet_reservations (
+    id text PRIMARY KEY,
+    wallet_id text NOT NULL REFERENCES wallet.wallets(id),
+    amount bigint NOT NULL CHECK (amount > 0),
+    currency text NOT NULL CHECK (currency IN ('GBP', 'Points')),
+    status text NOT NULL CHECK (status IN ('ACTIVE', 'RELEASED', 'FINALIZED')),
+    reference_type text,
+    reference_id text,
+    idempotency_key text UNIQUE,
+    description text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS wallet.provider_accounts (
     id text PRIMARY KEY,
     provider text NOT NULL CHECK (provider IN ('STRIPE', 'PAYPAL', 'CARD', 'BANK')),
@@ -123,3 +137,4 @@ CREATE INDEX IF NOT EXISTS wallet_provider_accounts_provider_account_idx ON wall
 CREATE INDEX IF NOT EXISTS wallet_transactions_source_idx ON wallet.wallet_transactions(source_wallet_id);
 CREATE INDEX IF NOT EXISTS wallet_transactions_destination_idx ON wallet.wallet_transactions(destination_wallet_id);
 CREATE INDEX IF NOT EXISTS wallet_ledger_entries_wallet_idx ON wallet.wallet_ledger_entries(wallet_id);
+CREATE INDEX IF NOT EXISTS wallet_reservations_wallet_status_idx ON wallet.wallet_reservations(wallet_id, status);

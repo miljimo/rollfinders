@@ -139,6 +139,8 @@ type PayeeBalance struct {
 	PayeeID                string `json:"payee_id"`
 	ClientID               string `json:"client_id,omitempty"`
 	Currency               string `json:"currency"`
+	Source                 string `json:"source"`
+	Legacy                 bool   `json:"legacy"`
 	GrossPaidAmount        int64  `json:"gross_paid_amount"`
 	PlatformFeeAmount      int64  `json:"platform_fee_amount"`
 	RefundedAmount         int64  `json:"refunded_amount"`
@@ -602,6 +604,8 @@ func (s *store) getPayeeBalanceLocked(payeeID, clientID, currency string) PayeeB
 		PayeeID:                payeeID,
 		ClientID:               clientID,
 		Currency:               currency,
+		Source:                 "payments_legacy",
+		Legacy:                 true,
 		MinimumPayoutAmount:    defaultMinimumPayoutAmount,
 		PayoutDestinationReady: false,
 	}

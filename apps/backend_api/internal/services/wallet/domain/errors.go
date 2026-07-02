@@ -19,4 +19,6 @@ var (
 	ErrIdempotencyRequired        = errors.New("idempotency key is required")
 	ErrTransactionNotFound        = errors.New("transaction not found")
 	ErrAlreadyReversed            = errors.New("transaction has already been reversed")
+	ErrReservationNotFound        = errors.New("reservation not found")
+	ErrReservationClosed          = errors.New("reservation is already closed")
 )

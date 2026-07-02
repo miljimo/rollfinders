@@ -20,12 +20,13 @@ Expose academy-facing payment capability endpoints that proxy to Payments Servic
 - Implement `GET /v1/academies/{academy_id}/payment-status`.
 - Implement onboarding start/refresh/disconnect proxy routes if the UI needs academy-context URLs.
 - Do not store Stripe account IDs, Stripe keys, onboarding status, payouts, charges, refunds, transactions, or balances in Academy Service.
-- Use Payments Service as source of truth for connected account and payout capability.
+- Use Payment Service as source of truth for provider connected-account capability.
+- Use Wallet Service as source of truth for linked payout account and balance capability.
 - Return a small normalized summary for academy dashboard use.
 
 ## Acceptance Criteria
 
-- WHEN payment status is requested, THEN Academy Service returns a summary derived from Payments Service.
+- WHEN payment status is requested, THEN Academy Service returns a provider account summary derived from Payment Service and any wallet-linked payout capability derived from Wallet Service.
 - WHEN Payments Service is unavailable, THEN Academy Service returns a clear dependency error.
 - WHEN code is reviewed, THEN no Stripe-specific table or secret exists in Academy Service.
 

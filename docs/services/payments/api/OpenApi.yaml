@@ -229,8 +229,8 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
   /v1/payees/{payee_id}/balances:
     get:
-      summary: Get payee payout balance
-      description: Calculates payout eligibility from Payment Service records. Clients must not calculate payout availability independently.
+      summary: Get legacy payee payout balance
+      description: Legacy compatibility endpoint. New clients must use Wallet Service balances and Transfer payout/withdrawal workflows for canonical payout availability.
       parameters:
         - in: path
           name: payee_id
@@ -572,11 +572,13 @@ components:
         updated_at: { type: string, format: date-time }
     PayeeBalance:
       type: object
-      required: [payee_id, currency, gross_paid_amount, platform_fee_amount, refunded_amount, held_amount, pending_payout_amount, paid_payout_amount, available_payout_amount, minimum_payout_amount, payout_destination_ready]
+      required: [payee_id, currency, source, legacy, gross_paid_amount, platform_fee_amount, refunded_amount, held_amount, pending_payout_amount, paid_payout_amount, available_payout_amount, minimum_payout_amount, payout_destination_ready]
       properties:
         payee_id: { type: string }
         client_id: { type: string }
         currency: { type: string }
+        source: { type: string, enum: [payments_legacy] }
+        legacy: { type: boolean }
         gross_paid_amount: { type: integer, format: int64 }
         platform_fee_amount: { type: integer, format: int64 }
         refunded_amount: { type: integer, format: int64 }

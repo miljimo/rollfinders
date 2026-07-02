@@ -21,11 +21,11 @@ The Wallet Service manages all digital wallets within the platform.
 
 It is the **financial ledger** of the platform.
 
-It owns wallet balances, ledger entries, and internal wallet-to-wallet transfers.
+It owns wallet balances, ledger entries, active reservations, and wallet-to-wallet ledger movement.
 
 It **does not** integrate directly with Stripe, banks, or payment providers.
 
-Money entering or leaving the platform is handled by the Transfer Service.
+Provider payment/refund state is handled by the Payment Service. Payout/withdrawal movement workflow records are handled by the Transfer Service. Wallet remains the canonical ledger and balance source of truth for both.
 
 ---
 
@@ -39,6 +39,7 @@ The service SHALL:
 * Perform wallet-to-wallet transfers
 * Reserve funds
 * Release reserved funds
+* Finalize reserved funds to a counter wallet
 * Reverse transactions
 * Expose wallet APIs
 * Publish wallet events
@@ -48,9 +49,11 @@ The service SHALL NOT:
 * Process card payments
 * Store bank accounts
 * Call Stripe
-* Execute payouts
-* Execute withdrawals
-* Execute deposits
+* Own payout approval workflow
+* Own withdrawal workflow records
+* Execute provider payouts
+* Execute provider withdrawals
+* Execute provider deposits
 * Calculate FX
 
 ---
@@ -102,7 +105,13 @@ Status
 
 Balances MUST NOT be manually editable.
 
-Balances are calculated from ledger entries.
+Balances are calculated from ledger entries and active reservations.
+
+Available balance equals ledger balance minus active reservations.
+
+Reserved balance equals the sum of active reservations.
+
+Ledger balance equals immutable ledger credits minus debits.
 
 Optional balance snapshots may be maintained for read performance.
 
@@ -149,6 +158,8 @@ TRANSFER
 RESERVE
 
 RELEASE
+
+FINALIZE_RESERVATION
 
 REVERSAL
 
@@ -247,9 +258,18 @@ ACTIVE
 
 RELEASED
 
-CAPTURED
+FINALIZED
 
 EXPIRED
+
+Reservation rules:
+
+* Creating a reservation reduces available balance and increases reserved balance.
+* Releasing a reservation restores available balance.
+* Finalizing a reservation creates immutable double-entry ledger movement from the reserved wallet to a counter wallet.
+* Finalized and released reservations are closed.
+* Repeated release of an already released reservation must be retry-safe.
+* Payment, transfer, booking, and refund workflows may reference reservations by id, but Wallet owns reservation state.
 
 ---
 
@@ -291,6 +311,8 @@ WalletReserved
 
 WalletReleased
 
+WalletReservationFinalized
+
 WalletReversed
 
 WalletAdjusted
@@ -315,6 +337,8 @@ BookingCancelled
 
 SubscriptionPaid
 
+Wallet consumes payment facts only as accounting inputs. Payment Service remains the provider/payment state owner. Transfer Service remains the payout/withdrawal workflow owner.
+
 ---
 
 # REST API
@@ -329,9 +353,11 @@ GET /wallets/{id}/transactions
 
 POST /wallets/transfer
 
-POST /wallets/reserve
+POST /wallets/reservations
 
-POST /wallets/release
+POST /wallets/reservations/{id}/release
+
+POST /wallets/reservations/{id}/finalize
 
 POST /wallets/reverse
 
@@ -382,10 +408,15 @@ wallet_reservations
 
 * id
 * wallet_id
-* transaction_id
 * amount
+* currency
 * status
-* expires_at
+* reference_type
+* reference_id
+* idempotency_key
+* description
+* created_at
+* updated_at
 
 balance_snapshots (optional)
 
@@ -408,6 +439,8 @@ balance_snapshots (optional)
 * Every API supports idempotency.
 * Every operation generates an audit log.
 * Financial operations must be ACID compliant.
+* Wallet Service must not derive available balance from Payment Service payment totals.
+* Payment success, refund, commission, subscription, and payout effects must become Wallet ledger entries or reservations before they affect spendable balance.
 
 ---
 
@@ -435,10 +468,11 @@ Consumes
 * Identity Service
 * Academy Service
 * Booking Service
+* Payment Service payment/refund/provider-account facts
+* Transfer Service payout/withdrawal workflow facts
 
 Publishes
 
-* Transfer Service
 * Notification Service
 * Analytics Service
 * Reporting Service
@@ -459,4 +493,4 @@ The design must support, without breaking changes:
 * External payment providers (Stripe, Adyen, PayPal)
 * International settlement services
 
-The Wallet Service must remain independent of any payment provider. It manages ownership and accounting of value within the platform. External movement of funds is delegated to the Transfer Service, ensuring the Wallet Service can be reused regardless of how money enters or leaves the ecosystem.
+The Wallet Service must remain independent of any payment provider. It manages ownership and accounting of value within the platform. Payment provider state is delegated to Payment Service, and payout/withdrawal workflow state is delegated to Transfer Service, ensuring the Wallet Service can be reused regardless of how money enters or leaves the ecosystem.

@@ -6,6 +6,7 @@ type WalletResponse = domain.Wallet
 type BalanceResponse = domain.Balance
 type TransactionResponse = domain.Transaction
 type LinkedAccountResponse = domain.LinkedAccount
+type ReservationResponse = domain.Reservation
 
 type GetTransactionResponse struct {
 	Transaction   *domain.Transaction `json:"transaction"`

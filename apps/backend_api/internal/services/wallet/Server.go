@@ -46,6 +46,9 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/wallets/transfer", []string{http.MethodPost}, endpoints.CreateTransfer(svc))
 	mustHandle("/v1/wallets/reverse", []string{http.MethodPost}, endpoints.ReverseTransaction(svc))
 	mustHandle("/v1/wallets/adjustment", []string{http.MethodPost}, endpoints.CreateAdjustment(svc))
+	mustHandle("/v1/wallets/reservations", []string{http.MethodPost}, endpoints.CreateReservation(svc))
+	mustHandle("/v1/wallets/reservations/{id}/release", []string{http.MethodPost}, endpoints.ReleaseReservation(svc))
+	mustHandle("/v1/wallets/reservations/{id}/finalize", []string{http.MethodPost}, endpoints.FinalizeReservation(svc))
 	mustHandle("/v1/wallets/{id}", []string{http.MethodGet}, endpoints.GetWallet(svc))
 	mustHandle("/v1/wallets/{id}/linked-accounts", []string{http.MethodGet}, endpoints.ListLinkedAccounts(svc))
 	mustHandle("/v1/wallets/{id}/linked-accounts", []string{http.MethodPost}, endpoints.CreateLinkedAccount(svc))
@@ -68,6 +71,9 @@ func walletAPIIndex(w http.ResponseWriter, _ *http.Request) {
 			{"method": http.MethodPost, "path": "/v1/wallets/transfer", "description": "Transfer wallet funds"},
 			{"method": http.MethodPost, "path": "/v1/wallets/reverse", "description": "Reverse transaction"},
 			{"method": http.MethodPost, "path": "/v1/wallets/adjustment", "description": "Create wallet adjustment"},
+			{"method": http.MethodPost, "path": "/v1/wallets/reservations", "description": "Reserve available wallet funds"},
+			{"method": http.MethodPost, "path": "/v1/wallets/reservations/{id}/release", "description": "Release reserved wallet funds"},
+			{"method": http.MethodPost, "path": "/v1/wallets/reservations/{id}/finalize", "description": "Finalize reserved funds to a counter wallet"},
 			{"method": http.MethodGet, "path": "/v1/wallets/{id}", "description": "Get wallet"},
 			{"method": http.MethodGet, "path": "/v1/wallets/{id}/linked-accounts", "description": "List wallet linked external accounts"},
 			{"method": http.MethodPost, "path": "/v1/wallets/{id}/linked-accounts", "description": "Link external provider account to wallet"},

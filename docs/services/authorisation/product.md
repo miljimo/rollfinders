@@ -76,7 +76,9 @@ Domain services own their resources and use Authorisation Service for decisions:
 * Academy Service owns academy/location resources.
 * Courses Service owns courses, events, open mats, and activities.
 * Booking Service owns bookings and attendance.
-* Payments Service owns payments, refunds, payout requests, and payee accounts.
+* Payments Service owns provider payments, provider refunds, and provider account state.
+* Wallet Service owns wallet balances, ledger entries, linked payout accounts, and reservations.
+* Transfer Service owns transfer, payout, and withdrawal workflow records.
 
 Domain services SHALL NOT own roles, permission assignments, or global authorisation policy.
 
@@ -245,7 +247,7 @@ POST   /v1/bookings/{booking_id}/participants booking.participant.create
 POST   /v1/bookings/{booking_id}/participants/{participant_id}/attendance booking.participant.attendance.record
 ```
 
-### Payments And Payouts Service
+### Payments, Wallet, And Transfer Services
 
 ```text
 POST   /v1/clients                            payment.client.create
@@ -260,7 +262,7 @@ POST   /v1/payments/{id}/capture              payment.capture
 POST   /v1/payments/{id}/cancel               payment.cancel
 GET    /v1/payments/{id}/refunds              payment.refund.read
 POST   /v1/payments/{id}/refunds              payment.refund
-GET    /v1/payees/{payee_id}/balances         payment.payee.balance.read
+GET    /v1/payees/{payee_id}/balances         payment.payee.balance.read (legacy compatibility; Wallet balance is canonical)
 GET    /v1/payees/{payee_id}/payout-requests  payout.request.read
 POST   /v1/payees/{payee_id}/payout-requests  payout.request.create
 GET    /v1/payout-requests                    payout.request.read
@@ -271,6 +273,11 @@ POST   /v1/payout-requests/{id}/hold          payout.request.hold
 POST   /v1/payout-requests/{id}/release       payout.request.release
 POST   /v1/payout-requests/{id}/mark-paid     payout.request.mark_paid
 POST   /v1/payout-requests/{id}/cancel        payout.request.cancel
+GET    /v1/wallets/{id}/balance               wallet.read
+POST   /v1/wallets/reservations               wallet.transfer
+POST   /v1/wallets/reservations/{id}/release  wallet.transfer
+POST   /v1/wallets/reservations/{id}/finalize wallet.transfer
+POST   /v1/transfers                          transfer.create
 POST   /v1/webhooks/{provider}                payment.webhook.receive
 POST   /internal/outbox/dispatch              payment.outbox.dispatch
 ```

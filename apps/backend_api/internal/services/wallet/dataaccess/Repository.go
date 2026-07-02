@@ -87,6 +87,23 @@ type AdjustmentInput struct {
 	IdempotencyKey  string
 }
 
+type ReserveFundsInput struct {
+	WalletID       string
+	Amount         int64
+	Currency       domain.Currency
+	ReferenceType  string
+	ReferenceID    string
+	IdempotencyKey string
+	Description    string
+}
+
+type ReservationTransitionInput struct {
+	ReservationID   string
+	CounterWalletID string
+	IdempotencyKey  string
+	Description     string
+}
+
 type Repository interface {
 	CreateWallet(ctx context.Context, input CreateWalletInput) (*domain.Wallet, error)
 	ListWallets(ctx context.Context, input ListWalletsInput) (WalletPage, error)
@@ -99,4 +116,7 @@ type Repository interface {
 	Transfer(ctx context.Context, input TransferInput) (*domain.Transaction, error)
 	Reverse(ctx context.Context, input ReverseInput) (*domain.Transaction, error)
 	Adjust(ctx context.Context, input AdjustmentInput) (*domain.Transaction, error)
+	ReserveFunds(ctx context.Context, input ReserveFundsInput) (*domain.Reservation, error)
+	ReleaseReservation(ctx context.Context, input ReservationTransitionInput) (*domain.Reservation, error)
+	FinalizeReservation(ctx context.Context, input ReservationTransitionInput) (*domain.Transaction, error)
 }

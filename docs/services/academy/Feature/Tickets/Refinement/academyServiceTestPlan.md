@@ -18,7 +18,9 @@ The first automated check for this pass is therefore a static boundary contract.
 - `academy_members` must not contain role, owner, admin, coach, permission, or capability columns.
 - Academy Service must not own user identity, authentication, platform roles, permissions, courses, bookings, payments, Stripe Connect state, organisations, or application registry.
 - Authorisation Service owns permissions, roles, role assignments, and permission evaluation.
-- Payments Service owns Stripe Connect account state, transactions, refunds, payout requests, payment settings, and payment capability.
+- Payments Service owns Stripe Connect account state, provider transactions, refunds, payment settings, and provider payment capability.
+- Wallet Service owns payout-linked wallet accounts, balances, reservations, and ledger entries.
+- Transfer Service owns payout and withdrawal workflow records.
 - Database writes and reads must go through stored procedures/functions.
 - Each stored procedure/function must live in its own SQL file.
 - SQL function and procedure names must be camelCase.
@@ -110,4 +112,3 @@ The first automated check for this pass is therefore a static boundary contract.
 - Payment capability proxy behavior needs a mock Payments Service contract before endpoint tests are implemented.
 - Authorisation permission fixtures need to be finalized with Ticket 002.
 - Backfill tests need a sanitized production-like academy data fixture.
-

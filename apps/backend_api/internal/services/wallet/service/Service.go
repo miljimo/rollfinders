@@ -207,3 +207,55 @@ func (svc *Service) Adjust(ctx context.Context, input dataaccess.AdjustmentInput
 	}
 	return svc.repo.Adjust(ctx, input)
 }
+
+func (svc *Service) ReserveFunds(ctx context.Context, input dataaccess.ReserveFundsInput) (*domain.Reservation, error) {
+	input.WalletID = strings.TrimSpace(input.WalletID)
+	input.Currency = domain.Currency(dataaccess.NormalizeCurrency(string(input.Currency)))
+	input.ReferenceType = strings.TrimSpace(input.ReferenceType)
+	input.ReferenceID = strings.TrimSpace(input.ReferenceID)
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	input.Description = strings.TrimSpace(input.Description)
+	if input.WalletID == "" {
+		return nil, domain.ErrWalletNotFound
+	}
+	if err := requireKey(input.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	if err := validateAmount(input.Amount); err != nil {
+		return nil, err
+	}
+	if err := validateCurrency(input.Currency); err != nil {
+		return nil, err
+	}
+	return svc.repo.ReserveFunds(ctx, input)
+}
+
+func (svc *Service) ReleaseReservation(ctx context.Context, input dataaccess.ReservationTransitionInput) (*domain.Reservation, error) {
+	input.ReservationID = strings.TrimSpace(input.ReservationID)
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	input.Description = strings.TrimSpace(input.Description)
+	if input.ReservationID == "" {
+		return nil, domain.ErrReservationNotFound
+	}
+	if err := requireKey(input.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	return svc.repo.ReleaseReservation(ctx, input)
+}
+
+func (svc *Service) FinalizeReservation(ctx context.Context, input dataaccess.ReservationTransitionInput) (*domain.Transaction, error) {
+	input.ReservationID = strings.TrimSpace(input.ReservationID)
+	input.CounterWalletID = strings.TrimSpace(input.CounterWalletID)
+	input.IdempotencyKey = strings.TrimSpace(input.IdempotencyKey)
+	input.Description = strings.TrimSpace(input.Description)
+	if input.ReservationID == "" {
+		return nil, domain.ErrReservationNotFound
+	}
+	if input.CounterWalletID == "" {
+		return nil, domain.ErrWalletNotFound
+	}
+	if err := requireKey(input.IdempotencyKey); err != nil {
+		return nil, err
+	}
+	return svc.repo.FinalizeReservation(ctx, input)
+}

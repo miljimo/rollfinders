@@ -109,6 +109,54 @@ func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
 	}
 }
 
+func TestWalletServiceReservesReleasesAndFinalizesFunds(t *testing.T) {
+	handler := testHandler()
+	payeeWallet := createWallet(t, handler, "internal", "academy_123", "GBP")
+	platformWallet := createWallet(t, handler, "internal", "rollfinders_platform", "GBP")
+	externalWallet := createWallet(t, handler, "external", "academy_123_payout", "GBP")
+	linkExternalWallet(t, handler, externalWallet.ID)
+
+	postJSON(t, handler, "/v1/wallets/adjustment", "seed-payee", map[string]interface{}{
+		"wallet_id": payeeWallet.ID, "counter_wallet_id": platformWallet.ID, "type": "MANUAL_CREDIT", "amount": 1000, "currency": "GBP", "reason": "payment succeeded", "administrator_id": "SYSTEM", "reference": "payment_123",
+	}, http.StatusCreated)
+
+	reservation := postJSON(t, handler, "/v1/wallets/reservations", "reserve-payout-1", map[string]interface{}{
+		"wallet_id": payeeWallet.ID, "amount": 700, "currency": "GBP", "reference_type": "payout_request", "reference_id": "payout_123", "description": "reserve payout funds",
+	}, http.StatusCreated)
+	if reservation["status"] != "ACTIVE" {
+		t.Fatalf("expected active reservation, got %#v", reservation)
+	}
+	balance := getBalance(t, handler, payeeWallet.ID)
+	if balance.Available != 300 || balance.Reserved != 700 {
+		t.Fatalf("expected reserved funds to reduce available balance, got %+v", balance)
+	}
+
+	released := postJSON(t, handler, "/v1/wallets/reservations/"+stringValue(reservation["id"])+"/release", "release-payout-1", map[string]interface{}{
+		"description": "payout rejected",
+	}, http.StatusOK)
+	if released["status"] != "RELEASED" {
+		t.Fatalf("expected released reservation, got %#v", released)
+	}
+	balance = getBalance(t, handler, payeeWallet.ID)
+	if balance.Available != 1000 || balance.Reserved != 0 {
+		t.Fatalf("expected release to restore available balance, got %+v", balance)
+	}
+
+	finalReservation := postJSON(t, handler, "/v1/wallets/reservations", "reserve-payout-2", map[string]interface{}{
+		"wallet_id": payeeWallet.ID, "amount": 800, "currency": "GBP", "reference_type": "payout_request", "reference_id": "payout_456",
+	}, http.StatusCreated)
+	finalized := postJSON(t, handler, "/v1/wallets/reservations/"+stringValue(finalReservation["id"])+"/finalize", "finalize-payout-2", map[string]interface{}{
+		"counter_wallet_id": externalWallet.ID, "description": "provider payout paid",
+	}, http.StatusOK)
+	if finalized["type"] != "TRANSFER" {
+		t.Fatalf("expected finalization transfer, got %#v", finalized)
+	}
+	balance = getBalance(t, handler, payeeWallet.ID)
+	if balance.Available != 200 || balance.Reserved != 0 {
+		t.Fatalf("expected finalized payout to debit payee wallet, got %+v", balance)
+	}
+}
+
 func TestWalletServiceListsLinkedAccountsForExternalWallet(t *testing.T) {
 	handler, repo := testHandlerWithRepo()
 	externalWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")

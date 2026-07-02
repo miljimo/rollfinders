@@ -5,6 +5,7 @@ type Currency string
 type WalletStatus string
 type TransactionType string
 type TransactionStatus string
+type ReservationStatus string
 type LinkedAccountProvider string
 type LinkedAccountConnectionType string
 type LinkedAccountStatus string
@@ -69,4 +70,10 @@ const (
 	TransactionAWaiting   TransactionStatus = "AWAITING"
 	TransactionReversed   TransactionStatus = "REVERSED"
 	TransactionCancelled  TransactionStatus = "CANCELLED"
+)
+
+const (
+	ReservationActive    ReservationStatus = "ACTIVE"
+	ReservationReleased  ReservationStatus = "RELEASED"
+	ReservationFinalized ReservationStatus = "FINALIZED"
 )

@@ -3,26 +3,29 @@
 ## Feature / Component
 
 - Feature: Academy Payout Requests
-- Component: Payment Service payout request APIs, balance calculation, and ledger reservation
+- Component: Legacy Payment Service payout request APIs and wallet/transfer boundary migration
 - Priority: P0
 - Branch: `feature/payments-academy-payout-requests`
 - Developer owner: Payments Backend Developer
 - Test owner: Tina Ugbekile, Test Engineer
-- Dependencies: Ticket036CommissionPolicyAndAllocationSchema, Ticket039GenericSettlementAndLedgerApis
+- Dependencies: Wallet reservation APIs, Transfer payout/withdrawal workflow APIs, Payment provider account APIs
 - Source PRD: `docs/services/payments/proposal.md`
 
 ## Task
 
-Implement Payment Service APIs that allow a verified payee, such as a RollFinders academy, to request payout of eligible earnings collected into the RollFinders platform account.
+Replace Payment Service-owned payout balance and reservation requirements with wallet-first payout orchestration.
+
+Payment Service payout request APIs are legacy compatibility only. New payout creation must use Wallet Service for balance/reservation/finalization and Transfer Service for payout/withdrawal request lifecycle.
 
 ## Implementation Notes
 
-- Add payout request tables, entry reservation tables, status history, and audit event tables.
-- Keep one SQL file per table, function, and procedure.
-- Use camelCase for SQL procedure/function names and routine filenames.
-- Implement read functions for payee balance and payout request lists.
-- Implement write procedures for create, approve, reject, hold, release, cancel, and mark-paid transitions.
-- Add endpoints:
+- Do not add new Payment Service ledger reservation behavior.
+- Do not use Payment Service payment aggregation as canonical available balance.
+- Mark existing Payment Service payee balance responses as legacy/non-canonical.
+- New balance reads must come from Wallet Service balances and wallet transactions.
+- New payout requests must be Transfer Service records that reference Wallet reservation ids.
+- Provider payout execution, if needed, remains behind Payment Service provider adapters and is triggered by orchestration.
+- Existing legacy endpoints may remain for compatibility:
   - `GET /v1/payees/{payee_id}/balances`
   - `POST /v1/payees/{payee_id}/payout-requests`
   - `GET /v1/payees/{payee_id}/payout-requests`
@@ -34,26 +37,28 @@ Implement Payment Service APIs that allow a verified payee, such as a RollFinder
   - `POST /v1/payout-requests/{payout_request_id}/release`
   - `POST /v1/payout-requests/{payout_request_id}/mark-paid`
   - `POST /v1/payout-requests/{payout_request_id}/cancel`
-- Payment Service must calculate payout eligibility. The UI must not decide eligibility.
-- Reject payout requests when the payee account is not enabled, funds are held, amount is below minimum, amount exceeds available balance, or allocations are already reserved/paid.
-- Emit outbox events for payout request state changes.
+- UI must not decide payout eligibility.
+- Reject payout requests when Wallet Service reports insufficient available balance, the linked payout account is not connected, the amount is below minimum, or the Transfer workflow is not eligible for the requested transition.
+- Emit outbox/events from the owning service: Transfer for payout workflow changes, Wallet for reservation/ledger changes, Payment for provider execution/provider status changes.
 
 ## Acceptance Criteria
 
-- WHEN a payee has eligible succeeded platform-settled payments, THEN `GET /v1/payees/{payee_id}/balances` returns the correct available payout amount.
-- WHEN a verified academy requests a valid payout amount, THEN the service creates a `pending_review` payout request and reserves eligible entries.
-- WHEN the academy payout account is not enabled, THEN payout request creation fails with `payee_account_not_enabled`.
-- WHEN a request is rejected or cancelled, THEN reserved entries are released.
-- WHEN a request is marked paid, THEN reserved entries become settled and are excluded from available payout balance.
+- WHEN a payee has eligible wallet-credited funds, THEN Wallet Service balance returns the correct available and reserved amounts.
+- WHEN a verified academy requests a valid payout amount, THEN Wallet Service creates an active reservation and Transfer Service creates a pending payout/withdrawal request.
+- WHEN the academy payout account is not enabled, THEN payout request creation fails before reservation or releases any created reservation.
+- WHEN a request is rejected or cancelled, THEN Wallet Service releases the reservation.
+- WHEN a request is marked paid or provider execution succeeds, THEN Wallet Service finalizes the reservation to the external linked wallet/account and the amount is excluded from available balance.
 - WHEN a duplicate idempotency key is replayed, THEN the same payout request result is returned.
 
 ## Regression / Compatibility Tests
 
 - Tina SHALL test existing payment checkout, payment history, refund creation, and dashboard APIs still work.
-- Tina SHALL test that two payout requests cannot reserve the same payment allocation.
-- Tina SHALL test refund/dispute-held payments are excluded from payout eligibility.
+- Tina SHALL test that two payout requests cannot reserve the same wallet funds.
+- Tina SHALL test refund/dispute-held wallet ledger effects are excluded from payout eligibility.
 - Tina SHALL test all invalid state transitions return stable API errors.
 
 ## Out Of Scope
 
 RollFinders dashboard UI.
+
+New Payment Service-owned payout ledger tables.

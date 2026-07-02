@@ -531,7 +531,7 @@ No existing discovery functionality SHALL be broken.
 
 ## Service Interaction Model
 
-The payment interaction SHALL follow this boundary:
+The payment interaction SHALL follow this provider boundary:
 
 ```text
 RollFinders <-> Payment Service <-> Stripe API
@@ -545,7 +545,9 @@ Stripe SHALL redirect browser returns to the Payment Service callback route firs
 
 RollFinders SHALL NOT call Stripe API directly and SHALL NOT trust Stripe browser redirects directly.
 
-The Payment Service SHALL be the system of record for payment transactions and payment history. RollFinders SHALL query recorded transactions from the Payment Service when users view payment history and SHALL NOT call Stripe API for user-facing history.
+The Payment Service SHALL be the system of record for provider payment transactions, provider refund state, provider callbacks, and payment history. Wallet Service SHALL be the system of record for spendable balances, reserved balances, payout availability, and immutable ledger history. RollFinders SHALL query recorded payment/provider history from the Payment Service and SHALL NOT call Stripe API for user-facing history.
+
+When the Payment Service confirms successful payment, refund, failure, or provider account changes, RollFinders orchestration SHALL ensure the corresponding Wallet ledger or reservation effect is posted before treating funds as spendable or payout-eligible.
 
 The Go payment service SHALL provide a generic checkout creation endpoint.
 
@@ -649,6 +651,8 @@ The payment history response SHALL include enough data for RollFinders to show u
 * Resource id
 * Payer email
 * Created and updated timestamps
+
+The payment history response SHALL NOT be used as the source of truth for academy payout availability. Academy payout and balance screens SHALL use Wallet Service balance and transaction APIs, with Transfer Service workflow records for payout/withdrawal state.
 
 ---
 

@@ -18,7 +18,9 @@ type InMemoryRepository struct {
 	linkedAccounts   map[string][]domain.LinkedAccount
 	transactions     map[string]domain.Transaction
 	statements       map[string][]domain.Statement
+	reservations     map[string]domain.Reservation
 	idempotencyIndex map[string]string
+	reservationIndex map[string]string
 	reversed         map[string]string
 }
 
@@ -28,7 +30,9 @@ func NewInMemoryRepository() *InMemoryRepository {
 		linkedAccounts:   map[string][]domain.LinkedAccount{},
 		transactions:     map[string]domain.Transaction{},
 		statements:       map[string][]domain.Statement{},
+		reservations:     map[string]domain.Reservation{},
 		idempotencyIndex: map[string]string{},
+		reservationIndex: map[string]string{},
 		reversed:         map[string]string{},
 	}
 }
@@ -196,11 +200,12 @@ func (repo *InMemoryRepository) GetBalance(_ context.Context, walletID string) (
 		return nil, err
 	}
 	balance := repo.ledgerBalance(walletID)
+	reserved := repo.reservedBalance(walletID)
 	return &domain.Balance{
 		WalletID:  walletID,
 		Currency:  wallet.Currency,
-		Available: balance,
-		Reserved:  0,
+		Available: balance - reserved,
+		Reserved:  reserved,
 		Balance:   balance,
 	}, nil
 }
@@ -322,6 +327,83 @@ func (repo *InMemoryRepository) Adjust(_ context.Context, input dataaccess.Adjus
 	return &transaction, nil
 }
 
+func (repo *InMemoryRepository) ReserveFunds(_ context.Context, input dataaccess.ReserveFundsInput) (*domain.Reservation, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	if reservation, ok := repo.replayReservation(input.IdempotencyKey); ok {
+		return &reservation, nil
+	}
+	wallet, err := repo.activeWallet(input.WalletID)
+	if err != nil {
+		return nil, err
+	}
+	if wallet.Currency != input.Currency {
+		return nil, domain.ErrCurrencyMismatch
+	}
+	if repo.ledgerBalance(wallet.ID)-repo.reservedBalance(wallet.ID) < input.Amount {
+		return nil, domain.ErrInsufficientFunds
+	}
+	now := time.Now().UTC()
+	reservation := domain.Reservation{
+		ID:             newID("res"),
+		WalletID:       wallet.ID,
+		Amount:         input.Amount,
+		Currency:       input.Currency,
+		Status:         domain.ReservationActive,
+		ReferenceType:  input.ReferenceType,
+		ReferenceID:    input.ReferenceID,
+		IdempotencyKey: input.IdempotencyKey,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	repo.reservations[reservation.ID] = reservation
+	repo.reservationIndex[input.IdempotencyKey] = reservation.ID
+	return &reservation, nil
+}
+
+func (repo *InMemoryRepository) ReleaseReservation(_ context.Context, input dataaccess.ReservationTransitionInput) (*domain.Reservation, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	reservation, err := repo.activeReservation(input.ReservationID)
+	if err != nil {
+		if err == domain.ErrReservationClosed {
+			closed := repo.reservations[input.ReservationID]
+			if closed.Status == domain.ReservationReleased {
+				return &closed, nil
+			}
+		}
+		return nil, err
+	}
+	reservation.Status = domain.ReservationReleased
+	reservation.UpdatedAt = time.Now().UTC()
+	repo.reservations[reservation.ID] = reservation
+	return &reservation, nil
+}
+
+func (repo *InMemoryRepository) FinalizeReservation(_ context.Context, input dataaccess.ReservationTransitionInput) (*domain.Transaction, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	if transaction, ok := repo.replay(input.IdempotencyKey); ok {
+		return &transaction, nil
+	}
+	reservation, err := repo.activeReservation(input.ReservationID)
+	if err != nil {
+		return nil, err
+	}
+	counter, err := repo.activeWallet(input.CounterWalletID)
+	if err != nil {
+		return nil, err
+	}
+	if counter.Currency != reservation.Currency {
+		return nil, domain.ErrCurrencyMismatch
+	}
+	reservation.Status = domain.ReservationFinalized
+	reservation.UpdatedAt = time.Now().UTC()
+	repo.reservations[reservation.ID] = reservation
+	transaction := repo.createDoubleEntry(domain.TransactionTransfer, reservation.WalletID, counter.ID, reservation.Amount, reservation.Currency, reservation.ReferenceType, reservation.ReferenceID, input.IdempotencyKey, input.Description, "")
+	return &transaction, nil
+}
+
 func (repo *InMemoryRepository) getWallet(id string) (domain.Wallet, error) {
 	wallet, ok := repo.wallets[id]
 	if !ok {
@@ -352,6 +434,28 @@ func (repo *InMemoryRepository) replay(key string) (domain.Transaction, bool) {
 	return repo.transactions[id], true
 }
 
+func (repo *InMemoryRepository) replayReservation(key string) (domain.Reservation, bool) {
+	if key == "" {
+		return domain.Reservation{}, false
+	}
+	id := repo.reservationIndex[key]
+	if id == "" {
+		return domain.Reservation{}, false
+	}
+	return repo.reservations[id], true
+}
+
+func (repo *InMemoryRepository) activeReservation(id string) (domain.Reservation, error) {
+	reservation, ok := repo.reservations[id]
+	if !ok {
+		return domain.Reservation{}, domain.ErrReservationNotFound
+	}
+	if reservation.Status != domain.ReservationActive {
+		return domain.Reservation{}, domain.ErrReservationClosed
+	}
+	return reservation, nil
+}
+
 func (repo *InMemoryRepository) ledgerBalance(walletID string) int64 {
 	var balance int64
 	for _, entries := range repo.statements {
@@ -360,6 +464,16 @@ func (repo *InMemoryRepository) ledgerBalance(walletID string) int64 {
 				continue
 			}
 			balance += entry.Credit - entry.Debit
+		}
+	}
+	return balance
+}
+
+func (repo *InMemoryRepository) reservedBalance(walletID string) int64 {
+	var balance int64
+	for _, reservation := range repo.reservations {
+		if reservation.WalletID == walletID && reservation.Status == domain.ReservationActive {
+			balance += reservation.Amount
 		}
 	}
 	return balance

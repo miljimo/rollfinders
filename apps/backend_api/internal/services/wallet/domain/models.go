@@ -61,3 +61,16 @@ type Statement struct {
 	Description   string    `json:"description,omitempty"`
 	CreatedAt     time.Time `json:"created_at"`
 }
+
+type Reservation struct {
+	ID             string            `json:"id"`
+	WalletID       string            `json:"wallet_id"`
+	Amount         int64             `json:"amount"`
+	Currency       Currency          `json:"currency"`
+	Status         ReservationStatus `json:"status"`
+	ReferenceType  string            `json:"reference_type,omitempty"`
+	ReferenceID    string            `json:"reference_id,omitempty"`
+	IdempotencyKey string            `json:"idempotency_key,omitempty"`
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
+}

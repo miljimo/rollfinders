@@ -47,6 +47,10 @@ func mapDatabaseError(err error) error {
 		return domain.ErrTransactionNotFound
 	case strings.Contains(pqErr.Message, domain.ErrAlreadyReversed.Error()):
 		return domain.ErrAlreadyReversed
+	case strings.Contains(pqErr.Message, domain.ErrReservationNotFound.Error()):
+		return domain.ErrReservationNotFound
+	case strings.Contains(pqErr.Message, domain.ErrReservationClosed.Error()):
+		return domain.ErrReservationClosed
 	default:
 		return err
 	}
