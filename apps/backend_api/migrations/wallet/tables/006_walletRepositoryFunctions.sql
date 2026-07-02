@@ -201,7 +201,7 @@ BEGIN
         UPDATE wallet.wallets
         SET status = 'active',
             updated_at = p_updated_at
-        WHERE id = p_wallet_id;
+        WHERE wallet.wallets.id = p_wallet_id;
     END IF;
 
     RETURN QUERY
