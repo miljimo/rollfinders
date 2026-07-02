@@ -2066,6 +2066,7 @@ function WalletDetailsDialog({ closeHref, linkedAccount, wallet }: { closeHref: 
     { label: "Status", value: wallet.status },
     { label: "Linked Account", value: linkedAccount ? linkedAccount.displayName || linkedAccount.provider : wallet.walletType === "external" ? "Not linked" : "Internal wallet" },
     { label: "Provider Account", value: linkedAccount?.providerAccountId || "None" },
+    { label: "Connected Wallets", value: linkedAccount ? String(linkedAccount.connectedWalletCount) : "None" },
     { label: "Created", value: formatDate(wallet.createdAt) },
     { label: "Updated", value: formatDate(wallet.updatedAt) },
   ];
@@ -2107,7 +2108,7 @@ function DisconnectWalletLinkedAccountDialog({ closeHref, linkedAccount, wallet 
   return (
     <DialogShell closeHref={closeHref} description="Review the impact before disconnecting this external wallet account." title="Disconnect Linked Account">
       <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-950">
-        Disconnecting this linked account will disconnect {providerLabel} from the payment service and disable the wallet link. The external wallet will become inactive until a provider account is linked again.
+        Disconnecting this linked account will disconnect {providerLabel} from the payment service and disable the wallet link. This provider account is currently connected to {linkedAccount.connectedWalletCount} wallet{linkedAccount.connectedWalletCount === 1 ? "" : "s"}. The external wallet will become inactive until a provider account is linked again.
       </div>
       <dl className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
         {[
@@ -2117,6 +2118,7 @@ function DisconnectWalletLinkedAccountDialog({ closeHref, linkedAccount, wallet 
           { label: "Provider", value: linkedAccount.provider },
           { label: "Provider Account", value: providerAccount },
           { label: "Connection Type", value: linkedAccount.connectionType },
+          { label: "Connected Wallets", value: String(linkedAccount.connectedWalletCount) },
         ].map((row) => (
           <div key={row.label} className="grid gap-1 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-4">
             <dt className="text-sm font-black text-stone-600">{row.label}</dt>

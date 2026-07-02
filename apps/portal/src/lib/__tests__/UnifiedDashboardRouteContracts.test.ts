@@ -20,6 +20,17 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(source, /callbackUrl:\s*"\/admin"/);
   });
 
+  it("login session creation does not prefetch personal user details", () => {
+    const authSource = readSource("apps/portal/src/lib/auth.ts");
+    const adminSource = readSource("apps/portal/src/lib/admin.ts");
+
+    assert.match(authSource, /id:\s*result\.user_id/);
+    assert.doesNotMatch(authSource, /getUserAccount/);
+    assert.doesNotMatch(authSource, /role:\s*user\.role/);
+    assert.match(adminSource, /getUserAccount\(user\.id,\s*accessToken\)/);
+    assert.doesNotMatch(adminSource, /!user\?\.id\s*\|\|\s*!user\.email/);
+  });
+
   it("legacy /admin redirects to /dashboard while preserving query parameters", () => {
     const source = readSource("apps/portal/src/app/admin/page.tsx");
 

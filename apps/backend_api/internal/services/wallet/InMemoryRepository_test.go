@@ -99,6 +99,8 @@ func (repo *InMemoryRepository) CreateLinkedAccount(_ context.Context, input dat
 			wallet.UpdatedAt = now
 			repo.wallets[input.WalletID] = wallet
 		}
+		repo.refreshConnectedWalletCounts(account.ProviderAccountID)
+		account = repo.linkedAccounts[input.WalletID][index]
 		return &account, nil
 	}
 	repo.linkedAccounts[input.WalletID] = append(repo.linkedAccounts[input.WalletID], account)
@@ -107,7 +109,36 @@ func (repo *InMemoryRepository) CreateLinkedAccount(_ context.Context, input dat
 		wallet.UpdatedAt = now
 		repo.wallets[input.WalletID] = wallet
 	}
+	repo.refreshConnectedWalletCounts(account.ProviderAccountID)
+	account = repo.linkedAccounts[input.WalletID][len(repo.linkedAccounts[input.WalletID])-1]
 	return &account, nil
+}
+
+func (repo *InMemoryRepository) refreshConnectedWalletCounts(providerAccountID string) {
+	count := repo.connectedWalletCount(providerAccountID)
+	for _, accounts := range repo.linkedAccounts {
+		for index, account := range accounts {
+			if account.ProviderAccountID == providerAccountID {
+				account.ConnectedWallets = count
+				accounts[index] = account
+			}
+		}
+	}
+}
+
+func (repo *InMemoryRepository) connectedWalletCount(providerAccountID string) int {
+	if providerAccountID == "" {
+		return 0
+	}
+	count := 0
+	for _, accounts := range repo.linkedAccounts {
+		for _, account := range accounts {
+			if account.ProviderAccountID == providerAccountID && account.Status == domain.LinkedAccountConnected {
+				count++
+			}
+		}
+	}
+	return count
 }
 
 func (repo *InMemoryRepository) ListWallets(_ context.Context, input dataaccess.ListWalletsInput) (dataaccess.WalletPage, error) {

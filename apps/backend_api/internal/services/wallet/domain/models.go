@@ -22,6 +22,7 @@ type LinkedAccount struct {
 	DisplayName       string                      `json:"display_name,omitempty"`
 	ExternalReference string                      `json:"external_reference,omitempty"`
 	Currency          Currency                    `json:"currency"`
+	ConnectedWallets  int                         `json:"connected_wallet_count"`
 	CreatedAt         time.Time                   `json:"created_at"`
 	UpdatedAt         time.Time                   `json:"updated_at"`
 }

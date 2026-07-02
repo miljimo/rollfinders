@@ -113,7 +113,7 @@ export async function authenticateUserCredentials(email: string, password: strin
     body: JSON.stringify({ identifier: email, password }),
   });
   return parseResponse(response) as Promise<{
-    user: { id: string; email: string; name: string | null; role: string };
+    user_id: string;
   } & AuthTokens>;
 }
 

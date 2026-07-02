@@ -175,7 +175,7 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"user":          publicUser(user),
+		"user_id":       user.ID,
 		"access_token":  tokens.AccessToken,
 		"refresh_token": tokens.RefreshToken,
 		"expires_in":    int(accessTokenTTL.Seconds()),

@@ -52,6 +52,7 @@ func LinkedAccountFromRow(row databases.DBRow) domain.LinkedAccount {
 		DisplayName:       String(row, "display_name"),
 		ExternalReference: String(row, "external_reference"),
 		Currency:          domain.Currency(String(row, "currency")),
+		ConnectedWallets:  int(Int64(row, "connected_wallet_count")),
 		CreatedAt:         Time(row, "created_at"),
 		UpdatedAt:         Time(row, "updated_at"),
 	}

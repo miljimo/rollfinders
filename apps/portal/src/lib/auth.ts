@@ -16,12 +16,10 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials.password) throw new Error("MissingCredentials");
         try {
           const result = await authenticateUserCredentials(credentials.email, credentials.password);
-          const { user } = result;
           return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role,
+            id: result.user_id,
+            email: null,
+            name: null,
             accessToken: result.access_token,
             refreshToken: result.refresh_token,
             accessTokenExpiresIn: result.expires_in,
@@ -51,12 +49,10 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         const authUser = user as {
-          role?: string;
           accessToken?: string;
           refreshToken?: string;
           accessTokenExpiresIn?: number;
         };
-        token.role = authUser.role;
         token.accessToken = authUser.accessToken;
         token.refreshToken = authUser.refreshToken;
         token.accessTokenExpiresIn = authUser.accessTokenExpiresIn;
@@ -66,7 +62,6 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       if (session.user) {
         (session.user as { id?: unknown }).id = token.sub;
-        (session.user as { role?: unknown }).role = token.role;
       }
       (session as { accessToken?: unknown }).accessToken = token.accessToken;
       (session as { accessTokenExpiresIn?: unknown }).accessTokenExpiresIn = token.accessTokenExpiresIn;

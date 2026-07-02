@@ -262,6 +262,7 @@ function LinkedAccountSummary({ account, walletType }: { account?: LinkedWalletA
     <span className="grid gap-1">
       <span className="font-bold text-slate-950">{account.displayName || account.provider}</span>
       <span className="text-xs font-semibold text-slate-500">{account.connectionType}</span>
+      <span className="text-xs font-semibold text-slate-500">{account.connectedWalletCount} connected wallet{account.connectedWalletCount === 1 ? "" : "s"}</span>
     </span>
   );
 }
@@ -272,6 +273,7 @@ function ProviderAccount({ account }: { account?: LinkedWalletAccount }) {
     <span className="grid gap-1">
       <span className="font-bold text-slate-950">{account.provider}</span>
       {account.providerAccountId ? <span className="break-all font-mono text-xs text-slate-700">{account.providerAccountId}</span> : null}
+      <span className="text-xs font-semibold text-slate-500">{account.connectedWalletCount} wallet{account.connectedWalletCount === 1 ? "" : "s"}</span>
       <TableStatusBadge status={account.status} />
     </span>
   );

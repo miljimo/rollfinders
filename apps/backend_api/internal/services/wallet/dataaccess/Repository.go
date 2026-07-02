@@ -53,6 +53,10 @@ type TransferInput struct {
 
 func (t *TransferInput) Validate() error {
 
+	if t.DestinationWalletID == t.SourceWalletID {
+		return domain.ErrInvalidWalletPair
+	}
+
 	if strings.TrimSpace(string(t.Currency)) == "" {
 		return domain.ErrInvalidCurrency
 	}

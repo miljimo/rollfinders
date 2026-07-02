@@ -290,6 +290,35 @@ func TestWalletServiceUpsertsLinkedAccountForSameWalletProvider(t *testing.T) {
 	}
 }
 
+func TestWalletServiceAllowsSharedProviderAccountAndReportsConnectedWalletCount(t *testing.T) {
+	handler := testHandler()
+	firstWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")
+	secondWallet := createWallet(t, handler, "external", "owner_registered_2", "GBP")
+
+	postJSON(t, handler, "/v1/wallets/"+firstWallet.ID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_shared",
+		"connection_type":     "BOTH",
+		"status":              "CONNECTED",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_shared",
+		"currency":            "GBP",
+	}, http.StatusCreated)
+	second := postJSON(t, handler, "/v1/wallets/"+secondWallet.ID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_shared",
+		"connection_type":     "BOTH",
+		"status":              "CONNECTED",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_shared",
+		"currency":            "GBP",
+	}, http.StatusCreated)
+
+	if second["connected_wallet_count"] != float64(2) {
+		t.Fatalf("expected shared provider account to report 2 connected wallets, got %#v", second)
+	}
+}
+
 func stringValue(value interface{}) string {
 	text, _ := value.(string)
 	return text

@@ -10,8 +10,8 @@ import { getUserAccount, UserServiceError } from "./users-service";
 
 export async function getCurrentUser() {
   const session = await getServerSession(authOptions);
-  const user = session?.user as { id?: string; role?: string; email?: string } | undefined;
-  if (!user?.id || !user.email) return null;
+  const user = session?.user as { id?: string } | undefined;
+  if (!user?.id) return null;
   const sessionWithToken = session as { accessToken?: unknown } | null;
   const accessToken = typeof sessionWithToken?.accessToken === "string" ? sessionWithToken.accessToken : undefined;
   try {

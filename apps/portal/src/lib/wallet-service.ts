@@ -64,6 +64,7 @@ export type LinkedWalletAccount = {
   displayName?: string;
   externalReference?: string;
   currency: WalletCurrency;
+  connectedWalletCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -136,6 +137,7 @@ type LinkedWalletAccountResponse = {
   display_name?: string;
   external_reference?: string;
   currency: WalletCurrency;
+  connected_wallet_count?: number;
   created_at: string;
   updated_at: string;
 };
@@ -259,6 +261,7 @@ function mapLinkedAccount(account: LinkedWalletAccountResponse): LinkedWalletAcc
     displayName: account.display_name,
     externalReference: account.external_reference,
     currency: account.currency,
+    connectedWalletCount: account.connected_wallet_count ?? 0,
     createdAt: account.created_at,
     updatedAt: account.updated_at,
   };
