@@ -421,10 +421,26 @@ func (r *repository) authorize(ctx context.Context, userID, permissionCode strin
 	if _, denied := effective.denied[permission.Code]; denied {
 		return authorizeResponse{Authorized: false, Decision: "deny", Reason: "direct_deny"}, nil
 	}
+	superAdmin, err := r.hasSuperAdminRole(ctx, userID)
+	if err != nil {
+		return authorizeResponse{}, err
+	}
+	if superAdmin {
+		return authorizeResponse{Authorized: true, Decision: "allow"}, nil
+	}
 	if _, allowed := effective.allowed[permission.Code]; allowed {
 		return authorizeResponse{Authorized: true, Decision: "allow"}, nil
 	}
 	return authorizeResponse{Authorized: false, Decision: "deny", Reason: "missing_permission"}, nil
+}
+
+func (r *repository) hasSuperAdminRole(ctx context.Context, userID string) (bool, error) {
+	var maxLevel sql.NullInt64
+	err := r.db.QueryRowContext(ctx, `SELECT actor_max_role_level($1)`, userID).Scan(&maxLevel)
+	if err != nil {
+		return false, err
+	}
+	return maxLevel.Valid && maxLevel.Int64 >= 1000, nil
 }
 
 type effectiveSet struct {

@@ -41,6 +41,7 @@ const (
 
 const (
 	WalletActive    WalletStatus = "active"
+	WalletInactive  WalletStatus = "inactive"
 	WalletFrozen    WalletStatus = "frozen"
 	WalletSuspended WalletStatus = "suspended"
 	WalletClosed    WalletStatus = "closed"

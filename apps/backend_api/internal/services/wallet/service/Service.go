@@ -45,6 +45,33 @@ func validateWalletType(walletType domain.WalletType) error {
 	}
 }
 
+func validateLinkedAccountProvider(provider domain.LinkedAccountProvider) error {
+	switch provider {
+	case domain.LinkedAccountProviderStripe, domain.LinkedAccountProviderPayPal, domain.LinkedAccountProviderCard, domain.LinkedAccountProviderBank:
+		return nil
+	default:
+		return domain.ErrInvalidProvider
+	}
+}
+
+func validateLinkedAccountConnectionType(connectionType domain.LinkedAccountConnectionType) error {
+	switch connectionType {
+	case domain.LinkedAccountTopUp, domain.LinkedAccountPayout, domain.LinkedAccountBoth:
+		return nil
+	default:
+		return domain.ErrInvalidConnectionType
+	}
+}
+
+func validateLinkedAccountStatus(status domain.LinkedAccountStatus) error {
+	switch status {
+	case domain.LinkedAccountPending, domain.LinkedAccountConnected, domain.LinkedAccountFailed, domain.LinkedAccountDisabled:
+		return nil
+	default:
+		return domain.ErrInvalidLinkedAccountStatus
+	}
+}
+
 func validateOwner(ownerID string) error {
 	if strings.TrimSpace(ownerID) == "" {
 		return domain.ErrInvalidOwner
@@ -97,6 +124,33 @@ func (svc *Service) GetWallet(ctx context.Context, id string) (*domain.Wallet, e
 
 func (svc *Service) ListLinkedAccounts(ctx context.Context, walletID string) ([]domain.LinkedAccount, error) {
 	return svc.repo.ListLinkedAccounts(ctx, strings.TrimSpace(walletID))
+}
+
+func (svc *Service) CreateLinkedAccount(ctx context.Context, input dataaccess.CreateLinkedAccountInput) (*domain.LinkedAccount, error) {
+	input.WalletID = strings.TrimSpace(input.WalletID)
+	input.Provider = domain.LinkedAccountProvider(strings.ToUpper(strings.TrimSpace(string(input.Provider))))
+	input.ConnectionType = domain.LinkedAccountConnectionType(strings.ToUpper(strings.TrimSpace(string(input.ConnectionType))))
+	input.Status = domain.LinkedAccountStatus(strings.ToUpper(strings.TrimSpace(string(input.Status))))
+	input.ProviderAccountID = strings.TrimSpace(input.ProviderAccountID)
+	input.DisplayName = strings.TrimSpace(input.DisplayName)
+	input.ExternalReference = strings.TrimSpace(input.ExternalReference)
+	input.Currency = domain.Currency(dataaccess.NormalizeCurrency(string(input.Currency)))
+	if input.WalletID == "" {
+		return nil, domain.ErrWalletNotFound
+	}
+	if err := validateLinkedAccountProvider(input.Provider); err != nil {
+		return nil, err
+	}
+	if err := validateLinkedAccountConnectionType(input.ConnectionType); err != nil {
+		return nil, err
+	}
+	if err := validateLinkedAccountStatus(input.Status); err != nil {
+		return nil, err
+	}
+	if err := validateCurrency(input.Currency); err != nil {
+		return nil, err
+	}
+	return svc.repo.CreateLinkedAccount(ctx, input)
 }
 
 func (svc *Service) GetBalance(ctx context.Context, walletID string) (*domain.Balance, error) {

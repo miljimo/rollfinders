@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { clsx } from "clsx";
-import { Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, Filter, Globe2, Info, KeyRound, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "../map/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-domain-data";
@@ -29,10 +29,11 @@ import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
 import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
-import { getWalletBalance, listLinkedWalletAccounts, listWalletTransactions, listWalletsPage, WalletServiceError, type LinkedWalletAccount, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
+import { getWalletBalance, listLinkedWalletAccounts, listWalletTransfers, listWalletsPage, WalletServiceError, type LinkedWalletAccount, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
+import { CopyButton } from "@/components/copy-button";
 import { DialogShell } from "@/components/DialogShell";
 import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboard";
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
@@ -45,6 +46,7 @@ import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickA
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
+import { SummaryTile } from "@/components/SummaryTile";
 import { Table, TableRow, TableStatusBadge, type TableColumn } from "@/components/Table";
 import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders, updateAcademy } from "../admin/academies/actions";
 import { AcademyForm } from "../admin/academies/AcademyForm";
@@ -69,7 +71,8 @@ import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/book
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 import { WalletTransfer } from "./wallet/WalletTransfer";
-import { WalletDashboard } from "./wallet/WalletDashboard";
+import { createDashboardWallet, createDashboardWalletTransfer } from "./wallet/actions";
+import { selectedWallet, selectedWalletTransaction, transactionDetailsCloseHref, walletDetailsCloseHref, WalletDashboard } from "./wallet/WalletDashboard";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 
@@ -504,20 +507,20 @@ async function getDashboardBookings(page: number, academyId?: string | null): Pr
   }
 }
 
-async function getDashboardWallets(page: number, accessToken?: string): Promise<DashboardWalletsResult> {
+async function getDashboardWallets(page: number, actorUserId: string, accessToken?: string): Promise<DashboardWalletsResult> {
   const offset = (Math.max(1, page) - 1) * walletPageSize;
   try {
-    const result = await listWalletsPage({ accessToken, limit: walletPageSize, offset });
-    const [balanceResults, linkedAccountGroups, transactionGroups] = await Promise.all([
-      Promise.all(result.wallets.map((wallet) => getWalletBalance(wallet.id, accessToken).catch(() => null))),
-      Promise.all(result.wallets.map((wallet) => wallet.walletType === "external" ? listLinkedWalletAccounts(wallet.id, accessToken).catch(() => []) : Promise.resolve([]))),
-      Promise.all(result.wallets.map((wallet) => listWalletTransactions(wallet.id, accessToken).catch(() => []))),
+    const result = await listWalletsPage({ accessToken, actorUserId, limit: walletPageSize, offset });
+    const [balanceResults, linkedAccountGroups, transactions] = await Promise.all([
+      Promise.all(result.wallets.map((wallet) => getWalletBalance(wallet.id, accessToken, actorUserId).catch(() => null))),
+      Promise.all(result.wallets.map((wallet) => wallet.walletType === "external" ? listLinkedWalletAccounts(wallet.id, accessToken, actorUserId).catch(() => []) : Promise.resolve([]))),
+      listWalletTransfers({ accessToken, actorUserId, limit: 100 }).catch(() => []),
     ]);
     return {
       balances: balanceResults.filter((balance): balance is WalletBalance => Boolean(balance)),
       linkedAccounts: linkedAccountGroups.flat(),
       pagination: result.pagination,
-      transactions: transactionGroups.flat().sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
+      transactions: transactions.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
       wallets: result.wallets,
     };
   } catch (error) {
@@ -568,6 +571,7 @@ export default async function AdminDashboardWorkspace({
   const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
   const walletView = firstParam(params.walletView) === "transactions" ? "transactions" : "dashboard";
   const walletDialog = firstParam(params.walletDialog);
+  const walletActionError = firstParam(params.walletError);
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
   const stripeConnectMessage = firstParam(params.stripeConnect);
   const stripeConnectError = firstParam(params.stripeConnectError);
@@ -647,6 +651,13 @@ export default async function AdminDashboardWorkspace({
     .filter((academy) => academyCreatedById(academy))
     .filter((academy) => academyMatchesPlatformSearch(academy, platformAcademiesSearch));
   const managedUsersPage = await managedUsersPagePromise;
+  const currentManagedUser = managedUsersPage.users.find((user) => user.id === currentUser.id)
+    ?? await getManagedUser(currentUser, currentUser.id).then((result) => result.user).catch(() => null);
+  const currentUserWalletOwner = {
+    email: currentManagedUser?.email ?? currentUser.email,
+    id: currentUser.id,
+    name: currentManagedUser?.name ?? currentManagedUser?.email ?? currentUser.email,
+  };
 
   const [
     academyCount,
@@ -781,7 +792,7 @@ export default async function AdminDashboardWorkspace({
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
     panel === "wallet"
-      ? getDashboardWallets(walletPage, currentUser.accessToken)
+      ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
       : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
     panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction"
       ? authorize(currentUser, "wallet.transfer", { applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders" })
@@ -824,6 +835,15 @@ export default async function AdminDashboardWorkspace({
         return academy ? { ...event, academy } : null;
       })
     : null;
+  const selectedWalletTransactionForDialog = panel === "wallet" && walletView === "transactions" && walletDialog === "transaction-details"
+    ? selectedWalletTransaction(walletResult.transactions, params)
+    : null;
+  const selectedWalletForDialog = panel === "wallet" && walletView === "dashboard" && walletDialog === "wallet-details"
+    ? selectedWallet(walletResult.wallets, params)
+    : null;
+  const selectedWalletLinkedAccount = selectedWalletForDialog
+    ? walletResult.linkedAccounts.find((account) => account.walletId === selectedWalletForDialog.id)
+    : undefined;
   const selectedDialogAcademy = panel === "academies" && (dialog === "view-academy" || dialog === "edit-academy") && academyDialogId
     ? await (async () => {
         const academy = scopedAcademyRecords.find((item) => item.id === academyDialogId);
@@ -1303,7 +1323,7 @@ export default async function AdminDashboardWorkspace({
               id="wallet"
               title={walletView === "transactions" ? "Transactions" : "Wallets"}
             >
-              <WalletDashboard error={walletResult.error} linkedAccounts={walletResult.linkedAccounts} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} view={walletView} wallets={walletResult.wallets} />
+              <WalletDashboard error={walletActionError ?? walletResult.error} linkedAccounts={walletResult.linkedAccounts} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} view={walletView} wallets={walletResult.wallets} />
             </AdminPanel>
           ) : null}
           {panel === "bookings" ? (
@@ -1438,6 +1458,18 @@ export default async function AdminDashboardWorkspace({
       ) : null}
       {panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction" ? (
         <WalletTransferDialog balances={walletResult.balances} canCreateTransfer={canCreateWalletTransfer} wallets={walletResult.wallets} />
+      ) : null}
+      {panel === "wallet" && walletView === "dashboard" && walletDialog === "create-wallet" ? (
+        <CreateWalletDialog currentUser={currentUserWalletOwner} params={params} users={managedUsersPage.users} />
+      ) : null}
+      {panel === "wallet" && walletView === "dashboard" && walletDialog === "select-wallet-owner" ? (
+        <WalletOwnerPickerDialog currentUser={currentUserWalletOwner} params={params} users={managedUsersPage.users} />
+      ) : null}
+      {panel === "wallet" && walletView === "dashboard" && walletDialog === "wallet-details" && selectedWalletForDialog ? (
+        <WalletDetailsDialog closeHref={walletDetailsCloseHref(params)} linkedAccount={selectedWalletLinkedAccount} wallet={selectedWalletForDialog} />
+      ) : null}
+      {panel === "wallet" && walletView === "transactions" && walletDialog === "transaction-details" && selectedWalletTransactionForDialog ? (
+        <WalletTransactionDetailsDialog closeHref={transactionDetailsCloseHref(params)} transaction={selectedWalletTransactionForDialog} />
       ) : null}
     </div>
   );
@@ -1876,10 +1908,191 @@ function WalletTransferDialog({ balances, canCreateTransfer, wallets }: { balanc
   return (
     <DialogShell closeHref="/dashboard/wallet?walletView=transactions" description="Create a wallet-to-wallet transfer from the wallet service dashboard." title="Wallet Transfer">
       {canCreateTransfer ? (
-        <WalletTransfer balances={balances} cancelHref="/dashboard/wallet?walletView=transactions" wallets={wallets} />
+        <WalletTransfer action={createDashboardWalletTransfer} balances={balances} cancelHref="/dashboard/wallet?walletView=transactions" wallets={wallets} />
       ) : (
         <WalletTransferPermissionMessage />
       )}
+    </DialogShell>
+  );
+}
+
+type WalletOwnerUser = {
+  email: string;
+  id: string;
+  name: string;
+};
+
+function CreateWalletDialog({ currentUser, params, users }: { currentUser: WalletOwnerUser; params: AdminSearchParams; users: ManagedUser[] }) {
+  const ownerId = selectedWalletOwnerId(params, currentUser.id, users);
+  const owner = users.find((user) => user.id === ownerId);
+  const ownerDisplayName = owner ? owner.name ?? owner.email : currentUser.name;
+
+  return (
+    <DialogShell closeHref="/dashboard/wallet" description="Create an internal or external wallet for an owner account." maxWidthClass="max-w-2xl" title="Create Wallet">
+      <form action={createDashboardWallet} className="mt-5 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+        <input type="hidden" name="returnTo" value="/dashboard/wallet" />
+        <label className="grid gap-2 text-sm font-bold text-stone-800">
+          Wallet type
+          <select name="walletType" defaultValue="external" className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800">
+            <option value="external">External</option>
+            <option value="internal">Internal</option>
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-bold text-stone-800">
+          Owner
+          <span className="flex min-w-0 gap-2">
+            <input type="hidden" name="ownerId" value={ownerId} />
+            <input readOnly value={ownerDisplayName} className="min-h-11 min-w-0 flex-1 rounded-md border border-stone-200 bg-stone-50 px-3 font-normal text-slate-800" />
+            <Button href={walletOwnerPickerHref(params, ownerId)} size="icon" variant="secondary" className="min-h-11 w-11 shrink-0" aria-label="Choose wallet owner">
+              <span className="text-xl font-black leading-none" aria-hidden>...</span>
+            </Button>
+          </span>
+          <span className="text-xs font-semibold text-slate-500">
+            {owner ? owner.email : currentUser.email}
+          </span>
+        </label>
+        <label className="grid gap-2 text-sm font-bold text-stone-800">
+          Currency
+          <select name="currency" defaultValue="GBP" className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800">
+            <option value="GBP">GBP</option>
+            <option value="Points">Points</option>
+          </select>
+        </label>
+        <div className="flex flex-wrap justify-end gap-3 border-t border-stone-100 pt-4">
+          <Button href="/dashboard/wallet" variant="secondary">
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary">
+            <Plus size={18} aria-hidden />
+            Create Wallet
+          </Button>
+        </div>
+      </form>
+    </DialogShell>
+  );
+}
+
+function WalletOwnerPickerDialog({ currentUser, params, users }: { currentUser: WalletOwnerUser; params: AdminSearchParams; users: ManagedUser[] }) {
+  const selectedOwnerId = selectedWalletOwnerId(params, currentUser.id, users);
+  const currentUserOption: ManagedUser = {
+    academyId: null,
+    createdAt: "",
+    disabled: false,
+    email: currentUser.email,
+    emailStatus: "",
+    id: currentUser.id,
+    isProtected: false,
+    lastLoginAt: null,
+    name: currentUser.name,
+    role: "",
+    status: "",
+  };
+  const sortedUsers = [currentUserOption, ...users.filter((user) => user.id !== currentUser.id)]
+    .sort((left, right) => (left.name ?? left.email).localeCompare(right.name ?? right.email));
+
+  return (
+    <DialogShell closeHref={createWalletHref(params, selectedOwnerId)} description="Choose a user you have permission to manage as the wallet owner." maxWidthClass="max-w-3xl" title="Attach Wallet Owner">
+      <div className="mt-5 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+        {sortedUsers.length ? (
+          <ul className="divide-y divide-stone-100">
+            {sortedUsers.map((user) => (
+              <li key={user.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-950">{user.name ?? user.email}</p>
+                  <p className="truncate text-xs font-semibold text-slate-500">{user.email}</p>
+                  <p className="truncate font-mono text-xs text-slate-500">{user.id}</p>
+                </div>
+                <Button href={createWalletHref(params, user.id)} variant={user.id === selectedOwnerId ? "secondary" : "primary"} className="min-h-10 px-4">
+                  {user.id === selectedOwnerId ? "Selected" : "Select"}
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="px-4 py-4 text-sm font-semibold text-slate-600">No users are available for your current permissions.</p>
+        )}
+      </div>
+    </DialogShell>
+  );
+}
+
+function selectedWalletOwnerId(params: AdminSearchParams, currentUserId: string, users: ManagedUser[]) {
+  const ownerId = firstParam(params.walletOwnerId);
+  if (!ownerId) return currentUserId;
+  return users.some((user) => user.id === ownerId) || ownerId === currentUserId ? ownerId : currentUserId;
+}
+
+function createWalletHref(params: AdminSearchParams, ownerId: string) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (!value || key === "walletDialog" || key === "walletOwnerId") return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, item));
+      return;
+    }
+    query.set(key, value);
+  });
+  query.set("walletDialog", "create-wallet");
+  query.set("walletOwnerId", ownerId);
+  return `/dashboard/wallet?${query.toString()}`;
+}
+
+function walletOwnerPickerHref(params: AdminSearchParams, ownerId: string) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (!value || key === "walletDialog" || key === "walletOwnerId") return;
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, item));
+      return;
+    }
+    query.set(key, value);
+  });
+  query.set("walletDialog", "select-wallet-owner");
+  query.set("walletOwnerId", ownerId);
+  return `/dashboard/wallet?${query.toString()}`;
+}
+
+function WalletDetailsDialog({ closeHref, linkedAccount, wallet }: { closeHref: string; linkedAccount?: LinkedWalletAccount; wallet: WalletRecord }) {
+  const canLinkExternalAccount = wallet.walletType === "external" && !linkedAccount;
+  const canContinueStripeConnect = wallet.walletType === "external" && linkedAccount?.provider === "STRIPE" && linkedAccount.status === "PENDING";
+  const rows = [
+    { label: "Wallet ID", value: wallet.id },
+    { label: "Wallet Type", value: wallet.walletType },
+    { label: "Owner ID", value: wallet.ownerId },
+    { label: "Currency", value: wallet.currency },
+    { label: "Status", value: wallet.status },
+    { label: "Linked Account", value: linkedAccount ? linkedAccount.displayName || linkedAccount.provider : wallet.walletType === "external" ? "Not linked" : "Internal wallet" },
+    { label: "Provider Account", value: linkedAccount?.providerAccountId || "None" },
+    { label: "Created", value: formatDate(wallet.createdAt) },
+    { label: "Updated", value: formatDate(wallet.updatedAt) },
+  ];
+
+  return (
+    <DialogShell closeHref={closeHref} description="Review wallet owner, type, currency, and status." title="Wallet Details">
+      {canLinkExternalAccount ? (
+        <div className="mt-5 flex justify-end">
+          <Button href={`/dashboard/wallet/${encodeURIComponent(wallet.id)}/link-account`} variant="primary">
+            <Link2 size={18} aria-hidden />
+            Link Account
+          </Button>
+        </div>
+      ) : null}
+      {canContinueStripeConnect ? (
+        <div className="mt-5 flex justify-end">
+          <Button href={`/dashboard/wallet/${encodeURIComponent(wallet.id)}/link-account`} variant="primary">
+            <CreditCard size={18} aria-hidden />
+            Continue Stripe Connect
+          </Button>
+        </div>
+      ) : null}
+      <dl className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+        {rows.map((row) => (
+          <div key={row.label} className="grid gap-1 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0 md:grid-cols-[10rem_minmax(0,1fr)] md:gap-4">
+            <dt className="text-sm font-black text-stone-600">{row.label}</dt>
+            <dd className="break-all text-sm font-semibold text-slate-950">{row.value}</dd>
+          </div>
+        ))}
+      </dl>
     </DialogShell>
   );
 }
@@ -1890,6 +2103,108 @@ function WalletTransferPermissionMessage() {
       You do not have permission to create wallet transfers. Ask an administrator to assign the wallet.transfer privilege to your account.
     </div>
   );
+}
+
+function WalletTransactionDetailsDialog({ closeHref, transaction }: { closeHref: string; transaction: WalletTransaction }) {
+  const typeLabel = transaction.type.replaceAll("_", " ");
+  const statusLabel = transaction.status.toUpperCase();
+  const amount = walletTransactionMoney(transaction.amount, transaction.currency);
+  const created = formatDate(transaction.createdAt);
+
+  return (
+    <DialogShell closeHref={closeHref} description="Review wallet transaction IDs, status, amount, wallets, and references." maxWidthClass="max-w-7xl" title="Transaction Details">
+      <div className="mt-6 grid gap-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <SummaryTile className="min-h-28 rounded-lg border border-stone-200 bg-white px-5 py-4 shadow-sm" icon={<CreditCard size={18} aria-hidden />} label="Amount" value={amount} />
+          <SummaryTile className="min-h-28 rounded-lg border border-stone-200 bg-white px-5 py-4 shadow-sm" icon={<CheckCircle2 size={18} aria-hidden />} label="Status" value={statusLabel} />
+          <SummaryTile className="min-h-28 rounded-lg border border-stone-200 bg-white px-5 py-4 shadow-sm" icon={<Repeat2 size={18} aria-hidden />} label="Type" value={typeLabel} />
+          <SummaryTile className="min-h-28 rounded-lg border border-stone-200 bg-white px-5 py-4 shadow-sm" icon={<Globe2 size={18} aria-hidden />} label="Currency" value={transaction.currency} />
+        </div>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <TransactionDetailSection icon={<FileText size={22} aria-hidden />} title="1. Transaction Overview">
+            <TransactionDetailRow copyable label="Transaction ID" value={transaction.id} />
+            <TransactionDetailRow label="Type" value={typeLabel} />
+            <TransactionDetailRow label="Status" value={<TableStatusBadge status={statusLabel} />} />
+            <TransactionDetailRow label="Amount" value={amount} />
+            <TransactionDetailRow label="Currency" value={transaction.currency} />
+            <TransactionDetailRow label="Created" value={created} />
+          </TransactionDetailSection>
+
+          <TransactionDetailSection icon={<Wallet size={22} aria-hidden />} title="2. Wallets">
+            <TransactionWalletCard icon={<ArrowUpRight size={28} aria-hidden />} label="Source Wallet" tone="blue" value={transaction.sourceWalletId || "None"}/>
+            <TransactionWalletCard icon={<ArrowDownLeft size={28} aria-hidden />} label="Destination Wallet" tone="green" value={transaction.destinationWalletId || "None"}/>
+          </TransactionDetailSection>
+        </div>
+
+        <TransactionDetailSection icon={<Link2 size={22} aria-hidden />} title="3. References & System Details">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div>
+              <TransactionDetailRow label="Reference Type" value={transaction.referenceType || "None"} />
+              <TransactionDetailRow copyable={Boolean(transaction.referenceId)} label="Reference ID" value={transaction.referenceId || "None"} />
+              <TransactionDetailRow copyable={Boolean(transaction.idempotencyKey)} label="Idempotency Key" value={transaction.idempotencyKey || "None"} />
+            </div>
+            <div className="lg:border-l lg:border-stone-100 lg:pl-6">
+              <TransactionDetailRow label="Original Transaction" value={transaction.originalTransactionId || "None"} />
+              <TransactionDetailRow label="Created" value={created} />
+            </div>
+          </div>
+        </TransactionDetailSection>
+
+        <div className="flex justify-end">
+          <Button href={closeHref} variant="secondary" className="min-h-11 px-7">
+            Close
+          </Button>
+        </div>
+      </div>
+    </DialogShell>
+  );
+}
+
+function TransactionDetailSection({ children, icon, title }: { children: ReactNode; icon: ReactNode; title: string }) {
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+      <h3 className="flex items-center gap-4 text-xl font-black text-slate-950">
+        <span className="text-slate-600">{icon}</span>
+        {title}
+      </h3>
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
+
+function TransactionDetailRow({ copyable = false, label, value }: { copyable?: boolean; label: string; value: ReactNode }) {
+  return (
+    <div className="grid min-h-12 items-center gap-3 border-b border-stone-100 py-3 last:border-b-0 md:grid-cols-[13rem_minmax(0,1fr)_2rem]">
+      <span className="text-sm font-black text-slate-500">{label}</span>
+      <span className="break-all text-sm font-black text-slate-950">{value}</span>
+      {copyable ? (
+        <CopyButton label={`Copy ${label}`} value={String(value)} variant="subtle" className="size-8 text-slate-500" />
+      ) : <span aria-hidden />}
+    </div>
+  );
+}
+
+function TransactionWalletCard({ icon, label, tone, value }: { icon: ReactNode; label: string; tone: "blue" | "green"; value: string }) {
+  const toneClassName = tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700";
+
+  return (
+    <div className="mt-4 flex items-center gap-5 rounded-lg border border-stone-200 px-5 py-5">
+      <span className={`flex size-16 shrink-0 items-center justify-center rounded-full ${toneClassName}`}>{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-black text-slate-700">{label}</p>
+        <p className="mt-1 break-all font-mono text-sm font-semibold text-slate-950">{value}</p>
+      </div>
+      {value !== "None" ? (
+        <CopyButton label={`Copy ${label}`} value={value} className="size-11 shrink-0 border-stone-200 text-slate-500" />
+      ) : null}
+    </div>
+  );
+}
+
+function walletTransactionMoney(amountMinor: number, currency: string) {
+  if (currency === "Points") return `${amountMinor.toLocaleString("en-GB")} Points`;
+  return new Intl.NumberFormat("en-GB", { currency, style: "currency" }).format(amountMinor / 100);
 }
 
 function NewUserDialog({ academies, academyAdmin, actorRole, superAdmin }: { academies: { id: string; name: string }[]; academyAdmin: boolean; actorRole: string; superAdmin: boolean }) {

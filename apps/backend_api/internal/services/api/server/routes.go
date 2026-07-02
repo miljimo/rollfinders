@@ -242,6 +242,8 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodGet, Path: Wallets, Permission: PermissionWalletSearch},
 			{Method: http.MethodPost, Path: Wallets, Permission: PermissionWalletCreate},
 			{Method: http.MethodGet, Path: WalletsWalletId, Permission: PermissionWalletRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
+			{Method: http.MethodGet, Path: WalletsWalletIdLinkedAccounts, Permission: PermissionWalletRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
+			{Method: http.MethodPost, Path: WalletsWalletIdLinkedAccounts, Permission: PermissionWalletCreate, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
 			{Method: http.MethodGet, Path: WalletsWalletIdBalance, Permission: PermissionWalletRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
 			{Method: http.MethodGet, Path: WalletsWalletIdTransactions, Permission: PermissionWalletTransactionRead, ResourceType: ResourceWallet, ResourceIDParam: ParamWalletId},
 			{Method: http.MethodPost, Path: WalletsTransfer, Permission: PermissionWalletTransfer},
@@ -251,6 +253,7 @@ func serviceDefinitions() []ServiceDefinition {
 		}},
 
 		{Name: TransferService, Routes: []RouteDefinitionWithPermission{
+			{Method: http.MethodGet, Path: Transfers, Permission: PermissionWalletTransactionRead},
 			{Method: http.MethodPost, Path: Transfers, Permission: PermissionTransferCreate},
 		}},
 

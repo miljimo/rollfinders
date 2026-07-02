@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS wallet.wallet_ledger_entries (
     id text PRIMARY KEY,
-    transaction_id text NOT NULL REFERENCES wallet.wallet_transactions(id),
+    transaction_id text NOT NULL,
     wallet_id text NOT NULL REFERENCES wallet.wallets(id),
     debit_amount bigint NOT NULL DEFAULT 0 CHECK (debit_amount >= 0),
     credit_amount bigint NOT NULL DEFAULT 0 CHECK (credit_amount >= 0),

@@ -108,6 +108,114 @@ AS $$
     ORDER BY a.created_at DESC;
 $$;
 
+CREATE OR REPLACE FUNCTION wallet.create_linked_wallet_account(
+    p_id text,
+    p_wallet_id text,
+    p_provider text,
+    p_provider_account_id text,
+    p_connection_type text,
+    p_status text,
+    p_display_name text,
+    p_external_reference text,
+    p_currency text,
+    p_created_at timestamptz,
+    p_updated_at timestamptz
+)
+RETURNS TABLE (
+    id text,
+    wallet_id text,
+    provider text,
+    provider_account_id text,
+    connection_type text,
+    status text,
+    display_name text,
+    external_reference text,
+    currency text,
+    created_at timestamptz,
+    updated_at timestamptz
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM wallet.wallets w
+        WHERE w.id = p_wallet_id
+          AND w.wallet_type = 'external'
+    ) THEN
+        RAISE EXCEPTION 'external wallet not found';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM wallet.linked_wallet_accounts a
+        WHERE a.wallet_id = p_wallet_id
+          AND a.provider = p_provider
+    ) THEN
+        UPDATE wallet.linked_wallet_accounts lwa
+        SET provider_account_id = COALESCE(NULLIF(p_provider_account_id, ''), lwa.provider_account_id),
+            connection_type = p_connection_type,
+            status = p_status,
+            display_name = COALESCE(NULLIF(p_display_name, ''), lwa.display_name),
+            external_reference = COALESCE(NULLIF(p_external_reference, ''), lwa.external_reference),
+            currency = p_currency,
+            updated_at = p_updated_at
+        WHERE lwa.id = (
+            SELECT a.id
+            FROM wallet.linked_wallet_accounts a
+            WHERE a.wallet_id = p_wallet_id
+              AND a.provider = p_provider
+            ORDER BY a.created_at DESC
+            LIMIT 1
+        );
+    ELSE
+        INSERT INTO wallet.linked_wallet_accounts (
+            id,
+            wallet_id,
+            provider,
+            provider_account_id,
+            connection_type,
+            status,
+            display_name,
+            external_reference,
+            currency,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            p_id,
+            p_wallet_id,
+            p_provider,
+            NULLIF(p_provider_account_id, ''),
+            p_connection_type,
+            p_status,
+            NULLIF(p_display_name, ''),
+            NULLIF(p_external_reference, ''),
+            p_currency,
+            p_created_at,
+            p_updated_at
+        );
+    END IF;
+
+    IF p_status = 'CONNECTED' THEN
+        UPDATE wallet.wallets
+        SET status = 'active',
+            updated_at = p_updated_at
+        WHERE id = p_wallet_id;
+    END IF;
+
+    RETURN QUERY
+    SELECT a.id, a.wallet_id, a.provider, COALESCE(a.provider_account_id, ''),
+           a.connection_type, a.status, COALESCE(a.display_name, ''),
+           COALESCE(a.external_reference, ''), a.currency, a.created_at, a.updated_at
+    FROM wallet.linked_wallet_accounts a
+    WHERE a.wallet_id = p_wallet_id
+      AND a.provider = p_provider
+    ORDER BY a.updated_at DESC
+    LIMIT 1;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION wallet.get_balance(p_wallet_id text)
 RETURNS TABLE (
     wallet_id text,
@@ -301,6 +409,8 @@ BEGIN
     RETURN QUERY SELECT * FROM wallet.get_transaction(p_transaction_id);
 END;
 $$;
+
+DROP FUNCTION IF EXISTS wallet.transfer(text, text, text, text, text, text, bigint, text, text, text, text, text, timestamptz);
 
 CREATE OR REPLACE FUNCTION wallet.transfer(
     p_transaction_id text,

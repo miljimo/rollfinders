@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS wallet.wallets (
     wallet_type text NOT NULL CHECK (wallet_type IN ('internal', 'external')),
     owner_id text NOT NULL,
     currency text NOT NULL CHECK (currency IN ('GBP', 'Points')),
-    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'frozen', 'suspended', 'closed')),
+    status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'frozen', 'suspended', 'closed')),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS wallet.wallet_transactions (
 
 CREATE TABLE IF NOT EXISTS wallet.wallet_ledger_entries (
     id text PRIMARY KEY,
-    transaction_id text NOT NULL REFERENCES wallet.wallet_transactions(id),
+    transaction_id text NOT NULL,
     wallet_id text NOT NULL REFERENCES wallet.wallets(id),
     debit_amount bigint NOT NULL DEFAULT 0 CHECK (debit_amount >= 0),
     credit_amount bigint NOT NULL DEFAULT 0 CHECK (credit_amount >= 0),

@@ -7,22 +7,25 @@ export function TableBody<T extends TableRecord>({
   actions = [],
   columns,
   data,
+  getRowDoubleClickHref,
   getRowHref,
   getRowId,
 }: {
   actions?: TableAction<T>[];
   columns: TableColumn<T>[];
   data: T[];
+  getRowDoubleClickHref?: (row: T, rowIndex: number) => string | undefined;
   getRowHref?: (row: T, rowIndex: number) => string | undefined;
   getRowId?: (row: T, rowIndex: number) => string | number;
 }) {
   return (
     <tbody>
       {data.map((row, rowIndex) => {
+        const rowDoubleClickHref = getRowDoubleClickHref?.(row, rowIndex);
         const rowHref = getRowHref?.(row, rowIndex);
 
         return (
-          <TableRow key={getRowId ? getRowId(row, rowIndex) : rowIndex} href={rowHref}>
+          <TableRow key={getRowId ? getRowId(row, rowIndex) : rowIndex} doubleClickHref={rowDoubleClickHref} href={rowHref}>
             {columns.map((column) => {
               const value = row[column.key];
               const content = column.render ? column.render(value, row, rowIndex) : value == null ? null : String(value);

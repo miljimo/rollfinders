@@ -68,6 +68,8 @@ func (s *server) route(w http.ResponseWriter, r *http.Request) {
 		s.proxies["user"].ServeHTTP(w, r)
 	case strings.HasPrefix(path, "/legacy/"):
 		s.proxies["legacy"].ServeHTTP(w, r)
+	case r.Method == http.MethodPost && path == string(Transfers):
+		s.orchestrateTransfer(w, r)
 	default:
 		match, ok := resolveRoute(r.Method, path)
 		if !ok {

@@ -10,7 +10,7 @@ Transfer Service
 
 ## Purpose
 
-The Transfer Service initiates cash movement from one internal wallet to another internal wallet.
+The Transfer Service owns transfer workflow records and state transitions for requested value movement.
 
 It is intentionally small. It does not own balances, ledger entries, payment provider state, payout approvals, bank details, or Stripe operations. Wallet Service remains the ledger and balance owner. Payment Service remains the Stripe and payment-provider owner.
 
@@ -26,6 +26,8 @@ Wallet Service owns:
 * Double-entry accounting.
 * Validation that wallets exist, are active, use the same currency, and have sufficient funds.
 * Idempotent wallet-to-wallet transaction creation.
+
+Wallet Service does not own transfer workflow records. It only applies the wallet ledger movement requested by the API/orchestration layer.
 
 ### Payment Service
 
@@ -44,10 +46,13 @@ Transfer Service owns:
 * The transfer initiation API.
 * Request normalization.
 * Request-level validation for required source wallet, destination wallet, amount, currency, and idempotency key.
-* Delegation to Wallet Service to create the actual wallet transfer.
-* Returning Wallet Service's canonical transaction result.
+* Transfer request records.
+* Transfer status transitions: pending, processing, completed, failed, and cancelled.
+* The wallet transaction reference returned by the wallet ledger movement.
 
 Transfer Service does not own transfer balances or ledger tables.
+
+Transfer Service must not call Wallet Service directly and must not import Wallet Service internals. Cross-service workflow is orchestrated by the API layer.
 
 ## Minimum Scope
 
@@ -82,8 +87,7 @@ Response:
 ```json
 {
   "transfer": {
-    "id": "txn_123",
-    "type": "TRANSFER",
+    "id": "trf_123",
     "status": "COMPLETED",
     "amount": 2500,
     "currency": "GBP",
@@ -91,7 +95,9 @@ Response:
     "destination_wallet_id": "wal_destination",
     "reference_type": "booking",
     "reference_id": "booking_123",
-    "created_at": "2026-06-27T00:00:00Z"
+    "wallet_transaction_id": "txn_123",
+    "created_at": "2026-06-27T00:00:00Z",
+    "updated_at": "2026-06-27T00:00:01Z"
   }
 }
 ```
@@ -101,9 +107,20 @@ Response:
 1. Caller sends `POST /v1/transfers` with an idempotency key.
 2. Transfer Service validates required request fields.
 3. Transfer Service normalizes currency to uppercase.
-4. Transfer Service calls Wallet Service `POST /v1/wallets/transfer`.
-5. Wallet Service performs ledger validation and creates the double-entry transaction.
-6. Transfer Service returns the canonical Wallet Service transaction.
+4. Transfer Service stores or returns the idempotent transfer request record.
+5. API marks the transfer request as processing.
+6. API calls Wallet Service `POST /v1/wallets/transfer` to apply the ledger movement.
+7. Wallet Service performs ledger validation and creates the double-entry transaction.
+8. API marks the transfer request as completed with the wallet transaction id, or failed with a failure reason.
+9. API returns the transfer record and wallet transaction result.
+
+## Service Dependency Rule
+
+Transfer Service does not call Wallet Service.
+
+Wallet Service does not call Transfer Service.
+
+The API layer may orchestrate the workflow because it is the application boundary responsible for combining service capabilities into a user-facing operation.
 
 ## Out Of Scope
 
@@ -114,7 +131,6 @@ The minimum Transfer Service explicitly excludes:
 * Payment provider calls.
 * Approval workflows.
 * Reserve and release workflows.
-* Transfer audit tables.
 * Balance calculation.
 * Ledger ownership.
 * Wallet transaction reversal.

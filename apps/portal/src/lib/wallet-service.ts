@@ -43,6 +43,17 @@ export type WalletTransaction = {
   createdAt: string;
 };
 
+export type WalletTransferRecord = {
+  id: string;
+  status: string;
+  amount: number;
+  currency: WalletCurrency;
+  sourceWalletId: string;
+  destinationWalletId: string;
+  referenceType?: string;
+  referenceId?: string;
+};
+
 export type LinkedWalletAccount = {
   id: string;
   walletId: string;
@@ -102,6 +113,19 @@ type WalletTransactionResponse = {
   created_at: string;
 };
 
+type WalletTransferResponse = {
+  id: string;
+  status: string;
+  amount: number;
+  currency: WalletCurrency;
+  source_wallet_id: string;
+  destination_wallet_id: string;
+  reference_type?: string;
+  reference_id?: string;
+  created_at: string;
+  updated_at?: string;
+};
+
 type LinkedWalletAccountResponse = {
   id: string;
   wallet_id: string;
@@ -125,15 +149,20 @@ type WalletTransactionsResponse = {
   data?: WalletTransactionResponse[];
 };
 
+type WalletTransfersResponse = {
+  data?: WalletTransferResponse[];
+};
+
 type LinkedWalletAccountsResponse = {
   data?: LinkedWalletAccountResponse[];
 };
 
 type ErrorResponse = {
-  error?: {
+  error?: string | {
     code?: string;
     message?: string;
   };
+  error_code?: string;
 };
 
 export class WalletServiceError extends Error {
@@ -151,9 +180,10 @@ function walletServiceUrl() {
   return apiGatewayUrl();
 }
 
-function authHeaders(accessToken?: string, extra?: HeadersInit) {
+function authHeaders(accessToken?: string, actorUserId?: string, extra?: HeadersInit) {
   const headers = new Headers(extra);
   if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (actorUserId) headers.set("X-Actor-User-ID", actorUserId);
   return headers;
 }
 
@@ -161,7 +191,9 @@ async function parseResponse<T>(response: Response, fallbackMessage: string): Pr
   const body = await response.json().catch(() => ({} as ErrorResponse));
   if (!response.ok) {
     const errorBody = body as ErrorResponse;
-    throw new WalletServiceError(errorBody.error?.message ?? fallbackMessage, response.status, errorBody.error?.code);
+    const nestedError = typeof errorBody.error === "object" && errorBody.error !== null ? errorBody.error : undefined;
+    const flatError = typeof errorBody.error === "string" ? errorBody.error : undefined;
+    throw new WalletServiceError(nestedError?.message ?? flatError ?? fallbackMessage, response.status, nestedError?.code ?? errorBody.error_code);
   }
   return body as T;
 }
@@ -203,6 +235,19 @@ function mapTransaction(transaction: WalletTransactionResponse): WalletTransacti
   };
 }
 
+function mapTransfer(transfer: WalletTransferResponse): WalletTransferRecord {
+  return {
+    id: transfer.id,
+    status: transfer.status,
+    amount: transfer.amount,
+    currency: transfer.currency,
+    sourceWalletId: transfer.source_wallet_id,
+    destinationWalletId: transfer.destination_wallet_id,
+    referenceType: transfer.reference_type,
+    referenceId: transfer.reference_id,
+  };
+}
+
 function mapLinkedAccount(account: LinkedWalletAccountResponse): LinkedWalletAccount {
   return {
     id: account.id,
@@ -220,6 +265,7 @@ function mapLinkedAccount(account: LinkedWalletAccountResponse): LinkedWalletAcc
 }
 
 export async function listWalletsPage(input: {
+  actorUserId?: string;
   accessToken?: string;
   limit?: number;
   offset?: number;
@@ -235,7 +281,7 @@ export async function listWalletsPage(input: {
   if (input.currency) params.set("currency", input.currency);
   const response = await fetch(`${walletServiceUrl()}/v1/wallets?${params.toString()}`, {
     cache: "no-store",
-    headers: authHeaders(input.accessToken),
+    headers: authHeaders(input.accessToken, input.actorUserId),
   });
   const body = await parseResponse<WalletPageResponse>(response, "Wallet service request failed.");
   return {
@@ -244,33 +290,101 @@ export async function listWalletsPage(input: {
   };
 }
 
-export async function getWalletBalance(walletId: string, accessToken?: string): Promise<WalletBalance> {
+export async function getWallet(walletId: string, accessToken?: string, actorUserId?: string): Promise<WalletRecord> {
+  const response = await fetch(`${walletServiceUrl()}/v1/wallets/${encodeURIComponent(walletId)}`, {
+    cache: "no-store",
+    headers: authHeaders(accessToken, actorUserId),
+  });
+  return mapWallet(await parseResponse<WalletRecordResponse>(response, "Wallet request failed."));
+}
+
+export async function getWalletBalance(walletId: string, accessToken?: string, actorUserId?: string): Promise<WalletBalance> {
   const response = await fetch(`${walletServiceUrl()}/v1/wallets/${encodeURIComponent(walletId)}/balance`, {
     cache: "no-store",
-    headers: authHeaders(accessToken),
+    headers: authHeaders(accessToken, actorUserId),
   });
   return mapBalance(await parseResponse<WalletBalanceResponse>(response, "Wallet balance request failed."));
 }
 
-export async function listWalletTransactions(walletId: string, accessToken?: string): Promise<WalletTransaction[]> {
+export async function listWalletTransactions(walletId: string, accessToken?: string, actorUserId?: string): Promise<WalletTransaction[]> {
   const response = await fetch(`${walletServiceUrl()}/v1/wallets/${encodeURIComponent(walletId)}/transactions`, {
     cache: "no-store",
-    headers: authHeaders(accessToken),
+    headers: authHeaders(accessToken, actorUserId),
   });
   const body = await parseResponse<WalletTransactionsResponse>(response, "Wallet transaction request failed.");
   return (body.data ?? []).map(mapTransaction);
 }
 
-export async function listLinkedWalletAccounts(walletId: string, accessToken?: string): Promise<LinkedWalletAccount[]> {
+export async function listWalletTransfers(input: {
+  actorUserId?: string;
+  accessToken?: string;
+  limit?: number;
+  offset?: number;
+  walletId?: string;
+} = {}): Promise<WalletTransaction[]> {
+  const params = new URLSearchParams();
+  params.set("limit", String(input.limit ?? 100));
+  params.set("offset", String(input.offset ?? 0));
+  if (input.walletId) params.set("wallet_id", input.walletId);
+  const response = await fetch(`${walletServiceUrl()}/v1/transfers?${params.toString()}`, {
+    cache: "no-store",
+    headers: authHeaders(input.accessToken, input.actorUserId),
+  });
+  const body = await parseResponse<WalletTransfersResponse>(response, "Transfer service request failed.");
+  return (body.data ?? []).map((transfer) => ({
+    id: transfer.id,
+    type: "TRANSFER",
+    status: transfer.status as TransactionStatus,
+    amount: transfer.amount,
+    currency: transfer.currency,
+    sourceWalletId: transfer.source_wallet_id,
+    destinationWalletId: transfer.destination_wallet_id,
+    referenceType: transfer.reference_type,
+    referenceId: transfer.reference_id,
+    createdAt: transfer.created_at,
+  }));
+}
+
+export async function listLinkedWalletAccounts(walletId: string, accessToken?: string, actorUserId?: string): Promise<LinkedWalletAccount[]> {
   const response = await fetch(`${walletServiceUrl()}/v1/wallets/${encodeURIComponent(walletId)}/linked-accounts`, {
     cache: "no-store",
-    headers: authHeaders(accessToken),
+    headers: authHeaders(accessToken, actorUserId),
   });
   const body = await parseResponse<LinkedWalletAccountsResponse>(response, "Wallet linked account request failed.");
   return (body.data ?? []).map(mapLinkedAccount);
 }
 
+export async function createLinkedWalletAccount(input: {
+  actorUserId?: string;
+  accessToken?: string;
+  walletId: string;
+  provider: LinkedAccountProvider;
+  providerAccountId?: string;
+  connectionType: LinkedAccountConnectionType;
+  status: LinkedAccountStatus;
+  displayName?: string;
+  externalReference?: string;
+  currency: WalletCurrency;
+}): Promise<LinkedWalletAccount> {
+  const response = await fetch(`${walletServiceUrl()}/v1/wallets/${encodeURIComponent(input.walletId)}/linked-accounts`, {
+    method: "POST",
+    cache: "no-store",
+    headers: authHeaders(input.accessToken, input.actorUserId, { "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      provider: input.provider,
+      provider_account_id: input.providerAccountId,
+      connection_type: input.connectionType,
+      status: input.status,
+      display_name: input.displayName,
+      external_reference: input.externalReference,
+      currency: input.currency,
+    }),
+  });
+  return mapLinkedAccount(await parseResponse<LinkedWalletAccountResponse>(response, "Wallet linked account creation failed."));
+}
+
 export async function createWallet(input: {
+  actorUserId?: string;
   accessToken?: string;
   walletType: WalletType;
   ownerId: string;
@@ -279,7 +393,7 @@ export async function createWallet(input: {
   const response = await fetch(`${walletServiceUrl()}/v1/wallets`, {
     method: "POST",
     cache: "no-store",
-    headers: authHeaders(input.accessToken, { "Content-Type": "application/json" }),
+    headers: authHeaders(input.accessToken, input.actorUserId, { "Content-Type": "application/json" }),
     body: JSON.stringify({
       wallet_type: input.walletType,
       owner_id: input.ownerId,
@@ -287,4 +401,37 @@ export async function createWallet(input: {
     }),
   });
   return mapWallet(await parseResponse<WalletRecordResponse>(response, "Wallet creation request failed."));
+}
+
+export async function createWalletTransfer(input: {
+  actorUserId?: string;
+  accessToken?: string;
+  sourceWalletId: string;
+  destinationWalletId: string;
+  amount: number;
+  currency: WalletCurrency;
+  referenceId?: string;
+  description?: string;
+  idempotencyKey: string;
+}): Promise<WalletTransferRecord> {
+  const response = await fetch(`${walletServiceUrl()}/v1/transfers`, {
+    method: "POST",
+    cache: "no-store",
+    headers: authHeaders(input.accessToken, input.actorUserId, {
+      "Content-Type": "application/json",
+      "Idempotency-Key": input.idempotencyKey,
+    }),
+    body: JSON.stringify({
+      source_wallet_id: input.sourceWalletId,
+      destination_wallet_id: input.destinationWalletId,
+      amount: input.amount,
+      currency: input.currency,
+      reference_type: input.referenceId ? "dashboard" : undefined,
+      reference_id: input.referenceId || undefined,
+      description: input.description || undefined,
+    }),
+  });
+  const body = await parseResponse<{ transfer?: WalletTransferResponse }>(response, "Wallet transfer request failed.");
+  if (!body.transfer) throw new WalletServiceError("Wallet transfer response did not include a transfer record.", response.status);
+  return mapTransfer(body.transfer);
 }

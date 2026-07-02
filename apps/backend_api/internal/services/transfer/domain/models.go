@@ -13,9 +13,18 @@ type TransferRequest struct {
 	IdempotencyKey      string `json:"-"`
 }
 
-type WalletTransaction struct {
+type TransferStatus string
+
+const (
+	TransferPending    TransferStatus = "PENDING"
+	TransferProcessing TransferStatus = "PROCESSING"
+	TransferCompleted  TransferStatus = "COMPLETED"
+	TransferFailed     TransferStatus = "FAILED"
+	TransferCancelled  TransferStatus = "CANCELLED"
+)
+
+type Transfer struct {
 	ID                  string    `json:"id"`
-	Type                string    `json:"type"`
 	Status              string    `json:"status"`
 	Amount              int64     `json:"amount"`
 	Currency            string    `json:"currency"`
@@ -23,10 +32,13 @@ type WalletTransaction struct {
 	DestinationWalletID string    `json:"destination_wallet_id,omitempty"`
 	ReferenceType       string    `json:"reference_type,omitempty"`
 	ReferenceID         string    `json:"reference_id,omitempty"`
+	Description         string    `json:"description,omitempty"`
 	IdempotencyKey      string    `json:"idempotency_key,omitempty"`
+	FailureReason       string    `json:"failure_reason,omitempty"`
 	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 }
 
 type TransferInitiation struct {
-	Transfer WalletTransaction `json:"transfer"`
+	Transfer Transfer `json:"transfer"`
 }

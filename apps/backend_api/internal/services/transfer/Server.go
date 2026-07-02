@@ -23,7 +23,7 @@ func New(opts Options) http.Handler {
 	}
 	svc := opts.Service
 	if svc == nil {
-		svc = service.New(service.NewWalletHTTPClient(opts.Config.WalletBaseURL, opts.Config.WalletRequestTimeout))
+		svc = service.New(nil)
 	}
 	router := &handlers.Router{}
 	mustHandle := func(pattern string, methods []string, handler http.HandlerFunc) {
@@ -39,7 +39,10 @@ func New(opts Options) http.Handler {
 	if opts.Config.MetricsEnabled {
 		mustHandle("/metrics", []string{http.MethodGet}, func(w http.ResponseWriter, _ *http.Request) { handlers.WriteOK(w, map[string]int{"requests": 0}) })
 	}
+	mustHandle("/v1/transfers", []string{http.MethodGet}, endpoints.ListTransfers(svc))
 	mustHandle("/v1/transfers", []string{http.MethodPost}, endpoints.CreateTransfer(svc))
+	mustHandle("/v1/transfers/{id}", []string{http.MethodGet}, endpoints.GetTransfer(svc))
+	mustHandle("/v1/transfers/{id}/status", []string{http.MethodPost}, endpoints.UpdateTransferStatus(svc))
 	return accessLog(opts.Logger, router)
 }
 

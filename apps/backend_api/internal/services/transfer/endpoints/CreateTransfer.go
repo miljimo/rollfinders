@@ -3,6 +3,7 @@ package endpoints
 import (
 	"net/http"
 
+	"rollfinders/internal/core/handlers"
 	"rollfinders/internal/services/transfer/domain"
 	"rollfinders/internal/services/transfer/service"
 )
@@ -20,8 +21,8 @@ type createTransferRequest struct {
 func CreateTransfer(svc *service.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req createTransferRequest
-		if err := decodeJSON(r, &req); err != nil {
-			writeJSON(w, http.StatusBadRequest, errorBody{Error: errorDetail{Code: "invalid_json", Message: "Request body must be valid JSON."}})
+		if err := handlers.Json(r, &req); err != nil {
+			handlers.ErrorWithStatus(w, handlers.NewStatusError(http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.", err, nil), http.StatusInternalServerError)
 			return
 		}
 		result, err := svc.InitiateTransfer(r.Context(), domain.TransferRequest{
@@ -35,9 +36,9 @@ func CreateTransfer(svc *service.Service) http.HandlerFunc {
 			IdempotencyKey:      r.Header.Get("Idempotency-Key"),
 		})
 		if err != nil {
-			writeError(w, err)
+			handlers.ErrorWithStatus(w, transferStatusError(err), http.StatusInternalServerError)
 			return
 		}
-		writeJSON(w, http.StatusCreated, result)
+		_ = handlers.SuccessWithData(w, result, http.StatusCreated)
 	}
 }

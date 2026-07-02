@@ -18,6 +18,7 @@ func TestWalletServiceFinancialFlow(t *testing.T) {
 
 	internalWallet := createWallet(t, handler, "internal", "owner_rollfinders", "GBP")
 	externalWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")
+	linkExternalWallet(t, handler, externalWallet.ID)
 	if internalWallet.Type != "internal" || externalWallet.Type != "external" {
 		t.Fatalf("expected wallet type to be returned, got internal=%+v external=%+v", internalWallet, externalWallet)
 	}
@@ -88,6 +89,7 @@ func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
 	handler := testHandler()
 	source := createWallet(t, handler, "internal", "owner_source", "GBP")
 	destination := createWallet(t, handler, "external", "owner_destination", "GBP")
+	linkExternalWallet(t, handler, destination.ID)
 	postJSON(t, handler, "/v1/wallets/adjustment", "seed", map[string]interface{}{
 		"wallet_id": source.ID, "counter_wallet_id": destination.ID, "type": "MANUAL_CREDIT", "amount": 100, "currency": "GBP", "reason": "seed", "administrator_id": "SYSTEM", "reference": "seed",
 	}, http.StatusCreated)
@@ -185,6 +187,7 @@ type walletResponse struct {
 	Type     string `json:"wallet_type"`
 	OwnerID  string `json:"owner_id"`
 	Currency string `json:"currency"`
+	Status   string `json:"status"`
 }
 
 type balanceResponse struct {
@@ -207,6 +210,7 @@ func createWallet(t *testing.T, handler http.Handler, walletType string, ownerID
 		Type:     stringValue(body["wallet_type"]),
 		OwnerID:  stringValue(body["owner_id"]),
 		Currency: stringValue(body["currency"]),
+		Status:   stringValue(body["status"]),
 	}
 	if wallet.ID == "" {
 		t.Fatalf("expected wallet id in %#v", body)
@@ -215,6 +219,75 @@ func createWallet(t *testing.T, handler http.Handler, walletType string, ownerID
 		t.Fatalf("expected wallet contract to include type, owner, currency; got %+v", wallet)
 	}
 	return wallet
+}
+
+func TestWalletServiceCreatesExternalWalletInactiveAndActivatesWhenLinked(t *testing.T) {
+	handler := testHandler()
+	externalWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")
+	if externalWallet.Status != "inactive" {
+		t.Fatalf("expected new external wallet to be inactive, got %+v", externalWallet)
+	}
+
+	body := postJSON(t, handler, "/v1/wallets/"+externalWallet.ID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_123",
+		"connection_type":     "BOTH",
+		"status":              "CONNECTED",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_123",
+		"currency":            "GBP",
+	}, http.StatusCreated)
+	if body["provider"] != "STRIPE" {
+		t.Fatalf("expected linked account response, got %#v", body)
+	}
+
+	wallet := getWallet(t, handler, externalWallet.ID)
+	if wallet.Status != "active" {
+		t.Fatalf("expected linked external wallet to become active, got %+v", wallet)
+	}
+}
+
+func TestWalletServiceUpsertsLinkedAccountForSameWalletProvider(t *testing.T) {
+	handler := testHandler()
+	externalWallet := createWallet(t, handler, "external", "owner_registered_1", "GBP")
+
+	first := postJSON(t, handler, "/v1/wallets/"+externalWallet.ID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_pending",
+		"connection_type":     "BOTH",
+		"status":              "PENDING",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_pending",
+		"currency":            "GBP",
+	}, http.StatusCreated)
+	second := postJSON(t, handler, "/v1/wallets/"+externalWallet.ID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_connected",
+		"connection_type":     "BOTH",
+		"status":              "CONNECTED",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_connected",
+		"currency":            "GBP",
+	}, http.StatusCreated)
+	if first["id"] != second["id"] {
+		t.Fatalf("expected linked account upsert to preserve id, got %v and %v", first["id"], second["id"])
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/wallets/"+externalWallet.ID+"/linked-accounts", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected linked account list status 200, got %d body %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data []domain.LinkedAccount `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&body); err != nil {
+		t.Fatalf("decode linked account list: %v", err)
+	}
+	if len(body.Data) != 1 || body.Data[0].ProviderAccountID != "acct_connected" || body.Data[0].Status != domain.LinkedAccountConnected {
+		t.Fatalf("expected one connected linked account after upsert, got %+v", body.Data)
+	}
 }
 
 func stringValue(value interface{}) string {
@@ -250,6 +323,34 @@ func getWallets(t *testing.T, handler http.Handler) walletsResponse {
 		t.Fatalf("decode wallets: %v", err)
 	}
 	return page
+}
+
+func getWallet(t *testing.T, handler http.Handler, walletID string) walletResponse {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/v1/wallets/"+walletID, nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected wallet status 200, got %d body %s", rec.Code, rec.Body.String())
+	}
+	var wallet walletResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &wallet); err != nil {
+		t.Fatalf("decode wallet: %v", err)
+	}
+	return wallet
+}
+
+func linkExternalWallet(t *testing.T, handler http.Handler, walletID string) {
+	t.Helper()
+	postJSON(t, handler, "/v1/wallets/"+walletID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_" + walletID,
+		"connection_type":     "BOTH",
+		"status":              "CONNECTED",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_" + walletID,
+		"currency":            "GBP",
+	}, http.StatusCreated)
 }
 
 func postJSON(t *testing.T, handler http.Handler, path string, key string, body map[string]interface{}, expected int) map[string]interface{} {

@@ -42,7 +42,7 @@ func (repo *InMemoryRepository) CreateWallet(_ context.Context, input dataaccess
 		Type:      input.Type,
 		OwnerID:   input.OwnerID,
 		Currency:  input.Currency,
-		Status:    domain.WalletActive,
+		Status:    testWalletStatus(input.Type),
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -50,10 +50,64 @@ func (repo *InMemoryRepository) CreateWallet(_ context.Context, input dataaccess
 	return &wallet, nil
 }
 
+func testWalletStatus(walletType domain.WalletType) domain.WalletStatus {
+	if walletType == domain.WalletExternal {
+		return domain.WalletInactive
+	}
+	return domain.WalletActive
+}
+
 func (repo *InMemoryRepository) addLinkedAccount(account domain.LinkedAccount) {
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	repo.linkedAccounts[account.WalletID] = append(repo.linkedAccounts[account.WalletID], account)
+}
+
+func (repo *InMemoryRepository) CreateLinkedAccount(_ context.Context, input dataaccess.CreateLinkedAccountInput) (*domain.LinkedAccount, error) {
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	wallet, err := repo.getWallet(input.WalletID)
+	if err != nil {
+		return nil, err
+	}
+	if wallet.Type != domain.WalletExternal {
+		return nil, domain.ErrWalletNotFound
+	}
+	now := time.Now().UTC()
+	account := domain.LinkedAccount{
+		ID:                newID("lwa"),
+		WalletID:          input.WalletID,
+		Provider:          input.Provider,
+		ProviderAccountID: input.ProviderAccountID,
+		ConnectionType:    input.ConnectionType,
+		Status:            input.Status,
+		DisplayName:       input.DisplayName,
+		ExternalReference: input.ExternalReference,
+		Currency:          input.Currency,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	for index, existing := range repo.linkedAccounts[input.WalletID] {
+		if existing.Provider != input.Provider {
+			continue
+		}
+		account.ID = existing.ID
+		account.CreatedAt = existing.CreatedAt
+		repo.linkedAccounts[input.WalletID][index] = account
+		if account.Status == domain.LinkedAccountConnected {
+			wallet.Status = domain.WalletActive
+			wallet.UpdatedAt = now
+			repo.wallets[input.WalletID] = wallet
+		}
+		return &account, nil
+	}
+	repo.linkedAccounts[input.WalletID] = append(repo.linkedAccounts[input.WalletID], account)
+	if account.Status == domain.LinkedAccountConnected {
+		wallet.Status = domain.WalletActive
+		wallet.UpdatedAt = now
+		repo.wallets[input.WalletID] = wallet
+	}
+	return &account, nil
 }
 
 func (repo *InMemoryRepository) ListWallets(_ context.Context, input dataaccess.ListWalletsInput) (dataaccess.WalletPage, error) {

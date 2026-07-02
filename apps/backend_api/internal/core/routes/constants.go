@@ -342,14 +342,15 @@ const (
 
 const (
 	// Wallet Service API Gateways
-	Wallets                     GatewayTargetPath = "/v1/wallets"
-	WalletsWalletId             GatewayTargetPath = "/v1/wallets/{walletId}"
-	WalletsWalletIdBalance      GatewayTargetPath = "/v1/wallets/{walletId}/balance"
-	WalletsWalletIdTransactions GatewayTargetPath = "/v1/wallets/{walletId}/transactions"
-	WalletsTransfer             GatewayTargetPath = "/v1/wallets/transfer"
-	WalletsReverse              GatewayTargetPath = "/v1/wallets/reverse"
-	WalletsAdjustment           GatewayTargetPath = "/v1/wallets/adjustment"
-	WalletTransactions          GatewayTargetPath = "/v1/transactions/{transactionId}"
+	Wallets                       GatewayTargetPath = "/v1/wallets"
+	WalletsWalletId               GatewayTargetPath = "/v1/wallets/{walletId}"
+	WalletsWalletIdLinkedAccounts GatewayTargetPath = "/v1/wallets/{walletId}/linked-accounts"
+	WalletsWalletIdBalance        GatewayTargetPath = "/v1/wallets/{walletId}/balance"
+	WalletsWalletIdTransactions   GatewayTargetPath = "/v1/wallets/{walletId}/transactions"
+	WalletsTransfer               GatewayTargetPath = "/v1/wallets/transfer"
+	WalletsReverse                GatewayTargetPath = "/v1/wallets/reverse"
+	WalletsAdjustment             GatewayTargetPath = "/v1/wallets/adjustment"
+	WalletTransactions            GatewayTargetPath = "/v1/transactions/{transactionId}"
 
 	PermissionWalletCreate          GatewayPermissionName = "wallet.create"
 	PermissionWalletSearch          GatewayPermissionName = "wallet.search"
@@ -518,7 +519,7 @@ func GatewayResourceCatalog() map[GatewayPermissionName]GatewayResourceDefinitio
 		PermissionSubscriptionEntitlementRead:        createGatewayResource(PermissionSubscriptionEntitlementRead, SubscriptionApplicationEntitlements),
 		PermissionWalletCreate:                       createGatewayResource(PermissionWalletCreate, Wallets),
 		PermissionWalletSearch:                       createGatewayResource(PermissionWalletSearch, Wallets),
-		PermissionWalletRead:                         createGatewayResource(PermissionWalletRead, WalletsWalletId),
+		PermissionWalletRead:                         createGatewayResource(PermissionWalletRead, WalletsWalletId, WalletsWalletIdLinkedAccounts),
 		PermissionWalletTransfer:                     createGatewayResource(PermissionWalletTransfer, WalletsTransfer),
 		PermissionWalletReverse:                      createGatewayResource(PermissionWalletReverse, WalletsReverse),
 		PermissionWalletAdjustment:                   createGatewayResource(PermissionWalletAdjustment, WalletsAdjustment),

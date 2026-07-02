@@ -10,7 +10,7 @@ func (repo *DatabaseRepository) Transfer(ctx context.Context, input TransferInpu
 	rows, err := repo.db.Function(
 		ctx,
 		"wallet.transfer",
-		postgresID("txn"),
+		input.IdempotencyKey,
 		postgresID("led"),
 		postgresID("led"),
 		input.Type,

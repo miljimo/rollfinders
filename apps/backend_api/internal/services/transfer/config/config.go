@@ -2,21 +2,20 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
 	"rollfinders/internal/services/transfer/environments"
 )
 
 type Config struct {
-	Port                 string
-	WalletBaseURL        string
-	WalletRequestTimeout time.Duration
-	ReadTimeout          time.Duration
-	WriteTimeout         time.Duration
-	ShutdownTimeout      time.Duration
-	MetricsEnabled       bool
+	Port            string
+	DatabaseURL     string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	ShutdownTimeout time.Duration
+	MetricsEnabled  bool
 }
 
 func Load() (Config, error) {
@@ -25,36 +24,36 @@ func Load() (Config, error) {
 
 func LoadFrom(env environments.Environment) (Config, error) {
 	cfg := Config{
-		Port:                 env.GetWithDefault("PORT", "8080"),
-		WalletBaseURL:        cleanURL(env.GetWithDefault("WALLET_PUBLIC_BASE_URL", "http://localhost:3009")),
-		WalletRequestTimeout: durationOrDefault(env, "WALLET_REQUEST_TIMEOUT", 5*time.Second),
-		ReadTimeout:          durationOrDefault(env, "READ_TIMEOUT", 5*time.Second),
-		WriteTimeout:         durationOrDefault(env, "WRITE_TIMEOUT", 10*time.Second),
-		ShutdownTimeout:      durationOrDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
-		MetricsEnabled:       env.GetWithDefault("METRICS_ENABLED", "true") != "false",
+		Port:            env.GetWithDefault("PORT", "8080"),
+		DatabaseURL:     databaseURL(env),
+		ReadTimeout:     durationOrDefault(env, "READ_TIMEOUT", 5*time.Second),
+		WriteTimeout:    durationOrDefault(env, "WRITE_TIMEOUT", 10*time.Second),
+		ShutdownTimeout: durationOrDefault(env, "SHUTDOWN_TIMEOUT", 10*time.Second),
+		MetricsEnabled:  env.GetWithDefault("METRICS_ENABLED", "true") != "false",
 	}
 	if cfg.Port == "" {
 		return Config{}, errors.New("PORT must not be empty")
 	}
-	if err := validateURL(cfg.WalletBaseURL); err != nil {
-		return Config{}, errors.New("WALLET_PUBLIC_BASE_URL must be a valid absolute URL")
+	if cfg.DatabaseURL == "" {
+		return Config{}, errors.New("database configuration is required")
 	}
 	return cfg, nil
 }
 
-func cleanURL(value string) string {
-	return strings.TrimRight(strings.TrimSpace(value), "/")
-}
-
-func validateURL(value string) error {
-	parsed, err := url.Parse(value)
-	if err != nil {
-		return err
+func databaseURL(env environments.Environment) string {
+	if value := env.Get("DATABASE_URL"); value != "" {
+		return value
 	}
-	if parsed.Scheme == "" || parsed.Host == "" {
-		return errors.New("absolute URL is required")
+	host := env.Get("DB_HOST")
+	name := env.Get("DB_NAME")
+	user := env.GetWithDefault("DB_USER", "postgres")
+	password := env.GetWithDefault("DB_PASSWORD", "postgres")
+	if host == "" || name == "" {
+		return ""
 	}
-	return nil
+	port := env.GetWithDefault("DB_PORT", "5432")
+	credentials := url.UserPassword(user, password)
+	return fmt.Sprintf("postgres://%s@%s:%s/%s?sslmode=disable", credentials.String(), host, port, url.PathEscape(name))
 }
 
 func durationOrDefault(env environments.Environment, key string, fallback time.Duration) time.Duration {

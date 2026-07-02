@@ -8,7 +8,11 @@ import (
 
 func (repo *DatabaseRepository) CreateWallet(ctx context.Context, input CreateWalletInput) (*domain.Wallet, error) {
 	now := time.Now().UTC()
-	rows, err := repo.db.Function(ctx, "wallet.create_wallet", postgresID("wal"), input.Type, input.OwnerID, input.Currency, domain.WalletActive, now, now)
+	status := domain.WalletActive
+	if input.Type == domain.WalletExternal {
+		status = domain.WalletInactive
+	}
+	rows, err := repo.db.Function(ctx, "wallet.create_wallet", postgresID("wal"), input.Type, input.OwnerID, input.Currency, status, now, now)
 	if err != nil {
 		return nil, mapDatabaseError(err)
 	}

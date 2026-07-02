@@ -42,6 +42,7 @@ export interface TableProps<T extends TableRecord> {
   loadingMessage?: ReactNode;
   getRowId?: (row: T, rowIndex: number) => TableRowId;
   getRowHref?: (row: T, rowIndex: number) => string | undefined;
+  getRowDoubleClickHref?: (row: T, rowIndex: number) => string | undefined;
   minWidthClassName?: string;
   className?: string;
 }

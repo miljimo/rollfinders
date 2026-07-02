@@ -146,6 +146,7 @@ const (
 	SubscriptionApplicationEntitlements                  = gatewayroutes.SubscriptionApplicationEntitlements
 	Wallets                                              = gatewayroutes.Wallets
 	WalletsWalletId                                      = gatewayroutes.WalletsWalletId
+	WalletsWalletIdLinkedAccounts                        = gatewayroutes.WalletsWalletIdLinkedAccounts
 	WalletsWalletIdBalance                               = gatewayroutes.WalletsWalletIdBalance
 	WalletsWalletIdTransactions                          = gatewayroutes.WalletsWalletIdTransactions
 	WalletsTransfer                                      = gatewayroutes.WalletsTransfer

@@ -85,6 +85,12 @@ if [ -d apps/backend_api/migrations/wallet ]; then
   done
 fi
 
+if [ -d apps/backend_api/migrations/transfer ]; then
+  if [ -f apps/backend_api/migrations/transfer/001_core_schema.sql ]; then
+    (cd apps/backend_api/migrations/transfer && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+  fi
+fi
+
 if [ -d apps/backend_api/migrations/organisation ]; then
   for dir in schema tables procedures functions; do
     if [ -d "apps/backend_api/migrations/organisation/${dir}" ]; then

@@ -17,8 +17,8 @@ func main() {
 	servicebase.RunHTTP(servicebase.HTTPOptions[config.Config]{
 		Name:       "transfer api",
 		LoadConfig: config.Load,
-		BuildHandler: func(_ context.Context, cfg config.Config, logger *slog.Logger) (http.Handler, func(), error) {
-			return bootstrap.Handler(cfg, logger), nil, nil
+		BuildHandler: func(ctx context.Context, cfg config.Config, logger *slog.Logger) (http.Handler, func(), error) {
+			return bootstrap.Handler(ctx, cfg, logger)
 		},
 		Port:            func(cfg config.Config) string { return cfg.Port },
 		ReadTimeout:     func(cfg config.Config) time.Duration { return cfg.ReadTimeout },

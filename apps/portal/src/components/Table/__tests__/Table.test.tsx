@@ -83,6 +83,22 @@ describe("Table", () => {
     assert.match(markup, /Edit Friday Rounds/);
   });
 
+  it("renders double-click row navigation without creating mobile links", () => {
+    const markup = renderToStaticMarkup(
+      <Table
+        columns={columns}
+        data={rows}
+        getRowDoubleClickHref={(row) => `/wallets/${row.id}`}
+        getRowId={(row) => row.id}
+      />,
+    );
+
+    assert.match(markup, /tabindex="0"/);
+    assert.match(markup, /Double click to view details/);
+    assert.match(markup, /cursor-pointer/);
+    assert.doesNotMatch(markup, /href="\/wallets\/open-mat-1"/);
+  });
+
   it("renders a mobile card list using the same columns and actions", () => {
     const markup = renderToStaticMarkup(
       <Table

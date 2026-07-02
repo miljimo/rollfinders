@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -10,55 +11,98 @@ import (
 	"time"
 
 	"rollfinders/internal/services/transfer/config"
+	"rollfinders/internal/services/transfer/dataaccess"
+	"rollfinders/internal/services/transfer/domain"
 	transfersvc "rollfinders/internal/services/transfer/service"
 )
 
-func TestTransferServiceInitiatesWalletTransfer(t *testing.T) {
-	var receivedPath string
-	var receivedKey string
-	var receivedBody map[string]interface{}
-	wallet := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		receivedPath = r.URL.Path
-		receivedKey = r.Header.Get("Idempotency-Key")
-		_ = json.NewDecoder(r.Body).Decode(&receivedBody)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"id":                    "txn_123",
-			"type":                  "TRANSFER",
-			"status":                "COMPLETED",
-			"amount":                2500,
-			"currency":              "GBP",
-			"source_wallet_id":      "wal_source",
-			"destination_wallet_id": "wal_destination",
-			"reference_type":        "booking",
-			"reference_id":          "booking_1",
-			"created_at":            time.Now().UTC(),
-		})
-	}))
-	defer wallet.Close()
+type stubRepository struct {
+	created dataaccess.CreateTransferInput
+}
+
+func (repo *stubRepository) CreateTransfer(_ context.Context, input dataaccess.CreateTransferInput) (*domain.Transfer, error) {
+	repo.created = input
+	return &domain.Transfer{
+		ID:                  "trf_123",
+		Status:              string(domain.TransferPending),
+		SourceWalletID:      input.SourceWalletID,
+		DestinationWalletID: input.DestinationWalletID,
+		Amount:              input.Amount,
+		Currency:            input.Currency,
+		ReferenceType:       input.ReferenceType,
+		ReferenceID:         input.ReferenceID,
+		Description:         input.Description,
+		IdempotencyKey:      input.IdempotencyKey,
+		CreatedAt:           time.Now().UTC(),
+		UpdatedAt:           time.Now().UTC(),
+	}, nil
+}
+
+func (repo *stubRepository) MarkTransferProcessing(_ context.Context, id string) (*domain.Transfer, error) {
+	return &domain.Transfer{ID: id, Status: string(domain.TransferProcessing)}, nil
+}
+
+func (repo *stubRepository) CompleteTransfer(_ context.Context, id string) (*domain.Transfer, error) {
+	return &domain.Transfer{ID: id, Status: string(domain.TransferCompleted)}, nil
+}
+
+func (repo *stubRepository) FailTransfer(_ context.Context, input dataaccess.FailTransferInput) (*domain.Transfer, error) {
+	return &domain.Transfer{ID: input.ID, Status: string(domain.TransferFailed), FailureReason: input.FailureReason}, nil
+}
+
+func (repo *stubRepository) GetTransfer(_ context.Context, id string) (*domain.Transfer, error) {
+	return &domain.Transfer{ID: id, Status: string(domain.TransferPending)}, nil
+}
+
+func (repo *stubRepository) ListTransfers(_ context.Context, _ dataaccess.ListTransfersInput) ([]domain.Transfer, error) {
+	return []domain.Transfer{{ID: "trf_123", Status: string(domain.TransferPending)}}, nil
+}
+
+func TestTransferServiceCreatesTransferRecord(t *testing.T) {
+	repo := &stubRepository{}
 
 	handler := New(Options{
-		Config:  config.Config{WalletBaseURL: wallet.URL, WalletRequestTimeout: time.Second},
+		Config:  config.Config{},
 		Logger:  slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)),
-		Service: transfersvc.New(transfersvc.NewWalletHTTPClient(wallet.URL, time.Second)),
+		Service: transfersvc.New(repo),
 	})
 	res := postJSON(t, handler, "/v1/transfers", "transfer-key", map[string]interface{}{
 		"source_wallet_id": "wal_source", "destination_wallet_id": "wal_destination", "amount": 2500, "currency": "gbp", "reference_type": "booking", "reference_id": "booking_1",
 	}, http.StatusCreated)
 
-	if receivedPath != "/v1/wallets/transfer" {
-		t.Fatalf("expected transfer service to call wallet transfer endpoint, got %s", receivedPath)
+	if repo.created.IdempotencyKey != "transfer-key" {
+		t.Fatalf("expected idempotency key to be persisted, got %q", repo.created.IdempotencyKey)
 	}
-	if receivedKey != "transfer-key" {
-		t.Fatalf("expected idempotency key to be forwarded, got %q", receivedKey)
-	}
-	if receivedBody["currency"] != "GBP" {
-		t.Fatalf("expected normalized currency, got %#v", receivedBody)
+	if repo.created.Currency != "GBP" {
+		t.Fatalf("expected normalized currency, got %#v", repo.created)
 	}
 	transfer := res["transfer"].(map[string]interface{})
-	if transfer["id"] != "txn_123" || transfer["type"] != "TRANSFER" {
-		t.Fatalf("expected wallet transaction response, got %#v", res)
+	if transfer["id"] != "trf_123" || transfer["status"] != "PENDING" {
+		t.Fatalf("expected transfer record response, got %#v", res)
+	}
+}
+
+func TestTransferServiceUpdatesTransferStatusThroughSingleEndpoint(t *testing.T) {
+	repo := &stubRepository{}
+	handler := New(Options{
+		Config:  config.Config{},
+		Logger:  slog.New(slog.NewTextHandler(bytes.NewBuffer(nil), nil)),
+		Service: transfersvc.New(repo),
+	})
+
+	processing := postJSON(t, handler, "/v1/transfers/trf_123/status", "", map[string]interface{}{
+		"status": "PROCESSING",
+	}, http.StatusOK)
+	if processing["transfer"].(map[string]interface{})["status"] != "PROCESSING" {
+		t.Fatalf("expected processing status, got %#v", processing)
+	}
+
+	completed := postJSON(t, handler, "/v1/transfers/trf_123/status", "", map[string]interface{}{
+		"status": "COMPLETED",
+	}, http.StatusOK)
+	transfer := completed["transfer"].(map[string]interface{})
+	if transfer["status"] != "COMPLETED" {
+		t.Fatalf("expected completed status, got %#v", completed)
 	}
 }
 

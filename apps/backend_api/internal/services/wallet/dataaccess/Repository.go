@@ -2,6 +2,7 @@ package dataaccess
 
 import (
 	"context"
+	"strings"
 
 	"rollfinders/internal/services/wallet/domain"
 )
@@ -27,6 +28,17 @@ type WalletPage struct {
 	Offset  int
 }
 
+type CreateLinkedAccountInput struct {
+	WalletID          string
+	Provider          domain.LinkedAccountProvider
+	ProviderAccountID string
+	ConnectionType    domain.LinkedAccountConnectionType
+	Status            domain.LinkedAccountStatus
+	DisplayName       string
+	ExternalReference string
+	Currency          domain.Currency
+}
+
 type TransferInput struct {
 	Type                domain.TransactionType
 	SourceWalletID      string
@@ -37,6 +49,18 @@ type TransferInput struct {
 	ReferenceID         string
 	IdempotencyKey      string
 	Description         string
+}
+
+func (t *TransferInput) Validate() error {
+
+	if strings.TrimSpace(string(t.Currency)) == "" {
+		return domain.ErrInvalidCurrency
+	}
+	if t.Amount <= 0 {
+		return domain.ErrInvalidAmount
+	}
+
+	return nil
 }
 
 type ReverseInput struct {
@@ -64,6 +88,7 @@ type Repository interface {
 	ListWallets(ctx context.Context, input ListWalletsInput) (WalletPage, error)
 	GetWallet(ctx context.Context, id string) (*domain.Wallet, error)
 	ListLinkedAccounts(ctx context.Context, walletID string) ([]domain.LinkedAccount, error)
+	CreateLinkedAccount(ctx context.Context, input CreateLinkedAccountInput) (*domain.LinkedAccount, error)
 	GetBalance(ctx context.Context, walletID string) (*domain.Balance, error)
 	ListWalletTransactions(ctx context.Context, walletID string) ([]domain.Transaction, error)
 	GetTransaction(ctx context.Context, id string) (*domain.Transaction, []domain.Statement, error)
