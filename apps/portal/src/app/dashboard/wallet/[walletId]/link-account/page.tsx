@@ -26,7 +26,7 @@ export default async function LinkExternalWalletAccountPage({
   const linkedAccounts = wallet.walletType === "external"
     ? await listLinkedWalletAccounts(wallet.id, user.accessToken, user.id).catch(() => [])
     : [];
-  const linkedAccount = linkedAccounts[0];
+  const linkedAccount = linkedAccounts.find((account) => account.status !== "DISABLED");
   const ownerAccountName = await resolveWalletOwnerAccountName(wallet.ownerId, user);
 
   return (
