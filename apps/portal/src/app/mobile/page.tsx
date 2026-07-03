@@ -26,17 +26,17 @@ type MobileSearchParams = {
 };
 
 const tabs = [
-  { href: "/mobile", icon: Compass, id: "discover", label: "Discover" },
+  { href: "/mobile", icon: Compass, id: "home", label: "Home" },
   { href: "/mobile?tab=map", icon: Map, id: "map", label: "Map" },
   { href: "/mobile?tab=bookings", icon: CalendarCheck, id: "bookings", label: "Bookings" },
-  { href: "/mobile?tab=saved", icon: Bookmark, id: "saved", label: "Saved" },
+  { href: "/mobile?tab=academies", icon: Bookmark, id: "academies", label: "Academies" },
   { href: "/mobile?tab=profile", icon: UserRound, id: "profile", label: "Profile" },
 ] as const;
 
 type MobileTab = typeof tabs[number]["id"];
 
 function selectedTab(value?: string): MobileTab {
-  return tabs.some((tab) => tab.id === value) ? value as MobileTab : "discover";
+  return tabs.some((tab) => tab.id === value) ? value as MobileTab : "home";
 }
 
 function locationFromParams(params: MobileSearchParams) {
@@ -84,10 +84,10 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
       </header>
 
       <div className="mx-auto max-w-md px-4 py-4">
-        {activeTab === "discover" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : null}
+        {activeTab === "home" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : null}
         {activeTab === "map" ? <MapView academies={mapItems.slice(0, 20)} /> : null}
         {activeTab === "bookings" ? <BookingsView signedIn={Boolean(currentUser)} /> : null}
-        {activeTab === "saved" ? <SavedView signedIn={Boolean(currentUser)} /> : null}
+        {activeTab === "academies" ? <AcademiesView signedIn={Boolean(currentUser)} /> : null}
         {activeTab === "profile" ? <ProfileView currentUser={currentUser} /> : null}
       </div>
 
@@ -207,7 +207,7 @@ function BookingsView({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-function SavedView({ signedIn }: { signedIn: boolean }) {
+function AcademiesView({ signedIn }: { signedIn: boolean }) {
   return (
     <ActionView
       icon={<Bookmark size={26} aria-hidden />}
