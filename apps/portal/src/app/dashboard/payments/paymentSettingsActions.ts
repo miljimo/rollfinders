@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentUser, isPlatformAdminRole, isSuperAdminRole } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
+import { updatePlatformFeePolicy } from "@/lib/pricing-policy-service";
 
 function settingsRedirect(params: Record<string, string>): never {
   const urlParams = new URLSearchParams({ paymentsView: "settings", ...params });
@@ -29,6 +29,7 @@ export async function updatePlatformPaymentFees(formData: FormData) {
 
   const platformFeeBasisPoints = decimalPercentToBasisPoints(String(formData.get("platformFeePercent") ?? ""));
   const platformFeeFixedMinor = poundsToMinor(String(formData.get("platformFeeFixed") ?? "0"));
+  const providerId = String(formData.get("providerId") ?? "").trim();
 
   if (platformFeeBasisPoints === null || platformFeeBasisPoints < 0 || platformFeeBasisPoints > 10000) {
     settingsRedirect({ paymentSettingsError: "Platform fee percentage must be between 0 and 100." });
@@ -38,20 +39,22 @@ export async function updatePlatformPaymentFees(formData: FormData) {
     settingsRedirect({ paymentSettingsError: "Fixed platform fee must be between £0.00 and £1,000.00." });
   }
 
-  await prisma.paymentPlatformSetting.upsert({
-    create: {
-      currency: "GBP",
-      id: "rollfinders",
-      platformFeeBasisPoints,
-      platformFeeFixedMinor,
-    },
-    update: {
-      currency: "GBP",
-      platformFeeBasisPoints,
-      platformFeeFixedMinor,
-    },
-    where: { id: "rollfinders" },
-  });
+  if (!providerId) {
+    settingsRedirect({ paymentSettingsError: "Select a wallet or provider account before saving platform fees." });
+  }
 
-  settingsRedirect({ paymentSettingsMessage: "platform-fees-updated" });
+  try {
+    await updatePlatformFeePolicy({
+      accessToken: user.accessToken,
+      actorUserId: user.id,
+      currency: "GBP",
+      fixedAmountMinor: platformFeeFixedMinor,
+      percentageBasisPoints: platformFeeBasisPoints,
+      providerId,
+    });
+  } catch (error) {
+    settingsRedirect({ paymentSettingsError: error instanceof Error ? error.message : "Platform fee policy could not be updated." });
+  }
+
+  settingsRedirect({ paymentSettingsMessage: "platform-fees-updated", pricingProviderId: providerId });
 }

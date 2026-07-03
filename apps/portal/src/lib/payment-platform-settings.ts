@@ -1,17 +1,20 @@
 import "server-only";
 
 import { prisma } from "@/lib/prisma";
+import { getPlatformFeePolicy, PricingPolicyServiceError } from "@/lib/pricing-policy-service";
 
 export type PaymentPlatformSettings = {
   currency: string;
   platformFeeBasisPoints: number;
   platformFeeFixedMinor: number;
+  providerId: string;
 };
 
 export const defaultPaymentPlatformSettings: PaymentPlatformSettings = {
   currency: "GBP",
   platformFeeBasisPoints: 500,
   platformFeeFixedMinor: 0,
+  providerId: "rollfinders-stripe-platform",
 };
 
 export function calculatePlatformFeeMinor(amountMinor: number, settings: PaymentPlatformSettings = defaultPaymentPlatformSettings) {
@@ -30,7 +33,31 @@ export function platformFeeLabel(settings: PaymentPlatformSettings = defaultPaym
   return `${percentageLabel} + ${new Intl.NumberFormat("en-GB", { currency: settings.currency, style: "currency" }).format(settings.platformFeeFixedMinor / 100)}`;
 }
 
-export async function getPaymentPlatformSettings(): Promise<PaymentPlatformSettings> {
+export async function getPaymentPlatformSettings(input: {
+  accessToken?: string;
+  actorUserId?: string;
+  providerId?: string;
+} = {}): Promise<PaymentPlatformSettings> {
+  const providerId = input.providerId || defaultPaymentPlatformSettings.providerId;
+  if (input.accessToken || input.actorUserId) {
+    try {
+      const policy = await getPlatformFeePolicy({
+        accessToken: input.accessToken,
+        actorUserId: input.actorUserId,
+        providerId,
+        currency: "GBP",
+      });
+      return {
+        currency: policy.currency,
+        platformFeeBasisPoints: policy.percentageBasisPoints,
+        platformFeeFixedMinor: policy.fixedAmountMinor,
+        providerId: policy.providerId,
+      };
+    } catch (error) {
+      if (!(error instanceof PricingPolicyServiceError)) throw error;
+    }
+  }
+
   const setting = await prisma.paymentPlatformSetting.upsert({
     create: {
       id: "rollfinders",
@@ -44,5 +71,6 @@ export async function getPaymentPlatformSettings(): Promise<PaymentPlatformSetti
     currency: setting.currency,
     platformFeeBasisPoints: setting.platformFeeBasisPoints,
     platformFeeFixedMinor: setting.platformFeeFixedMinor,
+    providerId,
   };
 }

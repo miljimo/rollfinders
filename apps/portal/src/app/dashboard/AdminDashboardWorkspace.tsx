@@ -19,7 +19,7 @@ import { getMapItems } from "@/lib/data";
 import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { listOrganisationApplications, listOrganisations } from "@/lib/organisation-service";
-import { calculatePlatformFeeMinor, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
+import { calculatePlatformFeeMinor, defaultPaymentPlatformSettings, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { getStripePaymentAccountSetting, listCourseOccurrencePaymentsPage, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
@@ -33,6 +33,7 @@ import { getWalletBalance, listLinkedWalletAccounts, listWalletTransfers, listWa
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
+import type { AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import { CopyButton } from "@/components/copy-button";
 import { DialogShell } from "@/components/DialogShell";
 import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboard";
@@ -67,6 +68,7 @@ import { NewAcademyPanelAction } from "./academies/NewAcademyPanelAction";
 import { SuperAdminPlatformAcademiesPanel } from "./academies/SuperAdminPlatformAcademiesPanel";
 import { ViewEventDialog, type DashboardEventDetail } from "./ViewEventDialog";
 import { updatePlatformPaymentFees } from "./payments/paymentSettingsActions";
+import { PricingPolicyScopeField } from "./payments/PricingPolicyScopeField";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/bookingActions";
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
@@ -428,6 +430,38 @@ type DashboardWalletsResult = {
   wallets: WalletRecord[];
 };
 
+function pricingPolicyOptions(wallets: WalletRecord[], linkedAccounts: LinkedWalletAccount[]): AutoCompleteTextFieldOption[] {
+  const options = new Map<string, AutoCompleteTextFieldOption>();
+  options.set(defaultPaymentPlatformSettings.providerId, {
+    id: defaultPaymentPlatformSettings.providerId,
+    label: "RollFinders platform provider",
+    description: defaultPaymentPlatformSettings.providerId,
+    meta: "Default platform pricing policy",
+  });
+
+  wallets.forEach((wallet) => {
+    options.set(wallet.id, {
+      id: wallet.id,
+      label: `${titleCase(wallet.walletType)} wallet - ${wallet.ownerId}`,
+      description: `${wallet.currency} - ${wallet.status}`,
+      meta: `${wallet.id} ${wallet.ownerId} ${wallet.walletType} wallet pricing policy`,
+    });
+  });
+
+  linkedAccounts.forEach((account) => {
+    const providerId = account.providerAccountId || account.externalReference || account.id;
+    if (!providerId) return;
+    options.set(providerId, {
+      id: providerId,
+      label: `${account.displayName || account.provider} provider account`,
+      description: `${account.provider} - ${account.status}`,
+      meta: `${providerId} ${account.walletId} ${account.connectionType} linked provider pricing policy`,
+    });
+  });
+
+  return [...options.values()];
+}
+
 function emptyServicePagination(limit: number, offset = 0): ServicePaginationMeta {
   return { count: 0, has_more: false, limit, offset };
 }
@@ -575,6 +609,7 @@ export default async function AdminDashboardWorkspace({
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
   const paymentSettingsMessage = firstParam(params.paymentSettingsMessage);
   const paymentSettingsError = firstParam(params.paymentSettingsError);
+  const pricingProviderId = (firstParam(params.pricingProviderId) ?? defaultPaymentPlatformSettings.providerId).trim() || defaultPaymentPlatformSettings.providerId;
   const bookingActionError = firstParam(params.bookingActionError);
   const bookingActionBookingId = firstParam(params.bookingActionBookingId);
   const bookingsSearch = (firstParam(params.bookingsSearch) ?? "").trim();
@@ -786,10 +821,10 @@ export default async function AdminDashboardWorkspace({
           ownerType: paymentAccountOwner.ownerType,
         })
       : Promise.resolve(null),
-    panel === "payments" ? getPaymentPlatformSettings() : Promise.resolve(null),
+    panel === "payments" ? getPaymentPlatformSettings({ accessToken: currentUser.accessToken, actorUserId: currentUser.id, providerId: pricingProviderId }) : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
-    panel === "wallet"
+    panel === "wallet" || (panel === "payments" && paymentsView === "settings" && !academyAdmin)
       ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
       : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
     panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction"
@@ -1302,6 +1337,8 @@ export default async function AdminDashboardWorkspace({
                 metricVisibility={paymentMetricVisibility}
                 paymentAccountSetting={paymentAccountSetting}
                 paymentPlatformSettings={paymentPlatformSettings ?? undefined}
+                pricingPolicyOptions={pricingPolicyOptions(walletResult.wallets, walletResult.linkedAccounts)}
+                selectedPricingProviderId={pricingProviderId}
                 period={paymentsPeriod}
                 payoutsPage={payoutsPage}
                 result={paymentResult}
@@ -3915,11 +3952,15 @@ function PaymentsSettingsView({
   paymentPlatformSettings,
   paymentSettingsError,
   paymentSettingsMessage,
+  pricingPolicyOptions,
+  selectedPricingProviderId,
 }: {
   academyAdmin: boolean;
   paymentPlatformSettings: PaymentPlatformSettings;
   paymentSettingsError?: string;
   paymentSettingsMessage?: string;
+  pricingPolicyOptions: AutoCompleteTextFieldOption[];
+  selectedPricingProviderId: string;
 }) {
   const platformFeePercent = platformFeePercentage(paymentPlatformSettings);
   const fixedPlatformFee = paymentPlatformSettings.platformFeeFixedMinor / 100;
@@ -3948,9 +3989,13 @@ function PaymentsSettingsView({
             <div>
               <h3 className="text-xl font-black text-slate-950">Platform Fees</h3>
               <p className="mt-1 text-sm font-semibold text-slate-600">
-                These fees are applied to academy payments before the academy payout amount is calculated.
+                These fees are applied to payments for the selected wallet or provider account before payout amounts are calculated.
               </p>
               <dl className="mt-5 grid gap-3 text-sm font-semibold text-slate-600">
+                <div className="flex justify-between gap-4">
+                  <dt>Policy scope</dt>
+                  <dd className="break-all text-right font-black text-slate-950">{paymentPlatformSettings.providerId}</dd>
+                </div>
                 <div className="flex justify-between gap-4">
                   <dt>Current fee</dt>
                   <dd className="font-black text-slate-950">{platformFeeLabel(paymentPlatformSettings)}</dd>
@@ -3962,6 +4007,7 @@ function PaymentsSettingsView({
               </dl>
             </div>
             <form action={updatePlatformPaymentFees} className="grid gap-4 rounded-lg border border-stone-200 p-4">
+              <PricingPolicyScopeField options={pricingPolicyOptions} selectedProviderId={selectedPricingProviderId} />
               <label className="grid gap-2 text-sm font-black text-slate-800">
                 Platform fee percentage
                 <input
@@ -4007,14 +4053,17 @@ function PaymentsPanel({
     currency: "GBP",
     platformFeeBasisPoints: 500,
     platformFeeFixedMinor: 0,
+    providerId: defaultPaymentPlatformSettings.providerId,
   },
   paymentSettingsError,
   paymentSettingsMessage,
+  pricingPolicyOptions,
   period,
   payoutsPage,
   result,
   search,
   searchParams,
+  selectedPricingProviderId,
   view,
 }: {
   academyAdmin: boolean;
@@ -4023,11 +4072,13 @@ function PaymentsPanel({
   paymentPlatformSettings?: PaymentPlatformSettings;
   paymentSettingsError?: string;
   paymentSettingsMessage?: string;
+  pricingPolicyOptions: AutoCompleteTextFieldOption[];
   period: PaymentOverviewPeriod;
   payoutsPage: number;
   result: DashboardPaymentsResult;
   search: string;
   searchParams: AdminSearchParams;
+  selectedPricingProviderId: string;
   view: string;
 }) {
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
@@ -4092,6 +4143,8 @@ function PaymentsPanel({
         paymentPlatformSettings={paymentPlatformSettings}
         paymentSettingsError={paymentSettingsError}
         paymentSettingsMessage={paymentSettingsMessage}
+        pricingPolicyOptions={pricingPolicyOptions}
+        selectedPricingProviderId={selectedPricingProviderId}
       />
     );
   }
