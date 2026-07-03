@@ -70,6 +70,8 @@ This must no longer be treated as Stripe account setup in Payment Settings. Stri
 * User identity.
 * Academy ownership data.
 * Subscription product catalogue.
+* Usage limit rules.
+* Usage counters or reservations.
 
 ### Related Service Boundaries
 
@@ -82,6 +84,8 @@ Transfer Service owns transfer workflow records. It must not calculate platform 
 Authorisation Service owns permissions and role assignments. Pricing Policy Service must not authenticate or authorise callers. The API/gateway layer enforces permissions before calling the service.
 
 Subscription Service owns plans, subscriptions, and entitlements. Future plan-based pricing rules may reference plan identifiers, but Pricing Policy Service must not own subscription lifecycle.
+
+Usage Limits Service owns quota rules, counters, reservations, overrides, and usage audit events. Future usage-based pricing may consume Usage Limits summaries or events, but Pricing Policy Service must not enforce quotas or store authoritative usage counters.
 
 ---
 
@@ -676,7 +680,7 @@ Potential rule dimensions:
 * Subscription plan id.
 * Date range.
 * Minimum payment amount.
-* Usage limit.
+* Usage limit or usage count supplied by Usage Limits Service.
 * First purchase only.
 
 Potential effects:

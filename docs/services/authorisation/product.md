@@ -69,6 +69,14 @@ After migration, Authorisation Service SHALL be the only writable source for rol
 * application-service enablement
 * tenant status and settings
 
+### Usage Limits Service Owns
+
+* usage limit rules
+* usage counters
+* usage reservations
+* usage overrides
+* quota decisions and usage audit events
+
 ### Domain Services Own
 
 Domain services own their resources and use Authorisation Service for decisions:
@@ -81,6 +89,8 @@ Domain services own their resources and use Authorisation Service for decisions:
 * Transfer Service owns transfer, payout, and withdrawal workflow records.
 
 Domain services SHALL NOT own roles, permission assignments, or global authorisation policy.
+
+Usage limit decisions SHALL NOT be modelled as permissions. Authorisation Service answers whether the actor has the required permission; Usage Limits Service answers whether the owner has remaining quota for the resource action.
 
 ## Current Implementation Fit
 
@@ -157,6 +167,7 @@ Authorisation Service SHALL seed, validate, expose, and evaluate permission reco
 | `payment.*` | API Orchestrator | Store/evaluate payment route permissions. |
 | `organisation.*` | API Orchestrator | Store/evaluate organisation route permissions. |
 | `user.*` | API Orchestrator | Store/evaluate identity/account route permissions. |
+| `usage_limit.*` | API Orchestrator | Store/evaluate Usage Limits administration route permissions, not quota decisions. |
 | `authorisation.*` | Authorisation Service | Store/evaluate permission-system administration permissions. |
 
 Permission creation APIs must reject codes outside the approved naming convention unless a platform operator explicitly extends the catalog policy.

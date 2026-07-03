@@ -125,6 +125,9 @@ The MVP does not include:
 * User limits.
 * Usage metering.
 * Usage-based billing.
+* Usage limit counters.
+* Usage limit reservations.
+* Usage quota enforcement.
 * Tax calculation.
 * Coupon codes.
 * Promotion codes.
@@ -134,7 +137,7 @@ The MVP does not include:
 * Multi-payment-provider abstraction beyond the Payment Service contract.
 * Automatically assigning subscriptions to all users under an organisation or academy.
 
-Usage limit denial reasons may exist as future-safe constants, but actual usage-limit enforcement should not be implemented in this MVP.
+Usage limit denial reasons may exist as future-safe constants, but actual usage-limit counters, reservations, and enforcement belong to the dedicated Usage Limits Service.
 
 ---
 
@@ -163,6 +166,7 @@ The Subscription Service owns:
 * Billing event summaries.
 * Entitlement publication.
 * Entitlement decision checks.
+* Active plan and billing-period context required by downstream usage-limit checks.
 
 ## 5.2 Subscription Service Does Not Own
 
@@ -178,6 +182,9 @@ The Subscription Service must not own:
 * User permissions.
 * API route permissions.
 * Resource-level access decisions.
+* Usage counters.
+* Usage reservations.
+* Usage quota policy enforcement.
 * Automatic user-level subscription assignment.
 
 ---
@@ -587,7 +594,7 @@ Plan includes requested feature
 User role allows action
 User permission allows action
 Access key allows action, if used
-Usage limit has not been exceeded, if usage limits exist later
+Usage Limits Service allows the route usage, when the route declares usage-limit metadata
 ```
 
 ---
@@ -821,7 +828,6 @@ OR subscription is inactive
 OR subscription is cancelled
 OR subscription is expired
 OR trial window has ended
-OR feature limit is exhausted, if usage limits exist later.
 ```
 
 ---
@@ -921,9 +927,13 @@ Response:
   },
   "subscription_id": "sub_123",
   "plan_id": "plan_starter",
+  "billing_period_start": "2026-07-01T00:00:00Z",
+  "billing_period_end": "2026-08-01T00:00:00Z",
   "feature_key": "booking.create_event"
 }
 ```
+
+Entitlement responses must include the active `plan_id` and billing period boundaries when an active subscription exists. The API Gateway passes this context to Usage Limits Service for subscription-plan-based usage rules and `subscription_period` quota windows. Subscription Service must not return usage counters or remaining quota.
 
 Decision rules:
 
@@ -948,14 +958,15 @@ For every protected request, the API Gateway must:
 4. Resolve required subscription feature key, if any.
 5. Call Authorisation Service for IAM decision.
 6. Call Subscription Service for entitlement decision when the route has a subscription feature key.
-7. Combine both decisions.
-8. Deny before proxying when either decision denies.
-9. Audit the decision.
+7. Call Usage Limits Service when the route has usage-limit metadata, using the entitlement `plan_id` and billing period context.
+8. Combine IAM, subscription, and usage decisions.
+9. Deny before proxying when any required decision denies.
+10. Audit the decision.
 
 Final rule:
 
 ```text
-Allow only when IAM allows AND subscription allows or passes.
+Allow only when IAM allows AND subscription allows or passes AND usage limits allow or pass.
 ```
 
 The gateway must not check whether the user personally has a subscription unless the request is for a practitioner subscription.
@@ -1737,7 +1748,7 @@ For MVP:
 PLAN_LIMIT_EXCEEDED
 ```
 
-should exist as a future-safe reason but should not be enforced until usage limits are implemented.
+is a Usage Limits Service denial reason. Subscription Service may document it for gateway/UI compatibility, but Subscription Service must not calculate or enforce it.
 
 ---
 
