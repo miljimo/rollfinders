@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Plus, Search, T
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import { TablePagination } from "@/components/Table";
 import type { AuthorisationPagination, AuthorisationPermission, AuthorisationRole } from "@/lib/authorisation-service";
-import { addPrivilegeToRole, createRoleWithPrivileges, loadAuthorisationRolesPage } from "../DashboardActions";
+import { addPrivilegeToRole, createRoleWithPrivileges, loadAuthorisationRolesPage, removePrivilegeFromRole } from "../DashboardActions";
 
 const pageSize = 10;
 const rolePermissionPageSize = 7;
@@ -173,18 +173,43 @@ export function SystemRolesBoard({
   }
 
   function addPrivilege(role: AuthorisationRole) {
-    if (!detailPermissionId) {
+    const permissionId = detailPermissionId;
+    if (!permissionId) {
       setMessage({ type: "error", text: "Select a privilege before adding it to the role." });
       return;
     }
     setMessage(null);
     startTransition(async () => {
-      const result = await addPrivilegeToRole({ roleId: role.id, permissionId: detailPermissionId });
+      const result = await addPrivilegeToRole({ roleId: role.id, permissionId });
       if (!result.success) {
         setMessage({ type: "error", text: result.message });
         return;
       }
+      const addedPermission = permissions.find((permission) => permission.id === permissionId);
+      if (addedPermission) {
+        setRolePermissionPages((current) => ({
+          ...current,
+          [role.id]: [...(current[role.id] ?? []), addedPermission].sort((left, right) => left.code.localeCompare(right.code)),
+        }));
+      }
       setDetailPermissionId("");
+      setMessage({ type: "success", text: result.message });
+      router.refresh();
+    });
+  }
+
+  function removePrivilege(role: AuthorisationRole, permission: AuthorisationPermission) {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await removePrivilegeFromRole({ roleId: role.id, permissionId: permission.id });
+      if (!result.success) {
+        setMessage({ type: "error", text: result.message });
+        return;
+      }
+      setRolePermissionPages((current) => ({
+        ...current,
+        [role.id]: (current[role.id] ?? []).filter((item) => item.id !== permission.id),
+      }));
       setMessage({ type: "success", text: result.message });
       router.refresh();
     });
@@ -235,6 +260,7 @@ export function SystemRolesBoard({
               <th className="px-5 py-3">System</th>
               <th className="px-5 py-3">Created By</th>
               <th className="px-5 py-3">Updated</th>
+              <th className="px-5 py-3 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
@@ -247,11 +273,20 @@ export function SystemRolesBoard({
                 <td className="px-5 py-4 font-medium text-stone-700">{role.system_role ? "Yes" : "No"}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{roleCreatorLabel(role)}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{formatRoleDate(role.updated_at)}</td>
+                <td className="px-5 py-4 text-right">
+                  <button
+                    type="button"
+                    onClick={() => openRole(role)}
+                    className="inline-flex min-h-9 items-center justify-center rounded-md border border-stone-300 bg-white px-3 text-xs font-black text-stone-800 shadow-sm hover:border-teal-700 hover:text-teal-800"
+                  >
+                    Manage
+                  </button>
+                </td>
               </tr>
             ))}
             {!pagedRoles.length ? (
               <tr>
-                <td className="px-5 py-8 text-center font-semibold text-stone-600" colSpan={7}>
+                <td className="px-5 py-8 text-center font-semibold text-stone-600" colSpan={8}>
                   {roles.length ? "No roles match your search." : "No Authorisation roles were returned."}
                 </td>
               </tr>
@@ -354,6 +389,7 @@ export function SystemRolesBoard({
                         <th className="px-4 py-3">Permission</th>
                         <th className="px-4 py-3">Name</th>
                         <th className="px-4 py-3">Description</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-stone-100">
@@ -362,11 +398,23 @@ export function SystemRolesBoard({
                           <td className="px-4 py-3 font-black text-stone-950">{permission.code}</td>
                           <td className="px-4 py-3 font-medium text-stone-800">{permission.name}</td>
                           <td className="px-4 py-3 font-medium text-stone-700">{permission.description || "No description"}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => removePrivilege(selectedRole, permission)}
+                              disabled={!canAddPrivileges || pending}
+                              className="inline-flex min-h-9 items-center justify-center gap-2 rounded-md border border-red-200 bg-white px-3 text-xs font-black text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:border-stone-200 disabled:text-stone-400"
+                              title={canAddPrivileges ? "Remove privilege from role" : "You do not have permission to remove role privileges"}
+                            >
+                              <Trash2 size={13} aria-hidden />
+                              Remove
+                            </button>
+                          </td>
                         </tr>
                       ))}
                       {!selectedPermissions.length ? (
                         <tr>
-                          <td className="px-4 py-8 text-center font-semibold text-stone-600" colSpan={3}>No privileges are associated with this role.</td>
+                          <td className="px-4 py-8 text-center font-semibold text-stone-600" colSpan={4}>No privileges are associated with this role.</td>
                         </tr>
                       ) : null}
                     </tbody>

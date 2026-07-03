@@ -1428,6 +1428,7 @@ export default async function AdminDashboardWorkspace({
               ) : usersView === "permissions" ? (
                 <UserPermissionsBoard
                   directAssignments={currentUserPermissionAssignments}
+                  effectivePermissions={currentUserEffectivePermissions}
                   permissions={authorisationPermissionCatalog}
                   permissionsPagination={authorisationPermissionPage.pagination}
                   resources={authorisationResources}

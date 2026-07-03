@@ -458,6 +458,19 @@ export async function addAuthorisationRolePermission(
   await parseResponse(response);
 }
 
+export async function removeAuthorisationRolePermission(
+  actor: AuthorisationActor | null | undefined,
+  roleId: string,
+  permissionId: string,
+) {
+  const response = await fetch(`${authorisationServiceUrl()}/roles/${encodeURIComponent(roleId)}/permissions/${encodeURIComponent(permissionId)}`, {
+    method: "DELETE",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  if (!response.ok && response.status !== 404) await parseResponse(response);
+}
+
 export async function deleteUserPermissionAssignment(
   actor: AuthorisationActor | null | undefined,
   userId: string,

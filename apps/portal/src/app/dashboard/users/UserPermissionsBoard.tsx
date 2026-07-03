@@ -100,6 +100,7 @@ function isValidPermissionCode(value: string) {
 export function UserPermissionsBoard({
   applications,
   directAssignments,
+  effectivePermissions,
   organisations,
   permissions,
   permissionsPagination,
@@ -110,6 +111,7 @@ export function UserPermissionsBoard({
 }: {
   applications: ScopeOption[];
   directAssignments: AuthorisationPermissionAssignment[];
+  effectivePermissions: AuthorisationPermission[];
   organisations: ScopeOption[];
   permissions: AuthorisationPermission[];
   permissionsPagination: AuthorisationPagination;
@@ -169,8 +171,9 @@ export function UserPermissionsBoard({
     : Math.max(1, highestLoadedPage, currentPermissionPage.pagination.has_more ? page + 1 : page);
   const currentPage = Math.min(page, totalPages);
   const pagedRows = normalizedSearch ? filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize) : filteredRows;
-  const canEditPermissions = rows.some((row) => row.code === "authorisation.permission.update" || row.code === "authorisation.manage");
-  const canCreatePermissions = rows.some((row) => row.code === "authorisation.permission.create" || row.code === "authorisation.manage");
+  const effectivePermissionCodes = useMemo(() => new Set(effectivePermissions.map((permission) => permission.code)), [effectivePermissions]);
+  const canEditPermissions = effectivePermissionCodes.has("authorisation.permission.update") || effectivePermissionCodes.has("authorisation.manage");
+  const canCreatePermissions = effectivePermissionCodes.has("authorisation.permission.create") || effectivePermissionCodes.has("authorisation.manage");
   const organisationSelectOptions: AutoCompleteTextFieldOption[] = organisations.map((organisation) => ({
     id: organisation.id,
     label: organisation.name,

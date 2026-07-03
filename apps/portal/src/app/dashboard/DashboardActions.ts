@@ -11,6 +11,7 @@ import {
   listAuthorisationPermissionsPage,
   listAuthorisationRolePermissions,
   listAuthorisationRolesPage,
+  removeAuthorisationRolePermission,
   updateAuthorisationPermission,
   type AuthorisationPagination,
   type AuthorisationPermission,
@@ -243,5 +244,26 @@ export async function addPrivilegeToRole(input: {
     return { success: true, message: "Privilege added to role." };
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : "Unable to add privilege to role." };
+  }
+}
+
+export async function removePrivilegeFromRole(input: {
+  roleId: string;
+  permissionId: string;
+}): Promise<PermissionMutationResult> {
+  const { user } = await requireDashboardUser();
+  const canRemove = await authorize(user, "authorisation.role_permission.remove")
+    || await authorize(user, "authorisation.role_permission.delete")
+    || await authorize(user, "authorisation.role_permission.assign")
+    || await authorize(user, "authorisation.manage");
+  if (!canRemove) return { success: false, message: "You do not have permission to remove privileges from roles." };
+  if (!input.roleId || !input.permissionId) return { success: false, message: "Select a privilege before removing it from the role." };
+
+  try {
+    await removeAuthorisationRolePermission(user, input.roleId, input.permissionId);
+    revalidatePath("/dashboard");
+    return { success: true, message: "Privilege removed from role." };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : "Unable to remove privilege from role." };
   }
 }

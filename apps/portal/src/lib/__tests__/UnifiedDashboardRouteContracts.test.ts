@@ -327,10 +327,14 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardSource, /listAuthorisationPermissionsPage\(currentUser,\s*\{\s*limit:\s*pageSize,\s*offset:\s*0\s*\}\)/);
     assert.match(actionsSource, /loadAuthorisationRolesPage/);
     assert.match(actionsSource, /loadAuthorisationPermissionsPage/);
+    assert.match(dashboardSource, /effectivePermissions=\{currentUserEffectivePermissions\}/);
     assert.match(rolesBoardSource, /rolePages/);
     assert.match(rolesBoardSource, /loadAuthorisationRolesPage\(safePage,\s*pageSize\)/);
     assert.match(rolesBoardSource, /currentRolePage\.pagination\.has_more/);
     assert.match(permissionsBoardSource, /permissionPages/);
+    assert.match(permissionsBoardSource, /effectivePermissions:\s*AuthorisationPermission\[\]/);
+    assert.match(permissionsBoardSource, /effectivePermissions\.map\(\(permission\)\s*=>\s*permission\.code\)/);
+    assert.doesNotMatch(permissionsBoardSource, /const canEditPermissions = rows\.some/);
     assert.match(permissionsBoardSource, /loadAuthorisationPermissionsPage\(safePage,\s*pageSize\)/);
     assert.match(permissionsBoardSource, /currentPermissionPage\.pagination\.has_more/);
   });
