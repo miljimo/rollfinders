@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
-import { PublicListingWarning } from "../PublicListingWarning";
+import { isPublicAcademyTrusted, PublicListingWarning } from "../PublicListingWarning";
 
 describe("PublicListingWarning", () => {
   it("renders the strong warning for unclaimed or unverified academies", () => {
@@ -27,6 +27,25 @@ describe("PublicListingWarning", () => {
     assert.match(markup, /Confirm before visiting/);
     assert.match(markup, /Session details can change/);
     assert.doesNotMatch(markup, /not yet claimed and verified/);
+  });
+
+  it("keeps old verified academies out of the unverified public warning", () => {
+    const markup = renderToStaticMarkup(
+      <PublicListingWarning
+        academy={{ id: "academy-1", verificationStatus: AcademyVerificationStatus.VERIFIED, members: [], claims: [] }}
+        course={{ createdBy: { role: Role.PLATFORM_ADMIN, academyId: null, academyMemberships: [] } }}
+      />,
+    );
+
+    assert.match(markup, /Confirm before visiting/);
+    assert.doesNotMatch(markup, /not yet claimed and verified/);
+  });
+
+  it("keeps payment trust stricter than public verification display", () => {
+    assert.equal(
+      isPublicAcademyTrusted({ id: "academy-1", verificationStatus: AcademyVerificationStatus.VERIFIED, members: [], claims: [] }),
+      false,
+    );
   });
 
   it("hides warnings when a trusted academy course was created by an academy admin", () => {

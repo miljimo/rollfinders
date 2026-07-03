@@ -20,7 +20,7 @@ import { LinkedText } from "@/components/LinkedText";
 import { MapWithDirection } from "@/components/MapWithDirection";
 import { PageShell } from "@/components/Page";
 import { PublicEventFlyer } from "@/components/PublicEventFlyer";
-import { isPublicAcademyTrusted, PublicListingWarning } from "@/components/PublicListingWarning";
+import { isPublicAcademyTrusted, isPublicAcademyVerified, PublicListingWarning } from "@/components/PublicListingWarning";
 import { SummaryTile } from "@/components/SummaryTile";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { courseLocationLabel, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
@@ -252,6 +252,7 @@ export function PublicEventDetailPage({
   sourcePage,
 }: PublicEventDetailPageProps) {
   const trusted = isPublicAcademyTrusted(event.academy);
+  const verified = isPublicAcademyVerified(event.academy);
   const eventTypeLabel = courseTypeLabel(event.courseType);
   const address = `${event.addressOverride?.trim() || `${event.academy.address}, ${event.academy.city} ${event.academy.postcode}`}`;
   const locationLabel = courseLocationLabel(event);
@@ -269,7 +270,7 @@ export function PublicEventDetailPage({
                 coverImageUrl={event.academy.coverImageUrl}
                 eventTypeLabel={eventTypeLabel}
                 title={event.title}
-                trusted={trusted}
+                trusted={verified}
               />
 
               <PublicListingWarning academy={event.academy} course={event} />

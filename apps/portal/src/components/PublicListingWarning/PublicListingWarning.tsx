@@ -24,6 +24,10 @@ export function isPublicAcademyTrusted(academy: PublicAcademyTrust) {
 	return verified && managed;
 }
 
+export function isPublicAcademyVerified(academy: PublicAcademyTrust) {
+  return academy.verified === true || academy.verificationStatus === AcademyVerificationStatus.VERIFIED;
+}
+
 function wasCreatedByAcademyAdmin(academy: PublicAcademyTrust, course?: CourseCreatorTrust) {
   const creator = course?.createdBy;
   if (!creator || creator.role !== Role.ACADEMY_ADMIN || !academy.id) return false;
@@ -32,7 +36,7 @@ function wasCreatedByAcademyAdmin(academy: PublicAcademyTrust, course?: CourseCr
 }
 
 export function PublicListingWarning({ academy, className = "", course }: { academy: PublicAcademyTrust; className?: string; course?: unknown }) {
-	if (isPublicAcademyTrusted(academy)) {
+	if (isPublicAcademyVerified(academy)) {
 		if (wasCreatedByAcademyAdmin(academy, course as CourseCreatorTrust | undefined)) {
 			return null;
 		}
