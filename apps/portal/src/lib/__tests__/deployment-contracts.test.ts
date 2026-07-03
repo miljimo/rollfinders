@@ -30,8 +30,12 @@ describe("deployment safety contracts", () => {
     assert.match(deployEnvironment, /BOOKING_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /PAYMENT_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /SUBSCRIPTION_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /ACCESS_KEY_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /NOTIFICATION_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /ANALYTICS_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /WALLET_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /TRANSFER_SERVICE_IMAGE_URI/);
+    assert.match(deployEnvironment, /PRICING_SERVICE_IMAGE_URI/);
     assert.match(deployEnvironment, /build-go-services\.sh/);
   });
 
@@ -47,8 +51,12 @@ describe("deployment safety contracts", () => {
     assert.match(promotion, /"booking_service_image_uri":\s*os\.environ\["BOOKING_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"payment_service_image_uri":\s*os\.environ\["PAYMENT_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"subscription_service_image_uri":\s*os\.environ\["SUBSCRIPTION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"access_key_service_image_uri":\s*os\.environ\["ACCESS_KEY_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"notification_service_image_uri":\s*os\.environ\["NOTIFICATION_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /"analytics_service_image_uri":\s*os\.environ\["ANALYTICS_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"wallet_service_image_uri":\s*os\.environ\["WALLET_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"transfer_service_image_uri":\s*os\.environ\["TRANSFER_SERVICE_IMAGE_FOR_PROMOTION"\]/);
+    assert.match(promotion, /"pricing_service_image_uri":\s*os\.environ\["PRICING_SERVICE_IMAGE_FOR_PROMOTION"\]/);
     assert.match(promotion, /echo "API_SERVICE_IMAGE_URI=\$\{api_service_image\}"/);
     assert.match(promotion, /echo "USER_SERVICE_IMAGE_URI=\$\{user_service_image\}"/);
     assert.match(promotion, /echo "AUTHORISATION_SERVICE_IMAGE_URI=\$\{authorisation_service_image\}"/);
@@ -58,8 +66,57 @@ describe("deployment safety contracts", () => {
     assert.match(promotion, /echo "BOOKING_SERVICE_IMAGE_URI=\$\{booking_service_image\}"/);
     assert.match(promotion, /echo "PAYMENT_SERVICE_IMAGE_URI=\$\{payment_service_image\}"/);
     assert.match(promotion, /echo "SUBSCRIPTION_SERVICE_IMAGE_URI=\$\{subscription_service_image\}"/);
+    assert.match(promotion, /echo "ACCESS_KEY_SERVICE_IMAGE_URI=\$\{access_key_service_image\}"/);
     assert.match(promotion, /echo "NOTIFICATION_SERVICE_IMAGE_URI=\$\{notification_service_image\}"/);
     assert.match(promotion, /echo "ANALYTICS_SERVICE_IMAGE_URI=\$\{analytics_service_image\}"/);
+    assert.match(promotion, /echo "WALLET_SERVICE_IMAGE_URI=\$\{wallet_service_image\}"/);
+    assert.match(promotion, /echo "TRANSFER_SERVICE_IMAGE_URI=\$\{transfer_service_image\}"/);
+    assert.match(promotion, /echo "PRICING_SERVICE_IMAGE_URI=\$\{pricing_service_image\}"/);
+  });
+
+  it("deploys every implemented long-running backend API service in the ECS task", () => {
+    const terraform = readSource("infrastructure/terraform/main.tf");
+    const variables = readSource("infrastructure/terraform/variables.tf");
+    const build = readSource("scripts/cicd/build-go-services.sh");
+    const smoke = readSource("scripts/cicd/smoke.sh");
+
+    const taskServices = [
+      "api",
+      "users",
+      "authorisation",
+      "academy",
+      "organisation",
+      "courses",
+      "booking",
+      "payments",
+      "subscriptions",
+      "access-keys",
+      "analytics",
+      "notification",
+      "wallet",
+      "transfer",
+      "pricing",
+    ];
+
+    for (const service of taskServices) {
+      assert.match(terraform, new RegExp(`name\\s+=\\s+"${service}"`));
+    }
+
+    for (const variable of [
+      "access_key_service_image_uri",
+      "wallet_service_image_uri",
+      "transfer_service_image_uri",
+      "pricing_service_image_uri",
+    ]) {
+      assert.match(variables, new RegExp(`variable\\s+"${variable}"`));
+      assert.match(terraform, new RegExp(`var\\.${variable}`));
+    }
+
+    assert.match(build, /ACCESS_KEY_SERVICE_IMAGE_URI/);
+    assert.match(build, /WALLET_SERVICE_IMAGE_URI/);
+    assert.match(build, /TRANSFER_SERVICE_IMAGE_URI/);
+    assert.match(build, /PRICING_SERVICE_IMAGE_URI/);
+    assert.match(smoke, /8091 8092 8093 8094 8095 8096/);
   });
 
   it("runs migrations before rolling the ECS service to the new task definition", () => {

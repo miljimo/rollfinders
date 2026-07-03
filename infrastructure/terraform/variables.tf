@@ -109,6 +109,30 @@ variable "analytics_service_image_uri" {
   default     = ""
 }
 
+variable "access_key_service_image_uri" {
+  type        = string
+  description = "Access Keys service image URI."
+  default     = ""
+}
+
+variable "wallet_service_image_uri" {
+  type        = string
+  description = "Wallet service image URI."
+  default     = ""
+}
+
+variable "transfer_service_image_uri" {
+  type        = string
+  description = "Transfer service image URI."
+  default     = ""
+}
+
+variable "pricing_service_image_uri" {
+  type        = string
+  description = "Pricing service image URI."
+  default     = ""
+}
+
 variable "desired_count" {
   type        = number
   description = "Desired ECS task count."

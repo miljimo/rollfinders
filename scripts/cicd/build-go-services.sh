@@ -17,7 +17,7 @@ IMAGE_ENV_FILE="${IMAGE_ENV_FILE:-image.env}"
 
 touch "${IMAGE_ENV_FILE}"
 TMP_IMAGE_ENV="$(mktemp)"
-grep -v -E '^(API_SERVICE_IMAGE_URI|USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI|ACADEMY_SERVICE_IMAGE_URI|ORGANISATION_SERVICE_IMAGE_URI|COURSE_SERVICE_IMAGE_URI|BOOKING_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|SUBSCRIPTION_SERVICE_IMAGE_URI|NOTIFICATION_SERVICE_IMAGE_URI|ANALYTICS_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
+grep -v -E '^(API_SERVICE_IMAGE_URI|USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI|ACADEMY_SERVICE_IMAGE_URI|ORGANISATION_SERVICE_IMAGE_URI|COURSE_SERVICE_IMAGE_URI|BOOKING_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|SUBSCRIPTION_SERVICE_IMAGE_URI|NOTIFICATION_SERVICE_IMAGE_URI|ANALYTICS_SERVICE_IMAGE_URI|ACCESS_KEY_SERVICE_IMAGE_URI|WALLET_SERVICE_IMAGE_URI|TRANSFER_SERVICE_IMAGE_URI|PRICING_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
 mv "${TMP_IMAGE_ENV}" "${IMAGE_ENV_FILE}"
 
 service_changed() {
@@ -161,4 +161,28 @@ if target_matches "analytics" && service_changed "apps/backend_api/containers/an
   build_service "analytics" "apps/backend_api/containers/analytics/Dockerfile" "ANALYTICS_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "analytics" "ANALYTICS_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "access-keys" && service_changed "apps/backend_api/containers/access-keys" "apps/backend_api/cmd/services/access-keys" "apps/backend_api/internal/services/access-keys"; then
+  build_service "access-keys" "apps/backend_api/containers/access-keys/Dockerfile" "ACCESS_KEY_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "access-keys" "ACCESS_KEY_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "wallet" && service_changed "apps/backend_api/containers/wallet" "apps/backend_api/cmd/services/wallet" "apps/backend_api/internal/services/wallet" "apps/backend_api/migrations/wallet"; then
+  build_service "wallet" "apps/backend_api/containers/wallet/Dockerfile" "WALLET_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "wallet" "WALLET_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "transfer" && service_changed "apps/backend_api/containers/transfer" "apps/backend_api/cmd/services/transfer" "apps/backend_api/internal/services/transfer" "apps/backend_api/migrations/transfer"; then
+  build_service "transfer" "apps/backend_api/containers/transfer/Dockerfile" "TRANSFER_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "transfer" "TRANSFER_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "pricing" && service_changed "apps/backend_api/containers/pricing" "apps/backend_api/cmd/services/pricing" "apps/backend_api/internal/services/pricing" "apps/backend_api/migrations/pricing"; then
+  build_service "pricing" "apps/backend_api/containers/pricing/Dockerfile" "PRICING_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "pricing" "PRICING_SERVICE_IMAGE_URI"
 fi

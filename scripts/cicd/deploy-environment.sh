@@ -49,8 +49,8 @@ if [[ -z "${IMAGE_URI:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${ACADEMY_SERVICE_IMAGE_URI:-}" || -z "${ORGANISATION_SERVICE_IMAGE_URI:-}" || -z "${COURSE_SERVICE_IMAGE_URI:-}" || -z "${BOOKING_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" || -z "${NOTIFICATION_SERVICE_IMAGE_URI:-}" || -z "${ANALYTICS_SERVICE_IMAGE_URI:-}" ]]; then
-  echo "image.env must include image URIs for app, api, users, authorisation, academy, organisation, courses, booking, payments, subscriptions, notification, and analytics."
+if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${ACADEMY_SERVICE_IMAGE_URI:-}" || -z "${ORGANISATION_SERVICE_IMAGE_URI:-}" || -z "${COURSE_SERVICE_IMAGE_URI:-}" || -z "${BOOKING_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" || -z "${NOTIFICATION_SERVICE_IMAGE_URI:-}" || -z "${ANALYTICS_SERVICE_IMAGE_URI:-}" || -z "${ACCESS_KEY_SERVICE_IMAGE_URI:-}" || -z "${WALLET_SERVICE_IMAGE_URI:-}" || -z "${TRANSFER_SERVICE_IMAGE_URI:-}" || -z "${PRICING_SERVICE_IMAGE_URI:-}" ]]; then
+  echo "image.env must include image URIs for app, api, users, authorisation, academy, organisation, courses, booking, payments, subscriptions, notification, analytics, access-keys, wallet, transfer, and pricing."
   echo "Run scripts/cicd/build-go-services.sh after scripts/cicd/build.sh, or set FORCE_SERVICE_REDEPLOY=true SERVICE_REDEPLOY_TARGET=all."
   exit 1
 fi
@@ -95,6 +95,10 @@ terraform plan \
   -var="subscription_service_image_uri=${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" \
   -var="notification_service_image_uri=${NOTIFICATION_SERVICE_IMAGE_URI:-}" \
   -var="analytics_service_image_uri=${ANALYTICS_SERVICE_IMAGE_URI:-}" \
+  -var="access_key_service_image_uri=${ACCESS_KEY_SERVICE_IMAGE_URI:-}" \
+  -var="wallet_service_image_uri=${WALLET_SERVICE_IMAGE_URI:-}" \
+  -var="transfer_service_image_uri=${TRANSFER_SERVICE_IMAGE_URI:-}" \
+  -var="pricing_service_image_uri=${PRICING_SERVICE_IMAGE_URI:-}" \
   -out=deploy.tfplan
 
 terraform apply \
