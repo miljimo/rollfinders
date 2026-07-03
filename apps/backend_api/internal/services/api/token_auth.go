@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"crypto/hmac"
@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"rollfinders/internal/services/api/domain"
 )
 
 func (s *server) subjectIDFromRequest(r *http.Request) string {
@@ -22,11 +24,10 @@ func (s *server) subjectIDFromRequest(r *http.Request) string {
 }
 
 func (s *server) subjectIDFromBearer(header string) (string, bool) {
-	const prefix = "Bearer "
-	if !strings.HasPrefix(header, prefix) {
+	if !strings.HasPrefix(header, domain.AuthBearerPrefix) {
 		return "", false
 	}
-	token := strings.TrimSpace(strings.TrimPrefix(header, prefix))
+	token := strings.TrimSpace(strings.TrimPrefix(header, domain.AuthBearerPrefix))
 	parts := strings.Split(token, ".")
 	if len(parts) != 3 {
 		return "", false

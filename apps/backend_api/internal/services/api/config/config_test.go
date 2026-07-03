@@ -7,8 +7,47 @@ import (
 
 type fakeEnv map[string]string
 
+func (f fakeEnv) Keys() []string {
+	keys := make([]string, 0, len(f))
+	for key := range f {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+func (f fakeEnv) ContainsKey(key string) bool {
+	_, ok := f[key]
+	return ok
+}
+
 func (f fakeEnv) Get(key string) string {
 	return f[key]
+}
+
+func (f fakeEnv) Set(key string, value string) error {
+	f[key] = value
+	return nil
+}
+
+func (f fakeEnv) Unset(key string, _ string) error {
+	delete(f, key)
+	return nil
+}
+
+func (f fakeEnv) Load(key string) error {
+	return nil
+}
+
+func (f fakeEnv) ReplaceAll(content string) ([]byte, error) {
+	return []byte(content), nil
+}
+
+func (f fakeEnv) Presents(keys []string) error {
+	return nil
+}
+
+func (f fakeEnv) Int(key string) (int, error) {
+	return 0, nil
 }
 
 func (f fakeEnv) GetWithDefault(key string, fallback string) string {

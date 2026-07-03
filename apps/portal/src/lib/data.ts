@@ -1,5 +1,5 @@
 import { AcademyVerificationStatus, ClaimStatus, CourseType, Prisma } from "@prisma/client";
-import { listAcademiesFromAcademyService } from "./academyService";
+import { listAllAcademiesFromAcademyService } from "./academyService";
 import { combineDateAndTime } from "./open-mat-occurrences";
 import { distanceMiles } from "./utils";
 export { getCourseDiscovery, getCourseOccurrence, getCourses, searchCourses } from "./courses";
@@ -103,7 +103,7 @@ export async function searchAcademies(query = "", location?: LocationInput) {
   const q = query.trim();
   const lower = q.toLowerCase();
   const [academies, events] = await Promise.all([
-    listAcademiesFromAcademyService({ q, limit: 100 }),
+    listAllAcademiesFromAcademyService({ q }),
     getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude }),
   ]);
   const eventsByAcademy = new Map<string, typeof events>();
@@ -156,7 +156,7 @@ export async function getOpenMatRadar(filters: OpenMatFilters = {}) {
 
 export async function getMapItems() {
   const [academies, events] = await Promise.all([
-    listAcademiesFromAcademyService({ limit: 100 }),
+    listAllAcademiesFromAcademyService(),
     getOpenMatRadar(),
   ]);
   const eventsByAcademy = new Map<string, typeof events>();

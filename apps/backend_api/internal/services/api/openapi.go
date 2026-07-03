@@ -1,8 +1,10 @@
-package server
+package api
 
 import (
 	"net/http"
 	"strings"
+
+	"rollfinders/internal/services/api/domain"
 )
 
 func (s *server) openAPI(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +94,7 @@ func openAPIDocument() map[string]any {
 				"OrganisationID": map[string]string{
 					"type": "apiKey",
 					"in":   "header",
-					"name": "X-Organisation-ID",
+					"name": domain.OrganisationIDHeader,
 				},
 			},
 			"schemas": map[string]any{
@@ -125,7 +127,7 @@ func openAPIOperation(doc apiRouteDoc) map[string]any {
 			"200": map[string]any{
 				"description": "Successful response from " + doc.Service + ".",
 				"content": map[string]any{
-					"application/json": map[string]any{
+					domain.ContentTypeJSON: map[string]any{
 						"schema": map[string]string{"$ref": "#/components/schemas/GenericResponse"},
 					},
 				},
@@ -133,7 +135,7 @@ func openAPIOperation(doc apiRouteDoc) map[string]any {
 			"401": map[string]any{
 				"description": "Missing or invalid actor identity.",
 				"content": map[string]any{
-					"application/json": map[string]any{
+					domain.ContentTypeJSON: map[string]any{
 						"schema": map[string]string{"$ref": "#/components/schemas/ErrorResponse"},
 					},
 				},
@@ -141,7 +143,7 @@ func openAPIOperation(doc apiRouteDoc) map[string]any {
 			"403": map[string]any{
 				"description": "Authorisation denied or route permission mapping missing.",
 				"content": map[string]any{
-					"application/json": map[string]any{
+					domain.ContentTypeJSON: map[string]any{
 						"schema": map[string]string{"$ref": "#/components/schemas/ErrorResponse"},
 					},
 				},
@@ -149,7 +151,7 @@ func openAPIOperation(doc apiRouteDoc) map[string]any {
 			"503": map[string]any{
 				"description": "Gateway dependency or authorisation service unavailable.",
 				"content": map[string]any{
-					"application/json": map[string]any{
+					domain.ContentTypeJSON: map[string]any{
 						"schema": map[string]string{"$ref": "#/components/schemas/ErrorResponse"},
 					},
 				},
@@ -173,7 +175,7 @@ func openAPIOperation(doc apiRouteDoc) map[string]any {
 		operation["requestBody"] = map[string]any{
 			"required": false,
 			"content": map[string]any{
-				"application/json": map[string]any{
+				domain.ContentTypeJSON: map[string]any{
 					"schema": map[string]string{"$ref": "#/components/schemas/GenericRequest"},
 				},
 			},

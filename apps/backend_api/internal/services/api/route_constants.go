@@ -1,4 +1,4 @@
-package server
+package api
 
 import gatewayroutes "rollfinders/internal/core/routes"
 

@@ -528,10 +528,10 @@ async function getDashboardPaymentAccountSetting(input: {
   }
 }
 
-async function getDashboardBookings(page: number, academyId?: string | null): Promise<DashboardBookingsResult> {
+async function getDashboardBookings(page: number, actorUserId: string, accessToken?: string, academyId?: string | null): Promise<DashboardBookingsResult> {
   const offset = (Math.max(1, page) - 1) * bookingsPageSize;
   try {
-    const result = await listBookingsPage({ limit: bookingsPageSize, offset, organisationId: academyId });
+    const result = await listBookingsPage({ accessToken, actorUserId, limit: bookingsPageSize, offset, organisationId: academyId });
     return { bookings: result.bookings, pagination: result.pagination };
   } catch (error) {
     if (error instanceof BookingServiceError) {
@@ -835,7 +835,7 @@ export default async function AdminDashboardWorkspace({
       : Promise.resolve(null),
     panel === "payments" ? getPaymentPlatformSettings({ accessToken: currentUser.accessToken, actorUserId: currentUser.id, providerId: pricingProviderId }) : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
-    panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
+    panel === "bookings" ? getDashboardBookings(bookingPage, currentUser.id, currentUser.accessToken, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
     panel === "wallet" || (panel === "payments" && paymentsView === "settings" && !academyAdmin)
       ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
       : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),

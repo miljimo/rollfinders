@@ -1,8 +1,10 @@
-package server
+package api
 
 import (
 	"net/http"
 	"strings"
+
+	"rollfinders/internal/services/api/domain"
 )
 
 type RouteDefinitionWithPermission struct {
@@ -363,27 +365,27 @@ func splitPath(path string) []string {
 func proxyKeyForService(service GatewayService) string {
 	switch service {
 	case UserService:
-		return "user"
+		return domain.ProxyKeyUser
 	case AuthorisationService:
-		return "authorisation"
+		return domain.ProxyKeyAuthorisation
 	case AcademyService:
-		return "academy"
+		return domain.ProxyKeyAcademy
 	case OrganisationService:
-		return "organisation"
+		return domain.ProxyKeyOrganisation
 	case CourseService:
-		return "course"
+		return domain.ProxyKeyCourse
 	case BookingService:
-		return "booking"
+		return domain.ProxyKeyBooking
 	case PaymentService:
-		return "payment"
+		return domain.ProxyKeyPayment
 	case SubscriptionService:
-		return "subscriptions"
+		return domain.ProxyKeySubscriptions
 	case WalletService:
-		return "wallet"
+		return domain.ProxyKeyWallet
 	case TransferService:
-		return "transfer"
+		return domain.ProxyKeyTransfer
 	case PricingService:
-		return "pricing"
+		return domain.ProxyKeyPricing
 	default:
 		return ""
 	}

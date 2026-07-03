@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"bytes"
@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"rollfinders/internal/services/api/domain"
 )
 
 const (
-	actorUserIDHeader = "X-Actor-User-ID"
+	actorUserIDHeader = domain.ActorUserIDHeader
 )
 
 type authoriseRequest struct {
@@ -50,7 +52,7 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 	}
 	match, ok := resolveRoute(r.Method, r.URL.Path)
 	if !ok {
-		writeError(w, r, http.StatusForbidden, "permission_mapping_not_found", "No permission mapping is registered for this route.", map[string]string{"path": r.URL.Path})
+		writeError(w, r, http.StatusForbidden, domain.ErrCodePermissionMappingNotFound, domain.ErrMessagePermissionMappingNotFound, map[string]string{"path": r.URL.Path})
 		return false
 	}
 	if match.Definition.Public {
@@ -60,14 +62,14 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 
 	subjectID := s.subjectIDFromRequest(r)
 	if subjectID == "" {
-		writeError(w, r, http.StatusUnauthorized, "not_authorised", "Not authorised.", nil)
+		writeError(w, r, http.StatusUnauthorized, domain.ErrCodeNotAuthorised, domain.ErrMessageNotAuthorised, nil)
 		return false
 	}
 	resourceID := ""
 	if match.Definition.ResourceIDParam != "" {
 		resourceID = strings.TrimSpace(match.Params[string(match.Definition.ResourceIDParam)])
 		if resourceID == "" {
-			writeError(w, r, http.StatusForbidden, "resource_not_resolved", "Route resource could not be resolved.", map[string]string{"resourceIdParam": string(match.Definition.ResourceIDParam)})
+			writeError(w, r, http.StatusForbidden, domain.ErrCodeResourceNotResolved, domain.ErrMessageResourceNotResolved, map[string]string{"resourceIdParam": string(match.Definition.ResourceIDParam)})
 			return false
 		}
 	}
@@ -81,11 +83,11 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 	})
 	if err != nil {
 		s.logger.Error("authorisation check failed", "request_id", requestIDFrom(r), "permission", permission, "error", err)
-		writeError(w, r, http.StatusServiceUnavailable, "authorisation_unavailable", "Authorisation could not be completed.", nil)
+		writeError(w, r, http.StatusServiceUnavailable, domain.ErrCodeAuthorisationUnavailable, domain.ErrMessageAuthorisationUnavailable, nil)
 		return false
 	}
 	if !allowed {
-		writeError(w, r, http.StatusForbidden, "not_authorised", "Not authorised.", map[string]string{"permission": string(permission)})
+		writeError(w, r, http.StatusForbidden, domain.ErrCodeNotAuthorised, domain.ErrMessageNotAuthorised, map[string]string{"permission": string(permission)})
 		return false
 	}
 	if match.Definition.SubscriptionFeatureKey != "" {
@@ -93,15 +95,15 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 		allowed, reason, err := s.checkEntitlement(entitlementRequest)
 		if err != nil {
 			s.logger.Error("subscription entitlement check failed", "request_id", requestIDFrom(r), "feature_key", entitlementRequest.FeatureKey, "error", err)
-			writeError(w, r, http.StatusServiceUnavailable, "subscription_unavailable", "Subscription entitlement could not be completed.", nil)
+			writeError(w, r, http.StatusServiceUnavailable, domain.ErrCodeSubscriptionUnavailable, domain.ErrMessageSubscriptionUnavailable, nil)
 			return false
 		}
 		if !allowed {
 			if reason == "" {
-				reason = "PLAN_FEATURE_NOT_INCLUDED"
+				reason = domain.ErrCodePlanFeatureNotIncluded
 			}
 			s.auditSubscriptionDenial(r, entitlementRequest, reason)
-			writeError(w, r, http.StatusForbidden, reason, "Subscription plan does not allow this feature.", map[string]string{
+			writeError(w, r, http.StatusForbidden, reason, domain.ErrMessageSubscriptionDenied, map[string]string{
 				"feature_key": entitlementRequest.FeatureKey,
 				"owner_type":  entitlementRequest.OwnerType,
 				"owner_id":    entitlementRequest.OwnerID,
@@ -139,11 +141,11 @@ func (s *server) authorize(authRequest authoriseRequest) (bool, error) {
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
-	req, err := http.NewRequest(http.MethodPost, s.cfg.AuthorisationBaseURL+"/v1/authorize", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, s.cfg.AuthorisationBaseURL+domain.AuthorisationAuthorizePath, bytes.NewReader(payload))
 	if err != nil {
 		return false, err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(domain.ContentTypeHeader, domain.ContentTypeJSON)
 	req.Header.Set(actorUserIDHeader, authRequest.SubjectID)
 
 	resp, err := client.Do(req)
@@ -159,7 +161,7 @@ func (s *server) authorize(authRequest authoriseRequest) (bool, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false, err
 	}
-	return result.Authorized && result.Decision == "allow", nil
+	return result.Authorized && result.Decision == domain.DecisionAllow, nil
 }
 
 func (s *server) checkEntitlement(checkRequest entitlementCheckRequest) (bool, string, error) {
@@ -169,11 +171,11 @@ func (s *server) checkEntitlement(checkRequest entitlementCheckRequest) (bool, s
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
-	req, err := http.NewRequest(http.MethodPost, s.cfg.SubscriptionBaseURL+"/v1/entitlements/check", bytes.NewReader(payload))
+	req, err := http.NewRequest(http.MethodPost, s.cfg.SubscriptionBaseURL+domain.SubscriptionEntitlementCheckPath, bytes.NewReader(payload))
 	if err != nil {
 		return false, "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(domain.ContentTypeHeader, domain.ContentTypeJSON)
 	if checkRequest.SubjectID != "" {
 		req.Header.Set(actorUserIDHeader, checkRequest.SubjectID)
 	}
@@ -184,14 +186,14 @@ func (s *server) checkEntitlement(checkRequest entitlementCheckRequest) (bool, s
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return false, "SUBSCRIPTION_REQUIRED", nil
+		return false, domain.ErrCodeSubscriptionRequired, nil
 	}
 
 	var result entitlementCheckResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false, "", err
 	}
-	return result.Allowed && strings.EqualFold(result.Decision, "allow"), result.Reason, nil
+	return result.Allowed && strings.EqualFold(result.Decision, domain.DecisionAllow), result.Reason, nil
 }
 
 func (s *server) entitlementRequestFromRoute(r *http.Request, match routeMatch, subjectID string, resourceID string) entitlementCheckRequest {
@@ -212,29 +214,29 @@ func (s *server) entitlementRequestFromRoute(r *http.Request, match routeMatch, 
 
 func subscriptionOwnerFrom(r *http.Request, match routeMatch, resourceID string, fallbackApplicationID string) (string, string) {
 	ownerType := firstNonEmpty(
-		r.Header.Get("X-Subscription-Owner-Type"),
-		r.URL.Query().Get("owner_type"),
-		r.URL.Query().Get("ownerType"),
+		r.Header.Get(domain.SubscriptionOwnerTypeHeader),
+		r.URL.Query().Get(domain.QueryOwnerType),
+		r.URL.Query().Get(domain.QueryOwnerTypeCamel),
 	)
 	ownerID := firstNonEmpty(
-		r.Header.Get("X-Subscription-Owner-ID"),
-		r.URL.Query().Get("owner_id"),
-		r.URL.Query().Get("ownerId"),
+		r.Header.Get(domain.SubscriptionOwnerIDHeader),
+		r.URL.Query().Get(domain.QueryOwnerID),
+		r.URL.Query().Get(domain.QueryOwnerIDCamel),
 	)
 	if ownerType != "" && ownerID != "" {
 		return strings.ToLower(ownerType), ownerID
 	}
 	switch match.Definition.ResourceType {
 	case ResourceAcademy:
-		return "academy", resourceID
+		return domain.OwnerTypeAcademy, resourceID
 	case ResourceOrganisation:
-		return "organisation", resourceID
+		return domain.OwnerTypeOrganisation, resourceID
 	case ResourceApplication:
-		return "application", resourceID
+		return domain.OwnerTypeApplication, resourceID
 	case ResourceUser:
-		return "practitioner", resourceID
+		return domain.OwnerTypePractitioner, resourceID
 	default:
-		return "application", fallbackApplicationID
+		return domain.OwnerTypeApplication, fallbackApplicationID
 	}
 }
 
@@ -248,16 +250,16 @@ func firstNonEmpty(values ...string) string {
 }
 
 func organisationIDFrom(r *http.Request) string {
-	for _, key := range []string{"X-Organisation-ID", "X-Organization-ID"} {
+	for _, key := range []string{domain.OrganisationIDHeader, domain.OrganizationIDHeader} {
 		if value := strings.TrimSpace(r.Header.Get(key)); value != "" {
 			return value
 		}
 	}
-	return strings.TrimSpace(r.URL.Query().Get("organisationId"))
+	return strings.TrimSpace(r.URL.Query().Get(domain.QueryOrganisationID))
 }
 
 func isPublicInfrastructureRoute(path string) bool {
-	return path == "/" || path == "/openapi.json" || path == "/healthz" || path == "/readyz"
+	return path == domain.RootPath || path == domain.OpenAPIPath || path == domain.HealthPath || path == domain.ReadyPath
 }
 
 func routeAuthMetadataGaps() []GatewayRouteDefinition {

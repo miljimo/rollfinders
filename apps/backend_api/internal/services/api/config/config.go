@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"rollfinders/internal/services/api/environments"
+	"rollfinders/internal/core/environments"
 )
 
 type Config struct {

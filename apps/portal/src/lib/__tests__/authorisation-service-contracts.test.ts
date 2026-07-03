@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 type Effect = "ALLOW" | "DENY";
@@ -25,6 +26,10 @@ type AuthorisationModel = {
   userRoles: UserRole[];
   userPermissions: UserPermission[];
 };
+
+function readSource(path: string) {
+  return readFileSync(path, "utf8");
+}
 
 const academyScope = {
   organisationId: "org-1",
@@ -162,6 +167,19 @@ describe("Authorisation Service decision contract", () => {
       decision: "deny",
       reason: "unknown_permission",
     });
+  });
+});
+
+describe("RollFinders authorisation client super admin contract", () => {
+  it("keeps super admins as all-privilege users before service decisions", () => {
+    const source = readSource("apps/portal/src/lib/authorisation-service.ts");
+    const authorizeFunction = source.match(/export async function authorize[\s\S]*?\n}\n/)?.[0] ?? "";
+
+    assert.match(authorizeFunction, /actor\.role === "SUPER_ADMIN" \|\| actor\.role === "ADMIN"/);
+    assert.ok(
+      authorizeFunction.indexOf("actor.role === \"SUPER_ADMIN\"") < authorizeFunction.indexOf("fetch(`${authorisationServiceUrl()}/authorize`"),
+      "SUPER_ADMIN must be allowed before calling the authorisation service",
+    );
   });
 });
 

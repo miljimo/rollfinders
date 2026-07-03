@@ -1,7 +1,9 @@
-package server
+package api
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,7 @@ import (
 	"time"
 
 	"rollfinders/internal/services/api/config"
+	"rollfinders/internal/services/api/domain"
 )
 
 func testConfig(baseURL string) config.Config {
@@ -28,6 +31,9 @@ func testConfig(baseURL string) config.Config {
 		BookingBaseURL:       baseURL,
 		PaymentBaseURL:       baseURL,
 		SubscriptionBaseURL:  baseURL,
+		WalletBaseURL:        baseURL,
+		TransferBaseURL:      baseURL,
+		PricingBaseURL:       baseURL,
 		LegacyNextBaseURL:    baseURL,
 	}
 }
@@ -157,6 +163,93 @@ func TestRootDocsDoNotCaptureGatewayRoutes(t *testing.T) {
 	}
 	if len(receivedPaths) != 1 || receivedPaths[0] != "/v1/bookings" {
 		t.Fatalf("unexpected downstream paths: %#v", receivedPaths)
+	}
+}
+
+func TestGatewayTransferEndpointOrchestratesDownstreamServices(t *testing.T) {
+	authServer := newGatewayTestServer(t, true, nil)
+	defer authServer.Close()
+
+	var transferPaths []string
+	var transferStatusPayloads []map[string]any
+	transferServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		transferPaths = append(transferPaths, r.URL.Path)
+		w.Header().Set(domain.ContentTypeHeader, domain.ContentTypeJSON)
+		switch r.URL.Path {
+		case domain.TransferCreatePath:
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{domain.JSONKeyTransfer: map[string]any{
+				"id":                              "trf_gateway",
+				domain.JSONKeyStatus:              "PENDING",
+				domain.JSONKeySourceWalletID:      "wal_source",
+				domain.JSONKeyDestinationWalletID: "wal_destination",
+				domain.JSONKeyAmount:              2500,
+				domain.JSONKeyCurrency:            "GBP",
+			}})
+		case fmt.Sprintf(domain.TransferStatusPathFormat, "trf_gateway"):
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("decode transfer status payload: %v", err)
+			}
+			transferStatusPayloads = append(transferStatusPayloads, payload)
+			writeJSON(w, http.StatusOK, map[string]any{domain.JSONKeyTransfer: map[string]any{"id": "trf_gateway", domain.JSONKeyStatus: payload[domain.JSONKeyStatus]}})
+		default:
+			t.Fatalf("unexpected transfer path %s", r.URL.Path)
+		}
+	}))
+	defer transferServer.Close()
+
+	var walletPath string
+	var walletIDempotencyKey string
+	walletServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		walletPath = r.URL.Path
+		walletIDempotencyKey = r.Header.Get(domain.IdempotencyHeader)
+		writeJSON(w, http.StatusCreated, map[string]any{"id": "txn_gateway", domain.JSONKeyStatus: domain.TransferStatusCompleted})
+	}))
+	defer walletServer.Close()
+
+	cfg := testConfig(authServer.URL)
+	cfg.TransferBaseURL = transferServer.URL
+	cfg.WalletBaseURL = walletServer.URL
+	handler := New(Options{Config: cfg, Logger: slog.Default()})
+
+	body, _ := json.Marshal(map[string]any{
+		"source_wallet_id":      "wal_source",
+		"destination_wallet_id": "wal_destination",
+		"amount":                2500,
+		"currency":              "GBP",
+	})
+	req := httptest.NewRequest(http.MethodPost, string(Transfers), bytes.NewReader(body))
+	req.Header.Set(actorUserIDHeader, "user_test")
+	req.Header.Set(domain.ContentTypeHeader, domain.ContentTypeJSON)
+	req.Header.Set(domain.IdempotencyHeader, "transfer-key")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status 201, got %d with body %s", rec.Code, rec.Body.String())
+	}
+	if walletPath != domain.WalletTransferPath {
+		t.Fatalf("expected wallet transfer path %s, got %s", domain.WalletTransferPath, walletPath)
+	}
+	if walletIDempotencyKey != "trf_gateway" {
+		t.Fatalf("expected transfer id idempotency key, got %q", walletIDempotencyKey)
+	}
+	expectedTransferStatusPath := fmt.Sprintf(domain.TransferStatusPathFormat, "trf_gateway")
+	expectedPaths := []string{domain.TransferCreatePath, expectedTransferStatusPath, expectedTransferStatusPath}
+	if len(transferPaths) != len(expectedPaths) {
+		t.Fatalf("expected transfer paths %#v, got %#v", expectedPaths, transferPaths)
+	}
+	for index, expected := range expectedPaths {
+		if transferPaths[index] != expected {
+			t.Fatalf("expected transfer path %s, got %s", expected, transferPaths[index])
+		}
+	}
+	if len(transferStatusPayloads) != 2 {
+		t.Fatalf("expected processing and completed status payloads, got %#v", transferStatusPayloads)
+	}
+	if transferStatusPayloads[0][domain.JSONKeyStatus] != domain.TransferStatusProcessing || transferStatusPayloads[1][domain.JSONKeyStatus] != domain.TransferStatusCompleted {
+		t.Fatalf("unexpected transfer status payloads: %#v", transferStatusPayloads)
 	}
 }
 

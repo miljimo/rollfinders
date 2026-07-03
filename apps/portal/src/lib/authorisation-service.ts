@@ -135,6 +135,7 @@ export async function authorize(
   scope: AuthorisationScope = {},
 ) {
   if (!actor?.id) return false;
+  if (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN") return true;
 
   try {
     const response = await fetch(`${authorisationServiceUrl()}/authorize`, {

@@ -1,4 +1,4 @@
-package server
+package api
 
 import (
 	"net/http"
@@ -6,6 +6,8 @@ import (
 	"net/url"
 	pathpkg "path"
 	"strings"
+
+	"rollfinders/internal/services/api/domain"
 )
 
 func createNewProxyHandler(baseURL string, stripPrefix string, addPrefix string) http.Handler {
@@ -22,15 +24,15 @@ func createNewProxyHandler(baseURL string, stripPrefix string, addPrefix string)
 		req.URL.Path = rewritePath(originalPath, stripPrefix, addPrefix)
 		req.URL.RawPath = ""
 		req.Host = target.Host
-		req.Header.Set("X-Forwarded-Host", forwardedHost)
-		req.Header.Set("X-Forwarded-Proto", target.Scheme)
+		req.Header.Set(domain.ForwardedHostHeader, forwardedHost)
+		req.Header.Set(domain.ForwardedProtoHeader, target.Scheme)
 		if requestID := requestIDFrom(req); requestID != "" {
-			req.Header.Set(requestIDHeader, requestID)
+			req.Header.Set(domain.RequestIDHeader, requestID)
 		}
 	}
 	proxy.ModifyResponse = func(resp *http.Response) error {
-		resp.Header.Del(requestIDHeader)
-		resp.Header.Set("X-RollFinders-Gateway", "api")
+		resp.Header.Del(domain.RequestIDHeader)
+		resp.Header.Set(domain.RollFindersGatewayHeader, domain.RollFindersGatewayValue)
 		return nil
 	}
 	return proxy
@@ -59,27 +61,30 @@ func (s *server) route(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := r.URL.Path
+	if handler, ok := s.routeHandlers[routeHandlerKey{Method: r.Method, Path: path}]; ok {
+		handler.ServeHTTP(w, r)
+		return
+	}
+
 	switch {
-	case strings.HasPrefix(path, "/v1/authorisation/"):
-		s.proxies["authorisation"].ServeHTTP(w, r)
-	case path == "/v1/authorisation":
-		s.proxies["authorisation"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/auth/"), strings.HasPrefix(path, "/v1/auth/"), strings.HasPrefix(path, "/v1/accounts/"):
-		s.proxies["user"].ServeHTTP(w, r)
-	case strings.HasPrefix(path, "/legacy/"):
-		s.proxies["legacy"].ServeHTTP(w, r)
-	case r.Method == http.MethodPost && path == string(Transfers):
-		s.orchestrateTransfer(w, r)
+	case strings.HasPrefix(path, domain.AuthorisationProxyPrefix):
+		s.proxies[domain.ProxyKeyAuthorisation].ServeHTTP(w, r)
+	case path == domain.AuthorisationProxyPath:
+		s.proxies[domain.ProxyKeyAuthorisation].ServeHTTP(w, r)
+	case strings.HasPrefix(path, domain.AuthProxyPrefix), strings.HasPrefix(path, domain.V1AuthProxyPrefix), strings.HasPrefix(path, domain.V1AccountsProxyPrefix):
+		s.proxies[domain.ProxyKeyUser].ServeHTTP(w, r)
+	case strings.HasPrefix(path, domain.LegacyProxyPrefix):
+		s.proxies[domain.ProxyKeyLegacy].ServeHTTP(w, r)
 	default:
 		match, ok := resolveRoute(r.Method, path)
 		if !ok {
-			writeError(w, r, http.StatusNotFound, "route_not_found", "No API route is registered for this path.", map[string]string{"path": path})
+			writeError(w, r, http.StatusNotFound, domain.ErrCodeRouteNotFound, domain.ErrMessageRouteNotFound, map[string]string{"path": path})
 			return
 		}
 		proxyKey := proxyKeyForService(match.Definition.Service)
 		proxy, ok := s.proxies[proxyKey]
 		if proxyKey == "" || !ok {
-			writeError(w, r, http.StatusBadGateway, "service_not_configured", "The target service is not configured.", map[string]string{"service": string(match.Definition.Service)})
+			writeError(w, r, http.StatusBadGateway, domain.ErrCodeServiceNotConfigured, domain.ErrMessageServiceNotConfigured, map[string]string{"service": string(match.Definition.Service)})
 			return
 		}
 		proxy.ServeHTTP(w, r)
