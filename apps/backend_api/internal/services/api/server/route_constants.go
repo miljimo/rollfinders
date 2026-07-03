@@ -20,6 +20,7 @@ const (
 	SubscriptionService  = gatewayroutes.SubscriptionService
 	WalletService        = gatewayroutes.WalletService
 	TransferService      = gatewayroutes.TransferService
+	PricingService       = gatewayroutes.PricingService
 )
 
 const (
@@ -154,6 +155,8 @@ const (
 	WalletsAdjustment                                    = gatewayroutes.WalletsAdjustment
 	WalletTransactions                                   = gatewayroutes.WalletTransactions
 	Transfers                                            = gatewayroutes.Transfers
+	PricingPlatformFee                                   = gatewayroutes.PricingPlatformFee
+	PricingPlatformFeePreview                            = gatewayroutes.PricingPlatformFeePreview
 )
 
 const (
@@ -242,6 +245,8 @@ const (
 	PermissionPayoutRequestReject                = gatewayroutes.PermissionPayoutRequestReject
 	PermissionPayoutRequestRelease               = gatewayroutes.PermissionPayoutRequestRelease
 	PermissionPayoutRequestSearch                = gatewayroutes.PermissionPayoutRequestSearch
+	PermissionPricingPolicyRead                  = gatewayroutes.PermissionPricingPolicyRead
+	PermissionPricingPolicyUpdate                = gatewayroutes.PermissionPricingPolicyUpdate
 	PermissionSubscriptionProductRead            = gatewayroutes.PermissionSubscriptionProductRead
 	PermissionSubscriptionProductManage          = gatewayroutes.PermissionSubscriptionProductManage
 	PermissionSubscriptionPlanRead               = gatewayroutes.PermissionSubscriptionPlanRead

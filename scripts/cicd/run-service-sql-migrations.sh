@@ -91,6 +91,17 @@ if [ -d apps/backend_api/migrations/transfer ]; then
   fi
 fi
 
+if [ -d apps/backend_api/migrations/pricing ]; then
+  for dir in schema tables functions; do
+    if [ -d "apps/backend_api/migrations/pricing/${dir}" ]; then
+      for file in apps/backend_api/migrations/pricing/${dir}/*.sql; do
+        [ -f "${file}" ] || continue
+        psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
+      done
+    fi
+  done
+fi
+
 if [ -d apps/backend_api/migrations/organisation ]; then
   for dir in schema tables procedures functions; do
     if [ -d "apps/backend_api/migrations/organisation/${dir}" ]; then

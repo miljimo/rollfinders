@@ -12,6 +12,7 @@ include:
   - path: ./apps/backend_api/containers/subscriptions/compose.yml
   - path: ./apps/backend_api/containers/wallet/compose.yml
   - path: ./apps/backend_api/containers/transfer/compose.yml
+  - path: ./apps/backend_api/containers/pricing/compose.yml
 
 services:
   db:
@@ -31,6 +32,7 @@ services:
       - subscriptions
       - wallet
       - transfer
+      - pricing
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -62,6 +64,7 @@ services:
       - subscriptions
       - wallet
       - transfer
+      - pricing
       - app
       - seed
     environment:

@@ -49,6 +49,7 @@ const (
 	SubscriptionService  GatewayService = "subscription-service"
 	WalletService        GatewayService = "wallet-service"
 	TransferService      GatewayService = "transfer-service"
+	PricingService       GatewayService = "pricing-service"
 )
 
 const (
@@ -375,6 +376,15 @@ const (
 )
 
 const (
+	// Pricing Service API Gateways
+	PricingPlatformFee        GatewayTargetPath = "/v1/pricing/policies/platform-fee"
+	PricingPlatformFeePreview GatewayTargetPath = "/v1/pricing/policies/platform-fee/preview"
+
+	PermissionPricingPolicyRead   GatewayPermissionName = "pricing.policy.read"
+	PermissionPricingPolicyUpdate GatewayPermissionName = "pricing.policy.update"
+)
+
+const (
 	// Authorisation Service API Gateways
 	AuthorisationAuthorise                          GatewayTargetPath = "/v1/authorisation/authorise"
 	AuthorisationAuthorize                          GatewayTargetPath = "/v1/authorisation/authorize"
@@ -525,5 +535,7 @@ func GatewayResourceCatalog() map[GatewayPermissionName]GatewayResourceDefinitio
 		PermissionWalletAdjustment:                   createGatewayResource(PermissionWalletAdjustment, WalletsAdjustment),
 		PermissionWalletTransactionRead:              createGatewayResource(PermissionWalletTransactionRead, WalletTransactions),
 		PermissionTransferCreate:                     createGatewayResource(PermissionTransferCreate, Transfers),
+		PermissionPricingPolicyRead:                  createGatewayResource(PermissionPricingPolicyRead, PricingPlatformFee),
+		PermissionPricingPolicyUpdate:                createGatewayResource(PermissionPricingPolicyUpdate, PricingPlatformFee),
 	}
 }

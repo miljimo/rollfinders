@@ -257,6 +257,12 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodPost, Path: Transfers, Permission: PermissionTransferCreate},
 		}},
 
+		{Name: PricingService, Routes: []RouteDefinitionWithPermission{
+			{Method: http.MethodGet, Path: PricingPlatformFee, Permission: PermissionPricingPolicyRead},
+			{Method: http.MethodPut, Path: PricingPlatformFee, Permission: PermissionPricingPolicyUpdate},
+			{Method: http.MethodPost, Path: PricingPlatformFeePreview, Permission: PermissionPricingPolicyRead},
+		}},
+
 		{Name: AuthorisationService, Routes: []RouteDefinitionWithPermission{
 			{Method: http.MethodPost, Path: AuthorisationPermissions, Permission: PermissionAuthorisationPermissionCreate},
 			{Method: http.MethodGet, Path: AuthorisationPermissions, Permission: PermissionAuthorisationPermissionRead},
@@ -376,6 +382,8 @@ func proxyKeyForService(service GatewayService) string {
 		return "wallet"
 	case TransferService:
 		return "transfer"
+	case PricingService:
+		return "pricing"
 	default:
 		return ""
 	}
