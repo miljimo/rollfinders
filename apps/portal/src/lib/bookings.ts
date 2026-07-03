@@ -61,6 +61,11 @@ type BookingListResponse = {
 
 const bookingServiceUrl = apiGatewayUrl;
 
+type BookingServiceActor = {
+  accessToken?: string;
+  actorUserId?: string;
+};
+
 export type ServicePaginationMeta = {
   limit: number;
   offset: number;
@@ -85,6 +90,8 @@ export class BookingServiceError extends Error {
 }
 
 export async function listBookings({
+  accessToken,
+  actorUserId,
   bookableId,
   bookableInstanceId,
   bookableType,
@@ -94,6 +101,8 @@ export async function listBookings({
   status,
   limit = 100,
 }: {
+  accessToken?: string;
+  actorUserId?: string;
   bookableId?: string | null;
   bookableInstanceId?: string | null;
   bookableType?: string | null;
@@ -104,6 +113,8 @@ export async function listBookings({
   limit?: number;
 } = {}): Promise<BookingRecord[]> {
   const result = await listBookingsPage({
+    accessToken,
+    actorUserId,
     bookableId,
     bookableInstanceId,
     bookableType,
@@ -117,6 +128,8 @@ export async function listBookings({
 }
 
 export async function listBookingsPage({
+  accessToken,
+  actorUserId,
   bookableId,
   bookableInstanceId,
   bookableType,
@@ -127,6 +140,8 @@ export async function listBookingsPage({
   organisationId,
   status,
 }: {
+  accessToken?: string;
+  actorUserId?: string;
   bookableId?: string | null;
   bookableInstanceId?: string | null;
   bookableType?: string | null;
@@ -149,6 +164,7 @@ export async function listBookingsPage({
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings?${params.toString()}`, {
     method: "GET",
     cache: "no-store",
+    headers: bookingServiceHeaders({ accessToken, actorUserId }),
   });
 
   if (!response.ok) {
@@ -167,6 +183,13 @@ export async function listBookingsPage({
       offset,
     },
   };
+}
+
+function bookingServiceHeaders(actor: BookingServiceActor): HeadersInit {
+  const headers = new Headers();
+  if (actor.accessToken) headers.set("Authorization", `Bearer ${actor.accessToken}`);
+  if (actor.actorUserId) headers.set("X-Actor-User-ID", actor.actorUserId);
+  return headers;
 }
 
 export async function createBooking(input: CreateBookingInput): Promise<BookingRecord> {

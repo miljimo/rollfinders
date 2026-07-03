@@ -54,7 +54,9 @@ export async function getPaymentPlatformSettings(input: {
         providerId: policy.providerId,
       };
     } catch (error) {
-      if (!(error instanceof PricingPolicyServiceError)) throw error;
+      if (!(error instanceof PricingPolicyServiceError)) {
+        console.error("Pricing policy lookup failed; falling back to legacy payment platform settings.", { error, providerId });
+      }
     }
   }
 

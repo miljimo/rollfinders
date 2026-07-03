@@ -28,7 +28,7 @@ import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
-import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, type ManagedUser } from "@/lib/users-service";
+import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, UserServiceError, type ManagedUser } from "@/lib/users-service";
 import { getWalletBalance, listLinkedWalletAccounts, listWalletTransfers, listWalletsPage, WalletServiceError, type LinkedWalletAccount, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
@@ -528,10 +528,10 @@ async function getDashboardPaymentAccountSetting(input: {
   }
 }
 
-async function getDashboardBookings(page: number, academyId?: string | null): Promise<DashboardBookingsResult> {
+async function getDashboardBookings(page: number, actorUserId: string, accessToken?: string, academyId?: string | null): Promise<DashboardBookingsResult> {
   const offset = (Math.max(1, page) - 1) * bookingsPageSize;
   try {
-    const result = await listBookingsPage({ limit: bookingsPageSize, offset, organisationId: academyId });
+    const result = await listBookingsPage({ accessToken, actorUserId, limit: bookingsPageSize, offset, organisationId: academyId });
     return { bookings: result.bookings, pagination: result.pagination };
   } catch (error) {
     if (error instanceof BookingServiceError) {
@@ -651,7 +651,17 @@ export default async function AdminDashboardWorkspace({
   if (search) userQueryParams.set("search", search);
   if (roleSearch) userQueryParams.set("role", roleSearch);
   if (userStatusSearch) userQueryParams.set("status", userStatusSearch);
-  const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString());
+  const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString())
+    .then((result) => ({ error: null as string | null, page: result }))
+    .catch((error) => {
+      if (error instanceof UserServiceError && error.status === 403) {
+        return {
+          error: "You do not have permission to view or manage users.",
+          page: { users: [], page: userPage, pageSize: usersPageSize, totalItems: 0, totalPages: 1 },
+        };
+      }
+      throw error;
+    });
   const allAcademyRecords = await attachAcademyOperationalMetadata(
     academyAdmin && currentUser.academyId
       ? (await getAcademyFromAcademyService(currentUser.academyId, currentUser).then((academy) => academy ? [academy] : []))
@@ -683,7 +693,9 @@ export default async function AdminDashboardWorkspace({
   const platformAdminAcademyRecords = allAcademyRecords
     .filter((academy) => academyCreatedById(academy))
     .filter((academy) => academyMatchesPlatformSearch(academy, platformAcademiesSearch));
-  const managedUsersPage = await managedUsersPagePromise;
+  const managedUsersResult = await managedUsersPagePromise;
+  const managedUsersPage = managedUsersResult.page;
+  const managedUsersError = managedUsersResult.error;
   const currentManagedUser = managedUsersPage.users.find((user) => user.id === currentUser.id)
     ?? await getManagedUser(currentUser, currentUser.id).then((result) => result.user).catch(() => null);
   const currentUserWalletOwner = {
@@ -823,7 +835,7 @@ export default async function AdminDashboardWorkspace({
       : Promise.resolve(null),
     panel === "payments" ? getPaymentPlatformSettings({ accessToken: currentUser.accessToken, actorUserId: currentUser.id, providerId: pricingProviderId }) : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
-    panel === "bookings" ? getDashboardBookings(bookingPage, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
+    panel === "bookings" ? getDashboardBookings(bookingPage, currentUser.id, currentUser.accessToken, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
     panel === "wallet" || (panel === "payments" && paymentsView === "settings" && !academyAdmin)
       ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
       : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
@@ -1448,6 +1460,11 @@ export default async function AdminDashboardWorkspace({
                 <UnavailableUserSecurityPanel title="MFA" description="MFA management is not available in the current dashboard contract yet." />
               ) : (
                 <>
+                  {managedUsersError ? (
+                    <div className="mt-4 rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                      {managedUsersError}
+                    </div>
+                  ) : null}
                   <UserResult params={params} />
                   <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} params={params} users={users} />
                   <Pagination currentPage={currentUserPage} itemsPerPage={currentUserPageSize} totalItems={userCount} pageKey="usersPage" searchParams={params} />

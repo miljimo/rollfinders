@@ -76,6 +76,17 @@ describe("course payment service integration", () => {
     assert.match(bookingSource, /\/payment-link/);
   });
 
+  it("passes the dashboard actor through booking history reads", () => {
+    const bookingSource = readSource("apps/portal/src/lib/bookings.ts");
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(bookingSource, /Authorization/);
+    assert.match(bookingSource, /X-Actor-User-ID/);
+    assert.match(bookingSource, /actorUserId\?: string/);
+    assert.match(dashboardSource, /getDashboardBookings\(bookingPage,\s*currentUser\.id,\s*currentUser\.accessToken/);
+    assert.match(dashboardSource, /listBookingsPage\(\{\s*accessToken,\s*actorUserId/);
+  });
+
   it("keeps legacy payment platform settings fallback aligned with the Prisma table shape", () => {
     const settingsSource = readSource("apps/portal/src/lib/payment-platform-settings.ts");
     const fallbackCreate = settingsSource.match(/prisma\.paymentPlatformSetting\.upsert\(\{[\s\S]*?create:\s*\{([\s\S]*?)\},\s*update:/)?.[1] ?? "";
@@ -84,6 +95,8 @@ describe("course payment service integration", () => {
     assert.match(fallbackCreate, /platformFeeFixedMinor/);
     assert.match(fallbackCreate, /currency/);
     assert.doesNotMatch(fallbackCreate, /providerId/);
+    assert.doesNotMatch(settingsSource, /if \(!\(error instanceof PricingPolicyServiceError\)\) throw error/);
+    assert.match(settingsSource, /falling back to legacy payment platform settings/);
   });
 
   it("renders checkout controls on course detail through a client handoff", () => {
