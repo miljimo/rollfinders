@@ -61,7 +61,9 @@ export async function getPaymentPlatformSettings(input: {
   const setting = await prisma.paymentPlatformSetting.upsert({
     create: {
       id: "rollfinders",
-      ...defaultPaymentPlatformSettings,
+      currency: defaultPaymentPlatformSettings.currency,
+      platformFeeBasisPoints: defaultPaymentPlatformSettings.platformFeeBasisPoints,
+      platformFeeFixedMinor: defaultPaymentPlatformSettings.platformFeeFixedMinor,
     },
     update: {},
     where: { id: "rollfinders" },

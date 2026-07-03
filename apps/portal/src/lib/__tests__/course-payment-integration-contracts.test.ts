@@ -61,6 +61,7 @@ describe("course payment service integration", () => {
     assert.match(actionSource, /bookableType:\s*"course_occurrence"/);
     assert.match(actionSource, /paymentRequired:\s*true/);
     assert.match(actionSource, /booking_id:\s*booking\.id/);
+    assert.match(actionSource, /academy_owner_id:\s*event\.academy\.createdById \?\? event\.academyId/);
     assert.match(actionSource, /stripe_destination_account:\s*paymentAccount\.providerAccountId/);
     assert.doesNotMatch(actionSource, /getPaymentPlatformSettings/);
     assert.doesNotMatch(actionSource, /calculatePlatformFeeMinor/);
@@ -74,6 +75,16 @@ describe("course payment service integration", () => {
     assert.match(bookingSource, /export async function linkBookingPayment/);
     assert.match(bookingSource, /\/v1\/bookings/);
     assert.match(bookingSource, /\/payment-link/);
+  });
+
+  it("keeps legacy payment platform settings fallback aligned with the Prisma table shape", () => {
+    const settingsSource = readSource("apps/portal/src/lib/payment-platform-settings.ts");
+    const fallbackCreate = settingsSource.match(/prisma\.paymentPlatformSetting\.upsert\(\{[\s\S]*?create:\s*\{([\s\S]*?)\},\s*update:/)?.[1] ?? "";
+
+    assert.match(fallbackCreate, /platformFeeBasisPoints/);
+    assert.match(fallbackCreate, /platformFeeFixedMinor/);
+    assert.match(fallbackCreate, /currency/);
+    assert.doesNotMatch(fallbackCreate, /providerId/);
   });
 
   it("renders checkout controls on course detail through a client handoff", () => {
@@ -191,7 +202,7 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /PaymentsPanelSearch/);
     assert.match(dashboardSource, /<div className="flex flex-wrap items-start gap-4">/);
     assert.match(dashboardSource, /sm:w-fit sm:min-w-\[17rem\] sm:max-w-\[24rem\]/);
-    assert.match(dashboardSource, /action=\{paymentsView === "payouts" \? null : <PaymentsDashboardActions payments=\{paymentResult\.payments\} \/>\}/);
+    assert.match(dashboardSource, /action=\{paymentsView === "payouts" \|\| paymentsView === "settings" \? null : <PaymentsDashboardActions payments=\{paymentResult\.payments\} \/>\}/);
     assert.match(dashboardSource, /paymentsSearch/);
     assert.match(dashboardSource, /paymentMatchesSearch/);
     assert.match(dashboardSource, /metadata\.payer_phone/);
@@ -319,6 +330,9 @@ describe("course payment service integration", () => {
     assert.match(routeSource, /metadata_booking_id/);
     assert.match(routeSource, /markBookingPaymentReceived/);
     assert.match(routeSource, /payment-callback-received/);
+    assert.match(routeSource, /recordCoursePaymentWalletEffects\(paymentId\)/);
+    assert.match(routeSource, /wallet_effects",\s*"recorded"/);
+    assert.match(routeSource, /wallet_effects",\s*"failed"/);
     assert.match(routeSource, /NextResponse\.redirect\(redirectUrl,\s*response\.status\)/);
     assert.match(paymentStatusSource, /markPaidBookingPaymentReceived/);
     assert.match(paymentStatusSource, /metadata_booking_id/);
@@ -326,6 +340,34 @@ describe("course payment service integration", () => {
     assert.match(paymentStatusSource, /markBookingPaymentReceived/);
     assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/payment-received/);
     assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/confirm/);
+  });
+
+  it("posts idempotent course payment wallet effects without duplicating provider data", () => {
+    const helperSource = readSource("apps/portal/src/lib/course-payment-wallet-effects.ts");
+    const paymentsSource = readSource("apps/portal/src/lib/payments.ts");
+    const walletMigrationSource = readSource("apps/backend_api/migrations/wallet/tables/011_paymentAdjustmentTypes.sql");
+    const composeSource = readSource("compose.yml");
+
+    assert.match(helperSource, /import\s+["']server-only["']/);
+    assert.match(helperSource, /getPayment\(paymentId\)/);
+    assert.match(helperSource, /payment\.resourceType !== "course_occurrence"/);
+    assert.match(helperSource, /academy_owner_id \|\| metadata\.academy_id/);
+    assert.match(helperSource, /WALLET_INTERNAL_BASE_URL/);
+    assert.match(helperSource, /PRICING_INTERNAL_BASE_URL/);
+    assert.match(helperSource, /\/v1\/wallets\/adjustment/);
+    assert.match(helperSource, /type:\s*"BOOKING_PAYMENT"/);
+    assert.match(helperSource, /type:\s*"COMMISSION"/);
+    assert.match(helperSource, /course-payment-wallet-credit:\$\{payment\.id\}/);
+    assert.match(helperSource, /course-payment-platform-fee:\$\{payment\.id\}/);
+    assert.match(helperSource, /reason:\s*"Course payment received"/);
+    assert.match(helperSource, /reason:\s*"Platform fee for course payment"/);
+    assert.doesNotMatch(helperSource, /payerEmail|payerUserId|course_title|providerAccountId|provider_account_id/);
+    assert.match(paymentsSource, /export async function getPayment/);
+    assert.match(paymentsSource, /\/v1\/payments\/\$\{encodeURIComponent\(paymentId\)\}/);
+    assert.match(walletMigrationSource, /BOOKING_PAYMENT/);
+    assert.match(walletMigrationSource, /COMMISSION/);
+    assert.match(composeSource, /WALLET_INTERNAL_BASE_URL:\s*http:\/\/wallet:8080/);
+    assert.match(composeSource, /PRICING_INTERNAL_BASE_URL:\s*http:\/\/pricing:8080/);
   });
 
   it("cancels pending booking payments and requests refunds for received payments through the payment service", () => {
