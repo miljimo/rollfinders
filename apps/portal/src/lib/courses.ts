@@ -72,6 +72,7 @@ export type CourseFilters = {
   academyId?: string;
 };
 
+export const publicDefaultRecurringCourseOccurrenceLimit = 3;
 const defaultSearchLocation = { latitude: 51.5072, longitude: -0.1276 };
 
 function searchLocation(filters: CourseFilters) {
@@ -102,6 +103,10 @@ function selectedGi(q: string, gi?: string) {
   if (lower.includes("no-gi") || lower.includes("nogi")) return "NO_GI";
   if (lower.includes("gi")) return "GI";
   return "";
+}
+
+function hasDateIntent(filters: CourseFilters) {
+  return filters.when === "today" || filters.when === "tomorrow" || filters.when === "weekend";
 }
 
 function courseMatchesSearch(course: ServiceCourseWithAcademy, activities: RollfindersCourseActivityRecord[], q: string) {
@@ -172,7 +177,11 @@ export async function getCourseDiscovery(filters: CourseFilters = {}) {
   ));
 
   const origin = searchLocation(filters);
-  const occurrences = dedupeOccurrences(filtered.flatMap((event) => expandEventOccurrences(event as unknown as Event & { academy: Academy }, { from: occurrenceRange.gte, to: occurrenceRange.lt, now })));
+  const maxVisibleOccurrences = hasDateIntent(filters) ? undefined : publicDefaultRecurringCourseOccurrenceLimit;
+  const occurrences = dedupeOccurrences(filtered.flatMap((event) => expandEventOccurrences(
+    event as unknown as Event & { academy: Academy },
+    { from: occurrenceRange.gte, to: occurrenceRange.lt, maxVisibleOccurrences, now },
+  )));
   return occurrences
     .map((event) => ({
       ...event,

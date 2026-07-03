@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test from "node:test";
 import { CourseType } from "@prisma/client";
 import {
@@ -7,6 +9,7 @@ import {
   courseTypeLabel,
   isOpenMatCourse,
   openMatHref,
+  publicDefaultRecurringCourseOccurrenceLimit,
   selectableCourseTypeOptions,
 } from "../courses";
 
@@ -27,4 +30,13 @@ test("selectable course type options do not include activity types", () => {
   const values = selectableCourseTypeOptions.map((option) => String(option.value));
   assert.equal(values.includes(CourseType.SPARRING), false);
   assert.equal(values.includes(CourseType.OPEN_MAT), true);
+});
+
+test("default public discovery caps recurring courses without capping date-intent searches", () => {
+  assert.equal(publicDefaultRecurringCourseOccurrenceLimit, 3);
+
+  const coursesSource = readFileSync(resolve(process.cwd(), "apps/portal/src/lib/courses.ts"), "utf8");
+  assert.match(coursesSource, /function\s+hasDateIntent[\s\S]*filters\.when\s*===\s*["']today["'][\s\S]*filters\.when\s*===\s*["']tomorrow["'][\s\S]*filters\.when\s*===\s*["']weekend["']/);
+  assert.match(coursesSource, /const\s+maxVisibleOccurrences\s*=\s*hasDateIntent\(filters\)\s*\?\s*undefined\s*:\s*publicDefaultRecurringCourseOccurrenceLimit/);
+  assert.match(coursesSource, /expandEventOccurrences[\s\S]*maxVisibleOccurrences/);
 });

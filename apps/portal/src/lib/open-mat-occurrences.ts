@@ -146,11 +146,13 @@ export function expandEventOccurrences<T extends Event & { academy?: Academy }>(
   {
     from,
     to = defaultOccurrenceWindowEnd(),
+    maxVisibleOccurrences,
     now = new Date(),
     publicOnly = true,
   }: {
     from: Date;
     to?: Date;
+    maxVisibleOccurrences?: number;
     now?: Date;
     publicOnly?: boolean;
   },
@@ -166,6 +168,9 @@ export function expandEventOccurrences<T extends Event & { academy?: Academy }>(
   const occurrences: OpenMatOccurrence<T>[] = [];
   const limit = event.recurrenceLimit ?? Number.POSITIVE_INFINITY;
   const recurrenceEnd = event.recurrenceEndDate ? startOfDay(event.recurrenceEndDate) : to;
+  const visibleLimit: number = typeof maxVisibleOccurrences === "number" && Number.isInteger(maxVisibleOccurrences) && maxVisibleOccurrences > 0
+    ? maxVisibleOccurrences
+    : Number.POSITIVE_INFINITY;
 
   for (let index = 0; index < limit; index += 1) {
     const occurrenceDate = nextOccurrenceDate(event, recurrenceType, index);
@@ -173,6 +178,7 @@ export function expandEventOccurrences<T extends Event & { academy?: Academy }>(
     if (occurrenceDate < from && !isSameDay(occurrenceDate, from)) continue;
     if (publicOnly && !isPublicOccurrenceVisible(occurrenceDate, event.endTime, now)) continue;
     occurrences.push(buildOccurrence(event, occurrenceDate, now));
+    if (occurrences.length >= visibleLimit) break;
   }
 
   return occurrences;

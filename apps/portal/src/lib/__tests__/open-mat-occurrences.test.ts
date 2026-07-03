@@ -83,6 +83,36 @@ test("expands monthly intervals from the source date without drifting after mont
   ]);
 });
 
+test("limits visible recurring occurrences when a display cap is provided", () => {
+  const occurrences = expandEventOccurrences(eventFixture(), {
+    from: new Date("2026-06-12T00:00:00.000Z"),
+    to: new Date("2026-09-01T00:00:00.000Z"),
+    maxVisibleOccurrences: 3,
+    publicOnly: false,
+  });
+
+  assert.deepEqual(occurrences.map((occurrence) => dateKey(occurrence.eventDate)), [
+    "2026-06-12",
+    "2026-06-19",
+    "2026-06-26",
+  ]);
+});
+
+test("does not count skipped out-of-window occurrences against the display cap", () => {
+  const occurrences = expandEventOccurrences(eventFixture(), {
+    from: new Date("2026-06-26T00:00:00.000Z"),
+    to: new Date("2026-09-01T00:00:00.000Z"),
+    maxVisibleOccurrences: 3,
+    publicOnly: false,
+  });
+
+  assert.deepEqual(occurrences.map((occurrence) => dateKey(occurrence.eventDate)), [
+    "2026-06-26",
+    "2026-07-03",
+    "2026-07-10",
+  ]);
+});
+
 test("labels custom recurrence intervals", () => {
   assert.equal(recurrenceLabel(RecurrenceType.WEEKLY, 1), "Weekly");
   assert.equal(recurrenceLabel(RecurrenceType.WEEKLY, 2), "Fortnightly");
