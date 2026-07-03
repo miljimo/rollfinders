@@ -34,6 +34,8 @@ The mobile app should expose only the public side of Rollfinders:
 
 It must not include CRM, admin, subscription, access key, or platform management features.
 
+If an authenticated admin user follows a dashboard, CRM, subscription, access key, or platform-management URL inside the WebView, the app must not render that feature inside the mobile shell. It should either open the URL in the system browser or send the user to a clear unsupported-in-app state.
+
 ---
 
 # Architecture
@@ -91,7 +93,7 @@ Used only for authenticated dashboard shell.
 ## Auth
 
 ```text
-https://auth.rollfinders.com
+https://rollfinders.com/login
 ```
 
 Used for:
@@ -101,6 +103,8 @@ Used for:
 * Forgot password
 * Reset password
 * Session management
+
+Rollfinders should keep auth on the main domain for the first mobile release. A dedicated auth domain, such as `https://auth.rollfinders.com`, is a later architecture option only if multiple first-party applications need shared centralised login.
 
 ---
 
@@ -115,6 +119,8 @@ https://rollfinders.com/mobile
 The page must be mobile-first and optimized for phone screens.
 
 The WebView app must not simply show a desktop website squeezed into a phone screen.
+
+The `/mobile` route is a distinct mobile product surface. It should use its own compact app chrome, bottom navigation, touch-friendly controls, and mobile-first content density instead of reusing the desktop public header and footer.
 
 ---
 
@@ -150,6 +156,8 @@ Shows saved academies or courses.
 
 Shows login status, basic profile, logout, privacy, support, and settings.
 
+The first release may render Bookings and Saved as authenticated mobile surfaces with useful login and product-state messaging, but they must not be empty placeholders. They should explain the next action and link to working login, booking, privacy, terms, and support routes.
+
 ---
 
 # Authentication
@@ -167,10 +175,20 @@ Login is required only for:
 If login is required, redirect to:
 
 ```text
-https://auth.rollfinders.com/login?redirect=https://rollfinders.com/mobile/...
+https://rollfinders.com/login?redirect=/mobile/...
 ```
 
 After login, return the user back to the requested mobile page.
+
+Do not show login as the default public mobile entry point. Users must be able to browse discovery, maps, academy profiles, and course/open-mat details without authentication.
+
+## Payment Handoff
+
+Payment pages and third-party checkout flows must not be trapped inside an unsafe or unsupported WebView payment context.
+
+When a booking requires external payment, the mobile web app should hand off to the payment provider using a browser-safe flow. The native shell should open external checkout/payment domains in the system browser, SFSafariViewController, or Chrome Custom Tabs unless the provider explicitly supports embedded WebView checkout.
+
+After payment, callback URLs should return the user to a mobile-aware status page or the relevant booking/detail page.
 
 ---
 
@@ -186,6 +204,8 @@ It should handle:
 * Showing a friendly offline page.
 * Handling back button on Android.
 * Opening external links in system browser.
+* Opening payment provider links in system browser or platform browser tabs.
+* Blocking admin/dashboard/CRM routes from rendering inside the mobile shell.
 * Supporting push notifications later.
 * Supporting app version metadata.
 * Supporting deep links later.
@@ -210,8 +230,13 @@ To reduce rejection risk, the WebView app should include app-like behaviour:
 * No broken links.
 * No desktop-only pages.
 * No empty placeholder pages.
+* Real public discovery data on first launch.
+* Account deletion/help route or clear support route for account deletion requests.
+* Booking and saved-item states that either show real data or provide a clear authenticated next step.
 
 Apple states that apps should be complete and ready for review, with working links including support and privacy policy links.
+
+The first app-store candidate should feel useful in Safari/Chrome before it is wrapped. Native shells should not be submitted until `/mobile` is complete enough to stand on its own as a mobile web app.
 
 ---
 
@@ -239,13 +264,58 @@ Rollfinders Services
 
 No direct service calls are allowed from the WebView.
 
+Browser/WebView client code must not call internal services directly. Server-rendered Next.js code may continue to use existing server-side service helpers, provided those helpers respect the platform API gateway and service-boundary rules.
+
+---
+
+# Delivery Phases
+
+## Phase 1: Mobile Web App
+
+Build `/mobile` as a production-quality mobile web surface:
+
+* Mobile app shell with bottom navigation.
+* Discover tab with real academy, open mat, and course data.
+* Map tab with nearby locations and directions links.
+* Booking/login entry points.
+* Saved and Profile states with working links.
+* No admin, CRM, subscription, access key, or platform-management entry points.
+
+## Phase 2: User State
+
+Add authenticated user value:
+
+* My Bookings.
+* Saved academies/courses.
+* Basic profile and logout.
+* Account deletion/support route.
+
+## Phase 3: Native Shells
+
+Wrap `/mobile` with Capacitor and add:
+
+* Native splash screen.
+* Offline fallback.
+* Android back-button handling.
+* External-link and payment-link routing.
+* App version metadata.
+
+## Phase 4: Native Enhancements
+
+Add optional native capabilities only after the web mobile product is stable:
+
+* Push notifications.
+* Deep links.
+* Native share targets.
+* App-store analytics.
+
 ---
 
 # MVP Scope
 
 ## Include
 
-* Mobile-first homepage
+* Mobile-first `/mobile` shell
 * Academy discovery
 * Map search
 * Open mat/course discovery
@@ -254,9 +324,9 @@ No direct service calls are allowed from the WebView.
 * Login/register handoff
 * Booking
 * Payment handoff
-* My bookings
-* Saved academies/courses
-* Basic profile
+* Authenticated My Bookings entry point
+* Authenticated Saved entry point
+* Basic profile/support entry point
 * Privacy/support pages
 
 ## Exclude
@@ -295,6 +365,8 @@ Flutter WebView
 
 For Rollfinders, **Capacitor** is probably the best fit because it is designed to wrap web apps into iOS and Android apps while still allowing native plugins later.
 
+Do not start the native shell until `/mobile` passes the mobile web acceptance criteria. The shell should remain a transport layer, not a second application.
+
 ---
 
 # Acceptance Criteria
@@ -302,16 +374,18 @@ For Rollfinders, **Capacitor** is probably the best fit because it is designed t
 The implementation is complete when:
 
 * `rollfinders.com/mobile` works as a mobile-first web app.
-* iOS WebView app loads the mobile web experience.
-* Android WebView app loads the mobile web experience.
+* `/mobile` has app-like bottom navigation and does not render the desktop header/footer.
+* `/mobile` opens with real public discovery data.
 * Users can browse without login.
 * Login appears only when required.
 * Booking flow works on mobile.
 * Payment handoff works on mobile.
 * External links open correctly.
 * App has privacy policy, support, and terms links.
-* App has an offline fallback screen.
 * No CRM/admin features appear in the mobile app.
+* iOS WebView app loads the mobile web experience.
+* Android WebView app loads the mobile web experience.
+* App has an offline fallback screen.
 * The app is ready for App Store and Play Store submission.
 
 ---
