@@ -203,7 +203,16 @@ BEGIN
             p_updated_at
         )
         ON CONFLICT (provider, provider_account_id) DO UPDATE
-        SET status = EXCLUDED.status,
+        SET status = CASE
+                WHEN EXCLUDED.status = 'DISABLED' AND EXISTS (
+                    SELECT 1
+                    FROM wallet.linked_wallet_accounts connected
+                    WHERE connected.provider_account_ref_id = wallet.provider_accounts.id
+                      AND connected.status = 'CONNECTED'
+                      AND connected.wallet_id <> p_wallet_id
+                ) THEN wallet.provider_accounts.status
+                ELSE EXCLUDED.status
+            END,
             display_name = COALESCE(EXCLUDED.display_name, wallet.provider_accounts.display_name),
             external_reference = COALESCE(EXCLUDED.external_reference, wallet.provider_accounts.external_reference),
             currency = EXCLUDED.currency,

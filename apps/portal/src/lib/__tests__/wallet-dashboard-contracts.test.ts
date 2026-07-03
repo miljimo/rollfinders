@@ -39,7 +39,7 @@ test("wallet dashboard route renders through the app dashboard shell", () => {
   assert.match(dashboard, /getDashboardWallets\(walletPage, currentUser\.id, currentUser\.accessToken\)/);
   assert.match(dashboard, /listWalletsPage\(\{ accessToken, actorUserId/);
   assert.match(dashboard, /getWalletBalance/);
-  assert.match(dashboard, /<WalletDashboard error=\{walletActionError \?\? walletResult\.error\}/);
+  assert.match(dashboard, /<WalletDashboard balances=\{walletResult\.balances\} error=\{walletActionError \?\? walletResult\.error\}/);
   assert.match(dashboard, /linkedAccounts=\{walletResult\.linkedAccounts\}/);
   assert.match(dashboard, /transactions=\{walletResult\.transactions\}/);
   assert.match(dashboard, /view=\{walletView\}/);
@@ -149,10 +149,12 @@ test("wallet dashboard shows wallets and transaction panel without aggregate bal
   assert.doesNotMatch(source, /Funds reserved for holds/);
   assert.doesNotMatch(source, /Total ledger balance/);
   assert.doesNotMatch(source, /function WalletMetric/);
-  assert.match(source, /LinkedAccountSummary/);
-  assert.match(source, /ProviderAccount/);
-  assert.match(source, /title: "Linked Account"/);
-  assert.match(source, /title: "Provider Account"/);
+  assert.doesNotMatch(source, /LinkedAccountSummary/);
+  assert.doesNotMatch(source, /ProviderAccount/);
+  assert.doesNotMatch(source, /title: "Linked Account"/);
+  assert.doesNotMatch(source, /title: "Provider Account"/);
+  assert.match(source, /title: "Total Balance"/);
+  assert.match(source, /formatWalletBalance/);
   assert.doesNotMatch(source, /title: "Available Balance"/);
   assert.doesNotMatch(source, /title: "Reserved Balance"/);
   assert.doesNotMatch(source, /title: "Ledger Balance"/);

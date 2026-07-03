@@ -335,6 +335,13 @@ describe("unified dashboard route contracts", () => {
     assert.match(permissionsBoardSource, /currentPermissionPage\.pagination\.has_more/);
   });
 
+  it("keeps optional organisation lookups from crashing the permissions dashboard", () => {
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+
+    assert.match(dashboardSource, /listOrganisations\(currentUser\)\.catch\(\(\)\s*=>\s*\[\]\)/);
+    assert.match(dashboardSource, /listOrganisationApplications\(currentUser\)\.catch\(\(\)\s*=>\s*\[\]\)/);
+  });
+
   it("academy member surfaces do not depend on public user profiles", () => {
     const memberPage = readSource("apps/portal/src/app/dashboard/members/page.tsx");
     const memberApi = readSource("apps/portal/src/app/api/dashboard/members/route.ts");

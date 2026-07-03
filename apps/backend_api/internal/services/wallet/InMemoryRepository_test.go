@@ -102,6 +102,10 @@ func (repo *InMemoryRepository) CreateLinkedAccount(_ context.Context, input dat
 			wallet.Status = domain.WalletActive
 			wallet.UpdatedAt = now
 			repo.wallets[input.WalletID] = wallet
+		} else if account.Status == domain.LinkedAccountDisabled || account.Status == domain.LinkedAccountFailed {
+			wallet.Status = domain.WalletInactive
+			wallet.UpdatedAt = now
+			repo.wallets[input.WalletID] = wallet
 		}
 		repo.refreshConnectedWalletCounts(account.ProviderAccountID)
 		account = repo.linkedAccounts[input.WalletID][index]
@@ -110,6 +114,10 @@ func (repo *InMemoryRepository) CreateLinkedAccount(_ context.Context, input dat
 	repo.linkedAccounts[input.WalletID] = append(repo.linkedAccounts[input.WalletID], account)
 	if account.Status == domain.LinkedAccountConnected {
 		wallet.Status = domain.WalletActive
+		wallet.UpdatedAt = now
+		repo.wallets[input.WalletID] = wallet
+	} else if account.Status == domain.LinkedAccountDisabled || account.Status == domain.LinkedAccountFailed {
+		wallet.Status = domain.WalletInactive
 		wallet.UpdatedAt = now
 		repo.wallets[input.WalletID] = wallet
 	}

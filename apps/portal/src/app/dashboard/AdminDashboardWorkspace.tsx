@@ -839,8 +839,8 @@ export default async function AdminDashboardWorkspace({
     panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationPermissionsPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ permissions: [], pagination: emptyAuthorisationPagination(pageSize) }),
     panel === "users" && usersView === "permissions" ? listAuthorisationResources(currentUser) : Promise.resolve([]),
     panel === "users" ? listUserPermissionAssignments(currentUser.id, currentUser) : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listOrganisations(currentUser) : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listOrganisationApplications(currentUser) : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listOrganisations(currentUser).catch(() => []) : Promise.resolve([]),
+    panel === "users" && usersView === "permissions" ? listOrganisationApplications(currentUser).catch(() => []) : Promise.resolve([]),
   ]);
   const authorisationRoles = authorisationRolesPage.roles;
   const paymentAccountSetting = paymentAccountResult?.setting ?? null;
@@ -1356,7 +1356,7 @@ export default async function AdminDashboardWorkspace({
               id="wallet"
               title={walletView === "transactions" ? "Transactions" : "Wallets"}
             >
-              <WalletDashboard error={walletActionError ?? walletResult.error} linkedAccounts={walletResult.linkedAccounts} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} view={walletView} wallets={walletResult.wallets} />
+              <WalletDashboard balances={walletResult.balances} error={walletActionError ?? walletResult.error} linkedAccounts={walletResult.linkedAccounts} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} view={walletView} wallets={walletResult.wallets} />
             </AdminPanel>
           ) : null}
           {panel === "bookings" ? (
@@ -2197,11 +2197,14 @@ function titleCase(value: string) {
 function DisconnectWalletLinkedAccountDialog({ closeHref, linkedAccount, wallet }: { closeHref: string; linkedAccount: LinkedWalletAccount; wallet: WalletRecord }) {
   const providerLabel = linkedAccount.displayName || linkedAccount.provider;
   const providerAccount = linkedAccount.providerAccountId || linkedAccount.externalReference || "Not available";
+  const sharedAccount = linkedAccount.connectedWalletCount > 1;
 
   return (
     <DialogShell closeHref={closeHref} description="Review the impact before disconnecting this external wallet account." title="Disconnect Linked Account">
       <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-950">
-        Disconnecting this linked account will disconnect {providerLabel} from the payment service and disable the wallet link. This provider account is currently connected to {linkedAccount.connectedWalletCount} wallet{linkedAccount.connectedWalletCount === 1 ? "" : "s"}. The external wallet will become inactive until a provider account is linked again.
+        {sharedAccount
+          ? `Disconnecting this linked account will only remove this wallet's reference to ${providerLabel}. The provider account is still connected to other wallets, so its details will be kept and the provider account will remain connected.`
+          : `Disconnecting this linked account will disconnect ${providerLabel} from the payment service and disable the wallet link. The external wallet will become inactive until a provider account is linked again.`}
       </div>
       <dl className="mt-5 grid gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
         {[
@@ -2227,6 +2230,7 @@ function DisconnectWalletLinkedAccountDialog({ closeHref, linkedAccount, wallet 
         <input type="hidden" name="connectionType" value={linkedAccount.connectionType} />
         <input type="hidden" name="displayName" value={linkedAccount.displayName} />
         <input type="hidden" name="externalReference" value={linkedAccount.externalReference} />
+        <input type="hidden" name="connectedWalletCount" value={String(linkedAccount.connectedWalletCount)} />
         <input type="hidden" name="currency" value={wallet.currency} />
         <Button href={closeHref} variant="secondary">
           Cancel

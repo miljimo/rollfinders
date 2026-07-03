@@ -113,6 +113,7 @@ export async function disconnectDashboardWalletLinkedAccount(formData: FormData)
   const connectionType = String(formData.get("connectionType") ?? "").trim().toUpperCase() as LinkedAccountConnectionType;
   const displayName = String(formData.get("displayName") ?? "").trim();
   const externalReference = String(formData.get("externalReference") ?? "").trim();
+  const connectedWalletCount = Number.parseInt(String(formData.get("connectedWalletCount") ?? "0"), 10);
   const currencyValue = String(formData.get("currency") ?? "GBP").trim();
   const currency = (currencyValue.toLowerCase() === "points" ? "Points" : currencyValue.toUpperCase()) as WalletCurrency;
 
@@ -123,7 +124,7 @@ export async function disconnectDashboardWalletLinkedAccount(formData: FormData)
   }
 
   try {
-    if (provider === "STRIPE") {
+    if (provider === "STRIPE" && connectedWalletCount <= 1) {
       const ownerType = user.academyId && !isPlatformAdminRole(user.role) ? "academy" : "platform";
       await disconnectStripePaymentAccountSetting({
         accessToken: user.accessToken,

@@ -25,6 +25,8 @@ export type WalletRecord = {
 export type WalletBalance = {
   walletId: string;
   currency: WalletCurrency;
+  availableBalance: number;
+  reservedBalance: number;
   balance: number;
 };
 type TransactionStatus  = "Pending" | "Approved" | "Cancelled" | "Processing"
@@ -97,6 +99,8 @@ type WalletBalanceResponse = {
   wallet_id: string;
   currency: WalletCurrency;
   available_balance: number;
+  reserved_balance?: number;
+  balance?: number;
 };
 
 type WalletTransactionResponse = {
@@ -216,7 +220,9 @@ function mapBalance(balance: WalletBalanceResponse): WalletBalance {
   return {
     walletId: balance.wallet_id,
     currency: balance.currency,
-    balance: balance.available_balance
+    availableBalance: balance.available_balance,
+    reservedBalance: balance.reserved_balance ?? 0,
+    balance: balance.balance ?? balance.available_balance,
   };
 }
 

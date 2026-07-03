@@ -3,13 +3,14 @@ import { TriangleAlert, Info, CheckCircle2, Plus } from "lucide-react";
 
 import { Button } from "@/components/Button";
 import { Table, TableStatusBadge, type TableColumn } from "@/components/Table";
-import type { LinkedWalletAccount, WalletPaginationMeta, WalletRecord, WalletTransaction } from "@/lib/wallet-service";
+import type { LinkedWalletAccount, WalletBalance, WalletPaginationMeta, WalletRecord, WalletTransaction } from "@/lib/wallet-service";
 import { ActionMenu } from "../../admin/ActionMenu";
 
 type WalletDashboardSearchParams = Record<string, string | string[] | undefined>;
 type WalletDashboardView = "dashboard" | "transactions";
 
 type WalletRow = WalletRecord & {
+  balance?: WalletBalance;
   linkedAccount?: LinkedWalletAccount;
 };
 
@@ -20,8 +21,7 @@ const walletColumns: TableColumn<WalletRow>[] = [
   { key: "walletType", title: "Wallet Type", render: (_, row) => <span className="font-bold capitalize text-slate-950">{row.walletType}</span> },
   { key: "ownerId", title: "Owner ID", render: (_, row) => <span className="break-all font-mono text-xs text-slate-700">{row.ownerId}</span> },
   { key: "currency", title: "Currency", render: (_, row) => <span className="font-bold">{row.currency}</span> },
-  { key: "linkedAccount", title: "Linked Account", render: (_, row) => <LinkedAccountSummary account={row.linkedAccount} walletType={row.walletType} /> },
-  { key: "providerAccountId", title: "Provider Account", render: (_, row) => <ProviderAccount account={row.linkedAccount} /> },
+  { key: "balance", title: "Total Balance", render: (_, row) => <span className="font-bold text-slate-950">{formatWalletBalance(row.balance, row.currency)}</span> },
   { key: "status", title: "Status", render: (_, row) => <TableStatusBadge status={row.status} /> },
   {
     key: "actions",
@@ -50,6 +50,7 @@ const transactionColumns: TableColumn<WalletTransaction>[] = [
 ];
 
 export function WalletDashboard({
+  balances,
   error,
   linkedAccounts,
   pagination,
@@ -58,6 +59,7 @@ export function WalletDashboard({
   view = "dashboard",
   wallets,
 }: {
+  balances: WalletBalance[];
   error?: string;
   linkedAccounts: LinkedWalletAccount[];
   pagination: WalletPaginationMeta;
@@ -69,6 +71,7 @@ export function WalletDashboard({
   const rows = wallets.map((wallet) => {
     return {
       ...wallet,
+      balance: balances.find((balance) => balance.walletId === wallet.id),
       linkedAccount: linkedAccounts.find((account) => account.walletId === wallet.id && account.status !== "DISABLED"),
     };
   });
@@ -115,7 +118,7 @@ function WalletsDashboard({
         emptyMessage="No wallets found."
         getRowDoubleClickHref={(row) => walletDetailsHref(searchParams, row.id)}
         getRowId={(row) => row.id}
-        minWidthClassName="min-w-[980px]"
+        minWidthClassName="min-w-[760px]"
         pagination={{
           nextHref: pagination.has_more ? walletPageHref(searchParams, page + 1, pagination.limit) : undefined,
           page,
@@ -255,30 +258,6 @@ function WalletId({ value }: { value?: string }) {
   return <span className="break-all font-mono text-xs text-slate-700">{value}</span>;
 }
 
-function LinkedAccountSummary({ account, walletType }: { account?: LinkedWalletAccount; walletType: string }) {
-  if (walletType !== "external") return <span className="text-slate-500">Internal</span>;
-  if (!account) return <span className="font-semibold text-amber-700">Not linked</span>;
-  return (
-    <span className="grid gap-1">
-      <span className="font-bold text-slate-950">{account.displayName || account.provider}</span>
-      <span className="text-xs font-semibold text-slate-500">{account.connectionType}</span>
-      <span className="text-xs font-semibold text-slate-500">{account.connectedWalletCount} connected wallet{account.connectedWalletCount === 1 ? "" : "s"}</span>
-    </span>
-  );
-}
-
-function ProviderAccount({ account }: { account?: LinkedWalletAccount }) {
-  if (!account) return <span className="text-slate-500">None</span>;
-  return (
-    <span className="grid gap-1">
-      <span className="font-bold text-slate-950">{account.provider}</span>
-      {account.providerAccountId ? <span className="break-all font-mono text-xs text-slate-700">{account.providerAccountId}</span> : null}
-      <span className="text-xs font-semibold text-slate-500">{account.connectedWalletCount} wallet{account.connectedWalletCount === 1 ? "" : "s"}</span>
-      <TableStatusBadge status={account.status} />
-    </span>
-  );
-}
-
 function WalletMessage({
   className = "",
   message,
@@ -381,6 +360,11 @@ function pageFromSearchParams(searchParams: WalletDashboardSearchParams, key: st
 function money(amountMinor: number, currency: string) {
   if (currency === "Points") return `${amountMinor.toLocaleString("en-GB")} Points`;
   return new Intl.NumberFormat("en-GB", { currency, style: "currency" }).format(amountMinor / 100);
+}
+
+function formatWalletBalance(balance: WalletBalance | undefined, currency: string) {
+  if (!balance) return "Unavailable";
+  return money(balance.balance, currency);
 }
 
 function isTransactionInProgress(status: string) {

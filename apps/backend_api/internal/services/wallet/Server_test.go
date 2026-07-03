@@ -365,6 +365,24 @@ func TestWalletServiceAllowsSharedProviderAccountAndReportsConnectedWalletCount(
 	if second["connected_wallet_count"] != float64(2) {
 		t.Fatalf("expected shared provider account to report 2 connected wallets, got %#v", second)
 	}
+
+	disabled := postJSON(t, handler, "/v1/wallets/"+firstWallet.ID+"/linked-accounts", "", map[string]interface{}{
+		"provider":            "STRIPE",
+		"provider_account_id": "acct_shared",
+		"connection_type":     "BOTH",
+		"status":              "DISABLED",
+		"display_name":        "Stripe Connect",
+		"external_reference":  "acct_shared",
+		"currency":            "GBP",
+	}, http.StatusCreated)
+	if disabled["connected_wallet_count"] != float64(1) || disabled["status"] != "DISABLED" {
+		t.Fatalf("expected disabling one wallet to leave one connected wallet, got %#v", disabled)
+	}
+
+	secondAccounts := listLinkedAccounts(t, handler, secondWallet.ID)
+	if len(secondAccounts) != 1 || secondAccounts[0].Status != domain.LinkedAccountConnected || secondAccounts[0].ConnectedWallets != 1 {
+		t.Fatalf("expected second wallet to remain connected to shared account, got %+v", secondAccounts)
+	}
 }
 
 func stringValue(value interface{}) string {
@@ -428,6 +446,23 @@ func linkExternalWallet(t *testing.T, handler http.Handler, walletID string) {
 		"external_reference":  "acct_" + walletID,
 		"currency":            "GBP",
 	}, http.StatusCreated)
+}
+
+func listLinkedAccounts(t *testing.T, handler http.Handler, walletID string) []domain.LinkedAccount {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/v1/wallets/"+walletID+"/linked-accounts", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected linked account status 200, got %d body %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data []domain.LinkedAccount `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode linked accounts: %v", err)
+	}
+	return body.Data
 }
 
 func postJSON(t *testing.T, handler http.Handler, path string, key string, body map[string]interface{}, expected int) map[string]interface{} {

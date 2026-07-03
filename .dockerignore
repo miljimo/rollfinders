@@ -12,6 +12,7 @@ Dockerfile
 .env.*
 .bin
 terraform
+infrastructure/terraform
 docs
 scripts/tools
 README.md
