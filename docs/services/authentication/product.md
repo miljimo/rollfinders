@@ -38,7 +38,7 @@ The existing Users Service will become responsible only for user profile and ide
 
 ## MUST NOT
 
-The AI agent must not:
+The developer or AI agent must not:
 
 * Change existing API contracts
 * Change JWT format
@@ -50,7 +50,7 @@ The AI agent must not:
 
 ## MUST
 
-The AI agent must:
+The  developer or AI agent must:
 
 * Preserve all existing functionality
 * Preserve authentication behaviour

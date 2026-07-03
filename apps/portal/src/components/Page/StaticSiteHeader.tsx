@@ -18,12 +18,12 @@ export function StaticSiteHeader() {
           className="hidden items-center gap-1 md:flex [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center"
           aria-label="Primary navigation"
         >
-          <NavLink href="/dashboard">Dashboard</NavLink>
           {navItems.map(([label, href]) => (
             <NavLink key={href} href={href}>
               {label}
             </NavLink>
           ))}
+          <NavLink href="/dashboard">Dashboard</NavLink>
         </nav>
         <details className="group relative md:hidden">
           <summary className="inline-flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-bold text-teal-800 shadow-sm transition hover:border-teal-600 hover:bg-teal-50 [&::-webkit-details-marker]:hidden">
@@ -34,12 +34,12 @@ export function StaticSiteHeader() {
             className="absolute right-0 z-30 mt-2 grid w-[min(16rem,calc(100vw-2rem))] gap-1 rounded-lg border border-stone-200 bg-white p-2 text-left shadow-xl [&_a]:flex [&_a]:min-h-11 [&_a]:items-center"
             aria-label="Mobile primary navigation"
           >
-            <NavLink href="/dashboard">Dashboard</NavLink>
             {navItems.map(([label, href]) => (
               <NavLink key={href} href={href}>
                 {label}
               </NavLink>
             ))}
+            <NavLink href="/dashboard">Dashboard</NavLink>
           </nav>
         </details>
       </div>

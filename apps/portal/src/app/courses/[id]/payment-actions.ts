@@ -176,6 +176,7 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
       metadata: {
         booking_id: booking.id,
         booking_reference: booking.reference,
+        academy_owner_id: event.academy.createdById ?? event.academyId,
         course_title: event.title,
         academy_name: event.academy.name,
         pricing_type: event.pricingType,

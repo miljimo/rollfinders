@@ -54,7 +54,7 @@ func (s *server) createBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
-	id := newID("booking")
+	id := newID("bk")
 	booking, err := dataaccess.CreateBooking(r.Context(), db, dataaccess.CreateBookingInput{
 		ID:                 id,
 		Reference:          "RF-" + id,

@@ -2,14 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Plus, Search, Trash2, X } from "lucide-react";
 import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import { TablePagination } from "@/components/Table";
 import type { AuthorisationPagination, AuthorisationPermission, AuthorisationRole } from "@/lib/authorisation-service";
+import { ActionMenu } from "../../admin/ActionMenu";
 import { addPrivilegeToRole, createRoleWithPrivileges, loadAuthorisationRolesPage, removePrivilegeFromRole } from "../DashboardActions";
 
 const pageSize = 10;
 const rolePermissionPageSize = 7;
+const menuItemClass = "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50";
 
 function roleSearchText(role: AuthorisationRole) {
   return `${role.id} ${role.key} ${role.name} ${role.description ?? ""} ${role.level} ${role.assignable ? "assignable" : "not assignable"} ${role.system_role ? "system" : ""}`.toLowerCase();
@@ -274,13 +276,17 @@ export function SystemRolesBoard({
                 <td className="px-5 py-4 font-medium text-stone-700">{roleCreatorLabel(role)}</td>
                 <td className="px-5 py-4 font-medium text-stone-700">{formatRoleDate(role.updated_at)}</td>
                 <td className="px-5 py-4 text-right">
-                  <button
-                    type="button"
-                    onClick={() => openRole(role)}
-                    className="inline-flex min-h-9 items-center justify-center rounded-md border border-stone-300 bg-white px-3 text-xs font-black text-stone-800 shadow-sm hover:border-teal-700 hover:text-teal-800"
-                  >
-                    Manage
-                  </button>
+                  <ActionMenu label={`Open actions for ${role.name}`}>
+                    <button
+                      type="button"
+                      onClick={() => openRole(role)}
+                      className={menuItemClass}
+                      role="menuitem"
+                    >
+                      <Eye size={18} aria-hidden />
+                      View Role
+                    </button>
+                  </ActionMenu>
                 </td>
               </tr>
             ))}

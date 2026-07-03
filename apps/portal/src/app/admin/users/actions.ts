@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
-import { canAssignManagedUserRole, getCurrentUser, requireAdminPage } from "@/lib/admin";
-import { updateUserAuthorisationPermissions } from "@/lib/authorisation-service";
+import { canAssignManagedUserRole, getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
+import { authorize, updateUserAuthorisationPermissions } from "@/lib/authorisation-service";
 import { getEnvVariable } from "@/lib/environments";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
 import { requestPasswordResetForEmail } from "@/lib/password-reset";
@@ -30,10 +30,37 @@ function normalizeStatus(value: string) {
 }
 
 async function requireUserManager() {
-  await requireAdminPage();
   const actor = await getCurrentUser();
-  if (!actor) throw new Error("Admin access required");
+  if (!actor) redirect("/login");
+
+  const allowed = await authorize(actor, "users.admin.access", {
+    applicationId: getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders"),
+    organisationId: actor.academyId ?? undefined,
+  });
+  if (!allowed || (isAcademyAdminRole(actor.role) && !actor.academyId)) {
+    throw new ManagedUserActionForbiddenError();
+  }
+
   return actor;
+}
+
+class ManagedUserActionForbiddenError extends Error {
+  constructor() {
+    super("You do not have permission to manage users.");
+    this.name = "ManagedUserActionForbiddenError";
+  }
+}
+
+function redirectWithUserResult(returnTo: string, result: string) {
+  const redirectTo = managedUsersReturnPath(returnTo);
+  const url = new URL(redirectTo, "http://localhost");
+  url.searchParams.set("userResult", result);
+  redirect(`${url.pathname}${url.search}`);
+}
+
+function isForbiddenUserAction(error: unknown) {
+  return error instanceof ManagedUserActionForbiddenError
+    || (typeof error === "object" && error !== null && "status" in error && error.status === 403);
 }
 
 function revalidateUserSurfaces() {
@@ -114,11 +141,17 @@ export async function applyManagedUserPrivileges(userId: string, input: { featur
   revalidateUserSurfaces();
 }
 
-export async function toggleManagedUserDisabled(userId: string) {
-  const actor = await requireUserManager();
-  const { user } = await getManagedUser(actor, userId);
-  await mutateManagedUser(actor, userId, user.disabled || user.status === UserStatus.DISABLED ? "enable" : "disable");
-  revalidateUserSurfaces();
+export async function toggleManagedUserDisabled(userId: string, formData?: FormData) {
+  const returnTo = String(formData?.get("returnTo") ?? "").trim();
+  try {
+    const actor = await requireUserManager();
+    const { user } = await getManagedUser(actor, userId);
+    await mutateManagedUser(actor, userId, user.disabled || user.status === UserStatus.DISABLED ? "enable" : "disable");
+    revalidateUserSurfaces();
+  } catch (error) {
+    if (isForbiddenUserAction(error)) redirectWithUserResult(returnTo, "not_authorised");
+    throw error;
+  }
 }
 
 export async function promoteManagedUser(userId: string) {
@@ -133,10 +166,16 @@ export async function demoteManagedUser(userId: string) {
   revalidateUserSurfaces();
 }
 
-export async function deleteManagedUser(userId: string) {
-  const actor = await requireUserManager();
-  await deleteUserInService(actor, userId);
-  revalidateUserSurfaces();
+export async function deleteManagedUser(userId: string, formData?: FormData) {
+  const returnTo = String(formData?.get("returnTo") ?? "").trim();
+  try {
+    const actor = await requireUserManager();
+    await deleteUserInService(actor, userId);
+    revalidateUserSurfaces();
+  } catch (error) {
+    if (isForbiddenUserAction(error)) redirectWithUserResult(returnTo, "not_authorised");
+    throw error;
+  }
 }
 
 export async function sendPasswordChangeEmail(userId: string, formData?: FormData) {

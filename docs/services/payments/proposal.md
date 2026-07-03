@@ -63,6 +63,32 @@ Transfer Service owns transfer request records and lifecycle for wallet-to-walle
 
 The public/gateway `/v1/subscriptions/...` route family is reserved for RollFinders Subscription Service subscription records and plan actions. Payment Service billing endpoints use `/v1/billing/subscriptions/...` to avoid duplicating or shadowing Subscription Service routes.
 
+## Course Payment Wallet Posting
+
+Course and event checkout remains a Payment Service responsibility until provider success is confirmed. After a successful provider callback, the orchestration layer must post wallet effects so the academy owner can see course payment activity in Wallet even when the provider settles money directly to an external account.
+
+For Stripe Connect course payments:
+
+* Payment Service owns the checkout, provider payment ID, payer identity, status, provider metadata, and callback result.
+* The checkout metadata must include the booking id, course id, academy id, academy owner wallet owner id, course title, and provider account id where available.
+* The orchestration layer marks the booking as paid after provider success.
+* The orchestration layer records wallet effects through Wallet Service using idempotent commands.
+* Wallet Service records the gross course payment into the academy owner receiving wallet as `BOOKING_PAYMENT`.
+* Wallet Service records the platform fee as `COMMISSION` from the academy receiving wallet to a platform revenue wallet.
+* Pricing Policy Service provides the provider-specific platform fee policy. Payment Service must not own fee policy configuration.
+
+Internal-wallet course payments are a separate payment method option. They must still create a Payment Service payment record for the booking payment fact, but no external provider checkout is required. The orchestration layer must debit the payer internal wallet, credit the academy owner receiving wallet, post platform commission, and mark the booking paid atomically enough to be idempotently retried.
+
+### Course Payment Acceptance Criteria
+
+* A successful Stripe course payment creates a booking payment confirmation.
+* A successful Stripe course payment creates a wallet `BOOKING_PAYMENT` transaction showing the payer and payment reference.
+* The academy receiving wallet owner is the academy owner user id when known.
+* The platform fee is calculated from Pricing Policy Service for the provider id and posted as a wallet `COMMISSION`.
+* Replayed callbacks do not duplicate wallet transactions.
+* Internal-wallet payment is available only to logged-in users with an eligible active internal wallet and sufficient funds.
+* Guests continue to use external provider checkout.
+
 ---
 
 ## Subscription Billing

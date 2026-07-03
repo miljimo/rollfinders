@@ -86,6 +86,19 @@ describe("deployment safety contracts", () => {
     assert.match(migrate, /sh scripts\/cicd\/run-service-sql-migrations\.sh && npx prisma migrate deploy && sh scripts\/cicd\/run-service-sql-migrations\.sh/);
     assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/authorisation \.\/apps\/backend_api\/migrations\/authorisation/);
     assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/subscriptions \.\/apps\/backend_api\/migrations\/subscriptions/);
+    assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/wallet \.\/apps\/backend_api\/migrations\/wallet/);
+  });
+
+  it("runs wallet SQL migrations for existing deployed databases", () => {
+    const runner = readSource("scripts/cicd/run-service-sql-migrations.sh");
+    const migration = readSource("apps/backend_api/migrations/wallet/tables/011_paymentAdjustmentTypes.sql");
+
+    assert.match(runner, /if \[ -d apps\/backend_api\/migrations\/wallet \]/);
+    assert.match(runner, /for dir in tables functions procedures/);
+    assert.match(runner, /apps\/backend_api\/migrations\/wallet\/\$\{dir\}\/\*\.sql/);
+    assert.match(migration, /CREATE OR REPLACE FUNCTION wallet\.adjust/);
+    assert.match(migration, /BOOKING_PAYMENT/);
+    assert.match(migration, /COMMISSION/);
   });
 
   it("stores application runtime configuration in SSM parameters instead of one Secrets Manager JSON blob", () => {

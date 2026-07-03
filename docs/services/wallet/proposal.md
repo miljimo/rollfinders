@@ -133,6 +133,27 @@ The ledger is the single source of truth.
 
 ---
 
+# Course Payment Ledger Effects
+
+Wallet Service records the ledger effects for course payments after Payment Service confirms a payment succeeded.
+
+Provider checkout state does not live in Wallet. Wallet receives idempotent ledger commands from the orchestration layer and records:
+
+* `BOOKING_PAYMENT` from a provider clearing wallet to the academy owner receiving wallet.
+* `COMMISSION` from the academy owner receiving wallet to the platform revenue wallet.
+
+The provider clearing wallet is an internal system wallet and may carry a negative balance to represent provider-settled money entering the platform ledger. The platform revenue wallet is an internal system wallet used for platform fee credits.
+
+The academy owner receiving wallet should be selected by default wallet policy:
+
+* Prefer an active external wallet when the academy owner has a connected provider account.
+* Fall back to an active internal wallet.
+* Create an active internal wallet if no receiving wallet exists.
+
+Wallet Service must not call Payment Service, Pricing Policy Service, Stripe, banks, or PayPal. It only validates wallets, currency, balance rules, idempotency, and immutable double-entry posting.
+
+---
+
 # Double Entry Accounting
 
 Every transaction creates exactly two ledger entries.

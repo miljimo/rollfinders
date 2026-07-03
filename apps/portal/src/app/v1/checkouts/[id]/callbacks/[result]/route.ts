@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { markBookingPaymentReceived } from "@/lib/bookings";
 import { apiGatewayUrl } from "@/lib/apiGateway";
+import { recordCoursePaymentWalletEffects } from "@/lib/course-payment-wallet-effects";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,13 @@ async function confirmPaidBooking(location: string, result: string) {
   } catch (error) {
     console.error("Payment succeeded but booking payment-received update failed.", { bookingId, error, paymentId });
     redirectUrl.searchParams.set("booking_payment_received", "failed");
+  }
+  try {
+    await recordCoursePaymentWalletEffects(paymentId);
+    redirectUrl.searchParams.set("wallet_effects", "recorded");
+  } catch (error) {
+    console.error("Payment succeeded but wallet effects failed.", { error, paymentId });
+    redirectUrl.searchParams.set("wallet_effects", "failed");
   }
   return redirectUrl;
 }

@@ -128,6 +128,8 @@ services:
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
       API_PUBLIC_BASE_URL: http://api:8080
+      WALLET_INTERNAL_BASE_URL: http://wallet:8080
+      PRICING_INTERNAL_BASE_URL: http://pricing:8080
       NOTIFICATION_SERVICE_BASE_URL: http://notification:8080
       NOTIFICATION_API_KEY: ${NOTIFICATION_API_KEY:-local-notification-api-key}
       ANALYTICS_SERVICE_BASE_URL: http://analytics:8080

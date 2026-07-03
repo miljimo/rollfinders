@@ -303,22 +303,7 @@ export async function listCourseOccurrencePaymentsPage({ accessToken, limit = 10
   };
 }
 
-export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentRecord> {
-  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/cancel`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": input.idempotencyKey,
-    },
-  });
-
-  if (!response.ok) {
-    const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment service cancellation failed with status ${response.status}.`, response.status, error.code);
-  }
-
-  const payment = (await response.json()) as PaymentRecordResponse;
+function mapPaymentRecord(payment: PaymentRecordResponse): PaymentRecord {
   return {
     id: payment.id,
     amount: payment.amount,
@@ -341,6 +326,36 @@ export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentR
     payerUserId: payment.payer_user_id,
     payerEmail: payment.payer_email,
   };
+}
+
+export async function getPayment(paymentId: string): Promise<PaymentRecord> {
+  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(paymentId)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment service request failed with status ${response.status}.`, response.status, error.code);
+  }
+  return mapPaymentRecord((await response.json()) as PaymentRecordResponse);
+}
+
+export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentRecord> {
+  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/cancel`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": input.idempotencyKey,
+    },
+  });
+
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment service cancellation failed with status ${response.status}.`, response.status, error.code);
+  }
+
+  return mapPaymentRecord((await response.json()) as PaymentRecordResponse);
 }
 
 export async function createPaymentRefund(input: CreatePaymentRefundInput): Promise<PaymentRefundRecord> {

@@ -1824,7 +1824,9 @@ function UserResult({ params }: { params: AdminSearchParams }) {
       ? `Password reset email sent${email ? ` to ${email}` : ""}.`
       : result === "password_reset_failed"
         ? `Password reset email could not be sent${email ? ` to ${email}` : ""}.`
-    : null;
+        : result === "not_authorised"
+          ? "You do not have permission to manage that user."
+          : null;
   if (!message) return null;
   return (
     <div className={`mt-4 rounded-md border px-4 py-3 text-sm font-semibold ${success ? "border-teal-100 bg-teal-50 text-teal-900" : "border-red-100 bg-red-50 text-red-800"}`}>
@@ -4474,6 +4476,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                           </form>
                         ) : null}
                         <form action={toggleManagedUserDisabled.bind(null, user.id)}>
+                          <input type="hidden" name="returnTo" value={returnTo} />
                           <button className={dangerMenuItemClass}>
                             <Ban size={18} aria-hidden />
                             {disabled ? "Enable Account" : "Disable Account"}
@@ -4481,6 +4484,7 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                         </form>
                         {canDelete ? (
                           <form action={deleteManagedUser.bind(null, user.id)}>
+                            <input type="hidden" name="returnTo" value={returnTo} />
                             <button className={dangerMenuItemClass}>
                               <Trash2 size={18} aria-hidden />
                               Delete User
