@@ -5,6 +5,26 @@ import { useMemo, useState } from "react";
 
 import { GridItemDashboard, type GridDashboardItem } from "./GridItemDashboard";
 
+const GRID_CARD_LAYOUT_CLASSES = {
+  compact: "sm:col-span-6 xl:col-span-4",
+  medium: "sm:col-span-6 lg:col-span-4",
+  wide: "sm:col-span-12 lg:col-span-6",
+  full: "sm:col-span-12",
+} as const;
+
+type GridCardLayout = keyof typeof GRID_CARD_LAYOUT_CLASSES;
+
+function getGridCardLayout(item: GridDashboardItem): GridCardLayout {
+  const labelLength = item.label.trim().length;
+  const descriptionLength = item.description.trim().length;
+
+  if (labelLength >= 28 || descriptionLength >= 130) return "full";
+  if (labelLength >= 18 || descriptionLength >= 86) return "wide";
+  if (labelLength >= 12 || descriptionLength >= 54) return "medium";
+
+  return "compact";
+}
+
 export function GridDashboard({ items, itemsPerPage = 12 }: { items: GridDashboardItem[]; itemsPerPage?: number }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -41,11 +61,12 @@ export function GridDashboard({ items, itemsPerPage = 12 }: { items: GridDashboa
           />
         </label>
       </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),22rem))] justify-start gap-5 xl:gap-6">
+      <div className="grid grid-cols-1 items-start gap-5 sm:grid-flow-dense sm:grid-cols-12 xl:gap-6">
         {visibleItems.map((item) => (
           <GridItemDashboard
             key={item.href}
             item={item}
+            className={GRID_CARD_LAYOUT_CLASSES[getGridCardLayout(item)]}
           />
         ))}
         {!filteredItems.length ? (

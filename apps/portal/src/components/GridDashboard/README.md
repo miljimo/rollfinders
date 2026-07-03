@@ -16,6 +16,12 @@ const items: GridDashboardItem[] = [
     icon: "academies",
     label: "Academies",
   },
+  {
+    description: "Create and manage courses, events, seminars, and open mats.",
+    href: "/dashboard/courses",
+    icon: "events",
+    label: "Courses/Events",
+  },
 ];
 
 <GridDashboard items={items} itemsPerPage={12} />;
@@ -35,7 +41,11 @@ const items: GridDashboardItem[] = [
 - Renders one link card per item.
 - Filters cards by label or description through the search input.
 - Paginates cards when the filtered result count is greater than `itemsPerPage`.
-- Keeps cards at a bounded grid track width when a page has fewer items than the row can fit.
+- Renders full-width cards on mobile, then uses a dense twelve-column grid at larger breakpoints.
+- Lets cards occupy more grid columns from their label and description size while keeping card height based on its own content.
+- Packs cards into open grid slots without forcing row heights.
+- Keeps sparse pages from stretching cards across the full row.
+- Keeps card headers on one line without allowing them to overflow, and allows descriptions to wrap inside the card.
 - Resets to page one when the search query changes.
 - Shows an empty state when no cards match the search.
 - Keeps individual card rendering inside `GridItemDashboard`.
