@@ -986,7 +986,13 @@ export default async function AdminDashboardWorkspace({
       href: item.href,
       icon: item.icon,
       label: item.href === "/dashboard/academies" ? "Academies" : item.label,
-    }));
+    }))
+    .concat(elevatedAdmin ? [{
+      description: "Set platform fee policies for wallets and linked provider accounts.",
+      href: "/dashboard/payment?paymentsView=settings",
+      icon: "payments",
+      label: "Pricing Policies",
+    }] : []);
   const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users", "wallet"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
@@ -1326,7 +1332,7 @@ export default async function AdminDashboardWorkspace({
           ) : null}
           {panel === "payments" ? (
             <AdminPanel
-              action={paymentsView === "payouts" ? null : <PaymentsDashboardActions payments={paymentResult.payments} />}
+              action={paymentsView === "payouts" || paymentsView === "settings" ? null : <PaymentsDashboardActions payments={paymentResult.payments} />}
               description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : paymentsView === "settings" ? academyAdmin ? "Review academy payment settings." : "Manage platform payment fees and settings." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
               search={paymentsView === "overview" ? <PaymentsPanelSearch search={paymentsSearch} /> : null}
