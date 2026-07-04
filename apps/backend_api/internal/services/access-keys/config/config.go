@@ -2,7 +2,7 @@ package config
 
 import (
 	"errors"
-	"os"
+	"rollfinders/internal/core/environments"
 	"time"
 )
 
@@ -15,12 +15,13 @@ type Config struct {
 }
 
 func Load() (Config, error) {
+	env := environments.New()
 	cfg := Config{
-		Port:            env("PORT", "8080"),
-		ReadTimeout:     durationEnv("READ_TIMEOUT", 10*time.Second),
-		WriteTimeout:    durationEnv("WRITE_TIMEOUT", 10*time.Second),
-		ShutdownTimeout: durationEnv("SHUTDOWN_TIMEOUT", 10*time.Second),
-		APIKey:          env("SERVICE_API_KEY", ""),
+		Port:            env.GetWithDefault("PORT", "8080"),
+		ReadTimeout:     durationEnv(env.Get("READ_TIMEOUT"), 10*time.Second),
+		WriteTimeout:    durationEnv(env.Get("WRITE_TIMEOUT"), 10*time.Second),
+		ShutdownTimeout: durationEnv(env.Get("SHUTDOWN_TIMEOUT"), 10*time.Second),
+		APIKey:          env.GetWithDefault("SERVICE_API_KEY", ""),
 	}
 	if cfg.Port == "" {
 		return Config{}, errors.New("PORT must not be empty")
@@ -28,15 +29,8 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-func env(key string, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return fallback
-}
-
-func durationEnv(key string, fallback time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
+func durationEnv(value string, fallback time.Duration) time.Duration {
+	if value != "" {
 		parsed, err := time.ParseDuration(value)
 		if err == nil {
 			return parsed
