@@ -1,6 +1,7 @@
 import { Menu } from "lucide-react";
 import { BrandLink } from "@/components/BrandLink";
 import { NavLink } from "@/components/NavLink";
+import { getCurrentUser } from "@/lib/admin";
 
 const navItems = [
   ["Home", "/"],
@@ -9,7 +10,21 @@ const navItems = [
   ["Map", "/map"],
 ];
 
-export const PageHeader = async ()=> {
+function AuthNavLinks({ signedIn }: { signedIn: boolean }) {
+  if (signedIn) return <NavLink href="/dashboard">Dashboard</NavLink>;
+
+  return (
+    <>
+      <NavLink href="/login">Login</NavLink>
+      <NavLink href="/register">Register</NavLink>
+    </>
+  );
+}
+
+export const PageHeader = async () => {
+  const currentUser = await getCurrentUser();
+  const signedIn = Boolean(currentUser);
+
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
@@ -23,9 +38,7 @@ export const PageHeader = async ()=> {
               {label}
             </NavLink>
           ))}
-          <NavLink href="/login">Login</NavLink>
-          <NavLink href="/register">Register</NavLink>
-          <NavLink href="/dashboard">Dashboard</NavLink>
+          <AuthNavLinks signedIn={signedIn} />
         </nav>
         <details className="group relative md:hidden">
           <summary className="inline-flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-4 text-sm font-bold text-teal-800 transition hover:border-teal-600 hover:bg-teal-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden">
@@ -41,12 +54,10 @@ export const PageHeader = async ()=> {
                 {label}
               </NavLink>
             ))}
-            <NavLink href="/login">Login</NavLink>
-            <NavLink href="/register">Register</NavLink>
-            <NavLink href="/dashboard">Dashboard</NavLink>
+            <AuthNavLinks signedIn={signedIn} />
           </nav>
         </details>
       </div>
     </header>
   );
-}
+};
