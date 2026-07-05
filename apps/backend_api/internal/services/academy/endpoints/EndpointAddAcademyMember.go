@@ -3,6 +3,7 @@ package endpoints
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/academy/dataaccess"
 )
 
@@ -27,7 +28,7 @@ func (s *server) addAcademyMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
-	member, err := dataaccess.AddAcademyMember(r.Context(), db, newID("member"), academyID, req.UserID)
+	member, err := dataaccess.AddAcademyMember(r.Context(), db, generators.CreateNewId("mem", 16), academyID, req.UserID)
 	if err != nil {
 		s.writeDataError(w, r, err)
 		return

@@ -9,6 +9,7 @@ import (
 func (s *server) ListResourcesHandler(w http.ResponseWriter, r *http.Request) {
 	limit := handlers.PageLimit(handlers.IntQuery(r, "limit", handlers.DefaultPageSize))
 	offset := handlers.PageOffset(handlers.IntQuery(r, "offset", 0))
+
 	out, err := s.repo.listResources(r.Context(), limit, offset)
 	if err != nil {
 		s.logUnexpectedRepoError(r, err)

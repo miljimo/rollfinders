@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"rollfinders/internal/core/generators"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -99,7 +100,7 @@ func (r *Repository) Aggregate(ctx context.Context, metricDate string) ([]DailyM
 INSERT INTO analytics.daily_metrics (id, metric_name, value, metric_date, dimension_key, dimensions, updated_at)
 VALUES ($1, $2, $3, $4::date, 'global', '{}'::jsonb, now())
 ON CONFLICT (metric_date, metric_name, dimension_key)
-DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, newID(), metric.name, value, metricDate)
+DO UPDATE SET value = EXCLUDED.value, updated_at = now()`, generators.CreateNewId("", 12), metric.name, value, metricDate)
 		if err != nil {
 			return results, err
 		}

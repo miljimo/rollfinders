@@ -15,7 +15,7 @@ import (
 
 const maxBodyBytes = 1 << 20 // 1MB
 const DefaultPageSize = 10
-const MaxPageSize = 100
+const MaxPageSize = 5000
 
 type PaginationMeta struct {
 	Limit      int  `json:"limit"`

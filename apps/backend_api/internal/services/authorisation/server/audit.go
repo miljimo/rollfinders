@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"rollfinders/internal/core/generators"
 )
 
 func (r *repository) audit(ctx context.Context, actorID, action, targetUserID, roleID, permissionID string, scope Scope, previousValue, newValue any, requestID string) error {
@@ -12,7 +13,7 @@ func (r *repository) audit(ctx context.Context, actorID, action, targetUserID, r
 	previousJSON, _ := json.Marshal(previousValue)
 	newJSON, _ := json.Marshal(newValue)
 	_, err := r.db.ExecContext(ctx, `SELECT audit_event_insert($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-		newID("audit"), actorID, targetUserID, action, roleID, permissionID,
+		generators.CreateNewId("audit", 16), actorID, targetUserID, action, roleID, permissionID,
 		scope.OrganisationID, scope.ApplicationID, scope.ResourceID,
 		nullableJSON(previousJSON, previousValue != nil),
 		nullableJSON(newJSON, newValue != nil),

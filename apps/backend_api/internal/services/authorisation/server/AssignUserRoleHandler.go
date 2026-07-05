@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/authorisation/handlers"
 )
 
@@ -13,7 +14,7 @@ func (s *server) AssignUserRoleHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a := UserRoleAssignment{
-		ID:         newID("user_role"),
+		ID:         generators.CreateNewId("role", 16),
 		UserID:     handlers.Param(r, "user_id"),
 		RoleID:     cleanString(req.RoleID),
 		AssignedBy: cleanString(req.AssignedBy),

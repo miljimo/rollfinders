@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/authorisation/handlers"
 )
 
@@ -21,7 +22,7 @@ func (s *server) AssignUserPermissionHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	a := UserPermissionAssignment{
-		ID:           newID("user_perm"),
+		ID:           generators.CreateNewId("perm", 16),
 		UserID:       handlers.Param(r, "user_id"),
 		PermissionID: cleanString(req.PermissionID),
 		Effect:       effect,

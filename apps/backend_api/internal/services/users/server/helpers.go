@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -13,6 +11,7 @@ import (
 
 	"github.com/lib/pq"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/users/databases"
 	"rollfinders/internal/services/users/handlers"
 )
@@ -353,11 +352,7 @@ func nullString(value string) *string {
 func ptrTime(value time.Time) *time.Time { return &value }
 
 func newID() string {
-	var bytes [12]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "usr_fallback"
-	}
-	return "usr_" + hex.EncodeToString(bytes[:])
+	return generators.CreateNewId("", 12)
 }
 
 func max(a, b int) int {

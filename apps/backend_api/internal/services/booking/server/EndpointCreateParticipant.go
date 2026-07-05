@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/booking/dataaccess"
 	"rollfinders/internal/services/booking/handlers"
 )
@@ -37,7 +38,7 @@ func (s *server) createParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 	participant, err := dataaccess.CreateParticipant(r.Context(), db, dataaccess.CreateParticipantInput{
-		ID:             newID("participant"),
+		ID:             generators.CreateNewId("pt", 12),
 		BookingID:      handlers.Param(r, "booking_id"),
 		CustomerID:     req.CustomerID,
 		GuestReference: req.GuestReference,

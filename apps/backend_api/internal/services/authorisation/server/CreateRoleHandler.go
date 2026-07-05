@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/authorisation/handlers"
 )
 
@@ -12,7 +13,7 @@ func (s *server) CreateRoleHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "Request body is invalid.", nil)
 		return
 	}
-	role, ok := roleFromRequest(newID("role"), req)
+	role, ok := roleFromRequest(generators.CreateNewId("role", 12), req)
 	if !ok {
 		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "Role key and name are required.", nil)
 		return

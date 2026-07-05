@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/booking/dataaccess"
 )
 
@@ -54,7 +55,7 @@ func (s *server) createBooking(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer db.Close()
-	id := newID("bk")
+	id := generators.CreateNewId("bk", 16)
 	booking, err := dataaccess.CreateBooking(r.Context(), db, dataaccess.CreateBookingInput{
 		ID:                 id,
 		Reference:          "RF-" + id,

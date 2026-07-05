@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/authorisation/handlers"
 )
 
@@ -12,7 +13,7 @@ func (s *server) CreatePermissionHandler(w http.ResponseWriter, r *http.Request)
 		writeError(w, r, http.StatusBadRequest, "invalid_request", "Request body is invalid.", nil)
 		return
 	}
-	p, ok := permissionFromRequest(newID("permission"), req)
+	p, ok := permissionFromRequest(generators.CreateNewId("perm", 12), req)
 	if !ok {
 		writeError(w, r, http.StatusUnprocessableEntity, "validation_error", "Permission code must use resource.action naming.", nil)
 		return

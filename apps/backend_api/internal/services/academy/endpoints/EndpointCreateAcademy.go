@@ -3,7 +3,7 @@ package endpoints
 import (
 	"encoding/json"
 	"net/http"
-
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/academy/dataaccess"
 )
 
@@ -49,7 +49,7 @@ func (s *server) createAcademy(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	academy, err := dataaccess.CreateAcademy(r.Context(), db, dataaccess.CreateAcademyInput{
-		ID:                 newID("academy"),
+		ID:                 generators.CreateNewId("ac", 12),
 		OrganisationID:     cleanString(req.OrganisationID),
 		ApplicationID:      cleanString(req.ApplicationID),
 		Name:               req.Name,

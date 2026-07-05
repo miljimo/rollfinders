@@ -2,9 +2,7 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -12,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"rollfinders/internal/core/generators"
 	"rollfinders/internal/services/analytics/config"
 )
 
@@ -57,7 +56,7 @@ func (s *Server) trackEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.EventName = strings.TrimSpace(req.EventName)
-	id := newID()
+	id := generators.CreateNewId("", 16)
 	if err := s.repo.Track(r.Context(), id, req); err != nil {
 		s.logger.Error("analytics event write failed", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "write_failed"})
@@ -165,14 +164,6 @@ func bearer(header string) string {
 		return ""
 	}
 	return parts[1]
-}
-
-func newID() string {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return strconv.FormatInt(time.Now().UnixNano(), 16)
-	}
-	return hex.EncodeToString(bytes[:])
 }
 
 type readyRepo interface {
