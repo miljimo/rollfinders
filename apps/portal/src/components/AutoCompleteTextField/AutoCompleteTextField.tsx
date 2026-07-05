@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { AutoCompleteTextFieldOptionRow } from "./AutoCompleteTextFieldOptionRow";
 import type { AutoCompleteTextFieldOption, AutoCompleteTextFieldProps } from "./types";
 
@@ -20,6 +20,7 @@ export function AutoCompleteTextField({
   selectedId = "",
   size = "md",
 }: AutoCompleteTextFieldProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const inputId = useId();
   const listId = `${inputId}-results`;
   const initialOption = options.find((option) => option.id === selectedId);
@@ -28,6 +29,7 @@ export function AutoCompleteTextField({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const trimmedQuery = query.trim().toLowerCase();
+  const selectedOption = options.find((option) => option.id === selectedOptionId);
   const matches = useMemo(() => {
     const filtered = trimmedQuery ? options.filter((option) => optionSearchText(option).includes(trimmedQuery)) : options;
     return filtered.slice(0, maxResults);
@@ -38,6 +40,15 @@ export function AutoCompleteTextField({
   const labelClassName = size === "lg" ? "text-lg font-bold text-stone-950" : "text-sm font-semibold text-stone-800";
   const inputClassName = size === "lg" ? "min-h-14 px-4 text-base" : "min-h-11 px-3 text-base";
 
+  useEffect(() => {
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false);
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeOnOutsideClick);
+  }, []);
+
   function selectOption(option: AutoCompleteTextFieldOption) {
     setSelectedOptionId(option.id);
     onSelectedIdChange?.(option.id);
@@ -46,8 +57,15 @@ export function AutoCompleteTextField({
     setActiveIndex(0);
   }
 
+  function commitTypedMatch() {
+    if (selectedOptionId || !query.trim()) return;
+    const exactMatch = options.find((option) => option.label.toLowerCase() === trimmedQuery);
+    const option = exactMatch ?? (matches.length === 1 ? matches[0] : undefined);
+    if (option) selectOption(option);
+  }
+
   return (
-    <div className={`grid min-w-0 ${size === "lg" ? "gap-2" : "gap-1"}`}>
+    <div ref={containerRef} className={`relative grid min-w-0 ${size === "lg" ? "gap-2" : "gap-1"}`}>
       <label htmlFor={inputId} className={labelClassName}>{label}</label>
       <input name={name} type="hidden" value={selectedOptionId} />
       <input
@@ -62,6 +80,7 @@ export function AutoCompleteTextField({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        onBlur={commitTypedMatch}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             setOpen(false);
@@ -94,10 +113,15 @@ export function AutoCompleteTextField({
         aria-controls={listId}
         aria-activedescendant={activeOptionId}
         autoComplete="off"
-        className={`min-w-0 border border-stone-300 font-normal aria-invalid:border-red-500 ${inputClassName} ${open ? "rounded-md rounded-b-none" : "rounded-md"}`}
+        className={`min-w-0 border font-normal aria-invalid:border-red-500 ${selectedOptionId ? "border-teal-600 bg-teal-50" : "border-stone-300"} ${inputClassName} ${open ? "rounded-md rounded-b-none" : "rounded-md"}`}
       />
+      {selectedOption ? (
+        <p className="text-xs font-bold text-teal-800">
+          Selected: {selectedOption.label}
+        </p>
+      ) : null}
       {open ? (
-        <div id={listId} role="listbox" className="-mt-1 max-h-48 overflow-auto rounded-b-md border border-t-0 border-stone-300 bg-white shadow-sm">
+        <div id={listId} role="listbox" className="absolute left-0 right-0 top-full z-30 -mt-px max-h-64 overflow-auto rounded-b-md border border-t-0 border-stone-300 bg-white shadow-lg">
           {matches.map((option, index) => (
             <AutoCompleteTextFieldOptionRow
               key={option.id}

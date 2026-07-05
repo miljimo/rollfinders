@@ -53,7 +53,7 @@ import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders,
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
 import { createCourse } from "../admin/courses/actions";
-import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser } from "../admin/users/actions";
+import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser, verifyManagedUserEmail } from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
@@ -1829,9 +1829,11 @@ function UserResult({ params }: { params: AdminSearchParams }) {
   const result = firstParam(params.userResult);
   if (!result) return null;
   const email = firstParam(params.email);
-  const success = result === "password_reset_sent";
+  const success = result === "password_reset_sent" || result === "email_verified";
   const message = result === "duplicate_email"
     ? `A user with ${email ?? "that email address"} already exists.`
+    : result === "email_verified"
+      ? `User email verified${email ? ` for ${email}` : ""}.`
     : result === "password_reset_sent"
       ? `Password reset email sent${email ? ` to ${email}` : ""}.`
       : result === "password_reset_failed"
@@ -4274,6 +4276,7 @@ type UserRow = {
   role: Role;
   status: UserStatus;
   disabled: boolean;
+  emailStatus: string;
   academyId: string | null;
   createdAt: Date;
   academy: { name: string } | null;
@@ -4476,6 +4479,15 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
                             <button type="submit" className={menuItemClass}>
                               <KeyRound size={18} aria-hidden />
                               Send Password Reset
+                            </button>
+                          </form>
+                        ) : null}
+                        {user.emailStatus === "PENDING_VERIFICATION" ? (
+                          <form action={verifyManagedUserEmail.bind(null, user.id)}>
+                            <input type="hidden" name="returnTo" value={returnTo} />
+                            <button type="submit" className={menuItemClass}>
+                              <ShieldCheck size={18} aria-hidden />
+                              Verify Email
                             </button>
                           </form>
                         ) : null}

@@ -154,6 +154,20 @@ export async function toggleManagedUserDisabled(userId: string, formData?: FormD
   }
 }
 
+export async function verifyManagedUserEmail(userId: string, formData?: FormData) {
+  const returnTo = String(formData?.get("returnTo") ?? "").trim();
+  try {
+    const actor = await requireUserManager();
+    await mutateManagedUser(actor, userId, "verify-email");
+    revalidateUserSurfaces();
+  } catch (error) {
+    if (isForbiddenUserAction(error)) redirectWithUserResult(returnTo, "not_authorised");
+    throw error;
+  }
+
+  redirectWithUserResult(returnTo, "email_verified");
+}
+
 export async function promoteManagedUser(userId: string) {
   const actor = await requireUserManager();
   await mutateManagedUser(actor, userId, "promote", Role.PLATFORM_ADMIN);

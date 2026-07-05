@@ -42,6 +42,8 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/academies/{academy_id}/members", []string{http.MethodPost}, s.addAcademyMember)
 	mustHandle("/v1/academies/{academy_id}/members/{user_id}", []string{http.MethodDelete}, s.removeAcademyMember)
 	mustHandle("/v1/memberships", []string{http.MethodGet}, s.listAcademyMemberships)
+	mustHandle("/v1/memberships", []string{http.MethodPost}, s.addAcademyMembership)
+	mustHandle("/v1/memberships/{membership_id}", []string{http.MethodDelete}, s.removeAcademyMembership)
 
 	return withRequestID(s.accessLog(router))
 }

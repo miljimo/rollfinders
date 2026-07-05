@@ -119,6 +119,14 @@ export default async function AcademyPage({
             {academy.beginnerFriendly ? <span className="rounded-md bg-stone-100 px-3 py-2">Beginner friendly</span> : null}
             {academy.competitionFocused ? <span className="rounded-md bg-stone-100 px-3 py-2">Competition focused</span> : null}
           </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Button href={`/register?academy=${encodeURIComponent(academy.slug)}`} variant="primary">
+              Join this academy
+            </Button>
+            <Button href={`/academies/${academy.slug}/claim`} variant="secondary">
+              Claim listing
+            </Button>
+          </div>
           <div className="mt-8">
             <h2 className="text-2xl font-black text-stone-950">Upcoming Courses</h2>
             {totalUpcomingCourses > 0 ? (

@@ -31,5 +31,5 @@ AS $$
             AND ou.status = 'ACTIVE'
       ))
       AND (p_status IS NULL OR p_status = '' OR u.status::text = p_status)
-      AND (p_email_status IS NULL OR p_email_status = '' OR p_email_status = 'VALID');
+      AND (p_email_status IS NULL OR p_email_status = '' OR u.email_status::text = p_email_status);
 $$;

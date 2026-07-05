@@ -28,6 +28,7 @@ export const authOptions: NextAuthOptions = {
           if (error instanceof UserServiceError) {
             if (error.message === "Account disabled.") throw new Error("AccountDisabled");
             if (error.message === "Academy membership is required.") throw new Error("AcademyRequired");
+            if (error.message === "Verify your email before signing in.") throw new Error("EmailVerificationRequired");
           }
           throw new Error("InvalidCredentials");
         }

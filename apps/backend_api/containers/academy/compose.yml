@@ -19,6 +19,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:${ACADEMY_SERVICE_PORT:-3006}:8080"
     networks:
       - backend
       - service_database

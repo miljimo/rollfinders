@@ -87,8 +87,18 @@ AS $$
 DECLARE
     v_credential_id text;
 BEGIN
-    INSERT INTO users (id, first_name, last_name, display_name, status)
-    VALUES (p_id, trim(p_first_name), trim(p_last_name), trim(p_display_name), 'ACTIVE');
+    INSERT INTO users (id, name, email, username, first_name, last_name, display_name, status, email_status)
+    VALUES (
+        p_id,
+        NULLIF(trim(p_display_name), ''),
+        NULLIF(lower(trim(p_email)), ''),
+        NULLIF(lower(trim(p_username)), ''),
+        trim(p_first_name),
+        trim(p_last_name),
+        trim(p_display_name),
+        'PENDING_VERIFICATION',
+        'PENDING_VERIFICATION'
+    );
 
     IF COALESCE(trim(p_email), '') <> '' THEN
         v_credential_id := 'cred_' || replace(gen_random_uuid()::text, '-', '');
@@ -108,6 +118,83 @@ BEGIN
         VALUES ('csec_' || replace(gen_random_uuid()::text, '-', ''), v_credential_id, p_password_hash);
     END IF;
 
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE "emailVerificationTokenCreate"(
+    p_id text,
+    p_user_id text,
+    p_token_hash text,
+    p_expires_at timestamptz
+)
+LANGUAGE plpgsql
+SET search_path TO users, public
+AS $$
+BEGIN
+    DELETE FROM email_verification_tokens
+    WHERE user_id = p_user_id
+      AND used_at IS NULL;
+
+    INSERT INTO email_verification_tokens (id, user_id, token_hash, expires_at)
+    VALUES (p_id, p_user_id, p_token_hash, p_expires_at);
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE "emailVerificationComplete"(
+    p_token_hash text
+)
+LANGUAGE plpgsql
+SET search_path TO users, public
+AS $$
+DECLARE
+    v_user_id text;
+BEGIN
+    SELECT user_id
+    INTO v_user_id
+    FROM email_verification_tokens
+    WHERE token_hash = p_token_hash
+      AND used_at IS NULL
+      AND expires_at > now()
+    LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        RAISE EXCEPTION 'invalid email verification token';
+    END IF;
+
+    UPDATE email_verification_tokens
+    SET used_at = now()
+    WHERE token_hash = p_token_hash
+      AND used_at IS NULL;
+
+    UPDATE users
+    SET status = 'ACTIVE',
+        disabled = false,
+        email_status = 'VALID',
+        email_verified_at = now(),
+        updated_at = now()
+    WHERE id = v_user_id;
+END;
+$$;
+
+CREATE OR REPLACE PROCEDURE "userEmailVerifyByAdmin"(
+    p_user_id text
+)
+LANGUAGE plpgsql
+SET search_path TO users, public
+AS $$
+BEGIN
+    UPDATE users
+    SET status = 'ACTIVE',
+        disabled = false,
+        email_status = 'VALID',
+        email_verified_at = COALESCE(email_verified_at, now()),
+        updated_at = now()
+    WHERE id = p_user_id;
+
+    UPDATE email_verification_tokens
+    SET used_at = now()
+    WHERE user_id = p_user_id
+      AND used_at IS NULL;
 END;
 $$;
 

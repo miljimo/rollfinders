@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserStatus } from "@prisma/client";
-import { Ban, Edit3, Filter, KeyRound, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
+import { Ban, Edit3, Filter, KeyRound, MoreVertical, Search, Shield, ShieldCheck, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/Page";
 import { Pagination } from "@/components/pagination";
@@ -13,6 +13,7 @@ import { formatDate } from "@/lib/utils";
 import {
   deleteManagedUser,
   toggleManagedUserDisabled,
+  verifyManagedUserEmail,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -90,9 +91,11 @@ function UserResult({ params }: { params: UserSearchParams }) {
   const result = firstParam(params.userResult);
   if (!result) return null;
   const email = firstParam(params.email);
-  const success = result === "password_reset_sent";
+  const success = result === "password_reset_sent" || result === "email_verified";
   const message = result === "duplicate_email"
     ? `A user with ${email ?? "that email address"} already exists.`
+    : result === "email_verified"
+      ? `User email verified${email ? ` for ${email}` : ""}.`
     : result === "password_reset_sent"
       ? `Password reset email sent${email ? ` to ${email}` : ""}.`
       : result === "password_reset_failed"
@@ -283,6 +286,15 @@ export default async function UserManagementPage({
                                   <button type="submit" className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                                     <KeyRound size={18} aria-hidden="true" />
                                     Send Password Reset
+                                  </button>
+                                </form>
+                              ) : null}
+                              {user.emailStatus === "PENDING_VERIFICATION" ? (
+                                <form action={verifyManagedUserEmail.bind(null, user.id)}>
+                                  <input type="hidden" name="returnTo" value={compactParams(params, {})} />
+                                  <button type="submit" className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                                    <ShieldCheck size={18} aria-hidden="true" />
+                                    Verify Email
                                   </button>
                                 </form>
                               ) : null}

@@ -75,7 +75,7 @@ AS $$
         u.status::text,
         u.disabled,
         u.is_protected,
-        'VALID'::text AS email_status,
+        COALESCE(u.email_status::text, 'VALID') AS email_status,
         (
             SELECT max(s.last_activity_at)
             FROM sessions s

@@ -75,7 +75,7 @@ AS $$
         u.status::text,
         u.disabled,
         u.is_protected,
-        'VALID'::text AS email_status,
+        COALESCE(u.email_status::text, 'VALID') AS email_status,
         (
             SELECT max(s.last_activity_at)
             FROM sessions s
@@ -115,7 +115,7 @@ AS $$
             AND ou.status = 'ACTIVE'
       ))
       AND (p_status IS NULL OR p_status = '' OR u.status::text = p_status)
-      AND (p_email_status IS NULL OR p_email_status = '' OR p_email_status = 'VALID')
+      AND (p_email_status IS NULL OR p_email_status = '' OR u.email_status::text = p_email_status)
     ORDER BY u.created_at DESC, email ASC
     LIMIT LEAST(GREATEST(COALESCE(p_limit, 10), 1), 100)
     OFFSET GREATEST(COALESCE(p_offset, 0), 0);

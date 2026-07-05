@@ -24,6 +24,8 @@ services:
     depends_on:
       users-migrate:
         condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${USER_SERVICE_PORT:-3003}:8080"
     networks:
       - backend
       - service_database

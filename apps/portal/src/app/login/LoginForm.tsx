@@ -14,6 +14,7 @@ export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string
   function loginErrorMessage(errorCode: string | undefined) {
     if (errorCode === "AccountDisabled") return "This account is disabled. Contact an administrator to enable it.";
     if (errorCode === "AcademyRequired") return "This account is active, but no academy is assigned. Ask an administrator to assign an academy.";
+    if (errorCode === "EmailVerificationRequired") return "Verify your email before signing in. Check your inbox for the verification link.";
     if (errorCode === "MissingCredentials") return "Enter both email and password.";
     return "Invalid email or password.";
   }
@@ -89,6 +90,12 @@ export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string
       <Button type="submit" variant="primary" className="min-h-12 w-full" disabled={isSubmitting}>
         {isSubmitting ? "Signing in..." : "Sign In"}
       </Button>
+      <p className="text-center text-sm font-semibold text-stone-700">
+        Need an account?{" "}
+        <Link href="/register" className="text-teal-800 underline-offset-4 hover:underline">
+          Join your academy
+        </Link>
+      </p>
     </form>
   );
 }

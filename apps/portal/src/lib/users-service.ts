@@ -1,4 +1,5 @@
 import { apiGatewayUrl } from "./apiGateway";
+import { normalizeBaseUrl } from "@rollfinders/api-client";
 import { listEffectiveUserPermissions, replaceUserAuthorisationRole, type AuthorisationPermission, type AuthorisationScope } from "./authorisation-service";
 import { getEnvVariable } from "./environments";
 import {
@@ -68,6 +69,10 @@ export class UserServiceError extends Error {
 
 const userServiceUrl = apiGatewayUrl;
 
+function directUserServiceUrl() {
+  return normalizeBaseUrl(getEnvVariable("USER_PUBLIC_BASE_URL", "http://localhost:3005"));
+}
+
 function headers(actor?: ActorContext) {
   return {
     "Content-Type": "application/json",
@@ -87,6 +92,18 @@ async function parseResponse(response: Response) {
     throw new UserServiceError(message, response.status);
   }
   return body;
+}
+
+async function directRequest(path: string, init: RequestInit = {}) {
+  const response = await fetch(`${directUserServiceUrl()}${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      ...init.headers,
+    },
+  });
+  return parseResponse(response);
 }
 
 function splitRollfinderAcademyInput(input: unknown) {
@@ -115,6 +132,42 @@ export async function authenticateUserCredentials(email: string, password: strin
   return parseResponse(response) as Promise<{
     user_id: string;
   } & AuthTokens>;
+}
+
+export async function registerUserAccount(input: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  username?: string;
+}) {
+  const response = await fetch(`${userServiceUrl()}/auth/register`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(),
+    body: JSON.stringify({
+      first_name: input.firstName,
+      last_name: input.lastName,
+      email: input.email,
+      username: input.username ?? input.email,
+      password: input.password,
+    }),
+  });
+  return parseResponse(response) as Promise<{ user: ManagedUser }>;
+}
+
+export async function requestEmailVerificationToken(email: string) {
+  return directRequest("/v1/auth/email-verification/request", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  }) as Promise<{ ok: boolean; token?: string; expiresAt?: string; user?: { id: string; email: string; name?: string | null } }>;
+}
+
+export async function confirmEmailVerificationToken(token: string) {
+  return directRequest("/v1/auth/email-verification/confirm", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  }) as Promise<{ ok: boolean }>;
 }
 
 export async function getUserAccount(id: string, accessToken?: string) {
@@ -374,6 +427,9 @@ export async function updateManagedUserPrivileges(
 
 export async function updateManagedUser(actor: ActorContext, id: string, input: unknown) {
   const { serviceInput, academyId, role } = splitRollfinderAcademyInput(input);
+  if (serviceInput && typeof serviceInput === "object" && !Array.isArray(serviceInput)) {
+    delete (serviceInput as Record<string, unknown>).phone;
+  }
   const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}`, {
     method: "PUT",
     cache: "no-store",
@@ -399,7 +455,7 @@ export async function deleteManagedUser(actor: ActorContext, id: string) {
   return result;
 }
 
-export async function mutateManagedUser(actor: ActorContext, id: string, mutation: "disable" | "enable" | "promote" | "demote", role?: string) {
+export async function mutateManagedUser(actor: ActorContext, id: string, mutation: "disable" | "enable" | "promote" | "demote" | "verify-email", role?: string) {
   const query = role ? `?role=${encodeURIComponent(role)}` : "";
   const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}/${mutation}${query}`, {
     method: "POST",

@@ -23,6 +23,8 @@ export function StaticSiteHeader() {
               {label}
             </NavLink>
           ))}
+          <NavLink href="/login">Login</NavLink>
+          <NavLink href="/register">Register</NavLink>
           <NavLink href="/dashboard">Dashboard</NavLink>
         </nav>
         <details className="group relative md:hidden">
@@ -39,6 +41,8 @@ export function StaticSiteHeader() {
                 {label}
               </NavLink>
             ))}
+            <NavLink href="/login">Login</NavLink>
+            <NavLink href="/register">Register</NavLink>
             <NavLink href="/dashboard">Dashboard</NavLink>
           </nav>
         </details>

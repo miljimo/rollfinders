@@ -71,6 +71,8 @@ func New(opts Options) (http.Handler, func() error, error) {
 	mustHandle(gatewayroutes.AuthPasswordResetRequest.String(), []string{http.MethodPost}, s.requestPasswordReset, auth)
 	mustHandle(gatewayroutes.AuthPasswordResetValidate.String(), []string{http.MethodPost}, s.validatePasswordReset, auth)
 	mustHandle(gatewayroutes.AuthPasswordResetConfirm.String(), []string{http.MethodPost}, s.confirmPasswordReset, auth)
+	mustHandle("/v1/auth/email-verification/request", []string{http.MethodPost}, s.requestEmailVerification, auth)
+	mustHandle("/v1/auth/email-verification/confirm", []string{http.MethodPost}, s.confirmEmailVerification, auth)
 	mustHandle(gatewayroutes.AccountsAccountId.String(), []string{http.MethodGet}, s.getAccount, auth)
 	mustHandle(gatewayroutes.Users.String(), []string{http.MethodGet}, s.listUsers, auth)
 	mustHandle(gatewayroutes.Users.String(), []string{http.MethodPost}, s.createUser, auth)
@@ -161,6 +163,10 @@ func (s *server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if user.Disabled || user.Status == statusDisabled || user.Status == "INACTIVE" || user.Status == "SUSPENDED" || user.Status == "LOCKED" || user.Status == "DELETED" {
 		writeError(w, http.StatusForbidden, "Account disabled.")
+		return
+	}
+	if user.Status == "PENDING_VERIFICATION" || user.EmailStatus == "PENDING_VERIFICATION" {
+		writeError(w, http.StatusForbidden, "Verify your email before signing in.")
 		return
 	}
 	if !verifyPassword(user.PasswordHash, body.Password) {
@@ -376,7 +382,7 @@ func (s *server) mutateUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusGone, "Role assignment is managed by Authorisation Service.")
 		return
 	}
-	if mutation != "disable" && mutation != "enable" {
+	if mutation != "disable" && mutation != "enable" && mutation != "verify-email" {
 		writeError(w, http.StatusNotFound, "Mutation not found.")
 		return
 	}
@@ -404,6 +410,19 @@ func (s *server) mutateUser(w http.ResponseWriter, r *http.Request) {
 		status, disabled, action = statusDisabled, true, "USER_DISABLED"
 	case "enable":
 		status, disabled = statusActive, false
+	case "verify-email":
+		if _, err := s.db.Procedure(r.Context(), `users."userEmailVerifyByAdmin"`, id); err != nil {
+			writeError(w, http.StatusInternalServerError, "Unable to verify user email.")
+			return
+		}
+		user, err := s.findUserByID(r.Context(), id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "Unable to verify user email.")
+			return
+		}
+		_ = s.writeAuditLog(r.Context(), actor.ID, &id, "USER_EMAIL_VERIFIED", map[string]any{"email": target.Email})
+		writeJSON(w, http.StatusOK, map[string]any{"user": publicUser(user)})
+		return
 	}
 	user, err := s.setUserMutation(r.Context(), id, status, disabled)
 	if err != nil {

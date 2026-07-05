@@ -4,7 +4,7 @@ import {
   getAcademyFromAcademyService,
   listAcademyMembersFromAcademyService,
   listAcademyMembershipsForUserFromAcademyService,
-  removeAcademyMemberInAcademyService,
+  removeAcademyMembershipInAcademyService,
 } from "./academyService";
 import { listUserAuthorisationRoles } from "./authorisation-service";
 
@@ -95,7 +95,7 @@ export async function syncRollfinderUserProfile(user: RollfinderUserInput, acade
   const academyId = await validAcademyId(academyIdOverride === undefined ? existingAcademyId ?? user.academyId ?? null : academyIdOverride, actor);
 
   const existingMemberships = await listAcademyMembershipsForUserFromAcademyService(user.id, actor);
-  await Promise.all(existingMemberships.map((membership) => removeAcademyMemberInAcademyService(membership.academyId, user.id, actor)));
+  await Promise.all(existingMemberships.map((membership) => removeAcademyMembershipInAcademyService(membership.id, actor)));
   if (academyId) await addAcademyMemberInAcademyService(academyId, user.id, actor);
 
   return { ...user, academyId };
@@ -103,7 +103,7 @@ export async function syncRollfinderUserProfile(user: RollfinderUserInput, acade
 
 export async function removeRollfinderUserProfile(userId: string, actor?: ServiceActor) {
   const memberships = await listAcademyMembershipsForUserFromAcademyService(userId, actor);
-  await Promise.all(memberships.map((membership) => removeAcademyMemberInAcademyService(membership.academyId, userId, actor)));
+  await Promise.all(memberships.map((membership) => removeAcademyMembershipInAcademyService(membership.id, actor)));
 }
 
 export async function enrichManagedUserWithRollfinderProfile<T extends RollfinderUserInput>(user: T, actor?: ServiceActor): Promise<T & { academyId: string | null }> {

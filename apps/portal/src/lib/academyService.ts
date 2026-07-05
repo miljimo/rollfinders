@@ -1,5 +1,7 @@
 import { AcademyVerificationStatus, ClaimStatus, type Academy, type AcademySocialLink } from "@prisma/client";
+import { normalizeBaseUrl } from "@rollfinders/api-client";
 import { apiGatewayUrl } from "./apiGateway";
+import { getEnvVariable } from "./environments";
 import type { AcademySocialLinkInput } from "./academy-social-links";
 
 if (typeof window !== "undefined") {
@@ -109,6 +111,14 @@ export type AcademyWriteInput = {
 
 const academyServiceUrl = apiGatewayUrl;
 
+function directAcademyServiceUrl() {
+  const value = getEnvVariable("ACADEMY_PUBLIC_BASE_URL", "");
+  if (!value.trim()) {
+    throw new AcademyServiceError("Academy service URL is not configured.", 503);
+  }
+  return normalizeBaseUrl(value);
+}
+
 type ServiceActor = {
   id: string;
   role?: string | null;
@@ -146,6 +156,18 @@ async function request(path: string, init: RequestInit = {}, actor?: ServiceActo
     cache: "no-store",
     headers: {
       ...serviceHeaders(actor),
+      ...init.headers,
+    },
+  });
+  return parseResponse(response);
+}
+
+async function directRequest(path: string, init: RequestInit = {}) {
+  const response = await fetch(`${directAcademyServiceUrl()}${path}`, {
+    ...init,
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
       ...init.headers,
     },
   });
@@ -424,15 +446,29 @@ export async function listAcademiesForActorFromAcademyService(actor: { id: strin
 }
 
 export async function addAcademyMemberInAcademyService(academyId: string, userId: string, actor?: ServiceActor) {
-  const member = await request(`/v1/academies/${encodeURIComponent(academyId)}/members`, {
+  const member = await request("/v1/memberships", {
+    method: "POST",
+    body: JSON.stringify({ academy_id: academyId, user_id: userId }),
+  }, actor) as AcademyServiceMember;
+  return membershipFromService(member);
+}
+
+export async function addPublicRegistrationAcademyMember(academyId: string, userId: string) {
+  const member = await directRequest(`/v1/academies/${encodeURIComponent(academyId)}/members`, {
     method: "POST",
     body: JSON.stringify({ user_id: userId }),
-  }, actor) as AcademyServiceMember;
+  }) as AcademyServiceMember;
   return membershipFromService(member);
 }
 
 export async function removeAcademyMemberInAcademyService(academyId: string, userId: string, actor?: ServiceActor) {
   await request(`/v1/academies/${encodeURIComponent(academyId)}/members/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  }, actor);
+}
+
+export async function removeAcademyMembershipInAcademyService(membershipId: string, actor?: ServiceActor) {
+  await request(`/v1/memberships/${encodeURIComponent(membershipId)}`, {
     method: "DELETE",
   }, actor);
 }
