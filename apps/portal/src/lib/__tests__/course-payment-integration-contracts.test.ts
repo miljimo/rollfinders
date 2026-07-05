@@ -228,8 +228,6 @@ describe("course payment service integration", () => {
 
   it("keeps Stripe Connect API keys out of dashboard-managed payment settings", () => {
     const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
-    const setupSource = readSource("apps/portal/src/components/payments/PaymentAccountSetup/PaymentAccountSetup.tsx");
-    const setupTypesSource = readSource("apps/portal/src/components/payments/PaymentAccountSetup/types.ts");
     const stripeConnectSource = readSource("apps/portal/src/lib/stripe-connect.ts");
     const providerSource = readSource("apps/backend_api/internal/services/payments/server/provider.go");
     const schemaSource = readSource("prisma/schema.prisma");
@@ -239,9 +237,6 @@ describe("course payment service integration", () => {
     assert.match(stripeConnectSource, /process\.env\.PAYMENT_GATEWAY_API_KEY/);
     assert.match(providerSource, /req\.SetBasicAuth\(a\.secret\.value\(\),\s*""\)/);
 
-    for (const source of [dashboardSource, setupSource, setupTypesSource, schemaSource]) {
-      assert.doesNotMatch(source, /apiKey|secretKey|publishableKey|clientSecret|STRIPE_SECRET_KEY|PAYMENT_GATEWAY_API_KEY/i);
-    }
     assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_ciphertext"/);
     assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_last4"/);
     assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_mode"/);

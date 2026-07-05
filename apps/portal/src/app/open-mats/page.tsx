@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Button } from "@/components/Button";
 import { PageShell } from "@/components/Page";
 import { OpenMatLocationFilterForm } from "@/components/OpenMatLocationFilterForm";
 import { EventCard } from "@/components/EventCard";
+import { Pagination } from "@/components/pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { getOpenMatRadar } from "@/lib/data";
@@ -35,12 +35,6 @@ function pageHref(params: OpenMatSearchParams, page: number) {
   if (page > 1) next.set("page", String(page));
   const query = next.toString();
   return query ? `/open-mats?${query}` : "/open-mats";
-}
-
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 2);
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 export default async function OpenMatsPage({ searchParams }: { searchParams: Promise<OpenMatSearchParams> }) {
@@ -103,7 +97,7 @@ export default async function OpenMatsPage({ searchParams }: { searchParams: Pro
           {pagedEvents.map((event) => <EventCard key={event.occurrenceId ?? event.id} event={event} />)}
           {events.length === 0 ? <p className="text-stone-600">No sessions match those filters yet.</p> : null}
         </div>
-        <PublicPagination currentPage={currentPage} params={params} totalPages={totalPages} />
+        <Pagination ariaLabel="Open mats pagination" currentPage={currentPage} totalPages={totalPages} getPageHref={(page) => pageHref(params, page)} />
       </section>
     </PageShell>
   );
@@ -115,21 +109,5 @@ function RadarCount({ label, count, href }: { label: string; count: number; href
       <p className="text-xs font-semibold leading-tight text-stone-600 sm:text-sm">{label}</p>
       <p className="mt-1 text-xl font-black leading-none text-stone-950 sm:text-2xl">{count}</p>
     </a>
-  );
-}
-
-function PublicPagination({ currentPage, params, totalPages }: { currentPage: number; params: OpenMatSearchParams; totalPages: number }) {
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav className="mt-6 flex flex-wrap items-center justify-end gap-2" aria-label="Open mats pagination">
-      <Button href={pageHref(params, currentPage - 1)} disabled={currentPage <= 1} variant="secondary" size="sm">Previous</Button>
-      {paginationPages(currentPage, totalPages).map((pageNumber) => (
-        <Button key={pageNumber} href={pageHref(params, pageNumber)} variant={pageNumber === currentPage ? "primary" : "secondary"} size="sm" aria-current={pageNumber === currentPage ? "page" : undefined}>
-          {pageNumber}
-        </Button>
-      ))}
-      <Button href={pageHref(params, currentPage + 1)} disabled={currentPage >= totalPages} variant="secondary" size="sm">Next</Button>
-    </nav>
   );
 }

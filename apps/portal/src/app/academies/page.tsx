@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Button } from "@/components/Button";
 import { PageShell } from "@/components/Page";
 import { LocationSearchForm } from "@/components/LocationSearchForm";
 import { AcademyCard } from "@/components/AcademyCard";
+import { Pagination } from "@/components/pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { searchAcademies } from "@/lib/data";
@@ -32,12 +32,6 @@ function pageHref(params: AcademySearchParams, page: number) {
   if (page > 1) next.set("page", String(page));
   const query = next.toString();
   return query ? `/academies?${query}` : "/academies";
-}
-
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 2);
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 export default async function AcademiesPage({ searchParams }: { searchParams: Promise<AcademySearchParams> }) {
@@ -83,24 +77,8 @@ export default async function AcademiesPage({ searchParams }: { searchParams: Pr
         <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {pagedAcademies.map((academy) => <AcademyCard key={academy.id} academy={academy} />)}
         </div>
-        <PublicPagination currentPage={currentPage} params={params} totalPages={totalPages} />
+        <Pagination ariaLabel="Academies pagination" currentPage={currentPage} totalPages={totalPages} getPageHref={(page) => pageHref(params, page)} />
       </section>
     </PageShell>
-  );
-}
-
-function PublicPagination({ currentPage, params, totalPages }: { currentPage: number; params: AcademySearchParams; totalPages: number }) {
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav className="mt-6 flex flex-wrap items-center justify-end gap-2" aria-label="Academies pagination">
-      <Button href={pageHref(params, currentPage - 1)} disabled={currentPage <= 1} variant="secondary" size="sm">Previous</Button>
-      {paginationPages(currentPage, totalPages).map((pageNumber) => (
-        <Button key={pageNumber} href={pageHref(params, pageNumber)} variant={pageNumber === currentPage ? "primary" : "secondary"} size="sm" aria-current={pageNumber === currentPage ? "page" : undefined}>
-          {pageNumber}
-        </Button>
-      ))}
-      <Button href={pageHref(params, currentPage + 1)} disabled={currentPage >= totalPages} variant="secondary" size="sm">Next</Button>
-    </nav>
   );
 }

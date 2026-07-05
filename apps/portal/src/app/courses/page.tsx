@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CourseType } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/Page";
+import { Pagination } from "@/components/pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { courseHref, courseLocationLabel, coursePriceLabel, courseTypeLabel, getCourseDiscovery, recurrenceLabel } from "@/lib/courses";
@@ -32,12 +33,6 @@ function pageHref(params: SearchParams, page: number) {
   if (page > 1) next.set("page", String(page));
   const query = next.toString();
   return query ? `/courses?${query}` : "/courses";
-}
-
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 2);
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 export default async function CoursesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -113,19 +108,8 @@ export default async function CoursesPage({ searchParams }: { searchParams: Prom
           ))}
           {pagedCourses.length === 0 ? <p className="text-stone-600">No courses match those filters yet.</p> : null}
         </div>
-        <PublicPagination currentPage={currentPage} params={params} totalPages={totalPages} />
+        <Pagination ariaLabel="Courses pagination" currentPage={currentPage} totalPages={totalPages} getPageHref={(page) => pageHref(params, page)} />
       </section>
     </PageShell>
-  );
-}
-
-function PublicPagination({ currentPage, params, totalPages }: { currentPage: number; params: SearchParams; totalPages: number }) {
-  if (totalPages <= 1) return null;
-  return (
-    <nav className="mt-6 flex flex-wrap items-center justify-end gap-2" aria-label="Courses pagination">
-      <Button href={pageHref(params, currentPage - 1)} disabled={currentPage <= 1} variant="secondary" size="sm">Previous</Button>
-      {paginationPages(currentPage, totalPages).map((pageNumber) => <Button key={pageNumber} href={pageHref(params, pageNumber)} variant={pageNumber === currentPage ? "primary" : "secondary"} size="sm">{pageNumber}</Button>)}
-      <Button href={pageHref(params, currentPage + 1)} disabled={currentPage >= totalPages} variant="secondary" size="sm">Next</Button>
-    </nav>
   );
 }

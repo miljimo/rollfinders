@@ -4,6 +4,7 @@ import { Button } from "@/components/Button";
 import { AnalyticsClickTracker } from "@/components/Analytics";
 import { PageShell } from "@/components/Page";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
+import { Pagination } from "@/components/pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { coursePriceLabel, courseTypeLabel, getCourseDiscovery, recurrenceLabel } from "@/lib/courses";
@@ -28,12 +29,6 @@ function upcomingCoursesPageHref(slug: string, page: number) {
   if (page > 1) next.set("coursesPage", String(page));
   const query = next.toString();
   return query ? `/academies/${slug}?${query}` : `/academies/${slug}`;
-}
-
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, currentPage - 2);
-  const end = Math.min(totalPages, currentPage + 2);
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 export default async function AcademyPage({
@@ -150,7 +145,7 @@ export default async function AcademyPage({
               ))}
               {courses.length === 0 ? <p className="text-stone-600">No upcoming courses listed yet.</p> : null}
             </div>
-            <UpcomingCoursesPagination currentPage={currentUpcomingCoursePage} slug={academy.slug} totalPages={totalUpcomingCoursePages} />
+            <Pagination ariaLabel="Upcoming courses pagination" currentPage={currentUpcomingCoursePage} totalPages={totalUpcomingCoursePages} getPageHref={(page) => upcomingCoursesPageHref(academy.slug, page)} />
           </div>
         </div>
         <aside className="h-fit rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
@@ -180,21 +175,5 @@ export default async function AcademyPage({
         </aside>
       </section>
     </PageShell>
-  );
-}
-
-function UpcomingCoursesPagination({ currentPage, slug, totalPages }: { currentPage: number; slug: string; totalPages: number }) {
-  if (totalPages <= 1) return null;
-
-  return (
-    <nav className="mt-6 flex flex-wrap items-center justify-end gap-2" aria-label="Upcoming courses pagination">
-      <Button href={upcomingCoursesPageHref(slug, currentPage - 1)} disabled={currentPage <= 1} variant="secondary" size="sm">Previous</Button>
-      {paginationPages(currentPage, totalPages).map((pageNumber) => (
-        <Button key={pageNumber} href={upcomingCoursesPageHref(slug, pageNumber)} variant={pageNumber === currentPage ? "primary" : "secondary"} size="sm" aria-current={pageNumber === currentPage ? "page" : undefined}>
-          {pageNumber}
-        </Button>
-      ))}
-      <Button href={upcomingCoursesPageHref(slug, currentPage + 1)} disabled={currentPage >= totalPages} variant="secondary" size="sm">Next</Button>
-    </nav>
   );
 }

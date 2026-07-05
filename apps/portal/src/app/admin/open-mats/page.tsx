@@ -1,8 +1,8 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { CourseType, GiType, RecurrenceType, type Event, type Prisma } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/Page";
+import { Pagination } from "@/components/pagination";
 import { StatIndicator } from "@/components/StatIndicator";
 import { TableRow } from "@/components/Table";
 import { listAcademiesForActorFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
@@ -82,11 +82,6 @@ function compactParams(params: OpenMatSearchParams, overrides: Record<string, st
   });
   const query = next.toString();
   return query ? `/admin/open-mats?${query}` : "/admin/open-mats";
-}
-
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-  return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
 }
 
 export default async function OpenMatManagementPage({
@@ -305,13 +300,13 @@ export default async function OpenMatManagementPage({
           </div>
           <div className="flex flex-col gap-3 border-t border-stone-100 px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
             <p className="text-stone-600">Showing {start}-{end} of {totalItems}</p>
-            <div className="flex flex-wrap gap-2">
-              <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })}>Previous</PageLink>
-              {paginationPages(currentPage, totalPages).map((pageNumber) => (
-                <PageLink key={pageNumber} active={pageNumber === currentPage} href={compactParams(params, { page: pageNumber })}>{pageNumber}</PageLink>
-              ))}
-              <PageLink disabled={currentPage >= totalPages} href={compactParams(params, { page: currentPage + 1 })}>Next</PageLink>
-            </div>
+            <Pagination
+              ariaLabel="Open mats management pagination"
+              className="m-0"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              getPageHref={(pageNumber) => compactParams(params, { page: pageNumber })}
+            />
           </div>
         </div>
       </section>
@@ -346,16 +341,5 @@ function LinkedTableCell({ children, className }: { children: React.ReactNode; c
     <td className={className}>
       <div className="px-4 py-3">{children}</div>
     </td>
-  );
-}
-
-function PageLink({ href, disabled, active, children }: { href: string; disabled?: boolean; active?: boolean; children: React.ReactNode }) {
-  if (disabled) {
-    return <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-400">{children}</span>;
-  }
-  return (
-    <Link href={href} className={`inline-flex min-h-9 items-center rounded-md border px-3 text-xs font-bold ${active ? "border-teal-700 bg-teal-700 text-white" : "border-stone-300 text-stone-800"}`}>
-      {children}
-    </Link>
   );
 }

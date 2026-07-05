@@ -1,9 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { Role, UserStatus } from "@prisma/client";
-import { Ban, ChevronLeft, ChevronRight, Edit3, Filter, KeyRound, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
+import { Ban, Edit3, Filter, KeyRound, MoreVertical, Search, Shield, Trash2, User, Users } from "lucide-react";
 import { Button } from "@/components/Button";
 import { PageShell } from "@/components/Page";
+import { Pagination } from "@/components/pagination";
 import { TableRow } from "@/components/Table";
 import { canSendManagedUserPasswordReset, getCurrentUser, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
@@ -83,11 +84,6 @@ function compactParams(params: UserSearchParams, overrides: Record<string, strin
   });
   const query = next.toString();
   return query ? `/admin/users?${query}` : "/admin/users";
-}
-
-function paginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-  return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
 }
 
 function UserResult({ params }: { params: UserSearchParams }) {
@@ -324,19 +320,13 @@ export default async function UserManagementPage({
 
           <div className="flex flex-col gap-4 border-t border-stone-100 px-5 py-5 text-sm lg:flex-row lg:items-center lg:justify-between">
             <p className="text-base text-slate-700">Showing {start} to {end} of {totalItems} users</p>
-            <div className="flex flex-wrap items-center gap-3">
-              <PageLink disabled={currentPage <= 1} href={compactParams(params, { page: currentPage - 1 })} iconOnly>
-                <ChevronLeft size={20} aria-hidden="true" />
-                <span className="sr-only">Previous</span>
-              </PageLink>
-              {paginationPages(currentPage, totalPages).map((pageNumber) => (
-                <PageLink key={pageNumber} active={pageNumber === currentPage} href={compactParams(params, { page: pageNumber })}>{pageNumber}</PageLink>
-              ))}
-              <PageLink disabled={currentPage >= totalPages} href={compactParams(params, { page: currentPage + 1 })} iconOnly>
-                <ChevronRight size={20} aria-hidden="true" />
-                <span className="sr-only">Next</span>
-              </PageLink>
-            </div>
+            <Pagination
+              ariaLabel="User management pagination"
+              className="m-0"
+              currentPage={currentPage}
+              totalPages={totalPages}
+              getPageHref={(pageNumber) => compactParams(params, { page: pageNumber })}
+            />
           </div>
         </div>
       </section>
@@ -371,16 +361,5 @@ function StatusBadge({ disabled }: { disabled: boolean }) {
       <span className={`size-2.5 rounded-full ${disabled ? "bg-red-500" : "bg-emerald-500"}`} aria-hidden="true" />
       {disabled ? "Disabled" : "Active"}
     </span>
-  );
-}
-
-function PageLink({ href, disabled, active, iconOnly, children }: { href: string; disabled?: boolean; active?: boolean; iconOnly?: boolean; children: React.ReactNode }) {
-  if (disabled) {
-    return <span className={`inline-flex min-h-11 items-center justify-center rounded-md border border-stone-200 text-sm font-bold text-stone-400 ${iconOnly ? "w-11 px-0" : "px-4"}`}>{children}</span>;
-  }
-  return (
-    <Button href={href} size={iconOnly ? "icon" : "md"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "w-11 px-0" : "px-4"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`} aria-label={iconOnly ? "Go to page" : undefined}>
-      {children}
-    </Button>
   );
 }

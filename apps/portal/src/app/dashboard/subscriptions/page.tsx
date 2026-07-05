@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckCircle2, Edit3, PauseCircle, Plus, Trash2, XCircle } from "lucide-react";
@@ -9,6 +8,7 @@ import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/compo
 import { Button } from "@/components/Button";
 import { DialogShell } from "@/components/DialogShell";
 import { DataTableWithSearch } from "@/components/data-table-with-search";
+import { Pagination } from "@/components/pagination";
 import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
 import { Table, type TableColumn, type TableRecord } from "@/components/Table";
 import { listOrganisationApplications, listOrganisations, type OrganisationApplicationRecord, type OrganisationRecord } from "@/lib/organisation-service";
@@ -627,13 +627,15 @@ function AvailablePlansPanel({ currentPlanId, currentState, currentSubscriptionI
       <CurrentSubscriptionNotice currentState={currentState} plans={plans} />
       <PlanFeatureComparisonCard currentPlan={currentPlan} currentPlanId={currentPlanId} currentSubscriptionId={currentSubscriptionId} features={features} plans={visiblePlans} products={products} />
       {totalPages > 1 ? (
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-stone-100 pt-4 text-sm font-bold">
-          <span className="text-slate-600">Page {currentPage} of {totalPages}</span>
-          <div className="flex gap-2">
-            <PaginationAnchor disabled={currentPage <= 1} href={subscriptionHref({ plansPage: currentPage - 1 })}>Previous</PaginationAnchor>
-            <PaginationAnchor disabled={currentPage >= totalPages} href={subscriptionHref({ plansPage: currentPage + 1 })}>Next</PaginationAnchor>
-          </div>
-        </div>
+        <Pagination
+          ariaLabel="Available plans pagination"
+          className="mt-5 border-t border-stone-100 pt-4"
+          currentPage={currentPage}
+          totalPages={totalPages}
+          getPageHref={(pageNumber) => subscriptionHref({ plansPage: pageNumber })}
+          showPageNumbers={false}
+          showSummary
+        />
       ) : null}
     </section>
   );
@@ -808,11 +810,6 @@ function PlanFeatureComparisonCard({ currentPlan, currentPlanId, currentSubscrip
       </table>
     </div>
   );
-}
-
-function PaginationAnchor({ children, disabled, href }: { children: ReactNode; disabled: boolean; href: string }) {
-  if (disabled) return <span className="inline-flex min-h-10 items-center rounded-md border border-stone-200 px-4 text-stone-400">{children}</span>;
-  return <Button href={href} variant="secondary" className="min-h-10">{children}</Button>;
 }
 
 function CreateSubscriptionPanel({

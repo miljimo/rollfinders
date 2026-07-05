@@ -9,7 +9,12 @@ const navItems = [
   ["Map", "/map"],
 ];
 
-export async function PageHeader() {
+type PageHeaderProps = {
+   ItemsMenu: string[]
+}
+
+
+export const PageHeader = async ()=> {
   return (
     <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">

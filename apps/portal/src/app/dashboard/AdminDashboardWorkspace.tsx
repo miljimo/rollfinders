@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { clsx } from "clsx";
-import { Activity, ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Landmark, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Tag, Trash2, User, Users, Wallet } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Landmark, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Tag, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "../map/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-domain-data";
@@ -40,8 +40,8 @@ import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboar
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
-import { PaymentAccountSetup } from "@/components/payments/PaymentAccountSetup";
 import { PaymentOverview, type PaymentOverviewMetric } from "@/components/payments/PaymentOverview";
+import { Pagination as SharedPagination } from "@/components/pagination";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
@@ -379,11 +379,6 @@ function claimApiParams({ page, pageSize, search, status }: { page: number; page
   if (search) params.set("search", search);
   if (status !== "all") params.set("status", status);
   return params;
-}
-
-function claimPaginationPages(currentPage: number, totalPages: number) {
-  const start = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
-  return Array.from({ length: Math.min(5, totalPages) }, (_, index) => start + index);
 }
 
 function emptyEmailOperationsSummary(): Awaited<ReturnType<typeof getEmailQueueOperationsSummary>> {
@@ -3415,13 +3410,16 @@ function PaymentDashboardTable<T>({
           <p className="font-semibold text-slate-600">
             Showing {pagination.start}-{pagination.end} of {pagination.totalItems}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <PaginationLink disabled={pagination.currentPage <= 1} href={pagination.previousHref}>Previous</PaginationLink>
-            <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-600">
-              Page {pagination.currentPage} of {pagination.totalPages}
-            </span>
-            <PaginationLink disabled={pagination.currentPage >= pagination.totalPages} href={pagination.nextHref}>Next</PaginationLink>
-          </div>
+          <SharedPagination
+            ariaLabel="Table pagination"
+            className="m-0"
+            currentPage={pagination.currentPage}
+            nextHref={pagination.nextHref}
+            previousHref={pagination.previousHref}
+            showPageNumbers={false}
+            showSummary
+            totalPages={pagination.totalPages}
+          />
         </div>
       ) : null}
     </section>
@@ -4195,18 +4193,7 @@ function PaymentsPanel({
           periodOptions={paymentOverviewPeriodOptions}
           periodValue={period}
         />
-        <PaymentAccountSetup
-          accountLabel={hasConnectedPaymentAccount ? paymentAccountVerified ? "Payment account is ready" : "Stripe verification is required" : "Stripe Connect setup is required"}
-          actionHref="/dashboard/payment?paymentsView=settings"
-          actionLabel="Manage"
-          detailsHref="/dashboard/payment?paymentsView=settings"
-          detailsLabel="View details"
-          items={paymentAccountSetupItems}
-          providerName={academyAdmin ? "Academy Stripe account" : "RollFinders Stripe account"}
-          status={paymentAccountVerified ? "active" : "pending"}
-          title="Payment Account Setup"
-          variant="compact"
-        />
+        
       </div>
     </div>
   );
@@ -4754,32 +4741,15 @@ function ClaimsTable({ claims, page, pageSize, params, totalItems, totalPages }:
 
       <div className="flex flex-col gap-4 border-t border-stone-100 px-1 py-5 text-sm lg:flex-row lg:items-center lg:justify-between">
         <p className="text-slate-700">Showing {start} to {end} of {totalItems} claims</p>
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <ClaimPageLink disabled={page <= 1} href={adminClaimsHref(params, { claimsPage: page - 1 })} iconOnly>
-            <ChevronLeft size={18} aria-hidden />
-            <span className="sr-only">Previous</span>
-          </ClaimPageLink>
-          {claimPaginationPages(page, totalPages).map((pageNumber) => (
-            <ClaimPageLink key={pageNumber} active={pageNumber === page} href={adminClaimsHref(params, { claimsPage: pageNumber })}>{pageNumber}</ClaimPageLink>
-          ))}
-          <ClaimPageLink disabled={page >= totalPages} href={adminClaimsHref(params, { claimsPage: page + 1 })} iconOnly>
-            <ChevronRight size={18} aria-hidden />
-            <span className="sr-only">Next</span>
-          </ClaimPageLink>
-        </div>
+        <SharedPagination
+          ariaLabel="Academy claims pagination"
+          className="m-0"
+          currentPage={page}
+          totalPages={totalPages}
+          getPageHref={(pageNumber) => adminClaimsHref(params, { claimsPage: pageNumber })}
+        />
       </div>
     </>
-  );
-}
-
-function ClaimPageLink({ active, children, disabled, href, iconOnly }: { active?: boolean; children: React.ReactNode; disabled?: boolean; href: string; iconOnly?: boolean }) {
-  if (disabled) {
-    return <span className={`inline-flex min-h-9 items-center justify-center rounded-md border border-stone-200 text-xs font-bold text-stone-400 ${iconOnly ? "w-9 px-0" : "px-3"}`}>{children}</span>;
-  }
-  return (
-    <Button href={href} size={iconOnly ? "icon" : "sm"} variant={active ? "primary" : "secondary"} className={`${iconOnly ? "h-9 min-h-9 w-9 px-0" : "min-h-9 px-3"} ${active ? "shadow-sm" : "hover:bg-stone-50"}`} aria-label={iconOnly ? "Go to claims page" : undefined}>
-      {children}
-    </Button>
   );
 }
 
@@ -4838,29 +4808,15 @@ function Pagination({
       <p className="text-stone-600">
         Showing {start}-{end} of {totalItems}
       </p>
-      <div className="flex gap-2">
-        <PaginationLink disabled={currentPage <= 1} href={pageHref(searchParams, pageKey, currentPage - 1)}>Previous</PaginationLink>
-        <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-600">
-          Page {currentPage} of {totalPages}
-        </span>
-        <PaginationLink disabled={currentPage >= totalPages} href={pageHref(searchParams, pageKey, currentPage + 1)}>Next</PaginationLink>
-      </div>
+      <SharedPagination
+        ariaLabel={`${pageKey} pagination`}
+        className="m-0"
+        currentPage={currentPage}
+        totalPages={totalPages}
+        getPageHref={(pageNumber) => pageHref(searchParams, pageKey, pageNumber)}
+        showPageNumbers={false}
+        showSummary
+      />
     </div>
-  );
-}
-
-function PaginationLink({ disabled, href, children }: { disabled: boolean; href: string; children: React.ReactNode }) {
-  if (disabled) {
-    return (
-      <span className="inline-flex min-h-9 items-center rounded-md border border-stone-200 px-3 text-xs font-bold text-stone-400">
-        {children}
-      </span>
-    );
-  }
-
-  return (
-    <Button href={href} size="sm" variant="secondary" className="px-3">
-      {children}
-    </Button>
   );
 }
