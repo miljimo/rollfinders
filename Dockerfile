@@ -22,18 +22,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY prisma ./prisma
 COPY apps/backend_api/migrations/seed ./apps/backend_api/migrations/seed
-COPY apps/backend_api/migrations/users ./apps/backend_api/migrations/users
-COPY apps/backend_api/migrations/payments ./apps/backend_api/migrations/payments
-COPY apps/backend_api/migrations/courses ./apps/backend_api/migrations/courses
-COPY apps/backend_api/migrations/booking ./apps/backend_api/migrations/booking
-COPY apps/backend_api/migrations/academy ./apps/backend_api/migrations/academy
-COPY apps/backend_api/migrations/authorisation ./apps/backend_api/migrations/authorisation
-COPY apps/backend_api/migrations/notification ./apps/backend_api/migrations/notification
-COPY apps/backend_api/migrations/analytics ./apps/backend_api/migrations/analytics
-COPY apps/backend_api/migrations/subscriptions ./apps/backend_api/migrations/subscriptions
-COPY apps/backend_api/migrations/wallet ./apps/backend_api/migrations/wallet
-COPY apps/backend_api/migrations/transfer ./apps/backend_api/migrations/transfer
-COPY apps/backend_api/migrations/pricing ./apps/backend_api/migrations/pricing
+COPY apps/backend_api/internal/services/users/migrations ./apps/backend_api/internal/services/users/migrations
+COPY apps/backend_api/internal/services/payments/migrations ./apps/backend_api/internal/services/payments/migrations
+COPY apps/backend_api/internal/services/courses/migrations ./apps/backend_api/internal/services/courses/migrations
+COPY apps/backend_api/internal/services/booking/migrations ./apps/backend_api/internal/services/booking/migrations
+COPY apps/backend_api/internal/services/academy/migrations ./apps/backend_api/internal/services/academy/migrations
+COPY apps/backend_api/internal/services/authorisation/migrations ./apps/backend_api/internal/services/authorisation/migrations
+COPY apps/backend_api/internal/services/notification/migrations ./apps/backend_api/internal/services/notification/migrations
+COPY apps/backend_api/internal/services/analytics/migrations ./apps/backend_api/internal/services/analytics/migrations
+COPY apps/backend_api/internal/services/subscriptions/migrations ./apps/backend_api/internal/services/subscriptions/migrations
+COPY apps/backend_api/internal/services/wallet/migrations ./apps/backend_api/internal/services/wallet/migrations
+COPY apps/backend_api/internal/services/transfer/migrations ./apps/backend_api/internal/services/transfer/migrations
+COPY apps/backend_api/internal/services/pricing/migrations ./apps/backend_api/internal/services/pricing/migrations
 COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
@@ -56,18 +56,18 @@ COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
 COPY --chown=nextjs:nodejs apps/backend_api/migrations/seed ./apps/backend_api/migrations/seed
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/users ./apps/backend_api/migrations/users
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/payments ./apps/backend_api/migrations/payments
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/courses ./apps/backend_api/migrations/courses
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/booking ./apps/backend_api/migrations/booking
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/academy ./apps/backend_api/migrations/academy
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/authorisation ./apps/backend_api/migrations/authorisation
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/notification ./apps/backend_api/migrations/notification
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/analytics ./apps/backend_api/migrations/analytics
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/subscriptions ./apps/backend_api/migrations/subscriptions
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/wallet ./apps/backend_api/migrations/wallet
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/transfer ./apps/backend_api/migrations/transfer
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/pricing ./apps/backend_api/migrations/pricing
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/users/migrations ./apps/backend_api/internal/services/users/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/payments/migrations ./apps/backend_api/internal/services/payments/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/courses/migrations ./apps/backend_api/internal/services/courses/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/booking/migrations ./apps/backend_api/internal/services/booking/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/academy/migrations ./apps/backend_api/internal/services/academy/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/authorisation/migrations ./apps/backend_api/internal/services/authorisation/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/notification/migrations ./apps/backend_api/internal/services/notification/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/analytics/migrations ./apps/backend_api/internal/services/analytics/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/subscriptions/migrations ./apps/backend_api/internal/services/subscriptions/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/wallet/migrations ./apps/backend_api/internal/services/wallet/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/transfer/migrations ./apps/backend_api/internal/services/transfer/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/pricing/migrations ./apps/backend_api/internal/services/pricing/migrations
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs apps/portal/src/lib/email/templates ./apps/portal/src/lib/email/templates
 COPY --chown=nextjs:nodejs apps/portal/src/lib/prisma-pg-pool.ts ./apps/portal/src/lib/prisma-pg-pool.ts

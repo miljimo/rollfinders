@@ -25,7 +25,7 @@ describe("practitioner academy registration contracts", () => {
 
   it("requires public users to verify email before login", () => {
     const loginSource = readSource("apps/backend_api/internal/services/users/server/server.go");
-    const runtimeMutations = readSource("apps/backend_api/migrations/users/procedures/008_runtimeMutations.sql");
+    const runtimeMutations = readSource("apps/backend_api/internal/services/users/migrations/procedures/008_runtimeMutations.sql");
     const authSource = readSource("apps/portal/src/lib/auth.ts");
     const loginFormSource = readSource("apps/portal/src/app/login/LoginForm.tsx");
 
@@ -90,7 +90,7 @@ describe("practitioner academy registration contracts", () => {
   });
 
   it("keeps registered user table identity fields populated for dashboard listings", () => {
-    const runtimeMutations = readSource("apps/backend_api/migrations/users/procedures/008_runtimeMutations.sql");
+    const runtimeMutations = readSource("apps/backend_api/internal/services/users/migrations/procedures/008_runtimeMutations.sql");
 
     assert.match(runtimeMutations, /INSERT INTO users \(id, name, email, username, first_name, last_name, display_name, status, email_status\)/);
     assert.match(runtimeMutations, /NULLIF\(lower\(trim\(p_email\)\), ''\)/);

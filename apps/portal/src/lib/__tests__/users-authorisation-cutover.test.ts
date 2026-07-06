@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 test("Users core migration does not recreate authorisation ownership tables", () => {
-  const coreMigration = readFileSync("apps/backend_api/migrations/users/001_core_schema.sql", "utf8");
+  const coreMigration = readFileSync("apps/backend_api/internal/services/users/migrations/001_core_schema.sql", "utf8");
 
   assert.doesNotMatch(coreMigration, /000_roles_and_privileges\.sql/);
   assert.doesNotMatch(coreMigration, /009_role_exists\.sql/);
@@ -20,7 +20,7 @@ test("Users HTTP routes do not expose role or permission management APIs", () =>
 });
 
 test("Users cleanup migration drops legacy authorisation tables", () => {
-  const cleanup = readFileSync("apps/backend_api/migrations/users/002_remove_authorisation_tables.sql", "utf8");
+  const cleanup = readFileSync("apps/backend_api/internal/services/users/migrations/002_remove_authorisation_tables.sql", "utf8");
 
   for (const table of ["roles", "privileges", "role_privileges", "user_roles", "user_permissions"]) {
     assert.match(cleanup, new RegExp(`DROP TABLE IF EXISTS ${table}`));
@@ -30,7 +30,7 @@ test("Users cleanup migration drops legacy authorisation tables", () => {
 test("RollFinders app does not keep a public users projection", () => {
   const schema = readFileSync("prisma/schema.prisma", "utf8");
   const profileSource = readFileSync("apps/portal/src/lib/rollfinder-user-profiles.ts", "utf8");
-  const usersCoreMigration = readFileSync("apps/backend_api/migrations/users/001_core_schema.sql", "utf8");
+  const usersCoreMigration = readFileSync("apps/backend_api/internal/services/users/migrations/001_core_schema.sql", "utf8");
 
   assert.doesNotMatch(schema, /model User \{/);
   assert.doesNotMatch(profileSource, /prisma\.user|tx\.user/);

@@ -129,7 +129,7 @@ describe("deployment safety contracts", () => {
   });
 
   it("does not backfill from public users in the Users service core schema", () => {
-    const coreSchema = readSource("apps/backend_api/migrations/users/001_core_schema.sql");
+    const coreSchema = readSource("apps/backend_api/internal/services/users/migrations/001_core_schema.sql");
 
     assert.doesNotMatch(coreSchema, /public\.users/);
     assert.doesNotMatch(coreSchema, /rollfinders_public_user/);
@@ -141,18 +141,18 @@ describe("deployment safety contracts", () => {
     const dockerfile = readSource("Dockerfile");
 
     assert.match(migrate, /sh scripts\/cicd\/run-service-sql-migrations\.sh && npx prisma migrate deploy && sh scripts\/cicd\/run-service-sql-migrations\.sh/);
-    assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/authorisation \.\/apps\/backend_api\/migrations\/authorisation/);
-    assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/subscriptions \.\/apps\/backend_api\/migrations\/subscriptions/);
-    assert.match(dockerfile, /COPY apps\/backend_api\/migrations\/wallet \.\/apps\/backend_api\/migrations\/wallet/);
+    assert.match(dockerfile, /COPY apps\/backend_api\/internal\/services\/authorisation\/migrations \.\/apps\/backend_api\/internal\/services\/authorisation\/migrations/);
+    assert.match(dockerfile, /COPY apps\/backend_api\/internal\/services\/subscriptions\/migrations \.\/apps\/backend_api\/internal\/services\/subscriptions\/migrations/);
+    assert.match(dockerfile, /COPY apps\/backend_api\/internal\/services\/wallet\/migrations \.\/apps\/backend_api\/internal\/services\/wallet\/migrations/);
   });
 
   it("runs wallet SQL migrations for existing deployed databases", () => {
     const runner = readSource("scripts/cicd/run-service-sql-migrations.sh");
-    const migration = readSource("apps/backend_api/migrations/wallet/tables/011_paymentAdjustmentTypes.sql");
+    const migration = readSource("apps/backend_api/internal/services/wallet/migrations/tables/011_paymentAdjustmentTypes.sql");
 
-    assert.match(runner, /if \[ -d apps\/backend_api\/migrations\/wallet \]/);
+    assert.match(runner, /if \[ -d apps\/backend_api\/internal\/services\/wallet\/migrations \]/);
     assert.match(runner, /for dir in tables functions procedures/);
-    assert.match(runner, /apps\/backend_api\/migrations\/wallet\/\$\{dir\}\/\*\.sql/);
+    assert.match(runner, /apps\/backend_api\/internal\/services\/wallet\/migrations\/\$\{dir\}\/\*\.sql/);
     assert.match(migration, /CREATE OR REPLACE FUNCTION wallet\.adjust/);
     assert.match(migration, /BOOKING_PAYMENT/);
     assert.match(migration, /COMMISSION/);

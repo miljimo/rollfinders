@@ -23,7 +23,7 @@ REQUIRED_RUNBOOK_GATES = {
     "fake SMTP": ["fake SMTP", "live provider calls disabled"],
     "search and details": ["GET /notifications", "GET /notifications/{notificationId}"],
     "business integration": ["Booking Service", "opaque metadata"],
-    "data ownership": ["notification tables", "apps/backend_api/migrations/notification"],
+    "data ownership": ["notification tables", "apps/backend_api/internal/services/notification/migrations"],
 }
 
 
@@ -76,7 +76,7 @@ class NotificationRegressionScaffoldingTests(unittest.TestCase):
 
         for path in migration_files:
             relative = path.relative_to(REPO_ROOT).as_posix()
-            if relative.startswith("apps/backend_api/migrations/notification/"):
+            if relative.startswith("apps/backend_api/internal/services/notification/migrations/"):
                 continue
 
             sql = normalize_sql(read_text(path))
@@ -86,7 +86,7 @@ class NotificationRegressionScaffoldingTests(unittest.TestCase):
         self.assertEqual(
             [],
             ownership_violations,
-            "notification persistence tables must be managed only by apps/backend_api/migrations/notification",
+            "notification persistence tables must be managed only by apps/backend_api/internal/services/notification/migrations",
         )
 
     def test_prd_and_ticket_define_tables_before_executable_db_tests_land(self) -> None:

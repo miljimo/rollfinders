@@ -266,7 +266,7 @@ For Platform Admin users, the primary side panel SHALL include the same operatio
 
 For Academy Admin users, the primary side panel SHALL include corresponding scoped destinations for academy profile/academy management, rolls/open mats, users, and any permitted settings, while excluding platform-wide analytics, Academy Review, platform claim review, and other Super Admin-only or Platform Admin-only destinations.
 
-For Standard Users, this requirement SHALL NOT add admin destinations; Standard User side panel requirements remain controlled by `docs/features/Users/Standard/Products/StandardUserSharedDashboardPrd.md`.
+For Standard Users, this requirement SHALL NOT add admin destinations; Standard User side panel requirements remain controlled by `apps/portal/docs/features/Users/Standard/Products/StandardUserSharedDashboardPrd.md`.
 
 ### Collapsed Tooltip Behavior
 

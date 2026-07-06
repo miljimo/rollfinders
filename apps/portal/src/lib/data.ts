@@ -88,8 +88,9 @@ function addAcademyDistances<T extends { latitude: number; longitude: number; ve
     .sort((a, b) => (a.distanceMiles ?? Number.MAX_SAFE_INTEGER) - (b.distanceMiles ?? Number.MAX_SAFE_INTEGER) || academyTrustRank(b) - academyTrustRank(a) || (a.name ?? "").localeCompare(b.name ?? ""));
 }
 
-export async function getFeaturedData(location?: LocationInput) {
-  const events = await getOpenMatRadar({ latitude: location?.latitude, longitude: location?.longitude });
+export async function getFeaturedData(location?: LocationInput, query = "") {
+  const q = query.trim();
+  const events = await getOpenMatRadar({ q, latitude: location?.latitude, longitude: location?.longitude });
   const featuredEvents = sortByDistance(selectTopCandidates(events, 6, eventCandidatePriority));
   const upcomingNearYou = sortUpcomingNearYou(events).slice(0, 3);
 

@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
 const root = process.cwd();
-const prd = readFileSync(resolve(root, "docs/services/organisation/products.md"), "utf8");
+const prd = readFileSync(resolve(root, "apps/backend_api/internal/services/organisation/docs/product.md"), "utf8");
 
 function section(heading: string) {
   const marker = `## ${heading}`;

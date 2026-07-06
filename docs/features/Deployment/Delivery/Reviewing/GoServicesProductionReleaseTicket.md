@@ -12,7 +12,7 @@ Included services:
 
 * `services/users`: user-management, credential-authentication, IAM, sessions, MFA, password reset, and audit routines.
 * `services/payments`: payment clients, checkouts, payments, refunds, provider events, idempotency, outbox, health, readiness, and metrics.
-* `apps/backend_api/migrations/users/001_core_schema.sql` and `apps/backend_api/migrations/payments/001_core_schema.sql`.
+* `apps/backend_api/internal/services/users/migrations/001_core_schema.sql` and `apps/backend_api/internal/services/payments/migrations/001_core_schema.sql`.
 * Private ECS/Fargate deployment with no public ALB listener or public IP for either Go service.
 
 ## Current Release Candidate
@@ -250,10 +250,10 @@ Gate: record image digests for `IMAGE_URI`, `USER_SERVICE_IMAGE_URI`, and `PAYME
 Go service migrations must be validated against a production-like database before production execution:
 
 ```bash
-psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/migrations/users/001_core_schema.sql
-psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/migrations/payments/001_core_schema.sql
-psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/migrations/users/001_core_schema.sql
-psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/migrations/payments/001_core_schema.sql
+psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/internal/services/users/migrations/001_core_schema.sql
+psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/internal/services/payments/migrations/001_core_schema.sql
+psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/internal/services/users/migrations/001_core_schema.sql
+psql "$VALIDATION_DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/backend_api/internal/services/payments/migrations/001_core_schema.sql
 ```
 
 Gate: both second runs must be no-ops or complete successfully.

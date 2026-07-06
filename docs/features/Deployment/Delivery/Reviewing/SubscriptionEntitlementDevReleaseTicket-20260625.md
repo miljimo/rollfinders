@@ -86,9 +86,9 @@ scripts/cicd/run-service-sql-migrations.sh
 
 This release requires the authorisation and subscriptions migrations to run in dev:
 
-* `apps/backend_api/migrations/authorisation/001_core_schema.sql`
-* `apps/backend_api/migrations/authorisation/procedures/001_seedAuthorisationCatalog.sql`
-* `apps/backend_api/migrations/subscriptions/001_core_schema.sql`
+* `apps/backend_api/internal/services/authorisation/migrations/001_core_schema.sql`
+* `apps/backend_api/internal/services/authorisation/migrations/procedures/001_seedAuthorisationCatalog.sql`
+* `apps/backend_api/internal/services/subscriptions/migrations/001_core_schema.sql`
 
 ## Pre-Deployment Validation
 

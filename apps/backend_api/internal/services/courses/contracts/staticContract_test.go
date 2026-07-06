@@ -18,7 +18,7 @@ func read(t *testing.T, path string) string {
 }
 
 func TestCoreMigrationIncludesProcedureFirstShape(t *testing.T) {
-	source := read(t, repoPath(t, "apps", "backend_api", "migrations", "courses", "001_coreSchema.sql"))
+	source := read(t, repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "001_coreSchema.sql"))
 	required := []string{
 		`\ir schema/001_courseSchema.sql`,
 		`SET search_path TO courses, public;`,
@@ -39,11 +39,11 @@ func TestCoreMigrationIncludesProcedureFirstShape(t *testing.T) {
 
 func TestMigrationsDoNotModifyPublicRollfindersTables(t *testing.T) {
 	for _, dir := range []string{
-		repoPath(t, "apps", "backend_api", "migrations", "courses", "schema"),
-		repoPath(t, "apps", "backend_api", "migrations", "courses", "types"),
-		repoPath(t, "apps", "backend_api", "migrations", "courses", "tables"),
-		repoPath(t, "apps", "backend_api", "migrations", "courses", "functions"),
-		repoPath(t, "apps", "backend_api", "migrations", "courses", "procedures"),
+		repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "schema"),
+		repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "types"),
+		repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "tables"),
+		repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "functions"),
+		repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "procedures"),
 	} {
 		err := filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
 			if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".sql") {
@@ -64,7 +64,7 @@ func TestMigrationsDoNotModifyPublicRollfindersTables(t *testing.T) {
 }
 
 func TestRollfindersCompatibilityUsesPlatformCourseTypeIds(t *testing.T) {
-	source := read(t, repoPath(t, "apps", "backend_api", "migrations", "courses", "rollfinders", "001_publicCourseCompatibilityViews.sql"))
+	source := read(t, repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "rollfinders", "001_publicCourseCompatibilityViews.sql"))
 	if !strings.Contains(source, `CREATE OR REPLACE FUNCTION public."rollfindersCourseTypeId"`) {
 		t.Fatal("expected RollFinders compatibility course type id function")
 	}
@@ -77,7 +77,7 @@ func TestRollfindersCompatibilityUsesPlatformCourseTypeIds(t *testing.T) {
 }
 
 func TestFunctionsDoNotPerformBusinessWrites(t *testing.T) {
-	err := filepath.WalkDir(repoPath(t, "apps", "backend_api", "migrations", "courses", "functions"), func(path string, entry os.DirEntry, err error) error {
+	err := filepath.WalkDir(repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "functions"), func(path string, entry os.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".sql") {
 			return err
 		}

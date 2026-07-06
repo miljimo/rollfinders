@@ -4,10 +4,8 @@ import { NavLink } from "@/components/NavLink";
 import { getCurrentUser } from "@/lib/admin";
 
 const navItems = [
-  ["Home", "/"],
+  ["Find a Place", "/"],
   ["Academies", "/academies"],
-  ["Events", "/open-mats"],
-  ["Map", "/map"],
 ];
 
 function AuthNavLinks({ signedIn }: { signedIn: boolean }) {
@@ -15,8 +13,7 @@ function AuthNavLinks({ signedIn }: { signedIn: boolean }) {
 
   return (
     <>
-      <NavLink href="/login">Login</NavLink>
-      <NavLink href="/register">Register</NavLink>
+      <NavLink href="/login">Log in</NavLink>
     </>
   );
 }
@@ -34,7 +31,7 @@ export async function StaticSiteHeader() {
           aria-label="Primary navigation"
         >
           {navItems.map(([label, href]) => (
-            <NavLink key={href} href={href}>
+            <NavLink key={`${label}-${href}`} href={href}>
               {label}
             </NavLink>
           ))}
@@ -50,7 +47,7 @@ export async function StaticSiteHeader() {
             aria-label="Mobile primary navigation"
           >
             {navItems.map(([label, href]) => (
-              <NavLink key={href} href={href}>
+              <NavLink key={`${label}-${href}`} href={href}>
                 {label}
               </NavLink>
             ))}

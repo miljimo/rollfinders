@@ -49,7 +49,7 @@ Each card shows:
 Related requirements:
 
 * `../Completed/StatIndicator.md`
-* `docs/features/Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
+* `apps/portal/docs/features/Users/Platform/Products/Completed/AdminDashboardStatIndicators.md`
 * `./QuickActionPanelPrd.md`
 
 ## In Scope

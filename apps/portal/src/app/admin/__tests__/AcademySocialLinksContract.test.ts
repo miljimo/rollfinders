@@ -9,7 +9,7 @@ function readSource(path: string) {
 test("academy social links are backfilled into academy service settings before public detail tables are dropped", () => {
   const migration = readSource("prisma/migrations/20260611171000_academy_social_links/migration.sql");
   const removalMigration = readSource("prisma/migrations/20260623123000_remove_public_academy_detail_tables/migration.sql");
-  const academyMirrorCleanup = readSource("apps/backend_api/migrations/academy/triggers/009_dropLegacyPublicAcademyMirror.sql");
+  const academyMirrorCleanup = readSource("apps/backend_api/internal/services/academy/migrations/triggers/009_dropLegacyPublicAcademyMirror.sql");
   const schema = readSource("prisma/schema.prisma");
 
   assert.match(schema, /model AcademySocialLink \{[\s\S]*academyId String\s+@map\("academy_id"\)[\s\S]*platform\s+AcademySocialPlatform[\s\S]*url\s+String[\s\S]*@@unique\(\[academyId, platform\]\)/);

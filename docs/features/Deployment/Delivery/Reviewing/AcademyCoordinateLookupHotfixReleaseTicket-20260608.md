@@ -146,7 +146,7 @@ Release candidate commit:
 
 Changed files in the hotfix application scope:
 
-* `docs/features/Users/Academies/Products/Completed/NewAcademyMultiStepExperiencePrd.md`
+* `apps/portal/docs/features/Users/Academies/Products/Completed/NewAcademyMultiStepExperiencePrd.md`
 * `src/app/admin/__tests__/AcademyCoordinateAutofillContract.test.ts`
 * `src/app/admin/academies/AcademyForm.tsx`
 * `src/app/api/admin/geocode/route.ts`

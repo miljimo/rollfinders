@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { AutoCompleteTextField } from "@/components/AutoCompleteTextField";
 import { Button } from "@/components/Button";
 import type { WalletBalance, WalletRecord } from "@/lib/wallet-service";
+import { SourceWalletBalance } from "./SourceWalletBalance";
+import { walletOption } from "./walletFormatting";
 
 export function WalletTransfer({
   action,
@@ -79,31 +81,4 @@ export function WalletTransfer({
       </div>
     </form>
   );
-}
-
-function SourceWalletBalance({ balance, currency }: { balance?: WalletBalance; currency?: string }) {
-  const label = balance ? money(balance.balance, balance.currency) : currency ? money(0, currency) : "Select a source wallet";
-
-  return (
-    <div className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-sm">
-      <span className="block font-semibold text-teal-950">Source wallet balance</span>
-      <span className="font-bold text-teal-900">{label}</span>
-    </div>
-  );
-}
-
-function walletOption(wallet: WalletRecord): AutoCompleteTextFieldOption {
-  return {
-    id: wallet.id,
-    label: `${wallet.walletType === "external" ? "External" : "Internal"} wallet - ${wallet.ownerId}`,
-    description: `${wallet.currency} - ${wallet.status}`,
-    meta: wallet.id,
-  };
-}
-
-function money(amountMinor: number, currency: string) {
-  if (currency === "Points") {
-    return `${amountMinor.toLocaleString("en-GB")} Points`;
-  }
-  return new Intl.NumberFormat("en-GB", { currency, style: "currency" }).format(amountMinor / 100);
 }

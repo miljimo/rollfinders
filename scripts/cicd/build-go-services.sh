@@ -115,49 +115,49 @@ else
   emit_existing_service_image "payments" "PAYMENT_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "authorisation" && service_changed "apps/backend_api/containers/authorisation" "apps/backend_api/cmd/services/authorisation" "apps/backend_api/internal/services/authorisation" "apps/backend_api/migrations/authorisation"; then
+if target_matches "authorisation" && service_changed "apps/backend_api/containers/authorisation" "apps/backend_api/cmd/services/authorisation" "apps/backend_api/internal/services/authorisation" "apps/backend_api/internal/services/authorisation/migrations"; then
   build_service "authorisation" "apps/backend_api/containers/authorisation/Dockerfile" "AUTHORISATION_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "authorisation" "AUTHORISATION_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "academy" && service_changed "apps/backend_api/containers/academy" "apps/backend_api/cmd/services/academy" "apps/backend_api/internal/services/academy" "apps/backend_api/migrations/academy"; then
+if target_matches "academy" && service_changed "apps/backend_api/containers/academy" "apps/backend_api/cmd/services/academy" "apps/backend_api/internal/services/academy" "apps/backend_api/internal/services/academy/migrations"; then
   build_service "academy" "apps/backend_api/containers/academy/Dockerfile" "ACADEMY_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "academy" "ACADEMY_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "organisation" && service_changed "apps/backend_api/containers/organisation" "apps/backend_api/cmd/services/organisation" "apps/backend_api/internal/services/organisation" "apps/backend_api/migrations/organisation"; then
+if target_matches "organisation" && service_changed "apps/backend_api/containers/organisation" "apps/backend_api/cmd/services/organisation" "apps/backend_api/internal/services/organisation" "apps/backend_api/internal/services/organisation/migrations"; then
   build_service "organisation" "apps/backend_api/containers/organisation/Dockerfile" "ORGANISATION_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "organisation" "ORGANISATION_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "courses" && service_changed "apps/backend_api/containers/courses" "apps/backend_api/cmd/services/courses" "apps/backend_api/internal/services/courses" "apps/backend_api/migrations/courses"; then
+if target_matches "courses" && service_changed "apps/backend_api/containers/courses" "apps/backend_api/cmd/services/courses" "apps/backend_api/internal/services/courses" "apps/backend_api/internal/services/courses/migrations"; then
   build_service "courses" "apps/backend_api/containers/courses/Dockerfile" "COURSE_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "courses" "COURSE_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "booking" && service_changed "apps/backend_api/containers/booking" "apps/backend_api/cmd/services/booking" "apps/backend_api/internal/services/booking" "apps/backend_api/migrations/booking"; then
+if target_matches "booking" && service_changed "apps/backend_api/containers/booking" "apps/backend_api/cmd/services/booking" "apps/backend_api/internal/services/booking" "apps/backend_api/internal/services/booking/migrations"; then
   build_service "booking" "apps/backend_api/containers/booking/Dockerfile" "BOOKING_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "booking" "BOOKING_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "subscriptions" && service_changed "apps/backend_api/containers/subscriptions" "apps/backend_api/cmd/services/subscriptions" "apps/backend_api/internal/services/subscriptions" "apps/backend_api/migrations/subscriptions"; then
+if target_matches "subscriptions" && service_changed "apps/backend_api/containers/subscriptions" "apps/backend_api/cmd/services/subscriptions" "apps/backend_api/internal/services/subscriptions" "apps/backend_api/internal/services/subscriptions/migrations"; then
   build_service "subscriptions" "apps/backend_api/containers/subscriptions/Dockerfile" "SUBSCRIPTION_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "subscriptions" "SUBSCRIPTION_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "notification" && service_changed "apps/backend_api/containers/notification" "apps/backend_api/cmd/services/notification" "apps/backend_api/internal/services/notification" "apps/backend_api/migrations/notification"; then
+if target_matches "notification" && service_changed "apps/backend_api/containers/notification" "apps/backend_api/cmd/services/notification" "apps/backend_api/internal/services/notification" "apps/backend_api/internal/services/notification/migrations"; then
   build_service "notification" "apps/backend_api/containers/notification/Dockerfile" "NOTIFICATION_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "notification" "NOTIFICATION_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "analytics" && service_changed "apps/backend_api/containers/analytics" "apps/backend_api/cmd/services/analytics" "apps/backend_api/internal/services/analytics" "apps/backend_api/migrations/analytics"; then
+if target_matches "analytics" && service_changed "apps/backend_api/containers/analytics" "apps/backend_api/cmd/services/analytics" "apps/backend_api/internal/services/analytics" "apps/backend_api/internal/services/analytics/migrations"; then
   build_service "analytics" "apps/backend_api/containers/analytics/Dockerfile" "ANALYTICS_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "analytics" "ANALYTICS_SERVICE_IMAGE_URI"
@@ -169,19 +169,19 @@ else
   emit_existing_service_image "access-keys" "ACCESS_KEY_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "wallet" && service_changed "apps/backend_api/containers/wallet" "apps/backend_api/cmd/services/wallet" "apps/backend_api/internal/services/wallet" "apps/backend_api/migrations/wallet"; then
+if target_matches "wallet" && service_changed "apps/backend_api/containers/wallet" "apps/backend_api/cmd/services/wallet" "apps/backend_api/internal/services/wallet" "apps/backend_api/internal/services/wallet/migrations"; then
   build_service "wallet" "apps/backend_api/containers/wallet/Dockerfile" "WALLET_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "wallet" "WALLET_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "transfer" && service_changed "apps/backend_api/containers/transfer" "apps/backend_api/cmd/services/transfer" "apps/backend_api/internal/services/transfer" "apps/backend_api/migrations/transfer"; then
+if target_matches "transfer" && service_changed "apps/backend_api/containers/transfer" "apps/backend_api/cmd/services/transfer" "apps/backend_api/internal/services/transfer" "apps/backend_api/internal/services/transfer/migrations"; then
   build_service "transfer" "apps/backend_api/containers/transfer/Dockerfile" "TRANSFER_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "transfer" "TRANSFER_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "pricing" && service_changed "apps/backend_api/containers/pricing" "apps/backend_api/cmd/services/pricing" "apps/backend_api/internal/services/pricing" "apps/backend_api/migrations/pricing"; then
+if target_matches "pricing" && service_changed "apps/backend_api/containers/pricing" "apps/backend_api/cmd/services/pricing" "apps/backend_api/internal/services/pricing" "apps/backend_api/internal/services/pricing/migrations"; then
   build_service "pricing" "apps/backend_api/containers/pricing/Dockerfile" "PRICING_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "pricing" "PRICING_SERVICE_IMAGE_URI"

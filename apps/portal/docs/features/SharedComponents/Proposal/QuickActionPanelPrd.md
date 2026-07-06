@@ -26,9 +26,9 @@ The current layout uses a fixed responsive grid. When policy filtering removes a
 
 Related requirements:
 
-* `docs/features/Users/Platform/Products/EnhanceAdminPage.md`
-* `docs/features/Users/Platform/Products/AdminDashboardRestructureWithPagination.md`
-* `docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
+* `apps/portal/docs/features/Users/Platform/Products/EnhanceAdminPage.md`
+* `apps/portal/docs/features/Users/Platform/Products/AdminDashboardRestructureWithPagination.md`
+* `apps/portal/docs/features/Users/Academies/Products/AcademyAdminWithDashboardRoles.md`
 * `../Reviewing/SidePanelControlPrd.md`
 
 ## In Scope

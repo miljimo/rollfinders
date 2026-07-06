@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { ClaimStatus } from "@prisma/client";
-import { Edit3, Eye, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/Button";
 import { TableRow } from "@/components/Table";
-import { formatDate } from "@/lib/utils";
-import { ActionMenu } from "../../admin/ActionMenu";
+import { AcademyActionMenu } from "./AcademyActionMenu";
+import { AcademyBadge, LinkedTableCell } from "./AcademyTableCells";
+import { academyClaimState, academyReminderState, adminAcademiesHref, claimReminderReasonLabel, firstParam } from "./academyTableUtils";
 
 type AdminSearchParams = Record<string, string | string[] | undefined>;
 
@@ -23,77 +23,6 @@ export type AcademyRow = {
   members: { id: string }[];
   claimReminders: { status: string; skipReason: string | null; createdAt: Date; recipientEmail: string | null }[];
 };
-
-const menuItemClass = "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
-
-function firstParam(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
-function sentenceCase(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function adminAcademiesHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>) {
-  const params = new URLSearchParams();
-  Object.entries(searchParams).forEach(([key, value]) => {
-    if (!value) return;
-    if (Array.isArray(value)) {
-      value.forEach((item) => item && params.append(key, item));
-      return;
-    }
-    params.set(key, value);
-  });
-  Object.entries(overrides).forEach(([key, value]) => {
-    if (value === undefined || value === "" || value === "all" || value === 1) {
-      params.delete(key);
-      return;
-    }
-    params.set(key, String(value));
-  });
-  const query = params.toString();
-  return query ? `/dashboard/academies?${query}` : "/dashboard/academies";
-}
-
-function claimReminderReasonLabel(reason: string) {
-  const labels: Record<string, string> = {
-    invalid_email: "Invalid email",
-    managed: "Already claimed",
-    missing_email: "No email",
-    not_found: "Academy not found",
-    pending_claim: "Pending claim",
-    recently_sent: "Recently sent",
-  };
-  return labels[reason] ?? sentenceCase(reason);
-}
-
-function academyClaimState(academy: AcademyRow) {
-  if (academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)) return "Claimed";
-  if (academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)) return "Pending claim";
-  return "Unclaimed";
-}
-
-function academyReminderState(academy: AcademyRow) {
-  const latest = academy.claimReminders[0];
-  if (latest?.status === "QUEUED") return { label: `Queued ${formatDate(latest.createdAt)}`, eligible: false, reason: "recently_sent" };
-  if (latest?.status === "FAILED") return { label: "Failed", eligible: true, reason: latest.skipReason ?? "failed" };
-  if (academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)) return { label: "Already claimed", eligible: false, reason: "managed" };
-  if (academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)) return { label: "Pending claim", eligible: false, reason: "pending_claim" };
-  if (!academy.email) return { label: "No email", eligible: false, reason: "missing_email" };
-  return { label: "Not sent", eligible: true, reason: null };
-}
-
-function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex rounded-md border border-stone-200 px-2 py-1 text-xs font-bold text-stone-700">{children}</span>;
-}
-
-function LinkedTableCell({ children, className, href }: { children: React.ReactNode; className?: string; href?: string }) {
-  return (
-    <td className={`px-5 py-4 ${className ?? ""}`}>
-      {href ? <Link href={href} className="block min-h-6">{children}</Link> : children}
-    </td>
-  );
-}
 
 export function AcademiesTable({ academies, params }: { academies: AcademyRow[]; params: AdminSearchParams }) {
   const returnTo = adminAcademiesHref(params, { dialog: undefined, academyId: undefined, academyIds: undefined });
@@ -128,7 +57,6 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
             {academies.map((academy) => {
               const reminder = academyReminderState(academy);
               const academyHref = adminAcademiesHref(params, { dialog: "view-academy", academyId: academy.id });
-              const editAcademyHref = adminAcademiesHref(params, { dialog: "edit-academy", academyId: academy.id });
               return (
                 <TableRow key={academy.id} href={academyHref}>
                   <td className="px-4 py-4">
@@ -137,34 +65,19 @@ export function AcademiesTable({ academies, params }: { academies: AcademyRow[];
                   <LinkedTableCell href={academyHref} className="font-bold text-slate-950">{academy.name}</LinkedTableCell>
                   <LinkedTableCell href={academyHref} className="text-slate-700">{academy.borough ?? academy.city}</LinkedTableCell>
                   <LinkedTableCell href={academyHref} className="text-slate-700">{academy.postcode}</LinkedTableCell>
-                  <LinkedTableCell href={academyHref}><Badge>{academyClaimState(academy)}</Badge></LinkedTableCell>
-                  <LinkedTableCell href={academyHref} className="text-slate-700">{academy.email ? <span className="break-all">{academy.email}</span> : <Badge>No email</Badge>}</LinkedTableCell>
+                  <LinkedTableCell href={academyHref}><AcademyBadge>{academyClaimState(academy)}</AcademyBadge></LinkedTableCell>
+                  <LinkedTableCell href={academyHref} className="text-slate-700">{academy.email ? <span className="break-all">{academy.email}</span> : <AcademyBadge>No email</AcademyBadge>}</LinkedTableCell>
                   <LinkedTableCell href={academyHref} className="w-40 whitespace-nowrap">
                     <div className="grid gap-2">
-                      <Badge>{reminder.label}</Badge>
+                      <AcademyBadge>{reminder.label}</AcademyBadge>
                       {!reminder.eligible ? (
                         <p className="text-xs font-semibold text-slate-500">{claimReminderReasonLabel(reminder.reason ?? "unavailable")}</p>
                       ) : null}
                     </div>
                   </LinkedTableCell>
-                  <LinkedTableCell href={academyHref}><Badge>{academy.featured ? "Featured" : "No"}</Badge></LinkedTableCell>
+                  <LinkedTableCell href={academyHref}><AcademyBadge>{academy.featured ? "Featured" : "No"}</AcademyBadge></LinkedTableCell>
                   <td className="px-5 py-4 text-center">
-                    <ActionMenu label={`Open actions for ${academy.name}`}>
-                      <Link href={academyHref} className={menuItemClass}>
-                        <Eye size={18} aria-hidden />
-                        View Academy
-                      </Link>
-                      <Link href={editAcademyHref} className={menuItemClass}>
-                        <Edit3 size={18} aria-hidden />
-                        Edit Academy
-                      </Link>
-                      {reminder.eligible ? (
-                        <Link href={adminAcademiesHref(params, { dialog: "claim-reminder", academyId: academy.id })} className={menuItemClass}>
-                          <Send size={18} aria-hidden />
-                          Send claim reminder
-                        </Link>
-                      ) : null}
-                    </ActionMenu>
+                    <AcademyActionMenu academy={academy} params={params} />
                   </td>
                 </TableRow>
               );

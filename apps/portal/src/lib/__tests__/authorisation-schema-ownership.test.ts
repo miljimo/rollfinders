@@ -2,16 +2,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const migration = readFileSync("apps/backend_api/migrations/authorisation/001_core_schema.sql", "utf8");
-const schema = readFileSync("apps/backend_api/migrations/authorisation/schema/001_authorisation_schema.sql", "utf8");
-const permissionsTable = readFileSync("apps/backend_api/migrations/authorisation/tables/001_permissions.sql", "utf8");
-const userRolesTable = readFileSync("apps/backend_api/migrations/authorisation/tables/004_user_roles.sql", "utf8");
-const userPermissionsTable = readFileSync("apps/backend_api/migrations/authorisation/tables/005_user_permissions.sql", "utf8");
-const auditEventsTable = readFileSync("apps/backend_api/migrations/authorisation/tables/006_authorisation_audit_events.sql", "utf8");
-const resourcesTable = readFileSync("apps/backend_api/migrations/authorisation/tables/007_resources.sql", "utf8");
-const resourceScopeMigration = readFileSync("apps/backend_api/migrations/authorisation/009_resource_scope_table.sql", "utf8");
-const removeApplicationServicePermissionsMigration = readFileSync("apps/backend_api/migrations/authorisation/011_remove_application_service_permissions.sql", "utf8");
-const seedCatalog = readFileSync("apps/backend_api/migrations/authorisation/procedures/001_seedAuthorisationCatalog.sql", "utf8");
+const migration = readFileSync("apps/backend_api/internal/services/authorisation/migrations/001_core_schema.sql", "utf8");
+const schema = readFileSync("apps/backend_api/internal/services/authorisation/migrations/schema/001_authorisation_schema.sql", "utf8");
+const permissionsTable = readFileSync("apps/backend_api/internal/services/authorisation/migrations/tables/001_permissions.sql", "utf8");
+const userRolesTable = readFileSync("apps/backend_api/internal/services/authorisation/migrations/tables/004_user_roles.sql", "utf8");
+const userPermissionsTable = readFileSync("apps/backend_api/internal/services/authorisation/migrations/tables/005_user_permissions.sql", "utf8");
+const auditEventsTable = readFileSync("apps/backend_api/internal/services/authorisation/migrations/tables/006_authorisation_audit_events.sql", "utf8");
+const resourcesTable = readFileSync("apps/backend_api/internal/services/authorisation/migrations/tables/007_resources.sql", "utf8");
+const resourceScopeMigration = readFileSync("apps/backend_api/internal/services/authorisation/migrations/009_resource_scope_table.sql", "utf8");
+const removeApplicationServicePermissionsMigration = readFileSync("apps/backend_api/internal/services/authorisation/migrations/011_remove_application_service_permissions.sql", "utf8");
+const seedCatalog = readFileSync("apps/backend_api/internal/services/authorisation/migrations/procedures/001_seedAuthorisationCatalog.sql", "utf8");
 const repository = readFileSync("apps/backend_api/internal/services/authorisation/server/repository.go", "utf8");
 const migrationCommand = readFileSync("apps/backend_api/cmd/services/authorisation/migrate-users-authorisation/main.go", "utf8");
 const endpointSources = [

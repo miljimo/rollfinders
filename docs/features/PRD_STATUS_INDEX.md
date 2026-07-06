@@ -207,7 +207,7 @@ These have implementation, but are not fully done against the written PRD or MVP
 * `Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` - verification status exists; dedicated verification audit metadata is missing.
 * `Users/Academies/Products/Reviewing/PendingAcademiesPrd.md` - pending academy visibility exists; dashboard metric drilldown remains to verify or implement.
 * `Users/Profile/Products/Proposal/SelfProfileDashboardPrd.md` - standard dashboard profile/settings are implemented; broader proposal scope is not fully closed.
-* `docs/services/users/Products/Reviewing/GenericIdentityAccessManagementPrd.md` - Go user service now has generic IAM tables, procedure-backed writes, role/permission/user assignment storage, organization tables, and effective-permission evaluation; role/permission/organization REST endpoints and full auth lifecycle flows remain to complete.
+* `apps/backend_api/internal/services/users/docs/prds/Reviewing/GenericIdentityAccessManagementPrd.md` - Go user service now has generic IAM tables, procedure-backed writes, role/permission/user assignment storage, organization tables, and effective-permission evaluation; role/permission/organization REST endpoints and full auth lifecycle flows remain to complete.
 
 ## Not Done
 
@@ -228,9 +228,9 @@ These remain proposal/strategy work or have no implementation found.
 * `Users/Profile/Components/Proposal/UserProfile.md`
 * `Users/Profile/Products/Proposal/AdminUserProfileWorkflowPrd.md`
 * `Users/Profile/Products/Proposal/UserProfileExperienceStrategyPrd.md`
-* `docs/services/users/Products/Reviewing/UserAndAuthGoServicePortPrd.md`
-* `docs/services/users/Products/Reviewing/UserAuthGoServiceApiPrd.md`
-* `docs/services/users/Products/Reviewing/UserManagementGoServiceApiPrd.md`
+* `apps/backend_api/internal/services/users/docs/prds/Reviewing/UserAndAuthGoServicePortPrd.md`
+* `apps/backend_api/internal/services/users/docs/prds/Reviewing/UserAuthGoServiceApiPrd.md`
+* `apps/backend_api/internal/services/users/docs/prds/Reviewing/UserManagementGoServiceApiPrd.md`
 
 ## Docs / Reference
 

@@ -93,7 +93,7 @@ The response includes:
 `GET /openapi.json` returns an OpenAPI 3.1 document that can be imported into Postman. A generated static copy is also available at:
 
 ```text
-docs/services/api/openapi.json
+apps/backend_api/internal/services/api/docs/openapi.json
 ```
 
 ### Current Scope

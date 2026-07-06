@@ -178,7 +178,7 @@ describe("unified dashboard route contracts", () => {
     const dashboard = readSource("apps/portal/src/lib/standard-dashboard.ts");
     const proxy = readSource("apps/portal/src/proxy.ts");
     const logoutButton = readSource("apps/portal/src/components/LogoutButton/LogoutButton.tsx");
-    const prd = readSource("docs/features/Users/Standard/Pages/DashboardPage.md");
+    const prd = readSource("apps/portal/docs/features/Users/Standard/Pages/DashboardPage.md");
 
     assert.match(helper, /AUTH_PORTAL_ORIGIN/);
     assert.match(helper, /url\.searchParams\.set\("redirect",\s*redirectTarget\)/);

@@ -9,7 +9,7 @@ import (
 )
 
 func TestAcademyMembersDoesNotStoreRoles(t *testing.T) {
-	content := readRepoFile(t, "apps", "backend_api", "migrations", "academy", "tables", "003_academyMembers.sql")
+	content := readRepoFile(t, "apps", "backend_api", "internal", "services", "academy", "migrations", "tables", "003_academyMembers.sql")
 	for _, forbidden := range []string{" role ", "member" + "_role", "owner", "admin", "coach"} {
 		if strings.Contains(strings.ToLower(content), forbidden) {
 			t.Fatalf("academy_members must only map academy_id to user_id; found forbidden token %q", forbidden)

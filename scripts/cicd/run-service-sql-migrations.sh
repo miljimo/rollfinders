@@ -15,22 +15,22 @@ if [ -d "${APP_ROOT:-/app}" ]; then
   cd "${APP_ROOT:-/app}"
 fi
 
-if [ -f apps/backend_api/migrations/authorisation/001_core_schema.sql ]; then
-  (cd apps/backend_api/migrations/authorisation && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+if [ -f apps/backend_api/internal/services/authorisation/migrations/001_core_schema.sql ]; then
+  (cd apps/backend_api/internal/services/authorisation/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
-if [ -f apps/backend_api/migrations/users/001_core_schema.sql ]; then
-  (cd apps/backend_api/migrations/users && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+if [ -f apps/backend_api/internal/services/users/migrations/001_core_schema.sql ]; then
+  (cd apps/backend_api/internal/services/users/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
-if [ -f apps/backend_api/migrations/payments/001_core_schema.sql ]; then
-  (cd apps/backend_api/migrations/payments && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+if [ -f apps/backend_api/internal/services/payments/migrations/001_core_schema.sql ]; then
+  (cd apps/backend_api/internal/services/payments/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
-if [ -d apps/backend_api/migrations/courses ]; then
+if [ -d apps/backend_api/internal/services/courses/migrations ]; then
   for dir in schema types tables functions procedures; do
-    if [ -d "apps/backend_api/migrations/courses/${dir}" ]; then
-      for file in apps/backend_api/migrations/courses/${dir}/*.sql; do
+    if [ -d "apps/backend_api/internal/services/courses/migrations/${dir}" ]; then
+      for file in apps/backend_api/internal/services/courses/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -c "SET search_path TO courses, public;" -f "${file}"
       done
@@ -38,8 +38,8 @@ if [ -d apps/backend_api/migrations/courses ]; then
   done
 
   prisma_migrations_finished="$(psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -Atc "SELECT CASE WHEN to_regclass('public._prisma_migrations') IS NULL THEN false ELSE COALESCE((SELECT finished_at IS NOT NULL AND rolled_back_at IS NULL FROM public._prisma_migrations WHERE migration_name = '20260623203000_remove_public_analytics_tables' ORDER BY started_at DESC LIMIT 1), false) END;")"
-  if [ "${prisma_migrations_finished}" = "t" ] && [ -d apps/backend_api/migrations/courses/rollfinders ]; then
-    for file in apps/backend_api/migrations/courses/rollfinders/*.sql; do
+  if [ "${prisma_migrations_finished}" = "t" ] && [ -d apps/backend_api/internal/services/courses/migrations/rollfinders ]; then
+    for file in apps/backend_api/internal/services/courses/migrations/rollfinders/*.sql; do
       [ -f "${file}" ] || continue
       psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
     done
@@ -48,10 +48,10 @@ if [ -d apps/backend_api/migrations/courses ]; then
   psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -c "INSERT INTO courses.schema_migrations(version) VALUES ('001_coreSchema') ON CONFLICT (version) DO NOTHING;"
 fi
 
-if [ -d apps/backend_api/migrations/booking ]; then
+if [ -d apps/backend_api/internal/services/booking/migrations ]; then
   for dir in schema types tables procedures functions; do
-    if [ -d "apps/backend_api/migrations/booking/${dir}" ]; then
-      for file in apps/backend_api/migrations/booking/${dir}/*.sql; do
+    if [ -d "apps/backend_api/internal/services/booking/migrations/${dir}" ]; then
+      for file in apps/backend_api/internal/services/booking/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
       done
@@ -59,25 +59,25 @@ if [ -d apps/backend_api/migrations/booking ]; then
   done
 fi
 
-if [ -f apps/backend_api/migrations/notification/001_coreSchema.sql ]; then
-  (cd apps/backend_api/migrations/notification && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
+if [ -f apps/backend_api/internal/services/notification/migrations/001_coreSchema.sql ]; then
+  (cd apps/backend_api/internal/services/notification/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
 fi
 
-if [ -f apps/backend_api/migrations/analytics/001_coreSchema.sql ]; then
-  (cd apps/backend_api/migrations/analytics && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
+if [ -f apps/backend_api/internal/services/analytics/migrations/001_coreSchema.sql ]; then
+  (cd apps/backend_api/internal/services/analytics/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
 fi
 
-if [ -f apps/backend_api/migrations/subscriptions/001_core_schema.sql ]; then
-  (cd apps/backend_api/migrations/subscriptions && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+if [ -f apps/backend_api/internal/services/subscriptions/migrations/001_core_schema.sql ]; then
+  (cd apps/backend_api/internal/services/subscriptions/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
 fi
 
-if [ -d apps/backend_api/migrations/wallet ]; then
-  if [ -f apps/backend_api/migrations/wallet/001_core_schema.sql ]; then
-    psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f apps/backend_api/migrations/wallet/001_core_schema.sql
+if [ -d apps/backend_api/internal/services/wallet/migrations ]; then
+  if [ -f apps/backend_api/internal/services/wallet/migrations/001_core_schema.sql ]; then
+    psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f apps/backend_api/internal/services/wallet/migrations/001_core_schema.sql
   fi
   for dir in tables functions procedures; do
-    if [ -d "apps/backend_api/migrations/wallet/${dir}" ]; then
-      for file in apps/backend_api/migrations/wallet/${dir}/*.sql; do
+    if [ -d "apps/backend_api/internal/services/wallet/migrations/${dir}" ]; then
+      for file in apps/backend_api/internal/services/wallet/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
       done
@@ -85,16 +85,16 @@ if [ -d apps/backend_api/migrations/wallet ]; then
   done
 fi
 
-if [ -d apps/backend_api/migrations/transfer ]; then
-  if [ -f apps/backend_api/migrations/transfer/001_core_schema.sql ]; then
-    (cd apps/backend_api/migrations/transfer && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+if [ -d apps/backend_api/internal/services/transfer/migrations ]; then
+  if [ -f apps/backend_api/internal/services/transfer/migrations/001_core_schema.sql ]; then
+    (cd apps/backend_api/internal/services/transfer/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
   fi
 fi
 
-if [ -d apps/backend_api/migrations/pricing ]; then
+if [ -d apps/backend_api/internal/services/pricing/migrations ]; then
   for dir in schema tables functions; do
-    if [ -d "apps/backend_api/migrations/pricing/${dir}" ]; then
-      for file in apps/backend_api/migrations/pricing/${dir}/*.sql; do
+    if [ -d "apps/backend_api/internal/services/pricing/migrations/${dir}" ]; then
+      for file in apps/backend_api/internal/services/pricing/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
       done
@@ -102,10 +102,10 @@ if [ -d apps/backend_api/migrations/pricing ]; then
   done
 fi
 
-if [ -d apps/backend_api/migrations/organisation ]; then
+if [ -d apps/backend_api/internal/services/organisation/migrations ]; then
   for dir in schema tables procedures functions; do
-    if [ -d "apps/backend_api/migrations/organisation/${dir}" ]; then
-      for file in apps/backend_api/migrations/organisation/${dir}/*.sql; do
+    if [ -d "apps/backend_api/internal/services/organisation/migrations/${dir}" ]; then
+      for file in apps/backend_api/internal/services/organisation/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
       done
@@ -113,10 +113,10 @@ if [ -d apps/backend_api/migrations/organisation ]; then
   done
 fi
 
-if [ -d apps/backend_api/migrations/academy ]; then
+if [ -d apps/backend_api/internal/services/academy/migrations ]; then
   for dir in schema types tables procedures functions; do
-    if [ -d "apps/backend_api/migrations/academy/${dir}" ]; then
-      for file in apps/backend_api/migrations/academy/${dir}/*.sql; do
+    if [ -d "apps/backend_api/internal/services/academy/migrations/${dir}" ]; then
+      for file in apps/backend_api/internal/services/academy/migrations/${dir}/*.sql; do
         [ -f "${file}" ] || continue
         psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
       done

@@ -8,7 +8,7 @@ import (
 )
 
 func TestBookingSchemaContainsRequiredObjects(t *testing.T) {
-	root := repoPath(t, "apps", "backend_api", "migrations", "booking")
+	root := repoPath(t, "apps", "backend_api", "internal", "services", "booking", "migrations")
 	requiredFiles := []string{
 		"schema/001_bookingSchema.sql",
 		"schema/002_schemaMigrations.sql",
@@ -49,8 +49,8 @@ func TestBookingSchemaContainsRequiredObjects(t *testing.T) {
 }
 
 func TestDatabaseRoutineFilesUseCamelCaseNames(t *testing.T) {
-	files := routineFiles(t, filepath.Join(repoPath(t, "apps", "backend_api", "migrations", "booking", "functions"), "*.sql"))
-	files = append(files, routineFiles(t, filepath.Join(repoPath(t, "apps", "backend_api", "migrations", "booking", "procedures"), "*.sql"))...)
+	files := routineFiles(t, filepath.Join(repoPath(t, "apps", "backend_api", "internal", "services", "booking", "migrations", "functions"), "*.sql"))
+	files = append(files, routineFiles(t, filepath.Join(repoPath(t, "apps", "backend_api", "internal", "services", "booking", "migrations", "procedures"), "*.sql"))...)
 	for _, file := range files {
 		base := filepath.Base(file)
 		if strings.Contains(base, "_") {

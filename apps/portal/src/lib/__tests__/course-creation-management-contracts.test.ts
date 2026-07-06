@@ -27,7 +27,7 @@ function routeSource(...paths: string[]) {
 describe("CourseCreationAndManagement rollout contracts", () => {
   it("keeps RollFinders course data sourced from the courses service schema", () => {
     const schemaSource = readSource("prisma/schema.prisma");
-    const compatibilitySource = readSource("apps/backend_api/migrations/courses/rollfinders/001_publicCourseCompatibilityViews.sql");
+    const compatibilitySource = readSource("apps/backend_api/internal/services/courses/migrations/rollfinders/001_publicCourseCompatibilityViews.sql");
     const courseActionsSource = readSource("apps/portal/src/app/admin/courses/actions.ts");
 
     assert.match(schemaSource, /enum\s+CourseType\s*\{[\s\S]*OPEN_MAT[\s\S]*TRAINING[\s\S]*SPARRING[\s\S]*SEMINAR[\s\S]*WORKSHOP[\s\S]*COMPETITION[\s\S]*PRIVATE_LESSON[\s\S]*\}/);

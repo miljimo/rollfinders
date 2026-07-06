@@ -46,7 +46,7 @@ Use these branches for implementation:
 
 Source PRD:
 
-`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
+`apps/portal/docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 
 ## API-CLAIM-001: Claim Data Model
 
@@ -262,9 +262,9 @@ THEN the implementation SHALL document where monthly visitors, weekly active use
 
 Source PRDs:
 
-`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md` AC-024
+`apps/portal/docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md` AC-024
 
-`docs/features/Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` AV-012
+`apps/portal/docs/features/Users/Academies/Products/Reviewing/AcademyVerificationPrd.md` AV-012
 
 ## API-DISCOVERY-001: Academy Trust Ranking Signal
 

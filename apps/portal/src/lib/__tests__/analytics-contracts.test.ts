@@ -70,7 +70,7 @@ describe("analytics feature contracts", () => {
   });
 
   it("stores and reports country attribution only as aggregate analytics", () => {
-    const schemaSource = readSource("apps/backend_api/migrations/analytics/tables/002_events.sql");
+    const schemaSource = readSource("apps/backend_api/internal/services/analytics/migrations/tables/002_events.sql");
     const countrySource = readSource("apps/portal/src/lib/analytics/country.ts");
     const reportingSource = readSource("apps/portal/src/lib/analytics/reporting.ts");
     const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");

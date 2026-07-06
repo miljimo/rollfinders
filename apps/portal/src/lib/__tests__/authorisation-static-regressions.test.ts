@@ -18,7 +18,7 @@ const roleGuardPatterns = [
 describe("Authorisation Service static migration regressions", () => {
   it("keeps the migrated-area role guard manifest parseable", () => {
     const manifest = JSON.parse(
-      readFileSync("docs/services/authorisation/testing/migrated-role-guard-areas.json", "utf8"),
+      readFileSync("apps/backend_api/internal/services/authorisation/docs/testing/migrated-role-guard-areas.json", "utf8"),
     ) as MigratedRoleGuardAreas;
 
     assert.ok(Array.isArray(manifest.migratedFiles));
@@ -27,7 +27,7 @@ describe("Authorisation Service static migration regressions", () => {
 
   it("prevents hardcoded role guards from returning in migrated files", () => {
     const manifest = JSON.parse(
-      readFileSync("docs/services/authorisation/testing/migrated-role-guard-areas.json", "utf8"),
+      readFileSync("apps/backend_api/internal/services/authorisation/docs/testing/migrated-role-guard-areas.json", "utf8"),
     ) as MigratedRoleGuardAreas;
 
     const violations = manifest.migratedFiles.flatMap((file) => {

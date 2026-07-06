@@ -1,23 +1,24 @@
-import { Menu } from "lucide-react";
+import { Menu, UserRound } from "lucide-react";
 import { BrandLink } from "@/components/BrandLink";
 import { NavLink } from "@/components/NavLink";
 import { getCurrentUser } from "@/lib/admin";
 
 const navItems = [
-  ["Home", "/"],
+  ["Find a Place", "/"],
   ["Academies", "/academies"],
-  ["Events", "/open-mats"],
-  ["Map", "/map"],
 ];
 
 function AuthNavLinks({ signedIn }: { signedIn: boolean }) {
   if (signedIn) return <NavLink href="/dashboard">Dashboard</NavLink>;
 
   return (
-    <>
-      <NavLink href="/login">Login</NavLink>
-      <NavLink href="/register">Register</NavLink>
-    </>
+    <a
+      href="/login"
+      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-bold text-slate-950 transition hover:border-teal-500 hover:text-teal-700"
+    >
+      <UserRound size={16} aria-hidden />
+      Log in
+    </a>
   );
 }
 
@@ -26,15 +27,15 @@ export const PageHeader = async () => {
   const signedIn = Boolean(currentUser);
 
   return (
-    <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         <BrandLink />
         <nav
-          className="hidden items-center gap-1 md:flex [&_a]:inline-flex [&_a]:min-h-11 [&_a]:items-center"
+          className="hidden items-center gap-8 md:flex [&_a]:inline-flex [&_a]:items-center"
           aria-label="Primary navigation"
         >
           {navItems.map(([label, href]) => (
-            <NavLink key={href} href={href}>
+            <NavLink key={`${label}-${href}`} href={href}>
               {label}
             </NavLink>
           ))}
@@ -50,7 +51,7 @@ export const PageHeader = async () => {
             aria-label="Mobile primary navigation"
           >
             {navItems.map(([label, href]) => (
-              <NavLink key={href} href={href}>
+              <NavLink key={`${label}-${href}`} href={href}>
                 {label}
               </NavLink>
             ))}

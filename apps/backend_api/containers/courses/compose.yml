@@ -37,7 +37,7 @@ services:
     environment:
       PGPASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
-      - ../../migrations/courses:/migrations:ro
+      - ../../internal/services/courses/migrations:/migrations:ro
     working_dir: /migrations
     command:
       - sh

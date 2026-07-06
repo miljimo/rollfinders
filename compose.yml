@@ -43,7 +43,7 @@ services:
       - "${DB_PORT:-54322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./apps/backend_api/migrations/payments:/docker-entrypoint-initdb.d:ro
+      - ./apps/backend_api/internal/services/payments/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - app_database
       - service_database

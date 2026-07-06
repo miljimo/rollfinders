@@ -11,10 +11,10 @@ function readSource(path: string) {
 
 describe("Usage Limits Service PRD boundary contracts", () => {
   it("keeps Usage Limits separate from subscriptions, authorisation, and pricing", () => {
-    const usage = readSource("docs/services/usage_limits/product.md");
-    const subscriptions = readSource("docs/services/subscriptions/product.md");
-    const authorisation = readSource("docs/services/authorisation/product.md");
-    const pricing = readSource("docs/services/pricing/proposal.md");
+    const usage = readSource("docs/archive/unimplemented-services/usage_limits/product.md");
+    const subscriptions = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
+    const authorisation = readSource("apps/backend_api/internal/services/authorisation/docs/product.md");
+    const pricing = readSource("apps/backend_api/internal/services/pricing/docs/prds/proposal.md");
 
     assert.match(usage, /Usage Limits Service owns:[\s\S]*Generic usage limit rules[\s\S]*Usage reservations[\s\S]*Usage decision audit events/);
     assert.match(usage, /Subscription Service owns commercial plan definitions, owner subscriptions, and entitlements/);
@@ -28,7 +28,7 @@ describe("Usage Limits Service PRD boundary contracts", () => {
   });
 
   it("does not introduce a second plan system for usage limits", () => {
-    const usage = readSource("docs/services/usage_limits/product.md");
+    const usage = readSource("docs/archive/unimplemented-services/usage_limits/product.md");
 
     assert.match(usage, /subscription_plan_id text NOT NULL/);
     assert.match(usage, /opaque Subscription Service plan identifier/);
@@ -38,8 +38,8 @@ describe("Usage Limits Service PRD boundary contracts", () => {
   });
 
   it("documents gateway reservation enforcement and v1 quota semantics", () => {
-    const usage = readSource("docs/services/usage_limits/product.md");
-    const subscriptions = readSource("docs/services/subscriptions/product.md");
+    const usage = readSource("docs/archive/unimplemented-services/usage_limits/product.md");
+    const subscriptions = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
 
     assert.match(usage, /Authorisation Service:[\s\S]*Subscription Service:[\s\S]*Usage Limits Service:[\s\S]*Domain Service:/);
     assert.match(usage, /If Usage Limits Service is unavailable for a limited route, the gateway must fail closed/);

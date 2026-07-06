@@ -152,7 +152,7 @@ func TestPaymentSubscriptionCheckoutClient(t *testing.T) {
 }
 
 func TestFeatureNameUniqueWithinProductServiceContract(t *testing.T) {
-	schema, err := os.ReadFile("../../../../migrations/subscriptions/001_core_schema.sql")
+	schema, err := os.ReadFile("../../../../internal/services/subscriptions/migrations/001_core_schema.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestFeatureNameUniqueWithinProductServiceContract(t *testing.T) {
 }
 
 func TestSubscriptionOpenAPIContractExists(t *testing.T) {
-	contract, err := os.ReadFile("../../../../../../docs/services/subscriptions/api/openApi.yaml")
+	contract, err := os.ReadFile("../docs/api/openApi.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,7 +213,7 @@ func TestSubscriptionOpenAPIContractExists(t *testing.T) {
 }
 
 func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
-	schema, err := os.ReadFile("../../../../migrations/subscriptions/001_core_schema.sql")
+	schema, err := os.ReadFile("../../../../internal/services/subscriptions/migrations/001_core_schema.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

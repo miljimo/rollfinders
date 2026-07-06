@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "@/components/Button";
 
 export type PaginationProps = {
@@ -13,6 +14,7 @@ export type PaginationProps = {
   previousLabel?: string;
   showPageNumbers?: boolean;
   showSummary?: boolean;
+  summaryLabel?: (page: number, totalPages: number) => ReactNode;
   totalPages: number;
 };
 
@@ -37,6 +39,7 @@ export function Pagination({
   previousLabel = "Previous",
   showPageNumbers = true,
   showSummary = false,
+  summaryLabel,
   totalPages,
 }: PaginationProps) {
   const page = Math.max(1, currentPage);
@@ -52,7 +55,7 @@ export function Pagination({
     <nav className={`${className} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end`} aria-label={ariaLabel}>
       {showSummary ? (
         <p className="text-sm font-semibold text-stone-600">
-          Page {page} of {pageCount}
+          {summaryLabel ? summaryLabel(page, pageCount) : <>Page {page} of {pageCount}</>}
         </p>
       ) : null}
       <div className="flex flex-wrap items-center justify-end gap-2">

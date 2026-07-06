@@ -1,0 +1,4 @@
+# Payments Docs Archive
+
+Stale, superseded, or unimplemented payments service docs belong here. Archived docs are historical notes, not active implementation commitments.
+

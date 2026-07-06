@@ -14,7 +14,7 @@ Scope: Gap index only. Detailed implementation requirements live in dedicated fe
 
 Use these grouped implementation docs when assigning work:
 
-* UI tasks: `docs/features/Product/Products/RollFinderMvpUiTaskRequirements.md`
+* UI tasks: `apps/portal/docs/features/Product/Products/RollFinderMvpUiTaskRequirements.md`
 * API/backend tasks: `docs/features/Product/Products/RollFinderMvpApiTaskRequirements.md`
 
 These files separate current UI requirements from API, server action, data model, authorization, analytics, email, and verification requirements.
@@ -137,7 +137,7 @@ Implementation branch:
 
 Canonical PRD:
 
-`docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
+`apps/portal/docs/features/Users/Academies/Products/Completed/RollFinderAcademyClaimingPrd.md`
 
 User story:
 

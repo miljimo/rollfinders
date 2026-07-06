@@ -761,7 +761,7 @@ IF `/login` renders
 
 WHEN the user is not authenticated
 
-THEN the page SHALL show email, password, submit action, and error feedback according to `docs/features/Users/Standard/Components/LoginForm.md`.
+THEN the page SHALL show email, password, submit action, and error feedback according to `apps/portal/docs/features/Users/Standard/Components/LoginForm.md`.
 
 IF `/login` renders on a mobile viewport
 

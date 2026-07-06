@@ -11,7 +11,7 @@ function readSource(path: string) {
 
 describe("billing subscription plan journey contracts", () => {
   it("documents and exposes the implemented plan-change and billing-event endpoints", () => {
-    const prd = readSource("docs/services/subscriptions/product.md");
+    const prd = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
     const subscriptionsServer = readSource("apps/backend_api/internal/services/subscriptions/server/server.go");
 
     assert.match(prd, /POST \/v1\/subscriptions\/\{subscription_id\}\/plan-changes/);
@@ -24,8 +24,8 @@ describe("billing subscription plan journey contracts", () => {
   });
 
   it("persists plan-change requests and billing audit events for the first PRD slice", () => {
-    const prd = readSource("docs/services/subscriptions/product.md");
-    const schema = readSource("apps/backend_api/migrations/subscriptions/001_core_schema.sql");
+    const prd = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
+    const schema = readSource("apps/backend_api/internal/services/subscriptions/migrations/001_core_schema.sql");
     const subscriptionRepo = readSource("apps/backend_api/internal/services/subscriptions/server/repository.go");
     const subscriptionApi = readSource("apps/backend_api/internal/services/subscriptions/server/api.go");
 
@@ -46,8 +46,8 @@ describe("billing subscription plan journey contracts", () => {
   });
 
   it("documents operator recovery for subscription plan changes and entitlement denials", () => {
-    const runbook = readSource("docs/services/subscriptions/runbook.md");
-    const prd = readSource("docs/services/subscriptions/product.md");
+    const runbook = readSource("apps/backend_api/internal/services/subscriptions/docs/runbooks/runbook.md");
+    const prd = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
     const subscriptionsServer = readSource("apps/backend_api/internal/services/subscriptions/server/server.go");
 
     assert.match(runbook, /POST \/v1\/subscriptions\/plan-changes\/apply-due/);
@@ -61,7 +61,7 @@ describe("billing subscription plan journey contracts", () => {
     assert.match(runbook, /PLAN_FEATURE_NOT_INCLUDED/);
     assert.match(runbook, /SUBSCRIPTION_OWNER_MISMATCH/);
     assert.match(runbook, /Migration And Rollback Notes/);
-    assert.match(runbook, /apps\/backend_api\/migrations\/subscriptions/);
+    assert.match(runbook, /apps\/backend_api\/internal\/services\/subscriptions\/migrations/);
     assert.match(runbook, /never drop non-Subscription Service schemas/);
     assert.match(prd, /SUBSCRIPTION_OWNER_MISMATCH/);
   });

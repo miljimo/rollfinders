@@ -16,10 +16,10 @@ Product and feature requirements:
 
 * `docs/features/Product/Products/Reviewing/RollFinderMvpPrd.md`
 * `docs/features/Product/Products/FounderProductUpdate.md`
-* `docs/features/Users/Academies/Products/`
-* `docs/features/OpenMats/Products/`
-* `docs/features/Users/Products/`
-* `docs/features/Platform/Products/PublicBusinessInformation.md`
+* `apps/portal/docs/features/Users/Academies/Products/`
+* `apps/portal/docs/features/OpenMats/Products/`
+* `apps/portal/docs/features/Users/*/Products/`
+* `apps/portal/docs/features/Platform/Products/PublicBusinessInformation.md`
 * `apps/portal/docs/features/SharedComponents/Table.md`
 
 Implementation areas:
