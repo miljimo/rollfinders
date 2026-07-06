@@ -19,12 +19,17 @@ test("mobile platform PRD keeps WebView release standards explicit", () => {
 
 test("mobile web route renders a public-only app shell with bottom navigation", () => {
   const source = readSource("apps/portal/src/app/mobile/page.tsx");
+  const navigationSource = readSource("apps/portal/src/components/MobileNavigation/MobileNavigation.tsx");
 
   assert.match(source, /export const dynamic = "force-dynamic"/);
-  assert.match(source, /Mobile app navigation/);
-  assert.match(source, /Discover/);
+  assert.match(source, /MobileNavigation/);
+  assert.match(navigationSource, /Mobile app navigation/);
+  assert.match(navigationSource, /Home/);
+  assert.match(navigationSource, /Search/);
+  assert.match(navigationSource, /Map/);
+  assert.match(navigationSource, /E-Bookings/);
+  assert.match(navigationSource, /Profile/);
   assert.match(source, /Bookings/);
-  assert.match(source, /Saved/);
   assert.match(source, /Profile/);
   assert.match(source, /getOpenMatRadar/);
   assert.match(source, /searchAcademies/);

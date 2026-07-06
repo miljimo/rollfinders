@@ -14,10 +14,17 @@ function registerHref(params: Record<string, string>) {
   return `/register?${query.toString()}`;
 }
 
-function failureRedirect(message: string, academyId?: string, academySlug?: string) {
+function safeCallbackUrl(value: string) {
+  if (!value) return "/dashboard";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  return value;
+}
+
+function failureRedirect(message: string, academyId?: string, academySlug?: string, callbackUrl = "/dashboard") {
   const params: Record<string, string> = { error: message };
   if (academyId) params.academyId = academyId;
   if (academySlug) params.academy = academySlug;
+  if (callbackUrl !== "/dashboard") params.callbackUrl = callbackUrl;
   redirect(registerHref(params));
 }
 
@@ -29,15 +36,16 @@ export async function registerPractitioner(formData: FormData) {
   const email = textValue(formData, "email").toLowerCase();
   const password = textValue(formData, "password");
   const confirmPassword = textValue(formData, "confirmPassword");
+  const callbackUrl = safeCallbackUrl(textValue(formData, "callbackUrl"));
 
-  if (!academyId) failureRedirect("Choose your academy before creating an account.", academyId, academySlug);
-  if (!firstName || !lastName || !email || !password) failureRedirect("First name, last name, email, and password are required.", academyId, academySlug);
-  if (password.length < 5) failureRedirect("Password must be at least 5 characters.", academyId, academySlug);
-  if (password !== confirmPassword) failureRedirect("Passwords do not match.", academyId, academySlug);
+  if (!academyId) failureRedirect("Choose your academy before creating an account.", academyId, academySlug, callbackUrl);
+  if (!firstName || !lastName || !email || !password) failureRedirect("First name, last name, email, and password are required.", academyId, academySlug, callbackUrl);
+  if (password.length < 5) failureRedirect("Password must be at least 5 characters.", academyId, academySlug, callbackUrl);
+  if (password !== confirmPassword) failureRedirect("Passwords do not match.", academyId, academySlug, callbackUrl);
 
   const academy = await getAcademyFromAcademyService(academyId);
   if (!academy) {
-    failureRedirect("Choose a valid academy before creating an account.", academyId, academySlug);
+    failureRedirect("Choose a valid academy before creating an account.", academyId, academySlug, callbackUrl);
     return;
   }
 
@@ -51,29 +59,29 @@ export async function registerPractitioner(formData: FormData) {
         const result = await authenticateUserCredentials(email, password);
         userId = result.user_id;
       } catch {
-        failureRedirect("An account with that email already exists. Sign in instead, or ask the academy to add you.", academyId, academySlug);
+        failureRedirect("An account with that email already exists. Sign in instead, or ask the academy to add you.", academyId, academySlug, callbackUrl);
       }
     } else {
-      failureRedirect("We could not create your account. Check your details and try again.", academyId, academySlug);
+      failureRedirect("We could not create your account. Check your details and try again.", academyId, academySlug, callbackUrl);
     }
   }
 
   try {
     await addPublicRegistrationAcademyMember(academy.id, userId);
   } catch {
-    failureRedirect("We could not link your academy. Try again, or contact support before creating another account.", academyId, academySlug);
+    failureRedirect("We could not link your academy. Try again, or contact support before creating another account.", academyId, academySlug, callbackUrl);
   }
 
   try {
     await sendAccountVerificationEmail(email);
   } catch {
-    failureRedirect("Your account was created, but we could not send the verification email. Contact support before trying to sign in.", academyId, academySlug);
+    failureRedirect("Your account was created, but we could not send the verification email. Contact support before trying to sign in.", academyId, academySlug, callbackUrl);
   }
 
   const loginParams = new URLSearchParams({
     registered: "1",
     email,
-    callbackUrl: "/dashboard",
+    callbackUrl,
     verifyEmail: "1",
   });
   redirect(`/login?${loginParams.toString()}`);

@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import type React from "react";
 import Link from "next/link";
-import { Bookmark, CalendarCheck, ChevronRight, Compass, LogIn, Map, MapPin, Search, UserRound } from "lucide-react";
+import { Bookmark, CalendarCheck, ChevronRight, CircleHelp, CreditCard, LogIn, Map, MapPin, Search, Settings, ShieldCheck, UserRound } from "lucide-react";
 import { AcademyVerificationStatus, ClaimStatus, CourseType } from "@prisma/client";
 import { Button } from "@/components/Button";
+import { LogoutButton } from "@/components/LogoutButton";
+import { isMobileNavigationTab, MobileNavigation, type MobileNavigationTab } from "@/components/MobileNavigation";
 import { getCurrentUser } from "@/lib/admin";
 import { courseHref, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
 import { getMapItems, getOpenMatRadar, searchAcademies } from "@/lib/data";
@@ -25,18 +27,8 @@ type MobileSearchParams = {
   lng?: string;
 };
 
-const tabs = [
-  { href: "/mobile", icon: Compass, id: "home", label: "Home" },
-  { href: "/mobile?tab=map", icon: Map, id: "map", label: "Map" },
-  { href: "/mobile?tab=bookings", icon: CalendarCheck, id: "bookings", label: "Bookings" },
-  { href: "/mobile?tab=academies", icon: Bookmark, id: "academies", label: "Academies" },
-  { href: "/mobile?tab=profile", icon: UserRound, id: "profile", label: "Profile" },
-] as const;
-
-type MobileTab = typeof tabs[number]["id"];
-
-function selectedTab(value?: string): MobileTab {
-  return tabs.some((tab) => tab.id === value) ? value as MobileTab : "home";
+function selectedTab(value?: string): MobileNavigationTab {
+  return isMobileNavigationTab(value) ? value : "home";
 }
 
 function locationFromParams(params: MobileSearchParams) {
@@ -45,8 +37,12 @@ function locationFromParams(params: MobileSearchParams) {
   return Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : undefined;
 }
 
-function mobileLoginHref(target = "/mobile?tab=profile") {
-  return loginUrl(target);
+function mobileLoginHref() {
+  return loginUrl("/mobile");
+}
+
+function mobileRegisterHref() {
+  return "/register?callbackUrl=%2Fmobile";
 }
 
 function isVerified(academy: { verificationStatus?: AcademyVerificationStatus | null; verified?: boolean | null }) {
@@ -77,40 +73,53 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
           <Link href="/mobile" className="min-h-11 min-w-0 rounded-md text-lg font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
             RollFinders
           </Link>
-          <Button href={currentUser ? "/mobile?tab=profile" : mobileLoginHref("/mobile?tab=profile")} size="icon" variant="secondary" className="size-11" aria-label={currentUser ? "Profile" : "Sign in"}>
+          <Button href={currentUser ? "/mobile?tab=profile" : mobileLoginHref()} size="icon" variant="secondary" className="size-11" aria-label={currentUser ? "Profile" : "Sign in"}>
             {currentUser ? <UserRound size={19} aria-hidden /> : <LogIn size={19} aria-hidden />}
           </Button>
         </div>
       </header>
 
       <div className="mx-auto max-w-md px-4 py-4">
-        {activeTab === "home" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : null}
+        {activeTab === "home" ? (
+          currentUser ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : <MobileAuthHome />
+        ) : null}
+        {activeTab === "search" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : null}
         {activeTab === "map" ? <MapView academies={mapItems.slice(0, 20)} /> : null}
         {activeTab === "bookings" ? <BookingsView signedIn={Boolean(currentUser)} /> : null}
-        {activeTab === "academies" ? <AcademiesView signedIn={Boolean(currentUser)} /> : null}
         {activeTab === "profile" ? <ProfileView currentUser={currentUser} /> : null}
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-8px_28px_rgba(15,23,42,0.08)] backdrop-blur" aria-label="Mobile app navigation">
-        <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const active = activeTab === tab.id;
-            return (
-              <Link
-                key={tab.id}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black leading-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 ${active ? "bg-teal-700 text-white" : "text-stone-600 hover:bg-stone-100 hover:text-stone-950"}`}
-              >
-                <Icon size={19} aria-hidden />
-                <span>{tab.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <MobileNavigation activeTab={activeTab} />
     </main>
+  );
+}
+
+function MobileAuthHome() {
+  return (
+    <div className="grid gap-5">
+      <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-wide text-teal-700">RollFinders mobile</p>
+        <h1 className="mt-2 text-3xl font-black tracking-normal text-stone-950">Find your next roll</h1>
+        <p className="mt-2 text-sm leading-6 text-stone-700">Sign in to search events, manage bookings, save places, and keep your profile connected to your academy.</p>
+        <div className="mt-5 grid gap-2">
+          <Button href={mobileLoginHref()} variant="primary" className="min-h-12 w-full">
+            Sign In
+          </Button>
+          <Button href={mobileRegisterHref()} variant="secondary" className="min-h-12 w-full">
+            Register Account
+          </Button>
+        </div>
+      </section>
+
+      <section className="grid gap-3">
+        <MobileSectionHeader title="Explore as guest" href="/mobile?tab=search" action="Search events" />
+        <div className="grid gap-2 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+          <MobileLinkRow href="/mobile?tab=search" icon={Search} label="Search Open Mats" />
+          <MobileLinkRow href="/mobile?tab=map" icon={Map} label="Browse Map" />
+          <MobileLinkRow href="/academies" icon={Bookmark} label="Academies" />
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -129,7 +138,7 @@ function DiscoverView({
         <p className="text-xs font-black uppercase tracking-wide text-teal-700">Mobile discovery</p>
         <h1 className="mt-2 text-3xl font-black tracking-normal text-stone-950">Find your next round</h1>
         <form action="/mobile" className="mt-4 flex min-h-12 overflow-hidden rounded-md border border-stone-200 bg-stone-50 focus-within:border-teal-700">
-          <input type="hidden" name="tab" value="discover" />
+          <input type="hidden" name="tab" value="search" />
           <input
             name="q"
             defaultValue={query}
@@ -199,9 +208,9 @@ function BookingsView({ signedIn }: { signedIn: boolean }) {
       icon={<CalendarCheck size={26} aria-hidden />}
       title="Bookings"
       body={signedIn ? "Your booking history will appear here as mobile booking records become available." : "Sign in before booking so confirmations and payment status can stay attached to your account."}
-      primaryHref={signedIn ? "/open-mats" : mobileLoginHref("/mobile?tab=bookings")}
+      primaryHref={signedIn ? "/mobile?tab=search" : mobileLoginHref()}
       primaryLabel={signedIn ? "Find a Session" : "Sign In"}
-      secondaryHref="/open-mats"
+      secondaryHref="/mobile?tab=search"
       secondaryLabel="Browse Events"
     />
   );
@@ -213,7 +222,7 @@ function AcademiesView({ signedIn }: { signedIn: boolean }) {
       icon={<Bookmark size={26} aria-hidden />}
       title="Saved"
       body={signedIn ? "Saved academies and courses will collect here once saving is enabled on mobile cards." : "Sign in to keep academies, courses, and open mats ready for later."}
-      primaryHref={signedIn ? "/academies" : mobileLoginHref("/mobile?tab=saved")}
+      primaryHref={signedIn ? "/academies" : mobileLoginHref()}
       primaryLabel={signedIn ? "Browse Academies" : "Sign In"}
       secondaryHref="/open-mats"
       secondaryLabel="Browse Events"
@@ -222,21 +231,75 @@ function AcademiesView({ signedIn }: { signedIn: boolean }) {
 }
 
 function ProfileView({ currentUser }: { currentUser: Awaited<ReturnType<typeof getCurrentUser>> }) {
-  return (
-    <div className="grid gap-4">
+  if (!currentUser) {
+    return (
       <ActionView
         icon={<UserRound size={26} aria-hidden />}
-        title={currentUser ? "Profile" : "Profile"}
-        body={currentUser ? `Signed in as ${currentUser.email}.` : "Sign in for bookings, saved places, and profile settings."}
-        primaryHref={currentUser ? "/mobile" : mobileLoginHref("/mobile?tab=profile")}
-        primaryLabel={currentUser ? "Discover Sessions" : "Sign In"}
-        secondaryHref="/contact"
-        secondaryLabel="Support"
+        title="Profile"
+        body="Sign in or register before using profile, settings, bookings, and saved places on mobile."
+        primaryHref={mobileLoginHref()}
+        primaryLabel="Sign In"
+        secondaryHref={mobileRegisterHref()}
+        secondaryLabel="Register Account"
       />
-      <section className="grid gap-2 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <MobileLinkRow href="/privacy-policy" label="Privacy Policy" />
-        <MobileLinkRow href="/terms" label="Terms of Service" />
-        <MobileLinkRow href="/contact" label="Support and Account Help" />
+    );
+  }
+
+  const accountName = currentUser.email || "RollFinders user";
+  const initials = accountName
+    .split(/[\s@.]+/)
+    .map((part: string) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div className="grid gap-4">
+      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center gap-4">
+          <span className="inline-flex size-16 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xl font-black text-teal-900" aria-hidden>
+            {initials || <UserRound size={24} aria-hidden />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-xl font-black text-stone-950">{accountName}</h1>
+            {currentUser.email ? <p className="mt-1 truncate text-sm font-semibold text-stone-600">{currentUser.email}</p> : null}
+            {currentUser.role ? <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black uppercase text-teal-900">{currentUser.role.replaceAll("_", " ")}</p> : null}
+          </div>
+          <ChevronRight size={19} className="text-stone-500" aria-hidden />
+        </div>
+      </section>
+
+      <section className="grid grid-cols-3 gap-2">
+        <MobileStatCard icon={<CalendarCheck size={20} aria-hidden />} value="0" label="Bookings" />
+        <MobileStatCard icon={<Bookmark size={20} aria-hidden />} value="0" label="Saved" />
+        <MobileStatCard icon={<ShieldCheck size={20} aria-hidden />} value={currentUser.academyId ? "1" : "0"} label="Academies" />
+      </section>
+
+      <section>
+        <MobileSectionHeader title="My Activity" />
+        <div className="mt-3 grid gap-1 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+          <MobileLinkRow href="/mobile?tab=bookings" icon={CalendarCheck} label="My Bookings" />
+          <MobileLinkRow href="/mobile?tab=search" icon={Bookmark} label="Saved Open Mats" />
+          <MobileLinkRow href="/dashboard/academies" icon={ShieldCheck} label="Claimed Academy" />
+        </div>
+      </section>
+
+      <section>
+        <MobileSectionHeader title="My Account" />
+        <div className="mt-3 grid gap-1 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
+          <MobileLinkRow href="/dashboard/payment" icon={CreditCard} label="Payment Methods" />
+          <MobileLinkRow href="/dashboard/settings" icon={Settings} label="Settings" />
+          <MobileLinkRow href="/contact" icon={CircleHelp} label="Help & Support" />
+          <MobileLinkRow href="/privacy-policy" label="Privacy Policy" />
+          <MobileLinkRow href="/terms" label="Terms of Service" />
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-stone-200 bg-white p-2 shadow-sm">
+        <LogoutButton className="min-h-12 w-full justify-center rounded-md px-3 py-2 text-sm font-black text-red-700 hover:bg-red-50">
+          Sign Out
+        </LogoutButton>
       </section>
     </div>
   );
@@ -278,6 +341,25 @@ function MobileSection({ children, title }: { children: React.ReactNode; title: 
       <h2 className="text-xl font-black tracking-normal text-stone-950">{title}</h2>
       <div className="mt-3 grid gap-3">{children}</div>
     </section>
+  );
+}
+
+function MobileSectionHeader({ action, href, title }: { action?: string; href?: string; title: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-lg font-black tracking-normal text-stone-950">{title}</h2>
+      {href && action ? <Link href={href} className="text-sm font-black text-teal-800">{action}</Link> : null}
+    </div>
+  );
+}
+
+function MobileStatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-stone-200 bg-white p-4 text-center shadow-sm">
+      <span className="mx-auto flex size-10 items-center justify-center rounded-md bg-teal-50 text-teal-800">{icon}</span>
+      <p className="mt-2 text-2xl font-black text-stone-950">{value}</p>
+      <p className="text-xs font-bold text-stone-600">{label}</p>
+    </div>
   );
 }
 
@@ -341,10 +423,13 @@ function MobileAcademyCard({ academy }: { academy: Awaited<ReturnType<typeof sea
   );
 }
 
-function MobileLinkRow({ href, label }: { href: string; label: string }) {
+function MobileLinkRow({ href, icon: Icon, label }: { href: string; icon?: React.ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>; label: string }) {
   return (
-    <Link href={href} className="flex min-h-12 items-center justify-between rounded-md px-1 text-sm font-black text-stone-800">
-      <span>{label}</span>
+    <Link href={href} className="flex min-h-12 items-center justify-between rounded-md px-3 text-sm font-black text-stone-800 transition hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700">
+      <span className="flex min-w-0 items-center gap-3">
+        {Icon ? <Icon size={18} className="shrink-0 text-teal-800" aria-hidden /> : null}
+        <span className="truncate">{label}</span>
+      </span>
       <ChevronRight size={18} aria-hidden />
     </Link>
   );

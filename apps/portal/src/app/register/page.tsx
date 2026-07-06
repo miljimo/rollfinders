@@ -16,6 +16,7 @@ export const metadata: Metadata = {
 type RegisterSearchParams = {
   academy?: string | string[];
   academyId?: string | string[];
+  callbackUrl?: string | string[];
   error?: string | string[];
 };
 
@@ -42,6 +43,7 @@ export default async function RegisterPage({
   const academy = await selectedAcademy(params);
   const academyOptions = academy ? [] : academySelectOptions(await listAcademiesFromAcademyService({ limit: 100 }));
   const error = firstParam(params.error);
+  const callbackUrl = safeCallbackUrl(firstParam(params.callbackUrl));
 
   return (
     <PageShell>
@@ -73,6 +75,7 @@ export default async function RegisterPage({
               />
             )}
             <input type="hidden" name="academySlug" value={academy?.slug ?? ""} />
+            <input type="hidden" name="callbackUrl" value={callbackUrl} />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
@@ -109,13 +112,19 @@ export default async function RegisterPage({
           <p className="mt-2 text-sm leading-6 text-stone-700">
             Sign in and ask your academy admin to add your existing account if it is not connected yet.
           </p>
-          <Button href="/login" variant="secondary" className="mt-4 w-full">
+          <Button href={callbackUrl === "/mobile" ? "/login?redirect=%2Fmobile" : "/login"} variant="secondary" className="mt-4 w-full">
             Sign in
           </Button>
         </aside>
       </section>
     </PageShell>
   );
+}
+
+function safeCallbackUrl(value: string | undefined) {
+  if (!value) return "/dashboard";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/dashboard";
+  return value;
 }
 
 function SelectedAcademy({ academy }: { academy: AcademyServiceRecord }) {
