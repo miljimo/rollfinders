@@ -71,6 +71,9 @@ func TestSubscriptionPlanJourneyRoutesAreRegistered(t *testing.T) {
 		http.MethodGet + " " + string(SubscriptionOwnerPolicies): {
 			Permission: PermissionSubscriptionPlanRead,
 		},
+		http.MethodPost + " " + string(SubscriptionPlanQuote): {
+			Permission: PermissionSubscriptionPlanRead,
+		},
 		http.MethodGet + " " + string(SubscriptionOwnerPolicy): {
 			Permission:      PermissionSubscriptionPlanRead,
 			ResourceIDParam: ParamOwnerType,

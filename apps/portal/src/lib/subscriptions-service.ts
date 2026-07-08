@@ -18,6 +18,8 @@ export type SubscriptionProduct = {
   description: string;
   status: string;
   is_selectable: boolean;
+  currency: string;
+  price_minor: number;
   created_at: string;
   updated_at: string;
 };
@@ -32,6 +34,8 @@ export type SubscriptionFeature = {
   status: string;
   is_selectable: boolean;
   subscription_controlled: boolean;
+  currency: string;
+  base_price_minor: number;
   metadata?: Record<string, unknown>;
 };
 
@@ -49,6 +53,42 @@ export type SubscriptionPlanProduct = {
   plan_id: string;
   product_id: string;
   service_id?: string;
+  price_adjustment_percent: number;
+};
+
+export type SubscriptionQuote = {
+  currency: string;
+  billing_period: "month" | "year";
+  subtotal_minor: number;
+  adjustment_minor: number;
+  duplicate_feature_savings_minor: number;
+  total_minor: number;
+  products: Array<{
+    plan_id: string;
+    plan_name: string;
+    product_id: string;
+    product_name: string;
+    base_minor: number;
+    price_adjustment_percent: number;
+    adjustment_minor: number;
+    total_minor: number;
+  }>;
+  features: Array<{
+    feature_id: string;
+    feature_name: string;
+    product_id: string;
+    product_name: string;
+    base_price_minor: number;
+    currency: string;
+  }>;
+  skipped_duplicate_features: Array<{
+    feature_id: string;
+    feature_name: string;
+    product_id: string;
+    product_name: string;
+    base_price_minor: number;
+    currency: string;
+  }>;
 };
 
 export type SubscriptionPlan = {
@@ -319,11 +359,30 @@ export async function replaceSubscriptionPlanFeatures(planId: string, featureIds
   });
 }
 
-export async function replaceSubscriptionPlanProducts(planId: string, productIds: string[], actor?: SubscriptionActor | null) {
+export async function replaceSubscriptionPlanProducts(planId: string, products: Array<string | { product_id: string; price_adjustment_percent?: number }>, actor?: SubscriptionActor | null) {
+  const productRows = products.map((product) => typeof product === "string" ? { product_id: product, price_adjustment_percent: 0 } : product);
   return request(`/v1/plans/${encodeURIComponent(planId)}/products`, actor, {
     method: "PUT",
-    body: JSON.stringify({ product_ids: productIds }),
+    body: JSON.stringify({ products: productRows }),
   });
+}
+
+export async function quoteSubscriptionPlans(planIds: string[], billingPeriod: "month" | "year", actor?: SubscriptionActor | null) {
+  const result = await request("/v1/plans/quote", actor, {
+    method: "POST",
+    body: JSON.stringify({ plan_ids: planIds, billing_period: billingPeriod }),
+  }) as { quote?: SubscriptionQuote };
+  return result.quote ?? {
+    currency: "GBP",
+    billing_period: billingPeriod,
+    subtotal_minor: 0,
+    adjustment_minor: 0,
+    duplicate_feature_savings_minor: 0,
+    total_minor: 0,
+    products: [],
+    features: [],
+    skipped_duplicate_features: [],
+  };
 }
 
 export async function createApplicationSubscription(input: {

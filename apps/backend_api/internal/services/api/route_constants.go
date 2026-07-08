@@ -123,6 +123,7 @@ const (
 	SubscriptionProductFeatureDisable                    = gatewayroutes.SubscriptionProductFeatureDisable
 	SubscriptionPlans                                    = gatewayroutes.SubscriptionPlans
 	SubscriptionPlanBillingCycles                        = gatewayroutes.SubscriptionPlanBillingCycles
+	SubscriptionPlanQuote                                = gatewayroutes.SubscriptionPlanQuote
 	SubscriptionPlan                                     = gatewayroutes.SubscriptionPlan
 	SubscriptionPlanSuspend                              = gatewayroutes.SubscriptionPlanSuspend
 	SubscriptionPlanFeatures                             = gatewayroutes.SubscriptionPlanFeatures

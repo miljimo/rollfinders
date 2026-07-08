@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"math"
 	"net/url"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,6 +33,8 @@ type Product struct {
 	Description  string    `json:"description"`
 	Status       string    `json:"status"`
 	IsSelectable bool      `json:"is_selectable"`
+	Currency     string    `json:"currency"`
+	PriceMinor   int       `json:"price_minor"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -45,6 +49,8 @@ type ProductFeature struct {
 	Status                 string          `json:"status"`
 	IsSelectable           bool            `json:"is_selectable"`
 	SubscriptionControlled bool            `json:"subscription_controlled"`
+	Currency               string          `json:"currency"`
+	BasePriceMinor         int             `json:"base_price_minor"`
 	Metadata               json.RawMessage `json:"metadata,omitempty"`
 	CreatedAt              time.Time       `json:"created_at"`
 	UpdatedAt              time.Time       `json:"updated_at"`
@@ -89,11 +95,44 @@ type planAuditEvent struct {
 }
 
 type PlanProduct struct {
-	ID        string    `json:"id"`
-	PlanID    string    `json:"plan_id"`
-	ProductID string    `json:"product_id"`
-	ServiceID string    `json:"service_id,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID                     string    `json:"id"`
+	PlanID                 string    `json:"plan_id"`
+	ProductID              string    `json:"product_id"`
+	ServiceID              string    `json:"service_id,omitempty"`
+	PriceAdjustmentPercent float64   `json:"price_adjustment_percent"`
+	CreatedAt              time.Time `json:"created_at"`
+}
+
+type SubscriptionQuote struct {
+	Currency                     string         `json:"currency"`
+	BillingPeriod                string         `json:"billing_period"`
+	SubtotalMinor                int            `json:"subtotal_minor"`
+	AdjustmentMinor              int            `json:"adjustment_minor"`
+	DuplicateFeatureSavingsMinor int            `json:"duplicate_feature_savings_minor"`
+	TotalMinor                   int            `json:"total_minor"`
+	Products                     []QuoteProduct `json:"products"`
+	Features                     []QuoteFeature `json:"features"`
+	SkippedDuplicateFeatures     []QuoteFeature `json:"skipped_duplicate_features"`
+}
+
+type QuoteProduct struct {
+	PlanID            string  `json:"plan_id"`
+	PlanName          string  `json:"plan_name"`
+	ProductID         string  `json:"product_id"`
+	ProductName       string  `json:"product_name"`
+	BaseMinor         int     `json:"base_minor"`
+	AdjustmentPercent float64 `json:"price_adjustment_percent"`
+	AdjustmentMinor   int     `json:"adjustment_minor"`
+	TotalMinor        int     `json:"total_minor"`
+}
+
+type QuoteFeature struct {
+	FeatureID      string `json:"feature_id"`
+	FeatureName    string `json:"feature_name"`
+	ProductID      string `json:"product_id"`
+	ProductName    string `json:"product_name"`
+	BasePriceMinor int    `json:"base_price_minor"`
+	Currency       string `json:"currency"`
 }
 
 type BillingCycle struct {
@@ -227,14 +266,25 @@ func activeStatus(status string) string {
 	return status
 }
 
+func normalizeCurrency(currency string) string {
+	switch strings.ToLower(strings.TrimSpace(currency)) {
+	case "points":
+		return "Points"
+	case "gbp", "":
+		return "GBP"
+	default:
+		return "GBP"
+	}
+}
+
 func scanProduct(row interface{ Scan(...any) error }) (Product, error) {
 	var product Product
-	err := row.Scan(&product.ID, &product.ServiceID, &product.Name, &product.Description, &product.Status, &product.IsSelectable, &product.CreatedAt, &product.UpdatedAt)
+	err := row.Scan(&product.ID, &product.ServiceID, &product.Name, &product.Description, &product.Status, &product.IsSelectable, &product.Currency, &product.PriceMinor, &product.CreatedAt, &product.UpdatedAt)
 	return product, err
 }
 
 func (r *repository) listProducts(ctx context.Context, limit, offset int, status string) ([]Product, error) {
-	query := `SELECT id, service_id, name, description, status, is_selectable, created_at, updated_at FROM products`
+	query := `SELECT id, service_id, name, description, status, is_selectable, currency, price_minor, created_at, updated_at FROM products`
 	args := []any{}
 	if status != "" {
 		args = append(args, strings.ToUpper(status))
@@ -260,26 +310,37 @@ func (r *repository) listProducts(ctx context.Context, limit, offset int, status
 
 func (r *repository) upsertProduct(ctx context.Context, product Product) (Product, error) {
 	product.Status = activeStatus(product.Status)
+	product.Currency = normalizeCurrency(product.Currency)
+	if product.PriceMinor < 0 {
+		return Product{}, errInvalid
+	}
 	if product.ID == "" || product.ServiceID == "" || product.Name == "" {
 		return Product{}, errInvalid
 	}
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO products (id, service_id, name, description, status, is_selectable)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO products (id, service_id, name, description, status, is_selectable, currency, price_minor)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 		ON CONFLICT (id) DO UPDATE SET
 			service_id = EXCLUDED.service_id,
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			status = EXCLUDED.status,
 			is_selectable = EXCLUDED.is_selectable,
+			currency = EXCLUDED.currency,
+			price_minor = EXCLUDED.price_minor,
 			updated_at = now()
-		RETURNING id, service_id, name, description, status, is_selectable, created_at, updated_at
-	`, product.ID, product.ServiceID, product.Name, product.Description, product.Status, product.IsSelectable)
-	return scanProduct(row)
+		RETURNING id, service_id, name, description, status, is_selectable, currency, price_minor, created_at, updated_at
+	`, product.ID, product.ServiceID, product.Name, product.Description, product.Status, product.IsSelectable, product.Currency, product.PriceMinor)
+	result, err := scanProduct(row)
+	if err != nil {
+		return Product{}, err
+	}
+	_ = r.refreshPlanPricesForProduct(ctx, result.ID)
+	return result, nil
 }
 
 func (r *repository) getProduct(ctx context.Context, id string) (Product, error) {
-	product, err := scanProduct(r.db.QueryRowContext(ctx, `SELECT id, service_id, name, description, status, is_selectable, created_at, updated_at FROM products WHERE id = $1`, id))
+	product, err := scanProduct(r.db.QueryRowContext(ctx, `SELECT id, service_id, name, description, status, is_selectable, currency, price_minor, created_at, updated_at FROM products WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Product{}, errNotFound
 	}
@@ -291,7 +352,7 @@ func (r *repository) setProductStatus(ctx context.Context, id string, status str
 		UPDATE products
 		SET status = $2, updated_at = now()
 		WHERE id = $1
-		RETURNING id, service_id, name, description, status, is_selectable, created_at, updated_at
+		RETURNING id, service_id, name, description, status, is_selectable, currency, price_minor, created_at, updated_at
 	`, id, activeStatus(status)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Product{}, errNotFound
@@ -325,12 +386,12 @@ func (r *repository) deleteProduct(ctx context.Context, id string) error {
 
 func scanFeature(row interface{ Scan(...any) error }) (ProductFeature, error) {
 	var feature ProductFeature
-	err := row.Scan(&feature.ID, &feature.ProductID, &feature.ServiceID, &feature.FeatureKey, &feature.Name, &feature.Description, &feature.Status, &feature.IsSelectable, &feature.SubscriptionControlled, &feature.Metadata, &feature.CreatedAt, &feature.UpdatedAt)
+	err := row.Scan(&feature.ID, &feature.ProductID, &feature.ServiceID, &feature.FeatureKey, &feature.Name, &feature.Description, &feature.Status, &feature.IsSelectable, &feature.SubscriptionControlled, &feature.Currency, &feature.BasePriceMinor, &feature.Metadata, &feature.CreatedAt, &feature.UpdatedAt)
 	return feature, err
 }
 
 func (r *repository) listFeatures(ctx context.Context, limit, offset int, productID string) ([]ProductFeature, error) {
-	query := `SELECT f.id, f.product_id, p.service_id, f.feature_key, f.name, f.description, f.status, f.is_selectable, f.subscription_controlled, f.metadata, f.created_at, f.updated_at FROM product_features f JOIN products p ON p.id = f.product_id`
+	query := `SELECT f.id, f.product_id, p.service_id, f.feature_key, f.name, f.description, f.status, f.is_selectable, f.subscription_controlled, f.currency, f.base_price_minor, f.metadata, f.created_at, f.updated_at FROM product_features f JOIN products p ON p.id = f.product_id`
 	args := []any{}
 	if productID != "" {
 		args = append(args, productID)
@@ -361,6 +422,15 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 		feature.FeatureKey = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(feature.Name), " ", "."))
 	}
 	if feature.ID == "" || feature.ProductID == "" || feature.FeatureKey == "" || feature.Name == "" {
+		return ProductFeature{}, errInvalid
+	}
+	if feature.Currency == "" {
+		feature.Currency = "GBP"
+	}
+	if feature.Currency != "GBP" && feature.Currency != "Points" {
+		return ProductFeature{}, errInvalid
+	}
+	if feature.BasePriceMinor < 0 {
 		return ProductFeature{}, errInvalid
 	}
 	if len(feature.Metadata) == 0 {
@@ -397,8 +467,8 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 	}
 	row := r.db.QueryRowContext(ctx, `
 		WITH upserted AS (
-			INSERT INTO product_features (id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, metadata)
-			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb
+			INSERT INTO product_features (id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, currency, base_price_minor, metadata)
+			SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb
 			WHERE EXISTS (SELECT 1 FROM products WHERE id = $2 AND status = 'ACTIVE')
 			ON CONFLICT (id) DO UPDATE SET
 				product_id = EXCLUDED.product_id,
@@ -408,14 +478,16 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 				status = EXCLUDED.status,
 				is_selectable = EXCLUDED.is_selectable,
 				subscription_controlled = EXCLUDED.subscription_controlled,
+				currency = EXCLUDED.currency,
+				base_price_minor = EXCLUDED.base_price_minor,
 				metadata = EXCLUDED.metadata,
 				updated_at = now()
-			RETURNING id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, metadata, created_at, updated_at
+			RETURNING id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, currency, base_price_minor, metadata, created_at, updated_at
 		)
-		SELECT u.id, u.product_id, p.service_id, u.feature_key, u.name, u.description, u.status, u.is_selectable, u.subscription_controlled, u.metadata, u.created_at, u.updated_at
+		SELECT u.id, u.product_id, p.service_id, u.feature_key, u.name, u.description, u.status, u.is_selectable, u.subscription_controlled, u.currency, u.base_price_minor, u.metadata, u.created_at, u.updated_at
 		FROM upserted u
 		JOIN products p ON p.id = u.product_id
-	`, feature.ID, feature.ProductID, feature.FeatureKey, feature.Name, feature.Description, feature.Status, feature.IsSelectable, feature.SubscriptionControlled, []byte(feature.Metadata))
+	`, feature.ID, feature.ProductID, feature.FeatureKey, feature.Name, feature.Description, feature.Status, feature.IsSelectable, feature.SubscriptionControlled, feature.Currency, feature.BasePriceMinor, []byte(feature.Metadata))
 	result, err := scanFeature(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errInvalid
@@ -425,7 +497,7 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 
 func (r *repository) getFeature(ctx context.Context, id string) (ProductFeature, error) {
 	feature, err := scanFeature(r.db.QueryRowContext(ctx, `
-		SELECT f.id, f.product_id, p.service_id, f.feature_key, f.name, f.description, f.status, f.is_selectable, f.subscription_controlled, f.metadata, f.created_at, f.updated_at
+		SELECT f.id, f.product_id, p.service_id, f.feature_key, f.name, f.description, f.status, f.is_selectable, f.subscription_controlled, f.currency, f.base_price_minor, f.metadata, f.created_at, f.updated_at
 		FROM product_features f JOIN products p ON p.id = f.product_id
 		WHERE f.id = $1 OR f.feature_key = $1
 	`, id))
@@ -440,9 +512,9 @@ func (r *repository) setFeatureStatus(ctx context.Context, id string, status str
 		WITH updated AS (
 			UPDATE product_features SET status = $2, updated_at = now()
 			WHERE id = $1 OR feature_key = $1
-			RETURNING id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, metadata, created_at, updated_at
+			RETURNING id, product_id, feature_key, name, description, status, is_selectable, subscription_controlled, currency, base_price_minor, metadata, created_at, updated_at
 		)
-		SELECT u.id, u.product_id, p.service_id, u.feature_key, u.name, u.description, u.status, u.is_selectable, u.subscription_controlled, u.metadata, u.created_at, u.updated_at
+		SELECT u.id, u.product_id, p.service_id, u.feature_key, u.name, u.description, u.status, u.is_selectable, u.subscription_controlled, u.currency, u.base_price_minor, u.metadata, u.created_at, u.updated_at
 		FROM updated u
 		JOIN products p ON p.id = u.product_id
 	`, id, activeStatus(status)))
@@ -614,9 +686,6 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 	if plan.BillingCycle == "" {
 		plan.BillingCycle = "month"
 	}
-	if plan.TargetUserLevel <= 0 {
-		plan.TargetUserLevel = 100
-	}
 	previous, previousErr := r.getPlan(ctx, plan.ID)
 	row := r.db.QueryRowContext(ctx, `
 		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level)
@@ -771,7 +840,7 @@ func (r *repository) listPlanFeatures(ctx context.Context, planID string) ([]Pla
 
 func (r *repository) listPlanProducts(ctx context.Context, planID string) ([]PlanProduct, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT pp.id, pp.plan_id, pp.product_id, p.service_id, pp.created_at
+		SELECT pp.id, pp.plan_id, pp.product_id, p.service_id, pp.price_adjustment_percent, pp.created_at
 		FROM plan_products pp
 		JOIN products p ON p.id = pp.product_id
 		WHERE pp.plan_id = $1
@@ -784,7 +853,7 @@ func (r *repository) listPlanProducts(ctx context.Context, planID string) ([]Pla
 	products := []PlanProduct{}
 	for rows.Next() {
 		var product PlanProduct
-		if err := rows.Scan(&product.ID, &product.PlanID, &product.ProductID, &product.ServiceID, &product.CreatedAt); err != nil {
+		if err := rows.Scan(&product.ID, &product.PlanID, &product.ProductID, &product.ServiceID, &product.PriceAdjustmentPercent, &product.CreatedAt); err != nil {
 			return nil, err
 		}
 		products = append(products, product)
@@ -855,7 +924,7 @@ func (r *repository) replacePlanFeatures(ctx context.Context, planID string, fea
 	return r.listPlanFeatures(ctx, planID)
 }
 
-func (r *repository) replacePlanProducts(ctx context.Context, planID string, productIDs []string) ([]PlanProduct, error) {
+func (r *repository) replacePlanProducts(ctx context.Context, planID string, products []PlanProduct) ([]PlanProduct, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -869,7 +938,8 @@ func (r *repository) replacePlanProducts(ctx context.Context, planID string, pro
 		return nil, errNotFound
 	}
 	seen := map[string]bool{}
-	for _, productID := range productIDs {
+	for _, product := range products {
+		productID := product.ProductID
 		if productID == "" {
 			return nil, errInvalid
 		}
@@ -888,15 +958,224 @@ func (r *repository) replacePlanProducts(ctx context.Context, planID string, pro
 	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_products WHERE plan_id = $1`, planID); err != nil {
 		return nil, err
 	}
-	for _, productID := range productIDs {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO plan_products (plan_id, product_id) VALUES ($1, $2)`, planID, productID); err != nil {
+	for _, product := range products {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO plan_products (plan_id, product_id, price_adjustment_percent) VALUES ($1, $2, $3)`, planID, product.ProductID, product.PriceAdjustmentPercent); err != nil {
 			return nil, err
 		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	if quote, err := r.quotePlans(ctx, []string{planID}, "month"); err == nil {
+		_, _ = r.db.ExecContext(ctx, `UPDATE plans SET price_minor = $2, updated_at = now() WHERE id = $1`, planID, quote.TotalMinor)
+	}
 	return r.listPlanProducts(ctx, planID)
+}
+
+func (r *repository) refreshPlanPricesForProduct(ctx context.Context, productID string) error {
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT plan_id FROM plan_products WHERE product_id = $1`, productID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var planID string
+		if err := rows.Scan(&planID); err != nil {
+			return err
+		}
+		quote, err := r.quotePlans(ctx, []string{planID}, "month")
+		if err != nil {
+			return err
+		}
+		if _, err := r.db.ExecContext(ctx, `UPDATE plans SET price_minor = $2, updated_at = now() WHERE id = $1`, planID, quote.TotalMinor); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
+}
+
+func (r *repository) quotePlans(ctx context.Context, planIDs []string, billingPeriod string) (SubscriptionQuote, error) {
+	if billingPeriod == "" {
+		billingPeriod = "month"
+	}
+	if billingPeriod != "month" && billingPeriod != "year" {
+		return SubscriptionQuote{}, errInvalid
+	}
+	cleanPlanIDs := []string{}
+	seenPlans := map[string]bool{}
+	for _, planID := range planIDs {
+		planID = strings.TrimSpace(planID)
+		if planID == "" || seenPlans[planID] {
+			continue
+		}
+		seenPlans[planID] = true
+		cleanPlanIDs = append(cleanPlanIDs, planID)
+	}
+	if len(cleanPlanIDs) == 0 {
+		return SubscriptionQuote{}, errInvalid
+	}
+	quote := SubscriptionQuote{Currency: "GBP", BillingPeriod: billingPeriod, Products: []QuoteProduct{}, Features: []QuoteFeature{}, SkippedDuplicateFeatures: []QuoteFeature{}}
+	seenFeatures := map[string]bool{}
+	seenProducts := map[string]bool{}
+	for _, planID := range cleanPlanIDs {
+		plan, err := r.getPlan(ctx, planID)
+		if err != nil {
+			return SubscriptionQuote{}, err
+		}
+		if plan.Currency != "" {
+			quote.Currency = plan.Currency
+		}
+		planProductStart := len(quote.Products)
+		planTotal := 0
+		for _, planProduct := range plan.Products {
+			product, err := r.getProduct(ctx, planProduct.ProductID)
+			if err != nil {
+				return SubscriptionQuote{}, err
+			}
+			if product.Currency != "" {
+				quote.Currency = product.Currency
+			}
+			features, err := r.listFeatures(ctx, 100, 0, planProduct.ProductID)
+			if err != nil {
+				return SubscriptionQuote{}, err
+			}
+			productBase := product.PriceMinor
+			productAlreadyPriced := seenProducts[product.ID]
+			for _, feature := range features {
+				if feature.Status != "ACTIVE" {
+					continue
+				}
+				quoteFeature := QuoteFeature{
+					FeatureID:      feature.ID,
+					FeatureName:    feature.Name,
+					ProductID:      planProduct.ProductID,
+					ProductName:    product.Name,
+					BasePriceMinor: feature.BasePriceMinor,
+					Currency:       feature.Currency,
+				}
+				if seenFeatures[feature.ID] {
+					quote.SkippedDuplicateFeatures = append(quote.SkippedDuplicateFeatures, quoteFeature)
+					continue
+				}
+				seenFeatures[feature.ID] = true
+				quote.Features = append(quote.Features, quoteFeature)
+			}
+			if productAlreadyPriced {
+				quote.DuplicateFeatureSavingsMinor += productBase
+				continue
+			}
+			seenProducts[product.ID] = true
+			adjustment := int(math.Round(float64(productBase) * planProduct.PriceAdjustmentPercent / 100))
+			productTotal := productBase + adjustment
+			if productTotal < 0 {
+				productTotal = 0
+				adjustment = -productBase
+			}
+			quote.Products = append(quote.Products, QuoteProduct{
+				PlanID:            plan.ID,
+				PlanName:          plan.Name,
+				ProductID:         product.ID,
+				ProductName:       product.Name,
+				BaseMinor:         productBase,
+				AdjustmentPercent: planProduct.PriceAdjustmentPercent,
+				AdjustmentMinor:   adjustment,
+				TotalMinor:        productTotal,
+			})
+			quote.SubtotalMinor += productBase
+			quote.AdjustmentMinor += adjustment
+			quote.TotalMinor += productTotal
+			planTotal += productTotal
+		}
+		if len(plan.Products) == 0 {
+			productTotals := map[string]int{}
+			productNames := map[string]string{}
+			productSeen := map[string]bool{}
+			for _, planFeature := range plan.Features {
+				feature, err := r.getFeature(ctx, planFeature.FeatureID)
+				if err != nil {
+					return SubscriptionQuote{}, err
+				}
+				if feature.Status != "ACTIVE" {
+					continue
+				}
+				product, err := r.getProduct(ctx, feature.ProductID)
+				if err != nil {
+					return SubscriptionQuote{}, err
+				}
+				if product.Currency != "" {
+					quote.Currency = product.Currency
+				}
+				quoteFeature := QuoteFeature{
+					FeatureID:      feature.ID,
+					FeatureName:    feature.Name,
+					ProductID:      feature.ProductID,
+					ProductName:    product.Name,
+					BasePriceMinor: feature.BasePriceMinor,
+					Currency:       feature.Currency,
+				}
+				if seenFeatures[feature.ID] {
+					quote.DuplicateFeatureSavingsMinor += feature.BasePriceMinor
+					quote.SkippedDuplicateFeatures = append(quote.SkippedDuplicateFeatures, quoteFeature)
+					continue
+				}
+				seenFeatures[feature.ID] = true
+				if !productSeen[feature.ProductID] && !seenProducts[feature.ProductID] {
+					productTotals[feature.ProductID] += product.PriceMinor
+					productSeen[feature.ProductID] = true
+					seenProducts[feature.ProductID] = true
+				} else if !productSeen[feature.ProductID] {
+					quote.DuplicateFeatureSavingsMinor += product.PriceMinor
+					productSeen[feature.ProductID] = true
+				}
+				productNames[feature.ProductID] = product.Name
+				quote.Features = append(quote.Features, quoteFeature)
+			}
+			productIDs := make([]string, 0, len(productTotals))
+			for productID := range productTotals {
+				productIDs = append(productIDs, productID)
+			}
+			sort.Strings(productIDs)
+			for _, productID := range productIDs {
+				productTotal := productTotals[productID]
+				quote.Products = append(quote.Products, QuoteProduct{
+					PlanID:      plan.ID,
+					PlanName:    plan.Name,
+					ProductID:   productID,
+					ProductName: productNames[productID],
+					BaseMinor:   productTotal,
+					TotalMinor:  productTotal,
+				})
+				quote.SubtotalMinor += productTotal
+				quote.TotalMinor += productTotal
+				planTotal += productTotal
+			}
+		}
+		if planTotal == 0 && plan.PriceMinor > 0 && len(quote.Products) > planProductStart {
+			quote.Products[planProductStart].BaseMinor = plan.PriceMinor
+			quote.Products[planProductStart].TotalMinor = plan.PriceMinor
+			quote.SubtotalMinor += plan.PriceMinor
+			quote.TotalMinor += plan.PriceMinor
+		}
+	}
+	if billingPeriod == "year" {
+		quote.SubtotalMinor *= 12
+		quote.AdjustmentMinor *= 12
+		quote.DuplicateFeatureSavingsMinor *= 12
+		quote.TotalMinor *= 12
+		for index := range quote.Products {
+			quote.Products[index].BaseMinor *= 12
+			quote.Products[index].AdjustmentMinor *= 12
+			quote.Products[index].TotalMinor *= 12
+		}
+		for index := range quote.Features {
+			quote.Features[index].BasePriceMinor *= 12
+		}
+		for index := range quote.SkippedDuplicateFeatures {
+			quote.SkippedDuplicateFeatures[index].BasePriceMinor *= 12
+		}
+	}
+	return quote, nil
 }
 
 func (r *repository) listSubscriptions(ctx context.Context, ownerID string, limit, offset int) ([]Subscription, error) {

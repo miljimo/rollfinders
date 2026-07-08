@@ -76,6 +76,7 @@ func NewWithCleanup(ctx context.Context, opts Options) (http.Handler, func()) {
 	mux.HandleFunc("POST /v1/product-features/{feature_key}/disable", s.disableFeature)
 	mux.HandleFunc("GET /v1/plans", s.listPlans)
 	mux.HandleFunc("GET /v1/plans/billing-cycles", s.listBillingCycles)
+	mux.HandleFunc("POST /v1/plans/quote", s.quotePlans)
 	mux.HandleFunc("POST /v1/plans", s.createPlan)
 	mux.HandleFunc("GET /v1/plans/{plan_key}", s.getPlan)
 	mux.HandleFunc("PUT /v1/plans/{plan_key}", s.updatePlan)

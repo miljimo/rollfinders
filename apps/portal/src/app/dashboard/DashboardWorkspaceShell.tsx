@@ -1891,7 +1891,14 @@ function FounderAnalyticsPanel({
   const countrySignalSummary = countrySignals.length
     ? countrySignals.map((country) => `${country.countryName}: ${country.visitorCount} visitors / ${country.eventCount} events`).join(" · ")
     : "Unknown";
-  const analyticsStats: StatsPanelItem[] = [
+  const analyticsStats: Array<{
+    icon: ReactNode;
+    iconTone: "blue" | "orange" | "teal" | "violet" | "neutral";
+    id: string;
+    indicator: { label: string; value: number };
+    label: string;
+    value: number;
+  }> = [
     {
       icon: <Globe2 size={34} aria-hidden />,
       iconTone: "teal",
@@ -1961,7 +1968,40 @@ function FounderAnalyticsPanel({
         </Button>
       </div>
 
-      <StatsPanel className="mt-5 hidden md:block" items={analyticsStats} />
+      <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        {analyticsStats.map((item) => (
+          <CompactAnalyticsMetric
+            key={item.id}
+            icon={item.icon}
+            iconTone={item.iconTone}
+            indicator={item.indicator}
+            label={item.label}
+            value={item.value}
+          />
+        ))}
+      </div>
+
+      <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
+        <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+          <h3 className="text-base font-black text-slate-950">Activity Signals</h3>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <AnalyticsSignal label="Recent logins by role" value={loggedInByRole} />
+            <AnalyticsSignal label="Country attribution" value={countrySignalSummary} />
+            <AnalyticsSignal label="Supply" value={`${summary?.supply.academiesCreated ?? 0} academies / ${summary?.supply.openMatsCreated ?? 0} open mats / ${summary?.supply.coursesCreated ?? 0} courses`} />
+            <AnalyticsSignal label="Current inventory" value={`${academyCount.toLocaleString()} academies / ${verifiedAcademyCount.toLocaleString()} verified / ${activeEventCount.toLocaleString()} active events / ${userCount.toLocaleString()} users`} />
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+          <h3 className="text-base font-black text-slate-950">Tracked Events</h3>
+          <div className="mt-4 space-y-3 text-sm font-semibold text-slate-600">
+            <AnalyticsSignal label="Search demand" value={`${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0) + (summary?.search.courseSearches ?? 0)} searches`} compact />
+            <AnalyticsSignal label="Profile engagement" value={`${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0) + (summary?.profile.courseViews ?? 0)} views`} compact />
+            <AnalyticsSignal label="Claim funnel" value={`${summary?.claim.claimStarts ?? 0} starts / ${summary?.claim.claimSubmissions ?? 0} submitted`} compact />
+            <AnalyticsSignal label="Platform admin supply" value={platformAdminAcademyCount.toLocaleString()} compact />
+          </div>
+        </div>
+      </div>
 
       <Table
         className="mt-5"
@@ -1993,6 +2033,50 @@ function FounderAnalyticsPanel({
         />
       </div>
     </section>
+  );
+}
+
+function CompactAnalyticsMetric({
+  icon,
+  iconTone,
+  indicator,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  iconTone: "blue" | "orange" | "teal" | "violet" | "neutral";
+  indicator: { label: string; value: number };
+  label: string;
+  value: number;
+}) {
+  const iconClass = {
+    blue: "bg-blue-50 text-blue-600",
+    orange: "bg-orange-50 text-orange-600",
+    teal: "bg-teal-50 text-teal-700",
+    violet: "bg-violet-50 text-violet-600",
+    neutral: "bg-stone-100 text-slate-600",
+  }[iconTone];
+
+  return (
+    <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className={clsx("flex size-12 shrink-0 items-center justify-center rounded-lg", iconClass)}>{icon}</div>
+        <div className="min-w-0">
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">{label}</p>
+          <p className="mt-1 text-3xl font-black text-slate-950">{value.toLocaleString()}</p>
+          <p className="mt-1 text-xs font-bold text-slate-500">{indicator.value.toLocaleString()} {indicator.label}</p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function AnalyticsSignal({ compact = false, label, value }: { compact?: boolean; label: string; value: string }) {
+  return (
+    <div className={compact ? "flex items-start justify-between gap-4 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0" : "rounded-lg bg-slate-50 p-3"}>
+      <p className="text-xs font-black uppercase tracking-normal text-slate-500">{label}</p>
+      <p className={compact ? "max-w-[65%] text-right text-sm font-black text-slate-950" : "mt-1 text-sm font-black text-slate-950"}>{value}</p>
+    </div>
   );
 }
 

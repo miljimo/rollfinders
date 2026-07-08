@@ -195,6 +195,7 @@ func serviceDefinitions() []ServiceDefinition {
 			{Method: http.MethodPost, Path: SubscriptionProductFeatureDisable, Permission: PermissionSubscriptionProductManage, ResourceType: ResourceFeature, ResourceIDParam: ParamFeatureKey},
 			{Method: http.MethodGet, Path: SubscriptionPlans, Permission: PermissionSubscriptionPlanRead},
 			{Method: http.MethodGet, Path: SubscriptionPlanBillingCycles, Permission: PermissionSubscriptionPlanRead},
+			{Method: http.MethodPost, Path: SubscriptionPlanQuote, Permission: PermissionSubscriptionPlanRead},
 			{Method: http.MethodPost, Path: SubscriptionPlans, Permission: PermissionSubscriptionPlanManage},
 			{Method: http.MethodGet, Path: SubscriptionPlan, Permission: PermissionSubscriptionPlanRead, ResourceType: ResourcePlan, ResourceIDParam: ParamPlanKey},
 			{Method: http.MethodPut, Path: SubscriptionPlan, Permission: PermissionSubscriptionPlanManage, ResourceType: ResourcePlan, ResourceIDParam: ParamPlanKey},

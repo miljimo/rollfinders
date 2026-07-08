@@ -2,7 +2,7 @@ import { parseAnalyticsPayload } from "./domain";
 import type { AnalyticsPayload } from "./types";
 
 function analyticsServiceBaseURL() {
-  return (process.env.ANALYTICS_SERVICE_BASE_URL ?? "http://localhost:8081").replace(/\/+$/, "");
+  return (process.env.ANALYTICS_SERVICE_BASE_URL ?? "http://localhost:3017").replace(/\/+$/, "");
 }
 
 function analyticsAPIKey() {

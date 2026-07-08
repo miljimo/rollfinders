@@ -22,9 +22,15 @@ CREATE TABLE IF NOT EXISTS subscriptions.products (
     description text NOT NULL DEFAULT '',
     status text NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE', 'RETIRED')),
     is_selectable boolean NOT NULL DEFAULT true,
+    currency text NOT NULL DEFAULT 'GBP' CHECK (currency IN ('GBP', 'Points')),
+    price_minor integer NOT NULL DEFAULT 0 CHECK (price_minor >= 0),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE subscriptions.products
+    ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'GBP',
+    ADD COLUMN IF NOT EXISTS price_minor integer NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS subscriptions.product_features (
     id text PRIMARY KEY DEFAULT gen_random_uuid()::text,

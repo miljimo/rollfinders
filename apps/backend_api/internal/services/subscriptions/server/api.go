@@ -395,7 +395,13 @@ type replacePlanFeaturesRequest struct {
 }
 
 type replacePlanProductsRequest struct {
-	ProductIDs []string `json:"product_ids"`
+	ProductIDs []string      `json:"product_ids"`
+	Products   []PlanProduct `json:"products"`
+}
+
+type quotePlansRequest struct {
+	PlanIDs       []string `json:"plan_ids"`
+	BillingPeriod string   `json:"billing_period"`
 }
 
 func (s *server) replacePlanFeatures(w http.ResponseWriter, r *http.Request) {
@@ -430,7 +436,11 @@ func (s *server) replacePlanProducts(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
 		return
 	}
-	result, err := s.repo.replacePlanProducts(r.Context(), r.PathValue("plan_key"), req.ProductIDs)
+	products := req.Products
+	for _, id := range req.ProductIDs {
+		products = append(products, PlanProduct{ProductID: id})
+	}
+	result, err := s.repo.replacePlanProducts(r.Context(), r.PathValue("plan_key"), products)
 	if err != nil {
 		s.handleError(w, r, err, "plan products replace failed")
 		return
@@ -438,6 +448,23 @@ func (s *server) replacePlanProducts(w http.ResponseWriter, r *http.Request) {
 	plan, _ := s.repo.getPlan(r.Context(), r.PathValue("plan_key"))
 	plan.Products = result
 	writeJSON(w, http.StatusOK, map[string]any{"plan": plan, "products": result})
+}
+
+func (s *server) quotePlans(w http.ResponseWriter, r *http.Request) {
+	if !s.requireRepository(w, r) {
+		return
+	}
+	var req quotePlansRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid_json", "Request body must be valid JSON.")
+		return
+	}
+	quote, err := s.repo.quotePlans(r.Context(), req.PlanIDs, req.BillingPeriod)
+	if err != nil {
+		s.handleError(w, r, err, "plan quote failed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"quote": quote})
 }
 
 func (s *server) listOwnerPolicies(w http.ResponseWriter, r *http.Request) {
@@ -985,6 +1012,21 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 		if err := s.repo.ensureActorCanUsePlan(r.Context(), checkoutActorID, checkoutPlan); err != nil {
 			s.handleError(w, r, err, "checkout selected plan level check failed")
 			return
+		}
+	}
+	quotePlanIDs := make([]string, 0, len(checkoutPlans))
+	for _, checkoutPlan := range checkoutPlans {
+		quotePlanIDs = append(quotePlanIDs, checkoutPlan.ID)
+	}
+	if quote, err := s.repo.quotePlans(r.Context(), quotePlanIDs, req.BillingPeriod); err == nil {
+		planTotals := map[string]int{}
+		for _, product := range quote.Products {
+			planTotals[product.PlanID] += product.TotalMinor
+		}
+		for index := range checkoutPlans {
+			if total, ok := planTotals[checkoutPlans[index].ID]; ok {
+				checkoutPlans[index].PriceMinor = total
+			}
 		}
 	}
 	changeType := inferPlanChangeType(fromPlan, toPlan)

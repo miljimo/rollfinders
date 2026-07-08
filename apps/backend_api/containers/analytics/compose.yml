@@ -20,6 +20,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    ports:
+      - "127.0.0.1:${ANALYTICS_SERVICE_PORT:-3017}:8080"
     networks:
       - backend
       - app_database

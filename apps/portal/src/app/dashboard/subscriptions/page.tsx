@@ -61,8 +61,9 @@ import {
   updatePlanAction,
   updateProductAction,
 } from "./actions";
-import { FeaturePermissionFields } from "./FeaturePermissionFields";
-import { PlanProductFields } from "./PlanProductFields";
+import { PlanFeatureEditFields } from "./PlanFeatureEditFields";
+import { PlanFeatureFields } from "./PlanFeatureFields";
+import { ProductFeatureFields } from "./ProductFeatureFields";
 import { SubscriptionCategoryCombobox } from "./SubscriptionCategoryCombobox";
 import { SubscriptionMarketplaceGrid, type SubscriptionMarketplaceGridItem } from "./SubscriptionMarketplaceGrid";
 import { SubscriptionSubmitButton } from "./SubscriptionSubmitButton";
@@ -80,8 +81,8 @@ type SubscriptionView = "overview" | "plans" | "products" | "features" | "entitl
 const subscriptionSections: { href: string; icon: SidePanelItem["icon"]; label: string; view: SubscriptionView }[] = [
   { href: "/dashboard/subscriptions", icon: "dashboard", label: "Subscription Overview", view: "overview" },
   { href: "/dashboard/subscriptions?subscriptionsView=plans", icon: "plans", label: "Plans", view: "plans" },
-  { href: "/dashboard/subscriptions?subscriptionsView=products", icon: "products", label: "Products", view: "products" },
   { href: "/dashboard/subscriptions?subscriptionsView=features", icon: "features", label: "Features", view: "features" },
+  { href: "/dashboard/subscriptions?subscriptionsView=products", icon: "products", label: "Products", view: "products" },
   { href: "/dashboard/subscriptions?subscriptionsView=entitlements", icon: "entitlements", label: "Entitlement Diagnostics", view: "entitlements" },
   { href: "/dashboard/subscriptions?subscriptionsView=subscribers", icon: "subscribers", label: "Active Subscriptions", view: "subscribers" },
   { href: "/dashboard/subscriptions?subscriptionsView=billing-events", icon: "transactions", label: "Billings", view: "billing-events" },
@@ -129,7 +130,7 @@ function viewTitle(view: SubscriptionView) {
 }
 
 function viewDescription(view: SubscriptionView) {
-  if (view === "plans") return "Create commercial plans and choose which product features each plan can grant.";
+  if (view === "plans") return "Create commercial plans and choose which plan features each plan can grant.";
   if (view === "products") return "Manage the products and features that can be packaged into subscription plans.";
   if (view === "features") return "Manage product-level feature flags and privileges that plans can include.";
   if (view === "entitlements") return "Internal diagnostic view for effective access grants loaded for the selected application.";
@@ -309,49 +310,49 @@ export default async function SubscriptionsDashboardPage({
       {dialog === "new-plan" ? (
         <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Create a subscription plan without leaving the dashboard." title="New Plan">
           <div className="mt-5">
-            <CreatePlanForm billingCycles={billingCycles} importPlans={plans} products={products} roles={roles} />
+            <CreatePlanForm billingCycles={billingCycles} features={features} importPlans={plans} roles={roles} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "edit-plan" && selectedPlan ? (
         <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Update this subscription plan." title="Edit Plan">
           <div className="mt-5">
-            <PlanForm action={updatePlanAction} billingCycles={billingCycles} buttonLabel="Update" importPlans={plans} pendingLabel="Updating..." plan={selectedPlan} products={products} roles={roles} />
+            <PlanForm action={updatePlanAction} billingCycles={billingCycles} buttonLabel="Update" features={features} importPlans={plans} pendingLabel="Updating..." plan={selectedPlan} roles={roles} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "plan-details" && selectedPlan ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Review this plan's price, visibility, products, and feature grants." title="Plan Details">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Review this plan's price, visibility, and feature grants." title="Plan Details">
           <div className="mt-5">
             <PlanDetailsPanel features={features} plan={selectedPlan} products={products} roles={roles} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "new-product" ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=products" description="Create a subscription product without leaving the dashboard." title="New Product">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=products" description="Create products from service features and permissions. You can define multiple products for a single service." title="New Product">
           <div className="mt-5">
-            <CreateProductForm features={assignableFeatures} />
+            <CreateProductForm assignableFeatures={assignableFeatures} productFeatures={[]} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "edit-product" && selectedProduct ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=products" description="Update this subscription product." title="Edit Product">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=products" description="Create products from service features and permissions. You can define multiple products for a single service." title="Edit Product">
           <div className="mt-5">
-            <ProductForm action={updateProductAction} buttonLabel="Save product" product={selectedProduct} features={assignableFeatures} />
+            <ProductForm action={updateProductAction} assignableFeatures={assignableFeatures} buttonLabel="Save product" product={selectedProduct} productFeatures={features.filter((feature) => feature.product_id === selectedProduct.id)} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "new-feature" ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=features" description="Create a product feature without leaving the dashboard." title="New Feature">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=features" description="Create a priced feature from an existing product." title="New Plan Feature">
           <div className="mt-5">
-            <CreateFeatureForm assignableFeatures={assignableFeatures} products={products} />
+            <CreateFeatureForm features={features} products={products} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "edit-feature" && selectedFeature ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=features" description="Update this product feature." title="Edit Feature">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=features" description="Update this priced plan feature." title="Edit Plan Feature">
           <div className="mt-5">
-            <FeatureForm action={updateFeatureAction} assignableFeatures={assignableFeatures} buttonLabel="Save feature" feature={selectedFeature} products={products} />
+            <FeatureForm action={updateFeatureAction} buttonLabel="Save plan feature" feature={selectedFeature} features={features} products={products} />
           </div>
         </DialogShell>
       ) : null}
@@ -630,7 +631,7 @@ function filterPlans(plans: SubscriptionPlan[], search: string) {
 function filterProducts(products: SubscriptionProduct[], search: string) {
   const normalized = search.trim().toLowerCase();
   if (!normalized) return products;
-  return products.filter((product) => [product.id, product.service_id, product.name, product.description, product.status].join(" ").toLowerCase().includes(normalized));
+  return products.filter((product) => [product.id, product.service_id, product.name, product.description, product.status, product.currency, product.price_minor].join(" ").toLowerCase().includes(normalized));
 }
 
 function filterFeatures(features: SubscriptionFeature[], search: string) {
@@ -1109,7 +1110,13 @@ function marketplaceFeatureLabels(plan: SubscriptionPlan, features: Subscription
 }
 
 function moneyMinor(amount: number, currency: string) {
+  if (currency === "Points") return `${amount.toLocaleString("en-GB")} Points`;
   return `${currency || "GBP"} ${(amount / 100).toFixed(0)}`;
+}
+
+function moneyMinorPrecise(amount: number, currency: string) {
+  if (currency === "Points") return `${amount.toLocaleString("en-GB")} Points`;
+  return `${currency || "GBP"} ${(amount / 100).toFixed(2)}`;
 }
 
 function lowestRoleLevel(roles: AuthorisationRole[]) {
@@ -1125,11 +1132,18 @@ function currentUserLevel(roles: AuthorisationRole[], userRole: string) {
   if (normalized === "platform_admin") return 900;
   if (normalized === "academy_owner") return 500;
   if (normalized === "academy_admin") return 400;
-  return 100;
+  return lowestRoleLevel(roles);
 }
 
-function planTargetLevel(plan: SubscriptionPlan) {
-  return Number.isFinite(plan.target_user_level) && plan.target_user_level > 0 ? plan.target_user_level : 100;
+function roleNameForLevel(roles: AuthorisationRole[], level: number) {
+  return roles
+    .slice()
+    .sort((left, right) => left.level - right.level || left.name.localeCompare(right.name))
+    .find((role) => role.level === level)?.name;
+}
+
+function planTargetLevel(plan: SubscriptionPlan, roles: AuthorisationRole[]) {
+  return Number.isFinite(plan.target_user_level) && plan.target_user_level > 0 ? plan.target_user_level : lowestRoleLevel(roles);
 }
 
 function unavailableSubscriptionPlanStatus(status: string) {
@@ -1220,17 +1234,18 @@ function SubscriptionMarketplace({
   const selectableSelectedPlanIds = selectedPlanIds.filter((planId) => !activePlanIds.has(planId));
   const subtotal = selectedPlans.reduce((total, plan) => total + plan.price_minor, 0);
   const currency = selectedPlans[0]?.currency ?? sortedPlans[0]?.currency ?? "GBP";
-  const categories = ["All", ...Array.from(new Set(sortedPlans.map((plan) => marketplaceCategory(plan, products))))];
+  const levelVisiblePlans = sortedPlans.filter((plan) => activePlanIds.has(plan.id) || actorLevel >= planTargetLevel(plan, roles));
+  const categories = ["All", ...Array.from(new Set(levelVisiblePlans.map((plan) => marketplaceCategory(plan, products))))];
   const continuePlan = selectedPlans[0];
   const checkoutHref = `/dashboard/subscriptions/checkout?${new URLSearchParams({
     selectedPlans: selectableSelectedPlanIds.join(","),
   }).toString()}`;
   const selectedCategory = categories.includes(selectedMarketplaceCategory) ? selectedMarketplaceCategory : "All";
-  const visiblePlans = selectedCategory === "All" ? sortedPlans : sortedPlans.filter((plan) => marketplaceCategory(plan, products) === selectedCategory);
+  const visiblePlans = selectedCategory === "All" ? levelVisiblePlans : levelVisiblePlans.filter((plan) => marketplaceCategory(plan, products) === selectedCategory);
   const gridItems: SubscriptionMarketplaceGridItem[] = visiblePlans.map((plan, index) => {
     const selected = highlightedIds.has(plan.id);
     const active = activePlanIds.has(plan.id);
-    const targetLevel = planTargetLevel(plan);
+    const targetLevel = planTargetLevel(plan, roles);
     const badge = active ? "Active" : selected ? "Added" : index === 0 ? "Popular" : "";
     return {
       actionHref: active ? marketplaceRenewHref(plan.id, { billingPeriod: activeBillingPeriod, paymentMode: activePaymentMode }) : marketplaceSelectionHref(plan.id, selectedPlanIds, { billingPeriod: activeBillingPeriod, paymentMode: activePaymentMode }),
@@ -1247,6 +1262,7 @@ function SubscriptionMarketplace({
       priceLabel: moneyMinor(plan.price_minor, plan.currency),
       selected,
       targetLevel,
+      targetLevelName: roleNameForLevel(roles, targetLevel),
       unavailableLabel: active ? "Current Plan" : undefined,
     };
   });
@@ -1707,15 +1723,17 @@ function TargetUserLevelField({ defaultValue, roles }: { defaultValue: string; r
     .slice()
     .sort((left, right) => left.level - right.level || left.name.localeCompare(right.name))
     .filter((role, index, sorted) => sorted.findIndex((item) => item.level === role.level) === index);
-  const selected = options.some((role) => String(role.level) === defaultValue) ? defaultValue : String(lowestRoleLevel(roles));
+  const fallbackLevel = lowestRoleLevel(roles);
+  const selected = options.some((role) => String(role.level) === defaultValue) ? defaultValue : String(fallbackLevel);
   return (
     <label className="grid gap-1 text-sm font-bold text-slate-700">
       Target user level
+      <input type="hidden" name="lowestUserLevel" value={fallbackLevel} />
       <select name="targetUserLevel" defaultValue={selected} className="min-h-11 rounded-md border border-stone-300 bg-white px-3 py-2">
         {options.length ? options.map((role) => (
-          <option key={role.id} value={role.level}>{role.name} and above - level {role.level}</option>
+          <option key={role.id} value={role.level}>Level {role.level} ({role.name})</option>
         )) : (
-          <option value="100">Lowest user level - level 100</option>
+          <option value={fallbackLevel}>Level {fallbackLevel}</option>
         )}
       </select>
       <span className="text-xs font-semibold leading-5 text-slate-500">Only users with this role level or higher can add the plan.</span>
@@ -1753,26 +1771,47 @@ function serviceOptions(features: AssignableUserFeature[]): AutoCompleteTextFiel
     .sort((left, right) => left.label.localeCompare(right.label));
 }
 
-function CreateProductForm({ features }: { features: AssignableUserFeature[] }) {
-  return <ProductForm action={createProductAction} buttonLabel="Create product" features={features} />;
+const productCurrencyOptions: AutoCompleteTextFieldOption[] = [
+  { id: "GBP", label: "GBP", description: "British Pound" },
+  { id: "Points", label: "Points", description: "RollFinders points" },
+];
+
+function CreateProductForm({ assignableFeatures, productFeatures }: { assignableFeatures: AssignableUserFeature[]; productFeatures: SubscriptionFeature[] }) {
+  return <ProductForm action={createProductAction} assignableFeatures={assignableFeatures} buttonLabel="Create product" productFeatures={productFeatures} />;
 }
 
-function ProductForm({ action, buttonLabel, product, features }: { action: (formData: FormData) => void | Promise<void>; buttonLabel: string; product?: SubscriptionProduct; features: AssignableUserFeature[] }) {
-  const options = serviceOptions(features);
+function ProductForm({ action, assignableFeatures, buttonLabel, product, productFeatures }: { action: (formData: FormData) => void | Promise<void>; assignableFeatures: AssignableUserFeature[]; buttonLabel: string; product?: SubscriptionProduct; productFeatures: SubscriptionFeature[] }) {
   return (
     <form action={action} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       {product ? <input type="hidden" name="productId" value={product.id} /> : null}
       <h2 className="text-lg font-black text-slate-950">{product ? "Edit product" : "New product"}</h2>
       <div className="mt-4 grid gap-3">
         <Field name="name" label="Product Name" defaultValue={product?.name ?? ""} />
-        <AutoCompleteTextField
-          emptyMessage="No services found."
-          label="Service"
-          name="serviceId"
-          options={options}
-          placeholder="Search features"
-          selectedId={product?.service_id ?? ""}
-        />
+        <ProductFeatureFields assignableFeatures={assignableFeatures} existingFeatures={productFeatures} selectedServiceId={product?.service_id ?? assignableFeatures[0]?.key ?? ""} />
+        <div className="grid gap-1">
+          <div className="grid items-start gap-3 sm:grid-cols-[10rem_12rem]">
+            <AutoCompleteTextField
+              emptyMessage="No currency found."
+              label="Currency"
+              maxResults={5}
+              name="currency"
+              options={productCurrencyOptions}
+              placeholder="Search currency"
+              selectedId={product?.currency ?? "GBP"}
+            />
+            <label className="grid min-w-0 gap-1 text-sm font-bold text-slate-700">
+              Product monthly price minor
+              <input
+                type="number"
+                min="0"
+                name="priceMinor"
+                defaultValue={String(product?.price_minor ?? 0)}
+                className="min-h-11 w-32 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium focus:border-teal-700 focus:outline-none"
+              />
+            </label>
+          </div>
+          <span className="text-xs font-semibold leading-5 text-slate-500">Minor units, for example GBP 29.00 is 2900.</span>
+        </div>
         <Field name="description" label="Description" defaultValue={product?.description ?? ""} />
         {product ? <StatusField defaultValue={product.status} /> : null}
         <Button type="submit" variant="primary" className="min-h-11 justify-center"><Plus size={18} aria-hidden />{buttonLabel}</Button>
@@ -1781,17 +1820,17 @@ function ProductForm({ action, buttonLabel, product, features }: { action: (form
   );
 }
 
-function CreateFeatureForm({ assignableFeatures, products }: { assignableFeatures: AssignableUserFeature[]; products: SubscriptionProduct[] }) {
-  return <FeatureForm action={createFeatureAction} assignableFeatures={assignableFeatures} buttonLabel="Create feature" products={products} />;
+function CreateFeatureForm({ features, products }: { features: SubscriptionFeature[]; products: SubscriptionProduct[] }) {
+  return <FeatureForm action={createFeatureAction} buttonLabel="Create plan feature" features={features} products={products} />;
 }
 
-function FeatureForm({ action, assignableFeatures, buttonLabel, feature, products }: { action: (formData: FormData) => void | Promise<void>; assignableFeatures: AssignableUserFeature[]; buttonLabel: string; feature?: SubscriptionFeature; products: SubscriptionProduct[] }) {
+function FeatureForm({ action, buttonLabel, feature, features, products }: { action: (formData: FormData) => void | Promise<void>; buttonLabel: string; feature?: SubscriptionFeature; features: SubscriptionFeature[]; products: SubscriptionProduct[] }) {
   return (
     <form action={action} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       {feature ? <input type="hidden" name="featureId" value={feature.id} /> : null}
-      <h2 className="text-lg font-black text-slate-950">{feature ? "Edit feature" : "New feature"}</h2>
+      <h2 className="text-lg font-black text-slate-950">{feature ? "Edit plan feature" : "New plan feature"}</h2>
       <div className="mt-4 grid gap-3">
-        <FeaturePermissionFields assignableFeatures={assignableFeatures} feature={feature} products={products} />
+        <PlanFeatureEditFields feature={feature} features={features} products={products} />
         {feature ? <StatusField defaultValue={feature.status} /> : null}
         <Button type="submit" variant="primary" className="min-h-11 justify-center"><Plus size={18} aria-hidden />{buttonLabel}</Button>
       </div>
@@ -1803,21 +1842,25 @@ function planProductIds(plan: SubscriptionPlan) {
   return plan.included_product_ids ?? plan.products?.map((product) => product.product_id) ?? [];
 }
 
+function planFeatureIdsForForm(plan: SubscriptionPlan) {
+  return plan.included_feature_ids ?? plan.features?.map((feature) => feature.feature_id) ?? [];
+}
+
 function importPlanOptions(plans: SubscriptionPlan[], currentPlanId?: string) {
   return plans
     .filter((plan) => plan.id !== currentPlanId)
-    .map((plan) => ({ id: plan.id, name: plan.name, productIds: planProductIds(plan) }))
-    .filter((plan) => plan.productIds.length > 0);
+    .map((plan) => ({ id: plan.id, name: plan.name, featureIds: planFeatureIdsForForm(plan) }))
+    .filter((plan) => plan.featureIds.length > 0);
 }
 
-function CreatePlanForm({ billingCycles, compact = false, importPlans, products, roles }: { billingCycles: SubscriptionBillingCycle[]; compact?: boolean; importPlans: SubscriptionPlan[]; products: SubscriptionProduct[]; roles: AuthorisationRole[] }) {
-  return <PlanForm action={createPlanAction} billingCycles={billingCycles} buttonLabel="Create" compact={compact} importPlans={importPlans} pendingLabel="Creating..." products={products} roles={roles} />;
+function CreatePlanForm({ billingCycles, compact = false, features, importPlans, roles }: { billingCycles: SubscriptionBillingCycle[]; compact?: boolean; features: SubscriptionFeature[]; importPlans: SubscriptionPlan[]; roles: AuthorisationRole[] }) {
+  return <PlanForm action={createPlanAction} billingCycles={billingCycles} buttonLabel="Create" compact={compact} features={features} importPlans={importPlans} pendingLabel="Creating..." roles={roles} />;
 }
 
-function PlanForm({ action, billingCycles, buttonLabel, compact = false, importPlans, pendingLabel, plan, products, roles }: { action: (formData: FormData) => void | Promise<void>; billingCycles: SubscriptionBillingCycle[]; buttonLabel: string; compact?: boolean; importPlans: SubscriptionPlan[]; pendingLabel: string; plan?: SubscriptionPlan; products: SubscriptionProduct[]; roles: AuthorisationRole[] }) {
-  const selectedProductIds = new Set(plan ? planProductIds(plan) : []);
+function PlanForm({ action, billingCycles, buttonLabel, compact = false, features, importPlans, pendingLabel, plan, roles }: { action: (formData: FormData) => void | Promise<void>; billingCycles: SubscriptionBillingCycle[]; buttonLabel: string; compact?: boolean; features: SubscriptionFeature[]; importPlans: SubscriptionPlan[]; pendingLabel: string; plan?: SubscriptionPlan; roles: AuthorisationRole[] }) {
+  const selectedFeatureIds = new Set(plan ? planFeatureIdsForForm(plan) : []);
   const availableImportPlans = importPlanOptions(importPlans, plan?.id);
-  const defaultTargetLevel = String(plan ? planTargetLevel(plan) : lowestRoleLevel(roles));
+  const defaultTargetLevel = String(plan ? planTargetLevel(plan, roles) : lowestRoleLevel(roles));
   return (
     <form action={action} className={compact ? "grid w-full gap-3 rounded-lg border border-stone-200 bg-stone-50 p-3 sm:w-80" : "rounded-lg border border-stone-200 bg-white p-4 shadow-sm"}>
       {plan ? <input type="hidden" name="planId" value={plan.id} /> : null}
@@ -1825,12 +1868,12 @@ function PlanForm({ action, billingCycles, buttonLabel, compact = false, importP
       <div className={compact ? "grid gap-3" : "mt-4 grid gap-3"}>
         <Field name="name" label="Name" defaultValue={plan?.name ?? ""} />
         <Field name="description" label="Description" defaultValue={plan?.description ?? ""} />
-        <Field name="priceMinor" label="Price minor" type="number" defaultValue={plan ? String(plan.price_minor) : ""} />
+        <Field name="priceMinor" label="Calculated display price minor" type="number" defaultValue={plan ? String(plan.price_minor) : ""} />
         <CurrencyField />
         <BillingCycleField cycles={billingCycles} defaultValue={plan?.billing_cycle ?? "month"} />
         <TargetUserLevelField defaultValue={defaultTargetLevel} roles={roles} />
         <InternalPlanField defaultChecked={plan?.is_internal ?? false} />
-        <PlanProductFields importPlans={availableImportPlans} products={products} selectedProductIds={Array.from(selectedProductIds)} />
+        <PlanFeatureFields features={features} importPlans={availableImportPlans} selectedFeatureIds={Array.from(selectedFeatureIds)} />
         {plan ? <StatusField defaultValue={plan.status} /> : null}
         <SubscriptionSubmitButton label={buttonLabel} pendingLabel={pendingLabel} />
       </div>
@@ -1902,7 +1945,7 @@ function PlanDetailsPanel({ features, plan, products, roles }: { features: Subsc
       service: fullFeature?.service_id ?? feature.service_id ?? "-",
     };
   });
-  const targetLevel = planTargetLevel(plan);
+  const targetLevel = planTargetLevel(plan, roles);
   const targetRole = roles.slice().sort((left, right) => left.level - right.level).find((role) => role.level >= targetLevel);
 
   return (
@@ -1998,12 +2041,14 @@ function ProductsTable({ features, pagination, products, search }: { features: S
     productId: product.id,
     product: product.name,
     service: product.service_id,
+    price: product.currency === "Points" ? `${product.price_minor.toLocaleString("en-GB")} Points` : `${product.currency || "GBP"} ${((product.price_minor ?? 0) / 100).toFixed(2)}`,
     status: product.status,
     features: features.filter((feature) => feature.product_id === product.id).length.toString(),
   }));
   const columns: TableColumn<(typeof rows)[number] & TableRecord>[] = [
     { key: "product", title: "Product" },
     { key: "service", title: "Service" },
+    { key: "price", title: "Price" },
     { key: "features", title: "Features" },
     { key: "status", title: "Status" },
     { key: "actions", title: "Actions", headerClassName: "text-right", className: "text-right", render: (_value, row) => <ProductActions productId={String(row.productId)} status={String(row.status)} /> },
@@ -2083,8 +2128,8 @@ function FeaturesTable({ features, pagination, products, search }: { features: S
   ];
   return (
     <DataTableWithSearch
-      title="Features"
-      description="Manage product privileges that plans can grant."
+      title="Plan Features"
+      description="Manage product entitlement features that plans can grant."
       search={{
         action: "/dashboard/subscriptions",
         name: "featuresSearch",
@@ -2095,7 +2140,7 @@ function FeaturesTable({ features, pagination, products, search }: { features: S
       headerActions={
         <Button href="/dashboard/subscriptions?subscriptionsView=features&dialog=new-feature" variant="primary" className="min-h-12 shadow-sm">
           <Plus size={18} aria-hidden />
-          New Feature
+          New Plan Feature
         </Button>
       }
       columns={columns}
@@ -2113,7 +2158,7 @@ function FeatureActions({ featureId, status }: { featureId: string; status: stri
     <ActionMenu label="Open feature actions">
       <Link href={`/dashboard/subscriptions?subscriptionsView=features&dialog=edit-feature&featureId=${encodeURIComponent(featureId)}`} className={menuItemClass}>
         <Edit3 size={18} aria-hidden />
-        Edit Feature
+        Edit Plan Feature
       </Link>
       <form action={disableFeatureAction}>
         <input type="hidden" name="featureId" value={featureId} />

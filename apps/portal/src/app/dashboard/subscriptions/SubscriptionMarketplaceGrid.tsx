@@ -19,10 +19,12 @@ export type SubscriptionMarketplaceGridItem = GridDashboardItem & {
   unavailableLabel?: string;
   selected: boolean;
   targetLevel: number;
+  targetLevelName?: string;
 };
 
 function SubscriptionPlanGridCard({ className, item }: { className: string; item: SubscriptionMarketplaceGridItem }) {
-  const unavailableLabel = item.unavailableLabel ?? `Level ${item.targetLevel} required`;
+  const requiredLevel = item.targetLevelName ? `Level ${item.targetLevel} (${item.targetLevelName})` : `Level ${item.targetLevel}`;
+  const unavailableLabel = item.unavailableLabel ?? `${requiredLevel} required`;
   return (
     <article className={`${className} flex h-fit flex-col rounded-lg border bg-white p-5 shadow-sm transition ${item.selected ? "border-teal-700 ring-1 ring-teal-700" : "border-stone-200 hover:border-teal-300"} ${!item.allowed ? "opacity-75" : ""}`}>
       <div className="flex items-start justify-between gap-3">

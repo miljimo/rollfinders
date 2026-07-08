@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, CreditCard, Info, Lock, Package, Pencil, RefreshCw, ShieldCheck, ShoppingBag, Star, WalletCards } from "lucide-react";
 
 import { Button } from "@/components/Button";
-import { listApplicationSubscriptions, listSubscriptionPlansPage, type SubscriptionPlan } from "@/lib/subscriptions-service";
+import { listApplicationSubscriptions, listSubscriptionPlansPage, quoteSubscriptionPlans, type SubscriptionPlan } from "@/lib/subscriptions-service";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { listWalletsPage, getWalletBalance } from "@/lib/wallet-service";
 import { startSubscriptionCardCheckoutAction, startSubscriptionWalletCheckoutAction } from "../actions";
@@ -47,11 +47,6 @@ function checkoutOptionsHref(input: {
   }).toString()}`;
 }
 
-function totalForPeriod(plans: SubscriptionPlan[], period: "month" | "year") {
-  const monthly = plans.reduce((total, plan) => total + plan.price_minor, 0);
-  return period === "year" ? monthly * 12 : monthly;
-}
-
 function unavailableSubscriptionPlanStatus(status: string) {
   return ["active", "trial", "checkout_pending", "payment_confirmed", "past_due", "suspended", "scheduled_downgrade", "cancel_at_period_end"].includes(status.toLowerCase());
 }
@@ -81,7 +76,10 @@ export default async function SubscriptionCheckoutPage({
   const checkoutPlans = selectedPlans.filter((plan) => !activePlanIds.has(plan.id));
   if (!checkoutPlans.length) redirect("/dashboard/subscriptions?selectedPlans=");
   const checkoutPlan = checkoutPlans[0];
-  const total = totalForPeriod(checkoutPlans, billingPeriod);
+  const quote = await quoteSubscriptionPlans(checkoutPlans.map((plan) => plan.id), billingPeriod, actor);
+  const monthlyQuote = billingPeriod === "month" ? quote : await quoteSubscriptionPlans(checkoutPlans.map((plan) => plan.id), "month", actor);
+  const yearlyQuote = billingPeriod === "year" ? quote : await quoteSubscriptionPlans(checkoutPlans.map((plan) => plan.id), "year", actor);
+  const total = quote.total_minor;
   const currency = checkoutPlans[0]?.currency ?? "GBP";
   const walletBalances = await Promise.all(walletsPage.wallets.map(async (wallet) => ({
     wallet,
@@ -91,8 +89,8 @@ export default async function SubscriptionCheckoutPage({
   const walletCanCover = Boolean(fundedWallet);
   const actionError = (firstParam(params.actionError) ?? "").trim();
   const selectedPlanParam = checkoutPlans.map((plan) => plan.id).join(",");
-  const monthlyTotal = totalForPeriod(checkoutPlans, "month");
-  const yearlyTotal = totalForPeriod(checkoutPlans, "year");
+  const monthlyTotal = monthlyQuote.total_minor;
+  const yearlyTotal = yearlyQuote.total_minor;
 
   const walletBalanceText = walletBalances.length
     ? walletBalances.map(({ wallet, balance }) => `${wallet.currency} wallet: ${moneyMinor(balance?.availableBalance ?? 0, wallet.currency)}`).join(" / ")
@@ -284,7 +282,7 @@ export default async function SubscriptionCheckoutPage({
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-slate-950">{plan.name}</p>
-                      <p className="text-sm font-semibold text-slate-500">{moneyMinor(plan.price_minor, plan.currency)} / {plan.billing_cycle}</p>
+                      <p className="text-sm font-semibold text-slate-500">{moneyMinor(monthlyQuote.products.filter((product) => product.plan_id === plan.id).reduce((sum, product) => sum + product.total_minor, 0), plan.currency)} / month</p>
                     </div>
                   </div>
                 ))}
@@ -305,6 +303,18 @@ export default async function SubscriptionCheckoutPage({
                 <span className="font-black text-slate-950">Subtotal (yearly)</span>
                 <span className="font-black text-slate-950">{moneyMinor(yearlyTotal, currency)}</span>
               </div>
+              {quote.adjustment_minor !== 0 ? (
+                <div className="mt-3 flex justify-between gap-4 text-sm">
+                  <span className="font-black text-slate-950">Product adjustments</span>
+                  <span className="font-black text-slate-950">{moneyMinor(quote.adjustment_minor, quote.currency)}</span>
+                </div>
+              ) : null}
+              {quote.duplicate_feature_savings_minor > 0 ? (
+                <div className="mt-3 flex justify-between gap-4 text-sm text-teal-800">
+                  <span className="font-black">Duplicate feature savings</span>
+                  <span className="font-black">-{moneyMinor(quote.duplicate_feature_savings_minor, quote.currency)}</span>
+                </div>
+              ) : null}
             </div>
             <div className="mt-5 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm font-medium text-slate-700">
               <div className="flex gap-2">

@@ -294,6 +294,7 @@ const (
 	SubscriptionProductFeatureDisable          GatewayTargetPath = "/v1/product-features/{featureKey}/disable"
 	SubscriptionPlans                          GatewayTargetPath = "/v1/plans"
 	SubscriptionPlanBillingCycles              GatewayTargetPath = "/v1/plans/billing-cycles"
+	SubscriptionPlanQuote                      GatewayTargetPath = "/v1/plans/quote"
 	SubscriptionPlan                           GatewayTargetPath = "/v1/plans/{planKey}"
 	SubscriptionPlanSuspend                    GatewayTargetPath = "/v1/plans/{planKey}/suspend"
 	SubscriptionPlanFeatures                   GatewayTargetPath = "/v1/plans/{planKey}/features"

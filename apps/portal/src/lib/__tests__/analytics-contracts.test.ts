@@ -11,6 +11,13 @@ function readSource(path: string) {
   return readFileSync(absolutePath, "utf8");
 }
 
+function dashboardSource() {
+  return [
+    readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx"),
+    readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx"),
+  ].join("\n");
+}
+
 function matchAny(source: string, patterns: RegExp[], message: string) {
   assert.equal(patterns.some((pattern) => pattern.test(source)), true, message);
 }
@@ -73,7 +80,7 @@ describe("analytics feature contracts", () => {
     const schemaSource = readSource("apps/backend_api/internal/services/analytics/migrations/tables/002_events.sql");
     const countrySource = readSource("apps/portal/src/lib/analytics/country.ts");
     const reportingSource = readSource("apps/portal/src/lib/analytics/reporting.ts");
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = dashboardSource();
 
     assert.match(schemaSource, /country_code text/);
     assert.match(schemaSource, /country_name text/);
@@ -83,8 +90,8 @@ describe("analytics feature contracts", () => {
     assert.match(countrySource, /Intl\.DisplayNames/);
     assert.match(reportingSource, /\/v1\/reports\/founder-summary/);
     assert.match(reportingSource, /countries/);
-    assert.match(dashboardSource, /Country attribution/);
-    assert.match(dashboardSource, /FounderAnalyticsPanel/);
+    assert.match(source, /Country attribution/);
+    assert.match(source, /FounderAnalyticsPanel/);
     assert.doesNotMatch(countrySource + reportingSource, /latitude|longitude|rawIp|ipAddress/i);
   });
 
@@ -117,7 +124,7 @@ describe("analytics feature contracts", () => {
   });
 
   it("exposes founder analytics dashboard UI only to Super Admins", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = dashboardSource();
     const superAdminOnlySource = source.match(/\.\.\.\(superAdmin[\s\S]*href:\s*"\/dashboard\/analytics"[\s\S]*:\s*\[\]\)/)?.[0] ?? "";
 
     assert.match(source, /value === "analytics"|panel === "analytics"|["']analytics["']/);
@@ -140,7 +147,7 @@ describe("analytics feature contracts", () => {
   it("reports daily visitor trends by date for unique visitors and sessions", () => {
     const reportingSource = readSource("apps/portal/src/lib/analytics/reporting.ts");
     const serviceSource = readSource("apps/backend_api/internal/services/analytics/server/repository.go");
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = dashboardSource();
 
     assert.match(reportingSource, /trends:\s*AnalyticsDailyMetric\[\]/);
     assert.match(reportingSource, /\/v1\/reports\/founder-summary/);
@@ -152,18 +159,18 @@ describe("analytics feature contracts", () => {
 
     for (const metric of ["unique_visitors", "unique_sessions"]) {
       assert.match(reportingSource, new RegExp(`metricName\\s*===\\s*["']${metric}["']|["']${metric}["']`));
-      assert.match(dashboardSource, new RegExp(metric));
+      assert.match(source, new RegExp(metric));
     }
 
-    matchAny(dashboardSource, [/analyticsReport\?\.dailyVisits/, /analyticsReport\.dailyVisits/, /const\s+\w+\s*=\s*analyticsReport\?\.dailyVisits/], "dashboard must consume daily visit rows");
-    matchAny(dashboardSource, [/Daily visits/i, /Visitor trends/i, /Daily visitor/i], "dashboard must label the daily visits trend section");
-    matchAny(dashboardSource, [/metricDate/, /date/i], "daily visit rows must expose the metric date");
-    matchAny(dashboardSource, [/uniqueVisitors[\s\S]*uniqueSessions|uniqueSessions[\s\S]*uniqueVisitors/], "daily visit rows must expose both visitor and session counts");
+    matchAny(source, [/analyticsReport\?\.dailyVisits/, /analyticsReport\.dailyVisits/, /const\s+\w+\s*=\s*analyticsReport\?\.dailyVisits/], "dashboard must consume daily visit rows");
+    matchAny(source, [/Daily visits/i, /Visitor trends/i, /Daily visitor/i], "dashboard must label the daily visits trend section");
+    matchAny(source, [/metricDate/, /date/i], "daily visit rows must expose the metric date");
+    matchAny(source, [/uniqueVisitors[\s\S]*uniqueSessions|uniqueSessions[\s\S]*uniqueVisitors/], "daily visit rows must expose both visitor and session counts");
   });
 
   it("reports currently logged-in user stats from recent lastLoginAt values", () => {
     const reportingSource = readSource("apps/portal/src/lib/analytics/reporting.ts");
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = dashboardSource();
 
     matchAny(reportingSource, [/lastLoginAt/, /last_login_at/], "analytics reporting must query recent user login timestamps");
     matchAny(reportingSource, [/listManagedUsers\(/, /users-service/], "currently logged-in stats must be derived from the users service");
@@ -172,13 +179,13 @@ describe("analytics feature contracts", () => {
     matchAny(reportingSource, [/CURRENT_TIMESTAMP|CURRENT_DATE|NOW\(\)|new Date\(/], "recent login stats must be time-window based");
     matchAny(reportingSource, [/currentlyLoggedIn|loggedInUsers|activeUsers|recentLogins/i], "reporting must expose a named currently logged-in user stat");
 
-    matchAny(dashboardSource, [/currently logged-in/i, /logged-in users/i, /active users/i, /recent logins/i], "dashboard must surface currently logged-in user stats");
-    assert.match(dashboardSource, /lastLoginAt|currentlyLoggedIn|loggedInUsers|activeUsers|recentLogins/i);
+    matchAny(source, [/currently logged-in/i, /logged-in users/i, /active users/i, /recent logins/i], "dashboard must surface currently logged-in user stats");
+    assert.match(source, /lastLoginAt|currentlyLoggedIn|loggedInUsers|activeUsers|recentLogins/i);
   });
 
   it("records search demand only from explicit search form submissions", () => {
     const academyPageSource = readSource("apps/portal/src/app/academies/page.tsx");
-    const openMatsPageSource = readSource("apps/portal/src/app/open-mats/page.tsx");
+    const openMatsPageSource = readSource("apps/portal/src/app/page.tsx");
     const locationSearchSource = readSource("apps/portal/src/components/LocationSearchForm/LocationSearchForm.tsx");
     const openMatFilterSource = readSource("apps/portal/src/components/OpenMatLocationFilterForm/OpenMatLocationFilterForm.tsx");
 
