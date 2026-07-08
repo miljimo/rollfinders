@@ -67,8 +67,11 @@ if [ -f apps/backend_api/internal/services/analytics/migrations/001_coreSchema.s
   (cd apps/backend_api/internal/services/analytics/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_coreSchema.sql)
 fi
 
-if [ -f apps/backend_api/internal/services/subscriptions/migrations/001_core_schema.sql ]; then
-  (cd apps/backend_api/internal/services/subscriptions/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+if [ -d apps/backend_api/internal/services/subscriptions/migrations ]; then
+  for file in apps/backend_api/internal/services/subscriptions/migrations/*.sql; do
+    [ -f "${file}" ] || continue
+    psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${file}"
+  done
 fi
 
 if [ -d apps/backend_api/internal/services/wallet/migrations ]; then

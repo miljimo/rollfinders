@@ -181,6 +181,46 @@ func TestFeatureNameUniqueWithinProductServiceContract(t *testing.T) {
 	}
 }
 
+func TestFeatureBasedSubscriptionPricingContract(t *testing.T) {
+	schema, err := os.ReadFile("../../../../internal/services/subscriptions/migrations/001_core_schema.sql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository, err := os.ReadFile("repository.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	api, err := os.ReadFile("api.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	schemaSource := string(schema)
+	repositorySource := string(repository)
+	apiSource := string(api)
+	for _, required := range []string{
+		"base_price_minor integer NOT NULL DEFAULT 0",
+		"currency text NOT NULL DEFAULT 'GBP'",
+		"price_adjustment_percent numeric(7,2) NOT NULL DEFAULT 0",
+	} {
+		if !strings.Contains(schemaSource, required) {
+			t.Fatalf("subscription schema must include %q", required)
+		}
+	}
+	for _, required := range []string{
+		"seenFeatures",
+		"DuplicateFeatureSavingsMinor",
+		"PriceAdjustmentPercent",
+		"quotePlans",
+	} {
+		if !strings.Contains(repositorySource, required) {
+			t.Fatalf("repository quote calculation must include %q", required)
+		}
+	}
+	if !strings.Contains(apiSource, "func (s *server) quotePlans") || !strings.Contains(apiSource, `json:"products"`) {
+		t.Fatal("subscription API must expose plan quote and rich plan-product adjustment inputs")
+	}
+}
+
 func TestSubscriptionOpenAPIContractExists(t *testing.T) {
 	contract, err := os.ReadFile("../docs/api/openApi.yaml")
 	if err != nil {
@@ -343,26 +383,25 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 	for _, required := range []string{
 		"feature_key text",
 		"subscription_controlled boolean NOT NULL DEFAULT false",
-		"academy.profile.manage",
-		"payment.accept_online",
-		"course.create",
-		"course.update",
-		"course.delete",
-		"booking.create",
-		"analytics.view",
 	} {
 		if !strings.Contains(schemaSource, required) {
 			t.Fatalf("subscription schema must include feature entitlement contract fragment %q", required)
 		}
 	}
 
-	for _, required := range []string{
-		"('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000008'",
-		"('20000000-0000-4000-8000-000000000004', '10000000-0000-4000-8000-000000000008'",
-		"('30000000-0000-4000-8000-000000000005', 'platform', false, false, NULL)",
+	for _, forbidden := range []string{
+		"INSERT INTO subscriptions.products",
+		"INSERT INTO subscriptions.product_features",
+		"INSERT INTO subscriptions.plans",
+		"INSERT INTO subscriptions.subscription_owner_policies",
+		"INSERT INTO subscriptions.plan_features",
+		"INSERT INTO subscriptions.plan_products",
+		"Academy Starter",
+		"Academy Pro",
+		"Enterprise",
 	} {
-		if !strings.Contains(schemaSource, required) {
-			t.Fatalf("subscription bootstrap must include default payment entitlement fragment %q", required)
+		if strings.Contains(schemaSource, forbidden) {
+			t.Fatalf("subscription schema migration must not seed production catalogue data fragment %q", forbidden)
 		}
 	}
 
