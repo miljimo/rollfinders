@@ -1,10 +1,25 @@
 import type { NextAuthOptions } from "next-auth";
+import { decode as decodeJwt, encode as encodeJwt } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { allowedAuthRedirectOrigins } from "./auth-urls";
 import { authenticateUserCredentials, logoutUserSession, UserServiceError } from "./users-service";
 
 export const authOptions: NextAuthOptions = {
+  secret: process.env.NEXTAUTH_SECRET ?? "rollfinders-local-development-nextauth-secret",
   session: { strategy: "jwt" },
+  jwt: {
+    async encode(params) {
+      return encodeJwt(params);
+    },
+    async decode(params) {
+      try {
+        return await decodeJwt(params);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("decryption operation failed")) return null;
+        throw error;
+      }
+    },
+  },
   providers: [
     CredentialsProvider({
       name: "Email and password",
@@ -68,6 +83,19 @@ export const authOptions: NextAuthOptions = {
       (session as { accessTokenExpiresIn?: unknown }).accessTokenExpiresIn = token.accessTokenExpiresIn;
       return session;
     },
+  },
+  logger: {
+    error(code, metadata) {
+      const codeText = String(code);
+      const message = metadata instanceof Error ? metadata.message : "";
+      if (codeText === "JWT_SESSION_ERROR" || message.includes("decryption operation failed")) return;
+      console.error(`[next-auth][error][${code}]`, metadata);
+    },
+    warn(code) {
+      if (code === "NO_SECRET" || code === "NEXTAUTH_URL") return;
+      console.warn(`[next-auth][warn][${code}]`);
+    },
+    debug() {},
   },
   events: {
     async signOut(message) {

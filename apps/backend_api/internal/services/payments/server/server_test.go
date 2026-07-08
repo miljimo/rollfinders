@@ -259,6 +259,19 @@ func TestCreateSubscriptionBillingCheckout(t *testing.T) {
 	}
 }
 
+func TestDecodeCreateSubscriptionOneTimeClearsRenewal(t *testing.T) {
+	req, details := decodeCreateSubscription([]byte(`{"client_id":"rollfinders","owner_type":"academy","owner_id":"academy_123","provider":"stripe","plan_id":"plan_pro","plan_name":"Academy Pro","amount":94800,"currency":"GBP","interval":"year","payment_mode":"one_time","renewal_interval":"year"}`))
+	if len(details) > 0 {
+		t.Fatalf("unexpected validation details: %+v", details)
+	}
+	if req.PaymentMode != "one_time" {
+		t.Fatalf("PaymentMode = %q, want one_time", req.PaymentMode)
+	}
+	if req.RenewalInterval != "" {
+		t.Fatalf("RenewalInterval = %q, want empty for one-time payment", req.RenewalInterval)
+	}
+}
+
 func TestSubscriptionLifecycleEndpoints(t *testing.T) {
 	handler := testServer("")
 	body := []byte(`{"client_id":"rollfinders","owner_type":"academy","owner_id":"academy_123","provider":"stripe","plan_id":"plan_pro","plan_name":"Academy Pro","amount":7900,"currency":"GBP","interval":"month"}`)
@@ -358,6 +371,71 @@ func TestCheckoutCallbackRedirectsToApplicationStatus(t *testing.T) {
 		if !strings.Contains(location, expected) {
 			t.Fatalf("expected redirect location %q to contain %q", location, expected)
 		}
+	}
+}
+
+func TestCoursePaymentSuccessCreatesWalletPostingOutboxFact(t *testing.T) {
+	srv := testServer("")
+	body := []byte(`{"resource_type":"course_occurrence","resource_id":"course_123:2026-06-08:19:00","amount":1000,"currency":"GBP","provider":"paypal","payment_method_type":"paypal","payer_email":"student@example.com","metadata":{"course_id":"course_123","academy_id":"academy_123","academy_owner_id":"owner_123"}}`)
+	createReq := httptest.NewRequest(http.MethodPost, "/v1/checkouts", bytes.NewReader(body))
+	authed(createReq)
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Idempotency-Key", "wallet-outbox-checkout")
+	createRes := httptest.NewRecorder()
+	srv.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("expected checkout status 201, got %d: %s", createRes.Code, createRes.Body.String())
+	}
+	var checkout Checkout
+	if err := json.Unmarshal(createRes.Body.Bytes(), &checkout); err != nil {
+		t.Fatal(err)
+	}
+
+	captureReq := httptest.NewRequest(http.MethodPost, "/v1/payments/"+checkout.PaymentID+"/capture", nil)
+	authed(captureReq)
+	captureReq.Header.Set("Idempotency-Key", "wallet-outbox-capture")
+	captureRes := httptest.NewRecorder()
+	srv.ServeHTTP(captureRes, captureReq)
+	if captureRes.Code != http.StatusOK {
+		t.Fatalf("expected capture status 200, got %d: %s", captureRes.Code, captureRes.Body.String())
+	}
+	replayRes := httptest.NewRecorder()
+	srv.ServeHTTP(replayRes, captureReq)
+	if replayRes.Code != http.StatusOK {
+		t.Fatalf("expected replayed capture status 200, got %d: %s", replayRes.Code, replayRes.Body.String())
+	}
+
+	outboxReq := httptest.NewRequest(http.MethodGet, "/internal/outbox/events?event_type=payment.succeeded", nil)
+	outboxRes := httptest.NewRecorder()
+	srv.ServeHTTP(outboxRes, outboxReq)
+	if outboxRes.Code != http.StatusOK {
+		t.Fatalf("expected outbox status 200, got %d: %s", outboxRes.Code, outboxRes.Body.String())
+	}
+	var outbox struct {
+		Events []OutboxEvent `json:"events"`
+		Count  int           `json:"count"`
+	}
+	if err := json.Unmarshal(outboxRes.Body.Bytes(), &outbox); err != nil {
+		t.Fatal(err)
+	}
+	if outbox.Count != 1 || len(outbox.Events) != 1 {
+		t.Fatalf("expected one payment.succeeded outbox event, got %+v", outbox)
+	}
+	event := outbox.Events[0]
+	if event.AggregateID != checkout.PaymentID || event.Payload["resource_type"] != "course_occurrence" || event.Payload["academy_owner_id"] != "owner_123" {
+		t.Fatalf("unexpected outbox event payload: %+v", event)
+	}
+
+	ackReq := httptest.NewRequest(http.MethodPost, "/internal/outbox/events/"+event.ID+"/delivered", nil)
+	ackRes := httptest.NewRecorder()
+	srv.ServeHTTP(ackRes, ackReq)
+	if ackRes.Code != http.StatusOK {
+		t.Fatalf("expected outbox ack status 200, got %d: %s", ackRes.Code, ackRes.Body.String())
+	}
+	emptyRes := httptest.NewRecorder()
+	srv.ServeHTTP(emptyRes, outboxReq)
+	if emptyRes.Code != http.StatusOK || !strings.Contains(emptyRes.Body.String(), `"count":0`) {
+		t.Fatalf("expected delivered event to disappear, got %d: %s", emptyRes.Code, emptyRes.Body.String())
 	}
 }
 

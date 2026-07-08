@@ -18,8 +18,8 @@ export function ActionItem({ item }: ActionItemProps) {
       icon={item.icon}
       trailing={<ChevronRight size={20} aria-hidden />}
     >
-      <span className="block break-words font-black text-slate-950">{item.title}</span>
-      <span className="mt-1 block break-words text-sm font-semibold text-slate-500">{item.description}</span>
+      <span className="block text-base font-black leading-6 text-slate-950 [overflow-wrap:anywhere]">{item.title}</span>
+      <span className="mt-1 block text-sm font-semibold leading-6 text-slate-500 [overflow-wrap:anywhere]">{item.description}</span>
     </PanelItemSurface>
   );
 }

@@ -21,7 +21,7 @@ import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { listOrganisationApplications, listOrganisations } from "@/lib/organisation-service";
 import { calculatePlatformFeeMinor, defaultPaymentPlatformSettings, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
-import { getStripePaymentAccountSetting, listCourseOccurrencePaymentsPage, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
+import { getStripePaymentAccountSetting, listPaymentTransactionsPage, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
@@ -495,11 +495,11 @@ function servicePaginationCurrentPage(pagination: ServicePaginationMeta) {
 async function getDashboardPayments(page: number, accessToken?: string, academyId?: string | null): Promise<DashboardPaymentsResult> {
   const offset = (Math.max(1, page) - 1) * paymentsPageSize;
   try {
-    const result = await listCourseOccurrencePaymentsPage({ accessToken, limit: paymentsPageSize, offset });
+    const result = await listPaymentTransactionsPage({ accessToken, limit: paymentsPageSize, offset });
     const payments = result.payments;
     return {
       pagination: result.pagination,
-      payments: academyId ? payments.filter((payment) => payment.metadata?.academy_id === academyId) : payments,
+      payments: academyId ? payments.filter((payment) => payment.metadata?.academy_id === academyId || payment.resourceType === "subscription") : payments,
     };
   } catch (error) {
     if (error instanceof PaymentServiceError) {
@@ -1258,11 +1258,11 @@ export default async function AdminDashboardWorkspace({
         ) : panel === "maps" ? (
           <MapDashboardContent academies={mapItems} />
         ) : (
-        <section className={clsx("px-4 py-8 sm:px-8", dashboardLanding && "mx-auto max-w-[112rem] py-12")}>
+        <section className={clsx("px-4 py-8 sm:px-8", dashboardLanding && "mx-auto w-full max-w-[112rem] py-8 lg:py-10")}>
           <div className={clsx("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", dashboardLanding && "gap-6")}>
             <div>
-              <h1 className={clsx("font-black text-slate-950", dashboardLanding ? "text-5xl tracking-normal" : "text-3xl")}>{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "wallet" ? "Wallet Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
-              <p className={clsx("mt-2 text-slate-600", dashboardLanding && "text-xl")}>{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
+              <h1 className={clsx("font-black leading-tight text-slate-950", dashboardLanding ? "text-3xl sm:text-4xl lg:text-5xl" : "text-3xl")}>{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "wallet" ? "Wallet Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
+              <p className={clsx("mt-2 max-w-3xl text-slate-600", dashboardLanding ? "text-base sm:text-lg" : "text-sm")}>{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
             </div>
           </div>
 
@@ -2336,10 +2336,17 @@ function paymentOverviewChartPoints(payments: PaymentRecord[], period: PaymentOv
 }
 
 function paymentStatusTone(status: string) {
-  if (status === "succeeded") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "succeeded" || status === "active" || status === "trialing") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
   if (status === "failed" || status === "cancelled") return "bg-red-50 text-red-700 ring-red-100";
   if (status === "refunded" || status === "partially_refunded") return "bg-amber-50 text-amber-800 ring-amber-100";
   return "bg-slate-50 text-slate-700 ring-slate-100";
+}
+
+function paymentStatusLabel(status: string) {
+  if (status === "succeeded" || status === "active") return "Paid";
+  if (status === "trialing") return "Trial";
+  if (status === "checkout_pending" || status === "pending") return "Pending payment";
+  return status.replaceAll("_", " ");
 }
 
 function paymentSearchText(payment: PaymentRecord) {
@@ -2353,6 +2360,8 @@ function paymentSearchText(payment: PaymentRecord) {
     payment.payerUserId,
     metadata.course_id,
     metadata.course_title,
+    metadata.plan_id,
+    metadata.plan_name,
     metadata.academy_id,
     metadata.academy_name,
     metadata.occurrence_date,
@@ -2773,10 +2782,16 @@ const paymentOverviewPeriodOptions = [
 ];
 
 function paymentDescription(payment: PaymentRecord) {
+  if (payment.metadata?.payment_scope === "SUBSCRIPTION") {
+    const interval = payment.metadata.billing_interval === "year" ? "yearly" : payment.metadata.billing_interval === "month" ? "monthly" : payment.metadata.billing_interval;
+    const mode = payment.metadata.payment_mode === "one_time" ? "one-time" : payment.metadata.payment_mode === "subscription" ? "recurring" : "";
+    return [payment.metadata.plan_name ?? payment.resourceLabel ?? "Subscription plan", interval, mode].filter(Boolean).join(" - ");
+  }
   return payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment";
 }
 
 function paymentDescriptionType(payment: PaymentRecord) {
+  if (payment.metadata?.payment_scope === "SUBSCRIPTION" || payment.resourceType === "subscription") return "Subscription payment";
   const resourceType = payment.resourceType?.replaceAll("_", " ");
   if (resourceType) return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
   return "Booking";
@@ -2787,7 +2802,7 @@ function paymentOrderId(payment: PaymentRecord) {
 }
 
 function PaymentsTransactionsView({ currency, payments, result, search, searchParams }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; searchParams: AdminSearchParams }) {
-  const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
+  const successfulPayments = payments.filter((payment) => payment.status === "succeeded" || payment.status === "active" || payment.status === "trialing");
   const failedPayments = payments.filter((payment) => payment.status === "failed" || payment.status === "cancelled");
   const totalAmount = successfulPayments.reduce((sum, payment) => sum + payment.amount, 0);
   const currentPage = servicePaginationCurrentPage(result.pagination);
@@ -2820,7 +2835,7 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
                 className="min-h-12 w-full rounded-md border border-stone-200 pl-10 pr-3 text-sm font-normal text-slate-800"
                 defaultValue={search}
                 name="paymentsSearch"
-                placeholder="Search by payer, course, order ID or reference..."
+                placeholder="Search by payer, course, plan, order ID or reference..."
               />
             </span>
           </label>
@@ -2829,12 +2844,13 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
             <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
               <option value="">All Status</option>
               <option value="succeeded">Paid</option>
+              <option value="pending">Pending</option>
               <option value="failed">Failed</option>
               <option value="refunded">Refunded</option>
             </select>
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
-            Course / Event
+              Course / Plan
             <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
               <option value="">All</option>
             </select>
@@ -2845,6 +2861,7 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
               <option value="">All</option>
               <option value="card">Card</option>
               <option value="google_pay">Google Pay</option>
+              <option value="wallet">Wallet</option>
             </select>
           </label>
           <Button type="submit" variant="secondary" className="min-h-12 self-end">
@@ -2877,8 +2894,8 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
             },
             { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</span> },
             { key: "method", title: "Method", render: (payment) => <Badge>{payment.paymentMethodType.replaceAll("_", " ")}</Badge> },
-            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status === "succeeded" ? "Paid" : payment.status.replace("_", " ")}</span> },
-            { key: "order", title: "Order ID", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#{paymentOrderId(payment)}</span> },
+            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{paymentStatusLabel(payment.status)}</span> },
+            { key: "order", title: "Payment Ref", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#{paymentOrderId(payment)}</span> },
             { key: "actions", title: "Actions", render: () => <span className="text-xl font-black text-slate-500">⋮</span> },
           ]}
           data={payments}
@@ -3449,7 +3466,7 @@ function PaymentsPanel({
   view: string;
 }) {
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
-  const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded");
+  const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded" || payment.status === "active" || payment.status === "trialing");
   const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
   const platformRevenue = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount, paymentPlatformSettings), 0);
   const refundedAmount = visiblePayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);

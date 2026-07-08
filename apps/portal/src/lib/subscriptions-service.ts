@@ -60,6 +60,7 @@ export type SubscriptionPlan = {
   price_minor: number;
   billing_cycle: string;
   is_internal: boolean;
+  target_user_level: number;
   features?: SubscriptionPlanFeature[];
   products?: SubscriptionPlanProduct[];
   included_feature_ids?: string[];
@@ -82,6 +83,7 @@ export type SubscriptionBillingEvent = {
   currency: string;
   provider: string;
   provider_reference?: string;
+  metadata?: Record<string, string>;
   created_at: string;
 };
 
@@ -110,6 +112,7 @@ export type OrganisationSubscription = {
 
 export type CurrentSubscriptionState = {
   subscription?: OrganisationSubscription | null;
+  subscriptions?: OrganisationSubscription[];
   pending_change?: SubscriptionPlanChange | null;
   billing_events?: SubscriptionBillingEvent[];
   cancellation?: {
@@ -139,6 +142,8 @@ export type ApplicationEntitlements = {
   application_id: string;
   subscription_id?: string;
   plan_id?: string;
+  plan_ids?: string[];
+  subscriptions?: OrganisationSubscription[];
   status?: string;
   features?: SubscriptionPlanFeature[];
 };
@@ -323,7 +328,7 @@ export async function replaceSubscriptionPlanProducts(planId: string, productIds
 
 export async function createApplicationSubscription(input: {
   applicationId?: string;
-  organisationId: string;
+  organisationId?: string;
   planId: string;
 }, actor?: SubscriptionActor | null) {
   const applicationId = input.applicationId || defaultApplicationId();
@@ -366,16 +371,43 @@ export async function listSubscriptionBillingEvents(subscriptionId: string, acto
 }
 
 export async function createSubscriptionCheckout(subscriptionId: string, input: {
+  billingPeriod?: "month" | "year";
+  paymentMode?: "subscription" | "one_time";
   planId: string;
+  planIds?: string[];
   organisationId?: string;
 }, actor?: SubscriptionActor | null) {
   return request(`/v1/subscriptions/${encodeURIComponent(subscriptionId)}/checkout`, actor, {
     method: "POST",
     body: JSON.stringify({
       plan_id: input.planId,
+      plan_ids: input.planIds,
       organisation_id: input.organisationId,
+      payment_mode: input.paymentMode,
+      billing_period: input.billingPeriod,
       requested_by: actor?.id,
       customer_email: actor?.email ?? undefined,
     }),
   }) as Promise<SubscriptionCheckoutResponse>;
+}
+
+export async function recordSubscriptionPlanChangePaymentResult(planChangeId: string, input: {
+  status: "success" | "succeeded" | "failed" | "cancelled" | "canceled" | "expired";
+  paymentId?: string;
+  provider?: string;
+  providerReference?: string;
+}, actor?: SubscriptionActor | null) {
+  return request(`/v1/subscriptions/plan-changes/${encodeURIComponent(planChangeId)}/payment-result`, actor, {
+    method: "POST",
+    body: JSON.stringify({
+      status: input.status,
+      payment_id: input.paymentId,
+      provider: input.provider,
+      provider_reference: input.providerReference,
+    }),
+  }) as Promise<{
+    plan_change?: SubscriptionPlanChange;
+    subscription?: OrganisationSubscription;
+    billing_event?: SubscriptionBillingEvent;
+  }>;
 }

@@ -15,11 +15,12 @@ export const walletColumns: TableColumn<WalletRow>[] = [
 
 export const transactionColumns: TableColumn<WalletTransaction>[] = [
   { key: "createdAt", title: "Created", render: (_, row) => formatDateTime(row.createdAt) },
-  { key: "type", title: "Type", render: (_, row) => <span className="font-bold capitalize text-slate-950">{row.type.replaceAll("_", " ")}</span> },
-  { key: "amount", title: "Amount", render: (_, row) => walletMoney(row.amount, row.currency) },
+  { key: "type", title: "Ledger Type", render: (_, row) => <span className="font-bold capitalize text-slate-950">{row.type.replaceAll("_", " ")}</span> },
+  { key: "amount", title: "Ledger Amount", render: (_, row) => walletMoney(row.amount, row.currency) },
   { key: "status", title: "Status", render: (_, row) => <TableStatusBadge status={row.status} /> },
   { key: "sourceWalletId", title: "Source Wallet", render: (_, row) => <WalletId value={row.sourceWalletId} /> },
   { key: "destinationWalletId", title: "Destination Wallet", render: (_, row) => <WalletId value={row.destinationWalletId} /> },
+  { key: "referenceType", title: "Reference Type", render: (_, row) => row.referenceType ? <span className="font-semibold capitalize text-slate-700">{row.referenceType.replaceAll("_", " ")}</span> : "None" },
   { key: "referenceId", title: "Reference", render: (_, row) => row.referenceId ? <span className="break-all font-mono text-xs text-slate-700">{row.referenceId}</span> : "None" },
   { key: "actions", title: "Actions", className: "text-right", headerClassName: "text-right", render: (_, row) => <TransactionActionMenu transaction={row} /> },
 ];
@@ -37,4 +38,3 @@ function formatWalletBalance(balance: WalletBalance | undefined, currency: strin
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
-

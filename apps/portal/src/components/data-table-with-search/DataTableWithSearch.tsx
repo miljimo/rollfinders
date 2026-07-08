@@ -20,6 +20,7 @@ export type DataTableWithSearchProps<T extends TableRecord> = {
   emptyMessage?: ReactNode;
   filters?: ReactNode;
   getRowHref?: (row: T, rowIndex: number) => string | undefined;
+  getRowDoubleClickHref?: (row: T, rowIndex: number) => string | undefined;
   getRowId?: (row: T, rowIndex: number) => TableRowId;
   headerActions?: ReactNode;
   loading?: boolean;
@@ -38,6 +39,7 @@ export function DataTableWithSearch<T extends TableRecord>({
   emptyMessage,
   filters,
   getRowHref,
+  getRowDoubleClickHref,
   getRowId,
   headerActions,
   loading,
@@ -83,6 +85,7 @@ export function DataTableWithSearch<T extends TableRecord>({
         columns={columns}
         data={data}
         emptyMessage={emptyMessage}
+        getRowDoubleClickHref={getRowDoubleClickHref}
         getRowHref={getRowHref}
         getRowId={getRowId}
         loading={loading}

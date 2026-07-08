@@ -165,6 +165,35 @@ func (s *store) transitionPaymentDB(id, nextStatus string) (Payment, error) {
 	return s.getPaymentDB(id)
 }
 
+func (s *store) listOutboxEventsDB(eventType string, limit int) ([]OutboxEvent, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	rows, err := dataaccess.ListOutboxEvents(context.Background(), s.db, nullIfEmpty(eventType), limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]OutboxEvent, 0, len(rows))
+	for _, event := range rows {
+		out = append(out, OutboxEvent{
+			ID:          event.ID,
+			Type:        event.Type,
+			AggregateID: event.AggregateID,
+			Payload:     event.Payload,
+			Delivered:   event.Delivered,
+			Attempts:    event.Attempts,
+			LastError:   event.LastError,
+			CreatedAt:   event.CreatedAt,
+			UpdatedAt:   event.UpdatedAt,
+		})
+	}
+	return out, nil
+}
+
+func (s *store) markOutboxDeliveredDB(id string) (bool, error) {
+	return dataaccess.MarkOutboxDelivered(context.Background(), s.db, id)
+}
+
 func (s *store) createRefundDB(paymentID string, req refundRequest, result providerResult) (Refund, Payment, error) {
 	payment, err := s.getPaymentDB(paymentID)
 	if errors.Is(err, errNotFound) {

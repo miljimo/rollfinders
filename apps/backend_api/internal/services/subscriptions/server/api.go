@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -36,9 +37,15 @@ func statusForError(err error) (int, string, string) {
 		return http.StatusConflict, "duplicate_record", "Request contains duplicate records."
 	case errors.Is(err, errConflict):
 		return http.StatusConflict, "conflict", "Request conflicts with current state."
+	case errors.Is(err, errForbidden):
+		return http.StatusForbidden, "forbidden", "Actor cannot use this subscription plan."
 	default:
 		return http.StatusInternalServerError, "internal_error", "Subscription service request failed."
 	}
+}
+
+func actorIDFrom(r *http.Request) string {
+	return strings.TrimSpace(r.Header.Get("X-Actor-User-ID"))
 }
 
 func (s *server) handleError(w http.ResponseWriter, r *http.Request, err error, logMessage string) {
@@ -589,20 +596,21 @@ func (s *server) currentSubscriptionForOwner(w http.ResponseWriter, r *http.Requ
 	if !s.requireRepository(w, r) {
 		return
 	}
-	item, err := s.repo.activeSubscription(r.Context(), ownerType, ownerID)
+	items, err := s.repo.activeSubscriptionsByOwner(r.Context(), ownerType, ownerID)
 	if err != nil {
-		if errors.Is(err, errNotFound) {
-			writeJSON(w, http.StatusOK, map[string]any{"subscription": nil, "pending_change": nil, "billing_events": []BillingEvent{}, "cancellation": nil})
-			return
-		}
 		s.handleError(w, r, err, "current owner subscription lookup failed")
 		return
 	}
-	response, err := s.currentSubscriptionResponse(r.Context(), item)
+	if len(items) == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"subscription": nil, "subscriptions": []Subscription{}, "pending_change": nil, "billing_events": []BillingEvent{}, "cancellation": nil})
+		return
+	}
+	response, err := s.currentSubscriptionResponse(r.Context(), items[0])
 	if err != nil {
 		s.handleError(w, r, err, "current owner subscription state lookup failed")
 		return
 	}
+	response["subscriptions"] = items
 	writeJSON(w, http.StatusOK, response)
 }
 
@@ -688,18 +696,24 @@ func (s *server) createSubscriptionForOwner(w http.ResponseWriter, r *http.Reque
 	if pathOwnerType == "application" && applicationID != "" {
 		application, err := s.org.getApplication(r.Context(), applicationID)
 		if err != nil {
-			s.handleError(w, r, err, "application organisation lookup failed")
-			return
+			if errors.Is(err, errNotFound) && organisationID == "" && ownerType == "application" && ownerID == applicationID {
+				application = organisationApplication{ID: applicationID}
+			} else {
+				s.handleError(w, r, err, "application organisation lookup failed")
+				return
+			}
 		}
-		if application.OrganisationID == "" {
+		if application.ID != "" && application.OrganisationID == "" && organisationID == "" && ownerType == "application" && ownerID == applicationID {
+			// Local/platform-level app subscriptions may not have an Organisation Service application row yet.
+		} else if application.OrganisationID == "" {
 			s.handleError(w, r, errInvalid, "application organisation lookup failed")
 			return
-		}
-		if organisationID != "" && organisationID != application.OrganisationID {
+		} else if organisationID != "" && organisationID != application.OrganisationID {
 			s.handleError(w, r, errInvalid, "application organisation mismatch")
 			return
+		} else {
+			organisationID = application.OrganisationID
 		}
-		organisationID = application.OrganisationID
 	}
 	item := Subscription{
 		ApplicationID:  applicationID,
@@ -712,6 +726,10 @@ func (s *server) createSubscriptionForOwner(w http.ResponseWriter, r *http.Reque
 	plan, err := s.repo.getPlan(r.Context(), req.PlanID)
 	if err != nil {
 		s.handleError(w, r, err, "subscription plan lookup failed")
+		return
+	}
+	if err := s.repo.ensureActorCanUsePlan(r.Context(), actorIDFrom(r), plan); err != nil {
+		s.handleError(w, r, err, "subscription plan level check failed")
 		return
 	}
 	checkoutRequired := plan.PriceMinor > 0 && stripeBillableCycle(plan.BillingCycle)
@@ -874,14 +892,17 @@ type planChangePaymentResultRequest struct {
 }
 
 type subscriptionCheckoutRequest struct {
-	PlanID         string `json:"plan_id"`
-	OrganisationID string `json:"organisation_id"`
-	RequestedBy    string `json:"requested_by"`
-	CustomerEmail  string `json:"customer_email"`
-	SuccessURL     string `json:"success_url"`
-	CancelURL      string `json:"cancel_url"`
-	IdempotencyKey string `json:"idempotency_key"`
-	PlanChangeID   string `json:"-"`
+	PlanID         string   `json:"plan_id"`
+	PlanIDs        []string `json:"plan_ids,omitempty"`
+	OrganisationID string   `json:"organisation_id"`
+	PaymentMode    string   `json:"payment_mode"`
+	BillingPeriod  string   `json:"billing_period"`
+	RequestedBy    string   `json:"requested_by"`
+	CustomerEmail  string   `json:"customer_email"`
+	SuccessURL     string   `json:"success_url"`
+	CancelURL      string   `json:"cancel_url"`
+	IdempotencyKey string   `json:"idempotency_key"`
+	PlanChangeID   string   `json:"-"`
 }
 
 func (s *server) listPlanChanges(w http.ResponseWriter, r *http.Request) {
@@ -937,9 +958,38 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 		s.handleError(w, r, err, "target plan get for checkout failed")
 		return
 	}
+	checkoutPlans := []Plan{toPlan}
+	seenPlanIDs := map[string]bool{toPlan.ID: true}
+	for _, planID := range req.PlanIDs {
+		planID = strings.TrimSpace(planID)
+		if planID == "" || seenPlanIDs[planID] {
+			continue
+		}
+		plan, err := s.repo.getPlan(r.Context(), planID)
+		if err != nil {
+			s.handleError(w, r, err, "selected checkout plan get failed")
+			return
+		}
+		checkoutPlans = append(checkoutPlans, plan)
+		seenPlanIDs[plan.ID] = true
+	}
+	checkoutActorID := strings.TrimSpace(req.RequestedBy)
+	if checkoutActorID == "" {
+		checkoutActorID = actorIDFrom(r)
+	}
+	if err := s.repo.ensureActorCanUsePlan(r.Context(), checkoutActorID, toPlan); err != nil {
+		s.handleError(w, r, err, "checkout plan level check failed")
+		return
+	}
+	for _, checkoutPlan := range checkoutPlans[1:] {
+		if err := s.repo.ensureActorCanUsePlan(r.Context(), checkoutActorID, checkoutPlan); err != nil {
+			s.handleError(w, r, err, "checkout selected plan level check failed")
+			return
+		}
+	}
 	changeType := inferPlanChangeType(fromPlan, toPlan)
 	status := "checkout_pending"
-	checkoutRequired := toPlan.PriceMinor > 0 && stripeBillableCycle(toPlan.BillingCycle)
+	checkoutRequired := paymentCheckoutPlansAmount(checkoutPlans, req.BillingPeriod) > 0 && stripeBillableCycle(toPlan.BillingCycle)
 	if !checkoutRequired {
 		status = "applied"
 	}
@@ -951,8 +1001,17 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 	if strings.TrimSpace(req.CancelURL) == "" {
 		req.CancelURL = s.cfg.CheckoutCancelURL
 	}
+	req.SuccessURL = appendCheckoutResultParams(req.SuccessURL, map[string]string{
+		"billing":                    "success",
+		"plan_change_id":             planChangeID,
+		"stripe_checkout_session_id": "{CHECKOUT_SESSION_ID}",
+	})
+	req.CancelURL = appendCheckoutResultParams(req.CancelURL, map[string]string{
+		"billing":        "cancelled",
+		"plan_change_id": planChangeID,
+	})
 	if strings.TrimSpace(req.IdempotencyKey) == "" {
-		req.IdempotencyKey = "subscription-checkout:" + subscription.ID + ":" + toPlan.ID + ":" + planChangeID
+		req.IdempotencyKey = "subscription-checkout:" + subscription.ID + ":" + toPlan.ID + ":" + paymentCheckoutMode(req.PaymentMode) + ":" + paymentBillingInterval(req.BillingPeriod) + ":" + planChangeID
 	}
 	session := checkoutSession{}
 	if checkoutRequired {
@@ -960,7 +1019,7 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 			writeError(w, r, http.StatusServiceUnavailable, "billing_not_configured", "Subscription billing provider is not configured.")
 			return
 		}
-		session, err = s.billing.createSubscriptionCheckout(req, subscription, toPlan)
+		session, err = s.billing.createSubscriptionCheckout(req, subscription, checkoutPlans)
 		if err != nil {
 			s.logger.Error("subscription checkout create failed", "request_id", requestIDFrom(r), "error", err)
 			writeError(w, r, http.StatusBadGateway, "billing_provider_error", "Subscription billing provider request failed.")
@@ -986,9 +1045,11 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 	eventType := "checkout_created"
 	provider := "stripe"
 	providerReference := session.ID
+	eventAmountMinor := paymentCheckoutPlansAmount(checkoutPlans, req.BillingPeriod)
 	if !checkoutRequired {
 		eventType = "plan_change_applied"
 		provider = "subscription-service"
+		eventAmountMinor = toPlan.PriceMinor
 		item, err := s.repo.setSubscriptionStatus(r.Context(), subscription.ID, "active", toPlan.ID)
 		if err != nil {
 			s.handleError(w, r, err, "subscription apply checkout-free plan change failed")
@@ -1001,11 +1062,11 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 		PlanChangeID:      planChange.ID,
 		EventType:         eventType,
 		Status:            planChange.Status,
-		AmountMinor:       toPlan.PriceMinor,
+		AmountMinor:       eventAmountMinor,
 		Currency:          toPlan.Currency,
 		Provider:          provider,
 		ProviderReference: providerReference,
-		Metadata:          checkoutMetadata(session.URL),
+		Metadata:          checkoutMetadata(session.URL, req),
 	})
 	if err != nil {
 		s.handleError(w, r, err, "checkout billing event create failed")
@@ -1025,6 +1086,21 @@ func (s *server) createSubscriptionCheckout(w http.ResponseWriter, r *http.Reque
 		}
 	}
 	writeJSON(w, http.StatusCreated, response)
+}
+
+func appendCheckoutResultParams(raw string, params map[string]string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return raw
+	}
+	query := parsed.Query()
+	for key, value := range params {
+		if strings.TrimSpace(value) != "" {
+			query.Set(key, value)
+		}
+	}
+	parsed.RawQuery = query.Encode()
+	return strings.ReplaceAll(parsed.String(), "%7BCHECKOUT_SESSION_ID%7D", "{CHECKOUT_SESSION_ID}")
 }
 
 func (s *server) applyDuePlanChanges(w http.ResponseWriter, r *http.Request) {
@@ -1077,6 +1153,11 @@ func (s *server) recordPlanChangePaymentResult(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		s.handleError(w, r, err, "plan change payment result failed")
 		return
+	}
+	if status == "success" || status == "succeeded" {
+		if err := s.billing.recordExternalSubscriptionPayment(planChange, subscription, event); err != nil {
+			s.logger.Error("subscription payment transaction record failed", "request_id", requestIDFrom(r), "error", err, "plan_change_id", planChange.ID)
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"plan_change":   planChange,
@@ -1133,6 +1214,9 @@ func (s *server) recordPlanChange(ctx context.Context, subscriptionID string, re
 	if toPlanID != "" {
 		toPlan, err = s.repo.getPlan(ctx, toPlanID)
 		if err != nil {
+			return Subscription{}, PlanChange{}, BillingEvent{}, false, err
+		}
+		if err := s.repo.ensureActorCanUsePlan(ctx, req.RequestedBy, toPlan); err != nil {
 			return Subscription{}, PlanChange{}, BillingEvent{}, false, err
 		}
 	}
@@ -1210,15 +1294,19 @@ func (s *server) recordPlanChange(ctx context.Context, subscriptionID string, re
 	return subscription, result, event, checkoutRequired, nil
 }
 
-func checkoutMetadata(checkoutURL string) json.RawMessage {
-	if strings.TrimSpace(checkoutURL) == "" {
-		return json.RawMessage(`{}`)
+func checkoutMetadata(checkoutURL string, req subscriptionCheckoutRequest) json.RawMessage {
+	body := map[string]string{
+		"billing_period": paymentBillingInterval(req.BillingPeriod),
+		"payment_mode":   paymentCheckoutMode(req.PaymentMode),
 	}
-	body, err := json.Marshal(map[string]string{"checkout_url": checkoutURL})
+	if strings.TrimSpace(checkoutURL) != "" {
+		body["checkout_url"] = checkoutURL
+	}
+	data, err := json.Marshal(body)
 	if err != nil {
 		return json.RawMessage(`{}`)
 	}
-	return body
+	return data
 }
 
 func activatesSubscription(status string) bool {
@@ -1257,10 +1345,14 @@ func (s *server) entitlements(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	applicationID := r.PathValue("application_id")
-	subscription, features, err := s.repo.entitlements(r.Context(), applicationID)
+	subscriptions, features, err := s.repo.entitlementsByOwnerAll(r.Context(), "application", applicationID)
 	if err != nil {
 		s.handleError(w, r, err, "entitlement lookup failed")
 		return
+	}
+	subscription := Subscription{}
+	if len(subscriptions) > 0 {
+		subscription = subscriptions[0]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"owner_type":      subscription.OwnerType,
@@ -1268,7 +1360,9 @@ func (s *server) entitlements(w http.ResponseWriter, r *http.Request) {
 		"application_id":  applicationID,
 		"subscription_id": subscription.ID,
 		"plan_id":         subscription.PlanID,
+		"plan_ids":        subscriptionPlanIDs(subscriptions),
 		"status":          subscription.Status,
+		"subscriptions":   subscriptions,
 		"features":        features,
 	})
 }
@@ -1279,19 +1373,39 @@ func (s *server) ownerEntitlements(w http.ResponseWriter, r *http.Request) {
 	}
 	ownerType := strings.ToLower(strings.TrimSpace(r.PathValue("owner_type")))
 	ownerID := strings.TrimSpace(r.PathValue("owner_id"))
-	subscription, features, err := s.repo.entitlementsByOwner(r.Context(), ownerType, ownerID)
+	subscriptions, features, err := s.repo.entitlementsByOwnerAll(r.Context(), ownerType, ownerID)
 	if err != nil {
 		s.handleError(w, r, err, "owner entitlement lookup failed")
 		return
+	}
+	subscription := Subscription{}
+	if len(subscriptions) > 0 {
+		subscription = subscriptions[0]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"owner_type":      ownerType,
 		"owner_id":        ownerID,
 		"subscription_id": subscription.ID,
 		"plan_id":         subscription.PlanID,
+		"plan_ids":        subscriptionPlanIDs(subscriptions),
 		"status":          subscription.Status,
+		"subscriptions":   subscriptions,
 		"features":        features,
 	})
+}
+
+func subscriptionPlanIDs(subscriptions []Subscription) []string {
+	seen := map[string]bool{}
+	ids := []string{}
+	for _, subscription := range subscriptions {
+		planID := strings.TrimSpace(subscription.PlanID)
+		if planID == "" || seen[planID] {
+			continue
+		}
+		seen[planID] = true
+		ids = append(ids, planID)
+	}
+	return ids
 }
 
 type entitlementCheckRequest struct {
@@ -1417,7 +1531,7 @@ func (s *server) checkEntitlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subscription, err := s.repo.activeSubscription(r.Context(), req.OwnerType, req.OwnerID)
+	subscription, included, err := s.repo.activeOwnerIncludesFeature(r.Context(), req.OwnerType, req.OwnerID, feature.ID)
 	if err != nil {
 		if errors.Is(err, errNotFound) {
 			if !policy.SubscriptionRequired {
@@ -1438,20 +1552,15 @@ func (s *server) checkEntitlement(w http.ResponseWriter, r *http.Request) {
 	response.SubscriptionID = subscription.ID
 	response.PlanID = subscription.PlanID
 
-	included, err := s.repo.planIncludesFeature(r.Context(), subscription.PlanID, feature.ID)
-	if err != nil {
-		s.handleError(w, r, err, "plan feature lookup failed")
-		return
-	}
 	if !included {
 		response.Allowed = false
 		response.Decision = "DENY"
-		response.Reason = "PLAN_FEATURE_NOT_INCLUDED"
+		response.Reason = "ACTIVE_PLANS_FEATURE_NOT_INCLUDED"
 		s.auditEntitlementDenial(r, req, response)
 		writeJSON(w, http.StatusOK, response)
 		return
 	}
-	response.Reason = "PLAN_FEATURE_INCLUDED"
+	response.Reason = "ACTIVE_PLANS_FEATURE_INCLUDED"
 	writeJSON(w, http.StatusOK, response)
 }
 

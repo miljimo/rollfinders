@@ -86,6 +86,9 @@ func New(opts Options) http.Handler {
 	mustHandle("/v1/billing/subscriptions/{id}/invoices", []string{http.MethodGet}, s.listSubscriptionInvoices, auth)
 	mustHandle("/v1/webhooks/{provider}", []string{http.MethodPost}, s.webhook)
 	mustHandle("/internal/outbox/dispatch", []string{http.MethodPost}, s.dispatchOutbox)
+	mustHandle("/internal/outbox/events", []string{http.MethodGet}, s.listOutboxEvents)
+	mustHandle("/internal/outbox/events/{id}/delivered", []string{http.MethodPost}, s.markOutboxEventDelivered)
+	mustHandle("/internal/payments/record-external", []string{http.MethodPost}, s.recordExternalPayment, auth)
 
 	return withRequestID(s.accessLog(router))
 }

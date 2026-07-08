@@ -35,11 +35,17 @@ type BillingSubscription struct {
 	Provider               string            `json:"provider"`
 	ProviderCustomerID     string            `json:"provider_customer_id,omitempty"`
 	ProviderSubscriptionID string            `json:"provider_subscription_id,omitempty"`
+	ProviderCheckoutID     string            `json:"provider_checkout_id,omitempty"`
+	ProviderPaymentID      string            `json:"provider_payment_id,omitempty"`
+	ProviderChargeID       string            `json:"provider_charge_id,omitempty"`
+	ProviderInvoiceID      string            `json:"provider_invoice_id,omitempty"`
 	PlanID                 string            `json:"plan_id"`
 	PlanName               string            `json:"plan_name"`
 	Currency               string            `json:"currency"`
 	Amount                 int64             `json:"amount"`
 	Interval               string            `json:"interval"`
+	PaymentMode            string            `json:"payment_mode"`
+	RenewalInterval        string            `json:"renewal_interval,omitempty"`
 	Status                 string            `json:"status"`
 	TrialStart             *time.Time        `json:"trial_start,omitempty"`
 	TrialEnd               *time.Time        `json:"trial_end,omitempty"`
@@ -81,6 +87,8 @@ type createSubscriptionRequest struct {
 	Currency               string            `json:"currency"`
 	Amount                 int64             `json:"amount"`
 	Interval               string            `json:"interval"`
+	PaymentMode            string            `json:"payment_mode"`
+	RenewalInterval        string            `json:"renewal_interval"`
 	CustomerEmail          string            `json:"customer_email"`
 	SuccessURL             string            `json:"success_url"`
 	CancelURL              string            `json:"cancel_url"`
@@ -217,6 +225,8 @@ func decodeCreateSubscription(raw []byte) (createSubscriptionRequest, map[string
 	req.PlanID = strings.TrimSpace(req.PlanID)
 	req.PlanName = strings.TrimSpace(req.PlanName)
 	req.Interval = strings.TrimSpace(req.Interval)
+	req.PaymentMode = strings.TrimSpace(req.PaymentMode)
+	req.RenewalInterval = strings.TrimSpace(req.RenewalInterval)
 	req.CustomerEmail = strings.TrimSpace(req.CustomerEmail)
 	req.SuccessURL = strings.TrimSpace(req.SuccessURL)
 	req.CancelURL = strings.TrimSpace(req.CancelURL)
@@ -246,6 +256,22 @@ func decodeCreateSubscription(raw []byte) (createSubscriptionRequest, map[string
 	}
 	if req.Interval != "month" && req.Interval != "year" {
 		details["interval"] = "must be month or year"
+	}
+	if req.PaymentMode == "" {
+		req.PaymentMode = "subscription"
+	}
+	if req.PaymentMode != "subscription" && req.PaymentMode != "one_time" {
+		details["payment_mode"] = "must be subscription or one_time"
+	}
+	if req.PaymentMode == "subscription" {
+		if req.RenewalInterval == "" {
+			req.RenewalInterval = req.Interval
+		}
+		if req.RenewalInterval != "month" && req.RenewalInterval != "year" {
+			details["renewal_interval"] = "must be month or year"
+		}
+	} else {
+		req.RenewalInterval = ""
 	}
 	if req.TrialDays < 0 {
 		details["trial_days"] = "must be zero or a positive integer"
@@ -279,14 +305,20 @@ func (s *server) createProviderSubscriptionCheckout(req createSubscriptionReques
 	}
 
 	form := url.Values{}
-	form.Set("mode", "subscription")
+	stripeMode := "subscription"
+	if req.PaymentMode == "one_time" {
+		stripeMode = "payment"
+	}
+	form.Set("mode", stripeMode)
 	form.Set("success_url", successURL)
 	form.Set("cancel_url", cancelURL)
 	form.Set("client_reference_id", req.OwnerID)
 	form.Set("line_items[0][quantity]", "1")
 	form.Set("line_items[0][price_data][currency]", strings.ToLower(req.Currency))
 	form.Set("line_items[0][price_data][unit_amount]", strconv.FormatInt(req.Amount, 10))
-	form.Set("line_items[0][price_data][recurring][interval]", req.Interval)
+	if stripeMode == "subscription" {
+		form.Set("line_items[0][price_data][recurring][interval]", req.RenewalInterval)
+	}
 	form.Set("line_items[0][price_data][product_data][name]", req.PlanName)
 	if req.CustomerEmail != "" {
 		form.Set("customer_email", req.CustomerEmail)
@@ -305,7 +337,9 @@ func (s *server) createProviderSubscriptionCheckout(req createSubscriptionReques
 			continue
 		}
 		form.Set("metadata["+metadataKey+"]", metadataValue)
-		form.Set("subscription_data[metadata]["+metadataKey+"]", metadataValue)
+		if stripeMode == "subscription" {
+			form.Set("subscription_data[metadata]["+metadataKey+"]", metadataValue)
+		}
 	}
 
 	httpReq, err := http.NewRequest(http.MethodPost, "https://api.stripe.com/v1/checkout/sessions", strings.NewReader(form.Encode()))
@@ -371,11 +405,14 @@ func (s *store) createSubscription(req createSubscriptionRequest) BillingSubscri
 		Provider:               req.Provider,
 		ProviderCustomerID:     strings.TrimSpace(req.ProviderCustomerID),
 		ProviderSubscriptionID: strings.TrimSpace(req.ProviderSubscriptionID),
+		ProviderCheckoutID:     providerCheckoutID(req.CheckoutURL),
 		PlanID:                 req.PlanID,
 		PlanName:               req.PlanName,
 		Currency:               req.Currency,
 		Amount:                 req.Amount,
 		Interval:               req.Interval,
+		PaymentMode:            req.PaymentMode,
+		RenewalInterval:        req.RenewalInterval,
 		Status:                 status,
 		TrialStart:             trialStart,
 		TrialEnd:               trialEnd,
@@ -387,9 +424,54 @@ func (s *store) createSubscription(req createSubscriptionRequest) BillingSubscri
 		UpdatedAt:              now,
 	}
 	s.subscriptions[id] = subscription
-	s.invoices[id] = []*SubscriptionInvoice{}
+	s.invoices[id] = []*SubscriptionInvoice{{
+		ID:             s.newID("inv"),
+		SubscriptionID: id,
+		Amount:         req.Amount,
+		Currency:       req.Currency,
+		Status:         invoiceStatusForSubscription(subscription.Status),
+		DueDate:        &now,
+		PaidDate:       paidDateForSubscriptionStatus(subscription.Status, now),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}}
 	s.addOutboxLocked("subscription.created", id, map[string]any{"subscription_id": id, "client_id": req.ClientID, "owner_type": req.OwnerType, "owner_id": req.OwnerID, "status": subscription.Status})
 	return *cloneSubscription(subscription)
+}
+
+func providerCheckoutID(checkoutURL string) string {
+	value := strings.TrimSpace(checkoutURL)
+	if value == "" {
+		return ""
+	}
+	if parsed, err := url.Parse(value); err == nil {
+		parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+		for i := len(parts) - 1; i >= 0; i-- {
+			if strings.HasPrefix(parts[i], "cs_") || strings.HasPrefix(parts[i], "sub_checkout_") {
+				return parts[i]
+			}
+		}
+	}
+	return ""
+}
+
+func invoiceStatusForSubscription(status string) string {
+	switch status {
+	case subscriptionStatusActive, subscriptionStatusTrialing:
+		return "paid"
+	case subscriptionStatusIncomplete, subscriptionStatusPastDue, subscriptionStatusUnpaid:
+		return "open"
+	default:
+		return status
+	}
+}
+
+func paidDateForSubscriptionStatus(status string, now time.Time) *time.Time {
+	if status != subscriptionStatusActive && status != subscriptionStatusTrialing {
+		return nil
+	}
+	paidAt := now
+	return &paidAt
 }
 
 func (s *store) listSubscriptions(filter subscriptionFilter) []BillingSubscription {

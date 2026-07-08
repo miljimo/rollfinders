@@ -19,6 +19,8 @@ CREATE OR REPLACE PROCEDURE "checkoutInsert"(
 LANGUAGE plpgsql
 SET search_path TO payments, public
 AS $$
+DECLARE
+    v_payment payments%ROWTYPE;
 BEGIN
     INSERT INTO checkouts (
         id,
@@ -73,5 +75,45 @@ BEGIN
             'payer_email', p_payer_email
         )
     );
+
+    SELECT * INTO v_payment
+    FROM payments
+    WHERE id = p_payment_id;
+
+    IF v_payment.status = 'succeeded'
+       AND p_resource_type = 'course_occurrence'
+       AND NOT EXISTS (
+           SELECT 1 FROM outbox_events
+           WHERE event_type = 'payment.succeeded'
+             AND aggregate_id = p_payment_id
+       ) THEN
+        INSERT INTO outbox_events (id, event_type, aggregate_id, payload)
+        VALUES (
+            'evt_' || replace(gen_random_uuid()::text, '-', ''),
+            'payment.succeeded',
+            p_payment_id,
+            jsonb_build_object(
+                'payment_id', v_payment.id,
+                'amount', v_payment.amount_minor,
+                'currency', v_payment.currency,
+                'provider', v_payment.provider,
+                'provider_payment_id', v_payment.provider_payment_id,
+                'provider_status', v_payment.provider_raw_status,
+                'resource_type', p_resource_type,
+                'resource_id', p_resource_id,
+                'resource_label', p_resource_label,
+                'checkout_session_id', p_id,
+                'client_id', p_client_id,
+                'client_state', p_client_state,
+                'payer_user_id', p_payer_user_id,
+                'payer_email', p_payer_email,
+                'academy_id', v_payment.metadata->>'academy_id',
+                'academy_owner_id', v_payment.metadata->>'academy_owner_id',
+                'metadata', v_payment.metadata,
+                'created_at', v_payment.created_at,
+                'updated_at', v_payment.updated_at
+            )
+        );
+    END IF;
 END;
 $$;

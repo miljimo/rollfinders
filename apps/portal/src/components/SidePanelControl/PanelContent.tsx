@@ -31,12 +31,15 @@ export function PanelContent({
 }) {
   return (
     <>
-      <div className={`relative flex h-20 items-center border-b border-stone-200 ${collapsed ? "justify-start px-0" : "gap-3 px-3 pr-16"}`}>
-        <Link href="/dashboard" className={collapsed ? "inline-flex size-[70px] shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" : "flex min-w-0 flex-1 items-center gap-3 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"} aria-label="Go to dashboard">
-          <span className="inline-flex size-[70px] shrink-0 items-center justify-center">
-            <Image src="/logo.png" alt="" width={70} height={70} className="h-[70px] w-[70px] object-contain" priority />
+      <div className={`relative flex items-center border-b border-stone-200 ${collapsed ? "h-[88px] justify-center px-0" : "h-[88px] px-8 pr-16"}`}>
+        <Link href="/dashboard" className={collapsed ? "inline-flex size-14 shrink-0 items-center justify-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" : "flex min-w-0 flex-1 items-center gap-4 rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2"} aria-label="Go to dashboard">
+          <span className={collapsed ? "inline-flex size-12 shrink-0 items-center justify-center" : "inline-flex size-14 shrink-0 items-center justify-center"}>
+            <Image src="/logo.png" alt="" width={70} height={70} className={collapsed ? "size-12 object-contain" : "size-14 object-contain"} priority />
           </span>
-          <span id={drawerTitleId} className={collapsed ? "sr-only" : "min-w-0 truncate text-xl font-black text-slate-950"}>RollFinders</span>
+          <span id={drawerTitleId} className={collapsed ? "sr-only" : "min-w-0"}>
+            <span className="block truncate text-lg font-black uppercase leading-6 text-slate-950">RollFinders</span>
+            <span className="block truncate text-sm font-semibold leading-5 text-slate-700">Find Your Next Roll</span>
+          </span>
         </Link>
         {showClose ? (
           <button type="button" className="absolute right-4 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-md border border-stone-200 bg-white text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2" aria-label="Close dashboard navigation" onClick={onClose}>
@@ -46,7 +49,7 @@ export function PanelContent({
         {onToggleCollapsed ? (
           <button
             type="button"
-            className={`${collapsed ? "-right-4 size-10" : "-right-5 size-11"} absolute top-1/2 inline-flex -translate-y-1/2 items-center justify-center rounded-md border border-stone-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2`}
+            className={`${collapsed ? "left-[calc(100%+0.75rem)] top-7 size-10" : "-right-[22px] top-1/2 size-11 -translate-y-1/2"} absolute z-20 inline-flex items-center justify-center rounded-md border border-stone-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2`}
             aria-label={collapsed ? "Expand dashboard navigation" : "Collapse dashboard navigation"}
             onClick={onToggleCollapsed}
           >
@@ -62,13 +65,13 @@ export function PanelContent({
         </div>
       ) : null}
 
-      <nav className={`flex flex-1 flex-col gap-2 py-6 text-sm font-bold text-slate-600 ${collapsed ? "px-3" : "px-4"}`} aria-label="Dashboard navigation">
+      <nav className={`flex flex-1 flex-col text-sm font-bold text-slate-600 ${collapsed ? "gap-3 px-2 py-3" : "gap-2 px-4 py-6"}`} aria-label="Dashboard navigation">
         {navigationItems.map((item) => (
           <SidePanelNavGroup key={item.href} item={item} collapsed={collapsed} onNavigate={onClose} />
         ))}
       </nav>
 
-      <div className={`grid gap-2 border-t border-stone-200 py-5 text-sm font-bold text-slate-600 ${collapsed ? "px-3" : "px-4"}`}>
+      <div className={`grid border-t border-stone-200 py-5 text-sm font-bold text-slate-600 ${collapsed ? "gap-3 px-2" : "gap-2 px-4"}`}>
         {footerNavigationItems.map((item) => (
           <SidePanelNavItem key={item.href} item={item} collapsed={collapsed} onNavigate={onClose} />
         ))}

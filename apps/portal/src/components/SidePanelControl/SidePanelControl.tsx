@@ -16,7 +16,7 @@ type SidePanelControlProps = {
 
 const collapsedStorageKey = "rollfinders.adminSidePanelCollapsed";
 const expandedWidth = "16rem";
-const railWidth = "4.5rem";
+const railWidth = "4rem";
 
 export function SidePanelControl({
   accountLabel,
@@ -132,7 +132,7 @@ export function SidePanelControl({
         </div>
       ) : null}
 
-      <aside className={`fixed inset-y-0 left-0 z-30 hidden border-r border-stone-200 bg-white motion-safe:transition-[width] motion-safe:duration-200 lg:flex lg:flex-col ${collapsed ? "w-[4.5rem]" : "w-64"}`}>
+      <aside className={`fixed inset-y-0 left-0 z-30 hidden border-r border-stone-200 bg-white shadow-sm motion-safe:transition-[width] motion-safe:duration-200 lg:flex lg:flex-col ${collapsed ? "w-16" : "w-64"}`}>
         <PanelContent
           accountLabel={accountLabel}
           collapsed={collapsed}

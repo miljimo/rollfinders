@@ -17,6 +17,7 @@ var (
 	errConflict  = errors.New("conflict")
 	errInvalid   = errors.New("invalid")
 	errDuplicate = errors.New("duplicate")
+	errForbidden = errors.New("forbidden")
 )
 
 type repository struct {
@@ -58,6 +59,7 @@ type Plan struct {
 	PriceMinor         int           `json:"price_minor"`
 	BillingCycle       string        `json:"billing_cycle"`
 	IsInternal         bool          `json:"is_internal"`
+	TargetUserLevel    int           `json:"target_user_level"`
 	CreatedAt          time.Time     `json:"created_at"`
 	UpdatedAt          time.Time     `json:"updated_at"`
 	Features           []PlanFeature `json:"features,omitempty"`
@@ -463,12 +465,12 @@ func (r *repository) deleteFeature(ctx context.Context, id string) error {
 
 func scanPlan(row interface{ Scan(...any) error }) (Plan, error) {
 	var plan Plan
-	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.IsInternal, &plan.CreatedAt, &plan.UpdatedAt)
+	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.IsInternal, &plan.TargetUserLevel, &plan.CreatedAt, &plan.UpdatedAt)
 	return plan, err
 }
 
 func (r *repository) listPlans(ctx context.Context, limit, offset int) ([]Plan, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -612,10 +614,13 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 	if plan.BillingCycle == "" {
 		plan.BillingCycle = "month"
 	}
+	if plan.TargetUserLevel <= 0 {
+		plan.TargetUserLevel = 100
+	}
 	previous, previousErr := r.getPlan(ctx, plan.ID)
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle, is_internal)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
@@ -624,9 +629,10 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 			price_minor = EXCLUDED.price_minor,
 			billing_cycle = EXCLUDED.billing_cycle,
 			is_internal = EXCLUDED.is_internal,
+			target_user_level = EXCLUDED.target_user_level,
 			updated_at = now()
-		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at
-	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle, plan.IsInternal)
+		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at
+	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle, plan.IsInternal, plan.TargetUserLevel)
 	result, err := scanPlan(row)
 	if err != nil {
 		return Plan{}, err
@@ -652,7 +658,7 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 }
 
 func (r *repository) getPlan(ctx context.Context, id string) (Plan, error) {
-	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at FROM plans WHERE id = $1`, id))
+	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at FROM plans WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
 	}
@@ -683,7 +689,7 @@ func (r *repository) setPlanStatus(ctx context.Context, id string, status string
 		UPDATE plans
 		SET status = $2, updated_at = now()
 		WHERE id = $1
-		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, created_at, updated_at
+		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at
 	`, id, activeStatus(status)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
@@ -702,6 +708,35 @@ func (r *repository) deletePlan(ctx context.Context, id string) error {
 	}
 	if rows == 0 {
 		return errNotFound
+	}
+	return nil
+}
+
+func (r *repository) actorMaxRoleLevel(ctx context.Context, actorID string) (int, error) {
+	actorID = strings.TrimSpace(actorID)
+	if actorID == "" {
+		return 0, nil
+	}
+	var level sql.NullInt64
+	if err := r.db.QueryRowContext(ctx, `SELECT authorisation.actor_max_role_level($1)`, actorID).Scan(&level); err != nil {
+		return 0, err
+	}
+	if !level.Valid {
+		return 0, nil
+	}
+	return int(level.Int64), nil
+}
+
+func (r *repository) ensureActorCanUsePlan(ctx context.Context, actorID string, plan Plan) error {
+	if plan.TargetUserLevel <= 0 {
+		return nil
+	}
+	level, err := r.actorMaxRoleLevel(ctx, actorID)
+	if err != nil {
+		return err
+	}
+	if level < plan.TargetUserLevel {
+		return errForbidden
 	}
 	return nil
 }
@@ -941,10 +976,11 @@ func (r *repository) createSubscription(ctx context.Context, item Subscription) 
 		FROM subscriptions
 		WHERE owner_type = $1
 		  AND owner_id = $2
+		  AND plan_id = $3
 		  AND status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'active', 'past_due', 'scheduled_downgrade', 'cancel_at_period_end', 'suspended')
 		ORDER BY created_at DESC
 		LIMIT 1
-	`, item.OwnerType, item.OwnerID))
+	`, item.OwnerType, item.OwnerID, item.PlanID))
 	if err == nil {
 		return Subscription{}, errConflict
 	}
@@ -1374,6 +1410,18 @@ func (r *repository) recordPlanChangePaymentResult(ctx context.Context, planChan
 		}
 		eventType = "plan_change_applied"
 	}
+	eventAmountMinor := 0
+	eventCurrency := "GBP"
+	if success {
+		_ = tx.QueryRowContext(ctx, `
+			SELECT amount_minor, currency
+			FROM subscription_billing_events
+			WHERE plan_change_id = $1
+			  AND event_type = 'checkout_created'
+			ORDER BY created_at DESC
+			LIMIT 1
+		`, updatedChange.ID).Scan(&eventAmountMinor, &eventCurrency)
+	}
 	provider := strings.TrimSpace(result.Provider)
 	if provider == "" {
 		provider = "payment-service"
@@ -1388,9 +1436,9 @@ func (r *repository) recordPlanChangePaymentResult(ctx context.Context, planChan
 	}
 	event, err := scanBillingEvent(tx.QueryRowContext(ctx, `
 		INSERT INTO subscription_billing_events (subscription_id, plan_change_id, payment_id, event_type, status, amount_minor, currency, provider, provider_reference, metadata)
-		VALUES ($1, $2, $3, $4, $5, 0, 'GBP', $6, $7, $8::jsonb)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
 		RETURNING id, COALESCE(subscription_id, ''), COALESCE(plan_change_id, ''), payment_id, event_type, status, amount_minor, currency, provider, provider_reference, metadata, created_at
-	`, updatedChange.SubscriptionID, updatedChange.ID, updatedChange.PaymentID, eventType, updatedChange.Status, provider, providerReference, metadata))
+	`, updatedChange.SubscriptionID, updatedChange.ID, updatedChange.PaymentID, eventType, updatedChange.Status, eventAmountMinor, eventCurrency, provider, providerReference, metadata))
 	if err != nil {
 		return PlanChange{}, Subscription{}, BillingEvent{}, err
 	}
@@ -1456,33 +1504,53 @@ func (r *repository) entitlements(ctx context.Context, ownerID string) (Subscrip
 }
 
 func (r *repository) entitlementsByOwner(ctx context.Context, ownerType string, ownerID string) (Subscription, []PlanFeature, error) {
-	ownerType = strings.ToLower(strings.TrimSpace(ownerType))
-	ownerID = strings.TrimSpace(ownerID)
-	if ownerType == "" || ownerID == "" {
-		return Subscription{}, nil, errInvalid
-	}
-	sub, err := scanSubscription(r.db.QueryRowContext(ctx, `
-		SELECT `+subscriptionSelectColumns+`
-		FROM subscriptions
-		WHERE owner_type = $1
-		  AND owner_id = $2
-		  AND status IN ('ACTIVE', 'TRIAL', 'active', 'scheduled_downgrade', 'cancel_at_period_end')
-		  AND (status != 'cancel_at_period_end' OR cancel_at IS NULL OR cancel_at > now())
-		ORDER BY created_at DESC
-		LIMIT 1
-	`, ownerType, ownerID))
-	if errors.Is(err, sql.ErrNoRows) {
-		return Subscription{}, []PlanFeature{}, nil
-	}
+	subscriptions, features, err := r.entitlementsByOwnerAll(ctx, ownerType, ownerID)
 	if err != nil {
 		return Subscription{}, nil, err
 	}
-	features, err := r.listPlanFeatures(ctx, sub.PlanID)
-	return sub, features, err
+	if len(subscriptions) == 0 {
+		return Subscription{}, []PlanFeature{}, nil
+	}
+	return subscriptions[0], features, nil
 }
 
-func (r *repository) activeSubscription(ctx context.Context, ownerType string, ownerID string) (Subscription, error) {
-	item, err := scanSubscription(r.db.QueryRowContext(ctx, `
+func (r *repository) entitlementsByOwnerAll(ctx context.Context, ownerType string, ownerID string) ([]Subscription, []PlanFeature, error) {
+	subscriptions, err := r.activeSubscriptionsByOwner(ctx, ownerType, ownerID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(subscriptions) == 0 {
+		return []Subscription{}, []PlanFeature{}, nil
+	}
+	featuresByFeatureID := map[string]PlanFeature{}
+	orderedFeatures := []PlanFeature{}
+	for _, sub := range subscriptions {
+		features, err := r.listPlanFeatures(ctx, sub.PlanID)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, feature := range features {
+			key := strings.TrimSpace(feature.FeatureID)
+			if key == "" {
+				key = feature.ID
+			}
+			if _, exists := featuresByFeatureID[key]; exists {
+				continue
+			}
+			featuresByFeatureID[key] = feature
+			orderedFeatures = append(orderedFeatures, feature)
+		}
+	}
+	return subscriptions, orderedFeatures, nil
+}
+
+func (r *repository) activeSubscriptionsByOwner(ctx context.Context, ownerType string, ownerID string) ([]Subscription, error) {
+	ownerType = strings.ToLower(strings.TrimSpace(ownerType))
+	ownerID = strings.TrimSpace(ownerID)
+	if ownerType == "" || ownerID == "" {
+		return nil, errInvalid
+	}
+	rows, err := r.db.QueryContext(ctx, `
 		SELECT `+subscriptionSelectColumns+`
 		FROM subscriptions
 		WHERE owner_type = $1
@@ -1490,12 +1558,23 @@ func (r *repository) activeSubscription(ctx context.Context, ownerType string, o
 		  AND status IN ('ACTIVE', 'TRIAL', 'active', 'scheduled_downgrade', 'cancel_at_period_end')
 		  AND (status != 'cancel_at_period_end' OR cancel_at IS NULL OR cancel_at > now())
 		ORDER BY created_at DESC
-		LIMIT 1
-	`, strings.ToLower(strings.TrimSpace(ownerType)), ownerID))
-	if errors.Is(err, sql.ErrNoRows) {
+	`, ownerType, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanSubscriptions(rows)
+}
+
+func (r *repository) activeSubscription(ctx context.Context, ownerType string, ownerID string) (Subscription, error) {
+	items, err := r.activeSubscriptionsByOwner(ctx, ownerType, ownerID)
+	if err != nil {
+		return Subscription{}, err
+	}
+	if len(items) == 0 {
 		return Subscription{}, errNotFound
 	}
-	return item, err
+	return items[0], nil
 }
 
 func (r *repository) planIncludesFeature(ctx context.Context, planID string, featureID string) (bool, error) {
@@ -1515,6 +1594,26 @@ func (r *repository) planIncludesFeature(ctx context.Context, planID string, fea
 		)
 	`, planID, featureID).Scan(&included)
 	return included, err
+}
+
+func (r *repository) activeOwnerIncludesFeature(ctx context.Context, ownerType string, ownerID string, featureID string) (Subscription, bool, error) {
+	subscriptions, _, err := r.entitlementsByOwnerAll(ctx, ownerType, ownerID)
+	if err != nil {
+		return Subscription{}, false, err
+	}
+	if len(subscriptions) == 0 {
+		return Subscription{}, false, errNotFound
+	}
+	for _, subscription := range subscriptions {
+		included, err := r.planIncludesFeature(ctx, subscription.PlanID, featureID)
+		if err != nil {
+			return Subscription{}, false, err
+		}
+		if included {
+			return subscription, true, nil
+		}
+	}
+	return subscriptions[0], false, nil
 }
 
 func itoa(value int) string {

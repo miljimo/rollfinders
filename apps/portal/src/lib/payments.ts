@@ -97,6 +97,18 @@ export type PaymentAccountSetting = {
   updatedAt: string;
 };
 
+export type PaymentOutboxEvent = {
+  id: string;
+  eventType: string;
+  aggregateId: string;
+  payload: Record<string, unknown>;
+  delivered: boolean;
+  attempts: number;
+  lastError?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CheckoutResponse = {
   checkout_session_id: string;
   client_id: string;
@@ -135,6 +147,37 @@ type PaymentHistoryResponse = {
   pagination?: ServicePaginationMeta;
 };
 
+type BillingSubscriptionResponse = {
+  subscription_id: string;
+  client_id: string;
+  owner_type: string;
+  owner_id: string;
+  provider: string;
+  provider_subscription_id?: string;
+  provider_checkout_id?: string;
+  provider_payment_id?: string;
+  provider_charge_id?: string;
+  provider_invoice_id?: string;
+  plan_id: string;
+  plan_name: string;
+  currency: string;
+  amount: number;
+  interval: string;
+  payment_mode?: string;
+  renewal_interval?: string;
+  status: string;
+  checkout_url?: string;
+  metadata?: Record<string, string>;
+  created_at: string;
+  updated_at: string;
+};
+
+type BillingSubscriptionListResponse = {
+  subscriptions?: BillingSubscriptionResponse[];
+  count?: number;
+  pagination?: ServicePaginationMeta;
+};
+
 type PaymentRefundRecordResponse = {
   id: string;
   payment_id: string;
@@ -159,6 +202,23 @@ type PaymentAccountSettingResponse = {
   payouts_enabled: boolean;
   created_at: string;
   updated_at: string;
+};
+
+type PaymentOutboxEventResponse = {
+  id: string;
+  event_type: string;
+  aggregate_id: string;
+  payload?: Record<string, unknown>;
+  delivered?: boolean;
+  attempts?: number;
+  last_error?: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type PaymentOutboxEventsResponse = {
+  events?: PaymentOutboxEventResponse[];
+  count?: number;
 };
 
 type StripeConnectResponse = {
@@ -269,28 +329,7 @@ export async function listCourseOccurrencePaymentsPage({ accessToken, limit = 10
     throw new PaymentServiceError(`Payment service history request failed with status ${response.status}.`, response.status);
   }
   const history = (await response.json()) as PaymentHistoryResponse;
-  const payments = history.payments.map((payment) => ({
-    id: payment.id,
-    amount: payment.amount,
-    currency: payment.currency,
-    provider: payment.provider,
-    paymentMethodType: payment.payment_method_type,
-    status: payment.status,
-    refundedAmount: payment.refunded_amount,
-    metadata: payment.metadata,
-    providerPaymentId: payment.provider_payment_id,
-    providerStatus: payment.provider_status,
-    createdAt: payment.created_at,
-    updatedAt: payment.updated_at,
-    checkoutSessionId: payment.checkout_session_id,
-    clientId: payment.client_id,
-    clientState: payment.client_state,
-    resourceType: payment.resource_type,
-    resourceId: payment.resource_id,
-    resourceLabel: payment.resource_label,
-    payerUserId: payment.payer_user_id,
-    payerEmail: payment.payer_email,
-  })).filter(isProviderBackedPaymentRecord);
+  const payments = history.payments.map(mapPaymentRecord).filter(isProviderBackedPaymentRecord);
   return {
     payments,
     pagination: history.pagination ?? {
@@ -303,7 +342,88 @@ export async function listCourseOccurrencePaymentsPage({ accessToken, limit = 10
   };
 }
 
+export async function listPaymentTransactionsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+  const directPayments = await listRollFindersPaymentsPage({ accessToken, limit, offset });
+  if (directPayments.payments.length > 0 || directPayments.pagination.has_more) {
+    return directPayments;
+  }
+
+  const requestedLimit = Math.min(100, Math.max(limit, offset + limit));
+  const billingSubscriptions = await listBillingSubscriptionPaymentsPage({ accessToken, limit: requestedLimit, offset: 0 });
+  const combined = billingSubscriptions.payments
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+  const page = combined.slice(offset, offset + limit);
+  return {
+    payments: page,
+    pagination: {
+      count: page.length,
+      has_more: combined.length > offset + limit || billingSubscriptions.pagination.has_more,
+      limit,
+      next_offset: offset + page.length,
+      offset,
+    },
+  };
+}
+
+async function listRollFindersPaymentsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+  const params = new URLSearchParams({
+    client_id: "rollfinders",
+    offset: String(offset),
+    limit: String(limit),
+  });
+  const response = await fetch(`${paymentServiceUrl()}/v1/payments?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: paymentServiceHeaders({ accessToken }),
+  });
+  if (!response.ok) {
+    throw new PaymentServiceError(`Payment service history request failed with status ${response.status}.`, response.status);
+  }
+  const history = (await response.json()) as PaymentHistoryResponse;
+  const payments = history.payments.map(mapPaymentRecord).filter(isProviderBackedPaymentRecord);
+  return {
+    payments,
+    pagination: history.pagination ?? {
+      count: payments.length,
+      has_more: payments.length >= limit,
+      limit,
+      next_offset: offset + payments.length,
+      offset,
+    },
+  };
+}
+
+async function listBillingSubscriptionPaymentsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+  const params = new URLSearchParams({
+    client_id: "rollfinders",
+    offset: String(offset),
+    limit: String(limit),
+  });
+  const response = await fetch(`${paymentServiceUrl()}/v1/billing/subscriptions?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+    headers: paymentServiceHeaders({ accessToken }),
+  });
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment service subscription billing request failed with status ${response.status}.`, response.status, error.code);
+  }
+  const body = (await response.json()) as BillingSubscriptionListResponse;
+  const payments = (body.subscriptions ?? []).map(mapBillingSubscriptionPayment);
+  return {
+    payments,
+    pagination: body.pagination ?? {
+      count: payments.length,
+      has_more: payments.length >= limit,
+      limit,
+      next_offset: offset + payments.length,
+      offset,
+    },
+  };
+}
+
 function mapPaymentRecord(payment: PaymentRecordResponse): PaymentRecord {
+  const metadata = payment.metadata ?? {};
   return {
     id: payment.id,
     amount: payment.amount,
@@ -317,15 +437,59 @@ function mapPaymentRecord(payment: PaymentRecordResponse): PaymentRecord {
     providerStatus: payment.provider_status,
     createdAt: payment.created_at,
     updatedAt: payment.updated_at,
-    checkoutSessionId: payment.checkout_session_id,
-    clientId: payment.client_id,
-    clientState: payment.client_state,
-    resourceType: payment.resource_type,
-    resourceId: payment.resource_id,
-    resourceLabel: payment.resource_label,
-    payerUserId: payment.payer_user_id,
-    payerEmail: payment.payer_email,
+    checkoutSessionId: payment.checkout_session_id || metadata.provider_checkout_id || metadata.checkout_session_id,
+    clientId: payment.client_id || metadata.client_id,
+    clientState: payment.client_state || metadata.client_state,
+    resourceType: payment.resource_type || metadata.resource_type,
+    resourceId: payment.resource_id || metadata.resource_id,
+    resourceLabel: payment.resource_label || metadata.resource_label || metadata.plan_name,
+    payerUserId: payment.payer_user_id || metadata.payer_user_id,
+    payerEmail: payment.payer_email || metadata.payer_email,
   };
+}
+
+function mapBillingSubscriptionPayment(subscription: BillingSubscriptionResponse): PaymentRecord {
+  const metadata = subscription.metadata ?? {};
+  const optionalMetadata = compactMetadata({
+    payment_mode: subscription.payment_mode,
+    provider_charge_id: subscription.provider_charge_id,
+    provider_checkout_id: subscription.provider_checkout_id,
+    provider_invoice_id: subscription.provider_invoice_id,
+    provider_subscription_id: subscription.provider_subscription_id,
+    renewal_interval: subscription.renewal_interval,
+  });
+  return {
+    id: subscription.subscription_id,
+    amount: subscription.amount,
+    currency: subscription.currency,
+    provider: subscription.provider,
+    paymentMethodType: "card",
+    status: subscription.status,
+    refundedAmount: 0,
+    metadata: {
+      ...metadata,
+      ...optionalMetadata,
+      billing_interval: subscription.interval,
+      owner_id: subscription.owner_id,
+      owner_type: subscription.owner_type,
+      payment_scope: "SUBSCRIPTION",
+      plan_id: subscription.plan_id,
+      plan_name: subscription.plan_name,
+    },
+    providerPaymentId: subscription.provider_payment_id || subscription.provider_subscription_id,
+    providerStatus: subscription.status,
+    createdAt: subscription.created_at,
+    updatedAt: subscription.updated_at,
+    checkoutSessionId: subscription.provider_checkout_id || subscription.subscription_id,
+    clientId: subscription.client_id,
+    resourceType: "subscription",
+    resourceId: subscription.plan_id,
+    resourceLabel: subscription.plan_name,
+  };
+}
+
+function compactMetadata(input: Record<string, string | undefined>) {
+  return Object.fromEntries(Object.entries(input).filter((entry): entry is [string, string] => Boolean(entry[1])));
 }
 
 export async function getPayment(paymentId: string): Promise<PaymentRecord> {
@@ -486,7 +650,48 @@ async function readPaymentServiceError(response: Response): Promise<{ code?: str
 
 function isProviderBackedPaymentRecord(payment: PaymentRecord) {
   if (payment.provider !== "stripe") return true;
-  return typeof payment.providerPaymentId === "string" && payment.providerPaymentId.startsWith("cs_");
+  return Boolean(payment.providerPaymentId || payment.checkoutSessionId || payment.id);
+}
+
+export async function listPaymentOutboxEvents({
+  eventType = "payment.succeeded",
+  limit = 50,
+}: {
+  eventType?: string;
+  limit?: number;
+} = {}): Promise<PaymentOutboxEvent[]> {
+  const params = new URLSearchParams({ event_type: eventType, limit: String(limit) });
+  const response = await fetch(`${paymentServiceUrl()}/internal/outbox/events?${params.toString()}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment outbox request failed with status ${response.status}.`, response.status, error.code);
+  }
+  const body = (await response.json()) as PaymentOutboxEventsResponse;
+  return (body.events ?? []).map((event) => ({
+    id: event.id,
+    eventType: event.event_type,
+    aggregateId: event.aggregate_id,
+    payload: event.payload ?? {},
+    delivered: event.delivered ?? false,
+    attempts: event.attempts ?? 0,
+    lastError: event.last_error,
+    createdAt: event.created_at,
+    updatedAt: event.updated_at,
+  }));
+}
+
+export async function markPaymentOutboxEventDelivered(eventId: string): Promise<void> {
+  const response = await fetch(`${paymentServiceUrl()}/internal/outbox/events/${encodeURIComponent(eventId)}/delivered`, {
+    method: "POST",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(error.message ?? `Payment outbox acknowledgement failed with status ${response.status}.`, response.status, error.code);
+  }
 }
 
 function mapPaymentAccountSetting(setting: PaymentAccountSettingResponse): PaymentAccountSetting {

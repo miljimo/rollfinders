@@ -15,7 +15,7 @@
     "typecheck": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test": "npm run typecheck && npm run test:unit",
-    "test:unit": "node --import tsx --test \"apps/portal/src/components/{Button,GridDashboard,QuickActionPanel,StatsPanel,Table,data-table-with-search,pagination}/__tests__/*.test.tsx\" \"apps/portal/src/components/__tests__/*.test.tsx\" \"apps/portal/src/app/admin/__tests__/*.test.tsx\" \"apps/portal/src/lib/__tests__/*.test.ts\"",
+    "test:unit": "node --import tsx --test \"apps/portal/src/components/{Button,GridDashboard,QuickActionPanel,StatsPanel,Table,data-table-with-search,pagination,tab-control}/__tests__/*.test.tsx\" \"apps/portal/src/components/__tests__/*.test.tsx\" \"apps/portal/src/app/admin/__tests__/*.test.tsx\" \"apps/portal/src/lib/__tests__/*.test.ts\"",
     "payments:dev": "cd apps/backend_api && go run ./cmd/services/payments/api",
     "payments:test": "cd apps/backend_api && go test ./cmd/services/payments/... ./containers/payments/...",
     "payments:test:e2e": "cd apps/backend_api && RUN_PAYMENT_E2E=1 go test ./containers/payments/e2e -count=1 -v",

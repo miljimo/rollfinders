@@ -53,12 +53,14 @@ CREATE TABLE IF NOT EXISTS subscriptions.plans (
     price_minor integer NOT NULL DEFAULT 0 CHECK (price_minor >= 0),
     billing_cycle text NOT NULL DEFAULT 'month' CONSTRAINT plans_billing_cycle_allowed CHECK (billing_cycle IN ('free', 'month', 'year', 'manual')),
     is_internal boolean NOT NULL DEFAULT false,
+    target_user_level integer NOT NULL DEFAULT 100 CHECK (target_user_level >= 0),
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 ALTER TABLE subscriptions.plans
-    ADD COLUMN IF NOT EXISTS is_internal boolean NOT NULL DEFAULT false;
+    ADD COLUMN IF NOT EXISTS is_internal boolean NOT NULL DEFAULT false,
+    ADD COLUMN IF NOT EXISTS target_user_level integer NOT NULL DEFAULT 100;
 
 CREATE TABLE IF NOT EXISTS subscriptions.billing_cycles (
     key text PRIMARY KEY,

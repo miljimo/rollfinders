@@ -205,7 +205,7 @@ describe("course payment service integration", () => {
     assert.match(paymentsSource, /listCourseOccurrencePayments/);
     assert.match(paymentsSource, /resource_type:\s*"course_occurrence"/);
     assert.match(paymentsSource, /isProviderBackedPaymentRecord/);
-    assert.match(paymentsSource, /providerPaymentId\.startsWith\("cs_"\)/);
+    assert.doesNotMatch(paymentsSource, /providerPaymentId\.startsWith\("cs_"\)/);
     assert.match(dashboardSource, /\/dashboard\/payment/);
     assert.match(dashboardSource, /label:\s*"Payments"/);
     assert.match(dashboardSource, /academyId \? payments\.filter/);
@@ -344,6 +344,32 @@ describe("course payment service integration", () => {
     assert.match(paymentStatusSource, /markBookingPaymentReceived/);
     assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/payment-received/);
     assert.match(bookingSource, /\/v1\/bookings\/\$\{encodeURIComponent\(bookingId\)\}\/confirm/);
+  });
+
+  it("posts course payment wallet effects through the payment outbox adapter and backfill job", () => {
+    const paymentSource = readSource("apps/portal/src/lib/payments.ts");
+    const postingSource = readSource("apps/portal/src/lib/payment-wallet-posting.ts");
+    const jobRouteSource = readSource("apps/portal/src/app/api/jobs/course-payment-wallet-posting/route.ts");
+    const walletEffectsSource = readSource("apps/portal/src/lib/course-payment-wallet-effects.ts");
+
+    assert.match(paymentSource, /export async function listPaymentOutboxEvents/);
+    assert.match(paymentSource, /\/internal\/outbox\/events\?\$\{params\.toString\(\)\}/);
+    assert.match(paymentSource, /export async function markPaymentOutboxEventDelivered/);
+    assert.match(paymentSource, /\/internal\/outbox\/events\/\$\{encodeURIComponent\(eventId\)\}\/delivered/);
+    assert.match(postingSource, /processCoursePaymentWalletOutbox/);
+    assert.match(postingSource, /backfillCoursePaymentWalletEffects/);
+    assert.match(postingSource, /recordCoursePaymentWalletEffects/);
+    assert.match(postingSource, /markPaymentOutboxEventDelivered/);
+    assert.match(postingSource, /eventType !== "payment\.succeeded"/);
+    assert.match(postingSource, /resource_type !== "course_occurrence"/);
+    assert.match(postingSource, /listCourseOccurrencePaymentsPage/);
+    assert.match(jobRouteSource, /CRON_SECRET/);
+    assert.match(jobRouteSource, /isPlatformAdminRole/);
+    assert.match(jobRouteSource, /backfillCoursePaymentWalletEffects/);
+    assert.match(jobRouteSource, /processCoursePaymentWalletOutbox/);
+    assert.match(jobRouteSource, /dryRun/);
+    assert.match(walletEffectsSource, /course-payment-wallet-credit:\$\{payment\.id\}/);
+    assert.match(walletEffectsSource, /course-payment-platform-fee:\$\{payment\.id\}/);
   });
 
   it("cancels pending booking payments and requests refunds for received payments through the payment service", () => {

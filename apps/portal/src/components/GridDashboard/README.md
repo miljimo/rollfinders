@@ -2,7 +2,7 @@
 
 ## Purpose
 
-`GridDashboard` renders the dashboard service launcher grid with a searchable list of service cards. Each card is rendered by `GridItemDashboard`.
+`GridDashboard` renders a searchable, paginated card grid. By default it renders dashboard service launcher cards with `GridItemDashboard`, and it can also render feature-specific cards through `renderItem`.
 
 ## Usage
 
@@ -25,6 +25,14 @@ const items: GridDashboardItem[] = [
 ];
 
 <GridDashboard items={items} itemsPerPage={12} />;
+
+<GridDashboard
+  items={planItems}
+  itemsPerPage={10}
+  paginationLabel="plans"
+  renderItem={(item, className) => <PlanCard item={item} className={className} />}
+  showSearch={false}
+/>;
 ```
 
 ## Props
@@ -33,6 +41,13 @@ const items: GridDashboardItem[] = [
 |---|---|---|---:|---|
 | `GridDashboard` | `items` | `GridDashboardItem[]` | Yes | Cards to display in the dashboard grid. |
 | `GridDashboard` | `itemsPerPage` | `number` | No | Number of cards shown per page. Defaults to `12`, which is three rows on the desktop dashboard layout. |
+| `GridDashboard` | `renderItem` | `(item, className) => ReactNode` | No | Custom card renderer. Receives the grid layout class for the item. |
+| `GridDashboard` | `getItemClassName` | `(item) => string` | No | Overrides responsive grid span classes per item. |
+| `GridDashboard` | `getItemKey` | `(item) => string` | No | Provides a stable key for custom item types. |
+| `GridDashboard` | `getSearchText` | `(item) => string` | No | Provides searchable text for custom item types. |
+| `GridDashboard` | `showSearch` | `boolean` | No | Shows or hides the search field. Defaults to `true`. |
+| `GridDashboard` | `alwaysShowPagination` | `boolean` | No | Keeps pagination visible even when there is only one page. |
+| `GridDashboard` | `paginationLabel` | `string` | No | Label used in the pagination summary. Defaults to `services`. |
 | `GridItemDashboard` | `item` | `GridDashboardItem` | Yes | Card data for one dashboard link. |
 | `GridItemDashboard` | `className` | `string` | No | Layout class names supplied by the parent grid. |
 
@@ -48,7 +63,8 @@ const items: GridDashboardItem[] = [
 - Keeps card headers on one line without allowing them to overflow, and allows descriptions to wrap inside the card.
 - Resets to page one when the search query changes.
 - Shows an empty state when no cards match the search.
-- Keeps individual card rendering inside `GridItemDashboard`.
+- Keeps default dashboard card rendering inside `GridItemDashboard`.
+- Supports custom card types while reusing the same filtering, pagination, dense grid, and item packing behaviour.
 
 ## Accessibility
 

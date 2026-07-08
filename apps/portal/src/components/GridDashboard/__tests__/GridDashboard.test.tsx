@@ -80,6 +80,28 @@ describe("GridDashboard", () => {
     assert.doesNotMatch(markup, /Service 4 description/);
   });
 
+  it("supports custom card renderers while keeping grid pagination behaviour", () => {
+    const markup = renderToStaticMarkup(
+      <GridDashboard
+        alwaysShowPagination
+        items={items}
+        itemsPerPage={10}
+        paginationLabel="plans"
+        renderItem={(item, className) => (
+          <article className={className}>
+            <h2>{item.label}</h2>
+          </article>
+        )}
+        showSearch={false}
+      />,
+    );
+
+    assert.match(markup, /Academies/);
+    assert.match(markup, /Payments/);
+    assert.match(markup, /Showing 1-2 of 2 plans/);
+    assert.doesNotMatch(markup, /Search app services/);
+  });
+
   it("renders an individual dashboard item from GridDashboardItem props", () => {
     const markup = renderToStaticMarkup(<GridItemDashboard item={items[0]} className="md:col-span-6" />);
 

@@ -95,6 +95,10 @@ func TestSubscriptionPlanJourneyRoutesAreRegistered(t *testing.T) {
 			Permission:      PermissionSubscriptionEntitlementRead,
 			ResourceIDParam: ParamOwnerId,
 		},
+		http.MethodDelete + " " + string(SubscriptionRecord): {
+			Permission:      PermissionSubscriptionSubscriptionManage,
+			ResourceIDParam: ParamSubscriptionId,
+		},
 		http.MethodPost + " " + string(SubscriptionRecordReactivate): {
 			Permission:      PermissionSubscriptionSubscriptionManage,
 			ResourceIDParam: ParamSubscriptionId,

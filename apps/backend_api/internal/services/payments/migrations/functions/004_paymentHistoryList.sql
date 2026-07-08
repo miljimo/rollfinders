@@ -1,4 +1,4 @@
-CREATE OR REPLACE FUNCTION "paymentHistoryList"(
+CREATE OR REPLACE FUNCTION payments."paymentHistoryList"(
     p_client_id text DEFAULT NULL,
     p_resource_type text DEFAULT NULL,
     p_resource_id text DEFAULT NULL,
@@ -61,9 +61,9 @@ AS $$
         c.payer_email
     FROM payments p
     LEFT JOIN checkouts c ON c.payment_id = p.id
-    WHERE (p_client_id IS NULL OR c.client_id = p_client_id)
-      AND (p_resource_type IS NULL OR c.resource_type = p_resource_type)
-      AND (p_resource_id IS NULL OR c.resource_id = p_resource_id)
+    WHERE (p_client_id IS NULL OR c.client_id = p_client_id OR p.metadata->>'client_id' = p_client_id)
+      AND (p_resource_type IS NULL OR c.resource_type = p_resource_type OR p.metadata->>'resource_type' = p_resource_type)
+      AND (p_resource_id IS NULL OR c.resource_id = p_resource_id OR p.metadata->>'resource_id' = p_resource_id)
       AND (p_payer_user_id IS NULL OR c.payer_user_id = p_payer_user_id OR p.metadata->>'payer_user_id' = p_payer_user_id)
       AND (p_payer_email IS NULL OR c.payer_email = p_payer_email OR p.metadata->>'payer_email' = p_payer_email)
       AND (p_status IS NULL OR p.status = p_status)

@@ -114,7 +114,9 @@ func TestPaymentSubscriptionCheckoutClient(t *testing.T) {
 
 	client := paymentBillingClient{baseURL: paymentService.URL, client: paymentService.Client()}
 	session, err := client.createSubscriptionCheckout(subscriptionCheckoutRequest{
+		BillingPeriod:  "year",
 		PlanID:         "plan_test",
+		PaymentMode:    "one_time",
 		CustomerEmail:  "billing@example.com",
 		SuccessURL:     "http://localhost:3000/dashboard/subscriptions?billing=success",
 		CancelURL:      "http://localhost:3000/dashboard/subscriptions?billing=cancelled",
@@ -124,13 +126,13 @@ func TestPaymentSubscriptionCheckoutClient(t *testing.T) {
 		ID:        "sub_test",
 		OwnerType: "application",
 		OwnerID:   "app_rollfinders",
-	}, Plan{
+	}, []Plan{{
 		ID:           "plan_test",
 		Name:         "RollFinders Subscription Billing Test",
 		Currency:     "GBP",
 		PriceMinor:   100,
 		BillingCycle: "month",
-	})
+	}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,8 +142,14 @@ func TestPaymentSubscriptionCheckoutClient(t *testing.T) {
 	if !strings.HasPrefix(session.URL, "https://checkout.stripe.com/") {
 		t.Fatalf("session URL = %q, want Stripe Checkout URL", session.URL)
 	}
-	if received.ClientID != "rollfinders" || received.Provider != "stripe" || received.Interval != "month" {
+	if received.ClientID != "rollfinders" || received.Provider != "stripe" || received.Interval != "year" {
 		t.Fatalf("unexpected payment billing request: %+v", received)
+	}
+	if received.Amount != 1200 {
+		t.Fatalf("expected yearly checkout amount to be 12 monthly payments, got %d", received.Amount)
+	}
+	if received.PaymentMode != "one_time" || received.RenewalInterval != "" {
+		t.Fatalf("expected one-time yearly payment request without renewal interval, got %+v", received)
 	}
 	if received.Metadata["subscription_id"] != "sub_test" || received.Metadata["plan_change_id"] != "plan_change_test" {
 		t.Fatalf("expected subscription metadata on payment billing request, got %+v", received.Metadata)

@@ -9,6 +9,7 @@ import {
   createSubscriptionFeature,
   createSubscriptionPlan,
   createSubscriptionProduct,
+  listApplicationSubscriptions,
   cancelApplicationSubscription,
   deleteApplicationSubscription,
   deleteSubscriptionFeature,
@@ -27,9 +28,31 @@ import {
   updateSubscriptionPlan,
   updateSubscriptionProduct,
 } from "@/lib/subscriptions-service";
+import { createWalletTransfer, listWalletsPage, WalletServiceError } from "@/lib/wallet-service";
 
 function value(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function paymentMode(formData: FormData): "subscription" | "one_time" {
+  return value(formData, "paymentMode") === "one_time" ? "one_time" : "subscription";
+}
+
+function billingPeriod(formData: FormData): "month" | "year" {
+  return value(formData, "billingPeriod") === "year" ? "year" : "month";
+}
+
+function selectedPlanIds(formData: FormData) {
+  const repeated = formData
+    .getAll("planIds")
+    .map((item) => String(item).trim())
+    .filter(Boolean);
+  const selected = value(formData, "selectedPlans")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const primary = value(formData, "planId");
+  return Array.from(new Set(primary ? [primary, ...repeated, ...selected] : [...repeated, ...selected]));
 }
 
 function permissionMetadata(formData: FormData) {
@@ -76,10 +99,12 @@ function actionErrorMessage(err: unknown) {
     if (err.status === 409) return "A feature with this name already exists for the selected product service.";
     return err.message;
   }
+  if (err instanceof WalletServiceError) return err.message;
   return "Subscription service request failed.";
 }
 
 function actionErrorCode(err: unknown) {
+  if (err instanceof WalletServiceError) return err.code ?? "";
   return err instanceof SubscriptionServiceError ? err.code : "";
 }
 
@@ -93,6 +118,34 @@ function redirectWithActionError(view: string, err: unknown) {
     params.set("actionErrorCode", code);
   }
   redirect(`/dashboard/subscriptions?${params.toString()}`);
+}
+
+function redirectCheckoutWithActionError(formData: FormData, err: unknown) {
+  const params = new URLSearchParams({
+    actionError: actionErrorMessage(err),
+    billingPeriod: billingPeriod(formData),
+    paymentMode: paymentMode(formData),
+    selectedPlans: value(formData, "selectedPlans"),
+  });
+  const code = actionErrorCode(err);
+  if (code) params.set("actionErrorCode", code);
+  redirect(`/dashboard/subscriptions/checkout?${params.toString()}`);
+}
+
+async function subscriptionForPlan(applicationId: string, organisationId: string, planId: string, currentActor: Awaited<ReturnType<typeof actor>>) {
+  const subscriptions = await listApplicationSubscriptions(applicationId, currentActor);
+  const existing = subscriptions.find((subscription) => subscription.plan_id === planId && ["ACTIVE", "TRIAL", "active", "trial", "checkout_pending", "payment_confirmed", "past_due", "suspended", "scheduled_downgrade", "cancel_at_period_end"].includes(subscription.status));
+  if (existing) return null;
+  return (await createApplicationSubscription({ applicationId, organisationId, planId }, currentActor)).subscription ?? null;
+}
+
+async function subscriptionsForSelectedPlans(applicationId: string, organisationId: string, planIds: string[], currentActor: Awaited<ReturnType<typeof actor>>) {
+  const created = [];
+  for (const planId of planIds) {
+    const subscription = await subscriptionForPlan(applicationId, organisationId, planId, currentActor);
+    if (subscription?.id) created.push(subscription);
+  }
+  return created;
 }
 
 export async function createProductAction(formData: FormData) {
@@ -243,6 +296,7 @@ export async function createPlanAction(formData: FormData) {
       price_minor: Number(value(formData, "priceMinor") || "0"),
       billing_cycle: value(formData, "billingCycle") || "month",
       is_internal: formData.get("isInternal") === "on",
+      target_user_level: Number(value(formData, "targetUserLevel") || "100"),
     }, await actor());
     const plan = result && typeof result === "object" && "plan" in result ? (result as { plan?: { id?: string } }).plan : null;
     const productIds = formData.getAll("productIds").map((item) => String(item)).filter(Boolean);
@@ -267,6 +321,7 @@ export async function updatePlanAction(formData: FormData) {
       price_minor: Number(value(formData, "priceMinor") || "0"),
       billing_cycle: value(formData, "billingCycle") || "month",
       is_internal: formData.get("isInternal") === "on",
+      target_user_level: Number(value(formData, "targetUserLevel") || "100"),
     }, await actor());
     const productIds = formData.getAll("productIds").map((item) => String(item)).filter(Boolean);
     await replaceSubscriptionPlanProducts(planId, productIds, await actor());
@@ -307,7 +362,9 @@ export async function startPlanCheckoutAction(formData: FormData) {
   try {
     const currentActor = await actor();
     const result = await createSubscriptionCheckout(value(formData, "subscriptionId"), {
+      billingPeriod: billingPeriod(formData),
       planId: value(formData, "planId"),
+      paymentMode: paymentMode(formData),
       organisationId: value(formData, "organisationId"),
     }, currentActor);
     checkoutUrl = result.checkout?.checkout_url ?? "";
@@ -321,21 +378,93 @@ export async function startPlanCheckoutAction(formData: FormData) {
   redirect("/dashboard/subscriptions?billing=applied");
 }
 
+export async function startSubscriptionCardCheckoutAction(formData: FormData) {
+  let checkoutUrl = "";
+  try {
+    const currentActor = await actor();
+    const planIds = selectedPlanIds(formData);
+    const planId = planIds[0] ?? "";
+    const applicationId = value(formData, "applicationId");
+    const organisationId = value(formData, "organisationId");
+    if (!planId) throw new SubscriptionServiceError("Select at least one plan before checkout.", 400, "plan_required");
+    const subscriptions = await subscriptionsForSelectedPlans(applicationId, organisationId, planIds, currentActor);
+    const subscription = subscriptions[0];
+    if (!subscription?.id) {
+      revalidatePath("/dashboard/subscriptions");
+      redirect("/dashboard/subscriptions?billing=applied");
+    }
+    const result = await createSubscriptionCheckout(subscription.id, {
+      billingPeriod: billingPeriod(formData),
+      planId,
+      planIds,
+      paymentMode: paymentMode(formData),
+      organisationId,
+    }, currentActor);
+    checkoutUrl = result.checkout?.checkout_url ?? "";
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectCheckoutWithActionError(formData, err);
+  }
+  if (checkoutUrl) redirect(checkoutUrl);
+  redirect("/dashboard/subscriptions?billing=applied");
+}
+
+export async function startSubscriptionWalletCheckoutAction(formData: FormData) {
+  try {
+    const currentActor = await actor();
+    const planIds = selectedPlanIds(formData);
+    const planId = planIds[0] ?? "";
+    const applicationId = value(formData, "applicationId");
+    const organisationId = value(formData, "organisationId");
+    const walletId = value(formData, "walletId");
+    const amount = Number(value(formData, "amountMinor") || "0");
+    if (!planId) throw new SubscriptionServiceError("Select at least one plan before checkout.", 400, "plan_required");
+    if (!walletId || amount <= 0) throw new SubscriptionServiceError("A funded wallet is required for wallet payment.", 400, "wallet_required");
+    const platformWallets = await listWalletsPage({
+      actorUserId: currentActor.id,
+      ownerId: "rollfinders_platform",
+      walletType: "internal",
+      currency: "GBP",
+      limit: 1,
+    });
+    const platformWallet = platformWallets.wallets[0];
+    if (!platformWallet) throw new WalletServiceError("RollFinders platform wallet is not configured.", 400, "platform_wallet_missing");
+    const subscriptions = await subscriptionsForSelectedPlans(applicationId, organisationId, planIds, currentActor);
+    const subscription = subscriptions[0];
+    if (!subscription?.id) throw new SubscriptionServiceError("Subscription record could not be created.", 500, "subscription_missing");
+    await createWalletTransfer({
+      actorUserId: currentActor.id,
+      sourceWalletId: walletId,
+      destinationWalletId: platformWallet.id,
+      amount,
+      currency: "GBP",
+      referenceId: subscription.id,
+      description: `Subscription ${paymentMode(formData)} ${billingPeriod(formData)} payment`,
+      idempotencyKey: `subscription-wallet:${subscription.id}:${planIds.join("+")}:${paymentMode(formData)}:${billingPeriod(formData)}`,
+    });
+    revalidatePath("/dashboard/subscriptions");
+  } catch (err) {
+    redirectCheckoutWithActionError(formData, err);
+  }
+  redirect("/dashboard/subscriptions?billing=applied");
+}
+
 export async function createSubscriptionAction(formData: FormData) {
   let checkoutUrl = "";
   try {
     const applicationId = value(formData, "applicationId");
     const organisationId = value(formData, "organisationId");
-    const planId = value(formData, "planId");
+    const planIds = selectedPlanIds(formData);
+    const planId = planIds[0];
+    if (!planId) throw new SubscriptionServiceError("Select at least one plan.", 400, "plan_required");
     const currentActor = await actor();
-    const result = await createApplicationSubscription({
-      applicationId,
-      organisationId,
-      planId,
-    }, currentActor);
-    if (result.checkout_required && result.subscription?.id) {
-      const checkout = await createSubscriptionCheckout(result.subscription.id, {
+    const subscriptions = await subscriptionsForSelectedPlans(applicationId, organisationId, planIds, currentActor);
+    const subscription = subscriptions[0];
+    if (planIds.length === 1 && subscription?.id) {
+      const checkout = await createSubscriptionCheckout(subscription.id, {
+        billingPeriod: billingPeriod(formData),
         planId,
+        paymentMode: paymentMode(formData),
         organisationId,
       }, currentActor);
       checkoutUrl = checkout.checkout?.checkout_url ?? "";
@@ -398,6 +527,10 @@ export async function deleteSubscriberAction(formData: FormData) {
     await deleteApplicationSubscription(value(formData, "subscriptionId"), await actor());
     revalidatePath("/dashboard/subscriptions");
   } catch (err) {
+    if (err instanceof SubscriptionServiceError && (err.status === 404 || err.code === "not_found")) {
+      revalidatePath("/dashboard/subscriptions");
+      redirect("/dashboard/subscriptions?subscriptionsView=subscribers");
+    }
     redirectWithActionError("subscribers", err);
   }
   redirect("/dashboard/subscriptions?subscriptionsView=subscribers");

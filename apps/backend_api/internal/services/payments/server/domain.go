@@ -179,15 +179,15 @@ type payoutRequestFilter struct {
 }
 
 type OutboxEvent struct {
-	ID          string
-	Type        string
-	AggregateID string
-	Payload     map[string]any
-	Delivered   bool
-	Attempts    int
-	LastError   string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID          string         `json:"id"`
+	Type        string         `json:"event_type"`
+	AggregateID string         `json:"aggregate_id"`
+	Payload     map[string]any `json:"payload"`
+	Delivered   bool           `json:"delivered"`
+	Attempts    int            `json:"attempts"`
+	LastError   string         `json:"last_error,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type idempotencyRecord struct {
@@ -381,6 +381,9 @@ func (s *store) createCheckout(req createCheckoutRequest, payment Payment, check
 		"payer_email":         checkout.PayerEmail,
 		"created_at":          checkout.CreatedAt,
 	})
+	if payment.Status == statusSucceeded {
+		s.addPaymentSucceededOutboxLocked(payment.ID)
+	}
 	return *cloneCheckout(checkout)
 }
 
@@ -500,6 +503,9 @@ func (s *store) transitionPayment(id, nextStatus string) (Payment, error) {
 	p.Status = nextStatus
 	p.UpdatedAt = time.Now().UTC()
 	s.addOutboxLocked("payment.status_changed", p.ID, paymentEventPayload(*p))
+	if p.Status == statusSucceeded {
+		s.addPaymentSucceededOutboxLocked(p.ID)
+	}
 	return *clonePayment(p), nil
 }
 
@@ -808,6 +814,86 @@ func (s *store) addOutboxLocked(eventType, aggregateID string, payload map[strin
 	})
 }
 
+func (s *store) addPaymentSucceededOutboxLocked(paymentID string) {
+	payment, ok := s.payments[paymentID]
+	if !ok {
+		return
+	}
+	record := PaymentRecord{Payment: *clonePayment(payment)}
+	for _, checkout := range s.checkouts {
+		if checkout.PaymentID != payment.ID {
+			continue
+		}
+		record.CheckoutSessionID = checkout.CheckoutSessionID
+		record.ClientID = checkout.ClientID
+		record.ClientState = checkout.ClientState
+		record.ResourceType = checkout.ResourceType
+		record.ResourceID = checkout.ResourceID
+		record.ResourceLabel = checkout.ResourceLabel
+		record.PayerUserID = checkout.PayerUserID
+		record.PayerEmail = checkout.PayerEmail
+		break
+	}
+	if record.ResourceType != "course_occurrence" {
+		return
+	}
+	for _, event := range s.outbox {
+		if event.Type == "payment.succeeded" && event.AggregateID == paymentID {
+			return
+		}
+	}
+	s.addOutboxLocked("payment.succeeded", paymentID, paymentSucceededEventPayload(record))
+}
+
+func (s *store) listOutboxEvents(eventType string, limit int) []OutboxEvent {
+	if s.db != nil {
+		events, err := s.listOutboxEventsDB(eventType, limit)
+		if err == nil {
+			return events
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if limit <= 0 || limit > 100 {
+		limit = 100
+	}
+	events := make([]OutboxEvent, 0, limit)
+	for _, event := range s.outbox {
+		if len(events) >= limit {
+			break
+		}
+		if event.Delivered {
+			continue
+		}
+		if eventType != "" && event.Type != eventType {
+			continue
+		}
+		events = append(events, *cloneOutboxEvent(event))
+	}
+	return events
+}
+
+func (s *store) markOutboxDelivered(id string) bool {
+	if s.db != nil {
+		ok, err := s.markOutboxDeliveredDB(id)
+		return err == nil && ok
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, event := range s.outbox {
+		if event.ID != id {
+			continue
+		}
+		event.Attempts++
+		event.Delivered = true
+		event.LastError = ""
+		event.UpdatedAt = time.Now().UTC()
+		s.metrics.outboxDispatched++
+		return true
+	}
+	return false
+}
+
 func (s *store) dispatchOutbox(limit int) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -899,6 +985,34 @@ func paymentEventPayload(p Payment) map[string]any {
 	return map[string]any{"payment_id": p.ID, "status": p.Status, "amount": p.Amount, "currency": p.Currency, "updated_at": p.UpdatedAt}
 }
 
+func paymentSucceededEventPayload(record PaymentRecord) map[string]any {
+	metadata := map[string]any{}
+	for key, value := range record.Metadata {
+		metadata[key] = value
+	}
+	return map[string]any{
+		"payment_id":          record.ID,
+		"amount":              record.Amount,
+		"currency":            record.Currency,
+		"provider":            record.Provider,
+		"provider_payment_id": record.ProviderPaymentID,
+		"provider_status":     record.ProviderRawStatus,
+		"resource_type":       record.ResourceType,
+		"resource_id":         record.ResourceID,
+		"resource_label":      record.ResourceLabel,
+		"checkout_session_id": record.CheckoutSessionID,
+		"client_id":           record.ClientID,
+		"client_state":        record.ClientState,
+		"payer_user_id":       record.PayerUserID,
+		"payer_email":         record.PayerEmail,
+		"academy_id":          record.Metadata["academy_id"],
+		"academy_owner_id":    record.Metadata["academy_owner_id"],
+		"metadata":            metadata,
+		"created_at":          record.CreatedAt,
+		"updated_at":          record.UpdatedAt,
+	}
+}
+
 func clonePayment(p *Payment) *Payment {
 	cp := *p
 	cp.Metadata = cloneMap(p.Metadata)
@@ -922,11 +1036,28 @@ func clonePaymentClient(c *PaymentClient) *PaymentClient {
 	return &cp
 }
 
+func cloneOutboxEvent(e *OutboxEvent) *OutboxEvent {
+	cp := *e
+	cp.Payload = cloneAnyMap(e.Payload)
+	return &cp
+}
+
 func cloneMap(in map[string]string) map[string]string {
 	if len(in) == 0 {
 		return nil
 	}
 	out := make(map[string]string, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneAnyMap(in map[string]any) map[string]any {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]any, len(in))
 	for k, v := range in {
 		out[k] = v
 	}

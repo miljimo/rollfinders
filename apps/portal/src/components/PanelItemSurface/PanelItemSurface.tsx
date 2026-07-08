@@ -15,16 +15,16 @@ export function PanelItemSurface({
   trailing,
 }: PanelItemSurfaceProps) {
   const surfaceClassName = clsx(
-    "flex min-h-24 w-full items-center gap-4 rounded-lg border bg-white p-4 text-left shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2 sm:w-fit sm:min-w-72 sm:max-w-[34rem]",
+    "flex min-h-24 w-full items-center gap-4 rounded-lg border bg-white p-4 text-left shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2",
     active ? "border-teal-500 ring-1 ring-teal-500" : "border-stone-200",
     disabled ? "cursor-not-allowed opacity-60" : href ? "hover:border-teal-500" : "",
     className,
   );
   const content = (
     <>
-      {icon ? <span className={clsx("flex size-12 shrink-0 items-center justify-center rounded-md", iconClassName)}>{icon}</span> : null}
-      <span className="min-w-0 flex-1 sm:w-max sm:max-w-[24rem]">{children}</span>
-      {trailing}
+      {icon ? <span className={clsx("flex size-11 shrink-0 items-center justify-center rounded-md sm:size-12", iconClassName)}>{icon}</span> : null}
+      <span className="min-w-0 flex-1">{children}</span>
+      {trailing ? <span className="shrink-0">{trailing}</span> : null}
     </>
   );
 

@@ -18,7 +18,10 @@ export function WalletTransactionsDashboard({ searchParams, transactions }: { se
   return (
     <section>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-2xl font-black text-stone-950">Transactions</h2>
+        <div>
+          <h2 className="text-2xl font-black text-stone-950">Wallet Ledger Transactions</h2>
+          <p className="mt-1 text-sm font-semibold text-slate-600">Only wallet credits, debits, transfers, and reversals appear here. Card payments appear in Payment Transactions unless wallet balance moved.</p>
+        </div>
         <Button href="/dashboard/wallet?walletView=transactions&walletDialog=create-transaction" variant="primary" className="min-h-10 px-4 shadow-sm">
           <Plus size={18} aria-hidden />
           Create
@@ -27,7 +30,7 @@ export function WalletTransactionsDashboard({ searchParams, transactions }: { se
       <Table
         columns={transactionColumns}
         data={paginatedTransactions}
-        emptyMessage="No wallet transactions found."
+        emptyMessage="No wallet ledger transactions found."
         getRowHref={(row) => transactionDetailsHref(searchParams, row.id)}
         getRowId={(row, rowIndex) => `${row.id}-${start + rowIndex}`}
         minWidthClassName="min-w-[980px]"
@@ -41,4 +44,3 @@ export function WalletTransactionsDashboard({ searchParams, transactions }: { se
     </section>
   );
 }
-

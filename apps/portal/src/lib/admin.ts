@@ -9,7 +9,15 @@ import { prisma } from "./prisma";
 import { getUserAccount, UserServiceError } from "./users-service";
 
 export async function getCurrentUser() {
-  const session = await getServerSession(authOptions);
+  let session: { user?: { id?: string }; accessToken?: unknown } | null;
+  try {
+    session = await getServerSession(authOptions);
+  } catch (error) {
+    if (error instanceof Error && (error.message.includes("JWT_SESSION_ERROR") || error.message.includes("decryption operation failed"))) {
+      return null;
+    }
+    throw error;
+  }
   const user = session?.user as { id?: string } | undefined;
   if (!user?.id) return null;
   const sessionWithToken = session as { accessToken?: unknown } | null;
