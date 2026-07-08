@@ -569,7 +569,14 @@ func (s *server) availableProductFeatures(w http.ResponseWriter, r *http.Request
 		}
 		filteredFeatures := []ProductFeature{}
 		for _, feature := range activeFeatures {
-			if enabledProductIDs[feature.ProductID] {
+			enabled := enabledProductIDs[feature.ProductID]
+			for _, productID := range feature.ProductIDs {
+				if enabledProductIDs[productID] {
+					enabled = true
+					break
+				}
+			}
+			if enabled {
 				filteredFeatures = append(filteredFeatures, feature)
 			}
 		}

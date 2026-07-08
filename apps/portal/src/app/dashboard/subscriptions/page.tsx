@@ -63,6 +63,7 @@ import {
 } from "./actions";
 import { PlanFeatureEditFields } from "./PlanFeatureEditFields";
 import { PlanFeatureFields } from "./PlanFeatureFields";
+import { PlanWizardForm } from "./PlanWizardForm";
 import { ProductFeatureFields } from "./ProductFeatureFields";
 import { SubscriptionCategoryCombobox } from "./SubscriptionCategoryCombobox";
 import { SubscriptionMarketplaceGrid, type SubscriptionMarketplaceGridItem } from "./SubscriptionMarketplaceGrid";
@@ -308,14 +309,14 @@ export default async function SubscriptionsDashboardPage({
         </section>
       </main>
       {dialog === "new-plan" ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Create a subscription plan without leaving the dashboard." title="New Plan">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Create a subscription plan without leaving the dashboard." maxWidthClass="max-w-7xl" title="New Plan">
           <div className="mt-5">
             <CreatePlanForm billingCycles={billingCycles} features={features} importPlans={plans} roles={roles} />
           </div>
         </DialogShell>
       ) : null}
       {dialog === "edit-plan" && selectedPlan ? (
-        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Update this subscription plan." title="Edit Plan">
+        <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=plans" description="Update this subscription plan." maxWidthClass="max-w-7xl" title="Edit Plan">
           <div className="mt-5">
             <PlanForm action={updatePlanAction} billingCycles={billingCycles} buttonLabel="Update" features={features} importPlans={plans} pendingLabel="Updating..." plan={selectedPlan} roles={roles} />
           </div>
@@ -338,7 +339,7 @@ export default async function SubscriptionsDashboardPage({
       {dialog === "edit-product" && selectedProduct ? (
         <DialogShell closeHref="/dashboard/subscriptions?subscriptionsView=products" description="Create products from service features and permissions. You can define multiple products for a single service." title="Edit Product">
           <div className="mt-5">
-            <ProductForm action={updateProductAction} assignableFeatures={assignableFeatures} buttonLabel="Save product" product={selectedProduct} productFeatures={features.filter((feature) => feature.product_id === selectedProduct.id)} />
+            <ProductForm action={updateProductAction} assignableFeatures={assignableFeatures} buttonLabel="Save product" product={selectedProduct} productFeatures={features.filter((feature) => feature.product_id === selectedProduct.id || feature.product_ids?.includes(selectedProduct.id))} />
           </div>
         </DialogShell>
       ) : null}
@@ -571,7 +572,6 @@ function SubscriptionViewPanel({
           nextHref: subscriptionHref({ subscriptionsView: "features", featuresPage: currentPage + 1, featuresSearch: featuresSearch || undefined }),
           totalPages,
         }}
-        products={products}
       />
     );
   }
@@ -637,7 +637,7 @@ function filterProducts(products: SubscriptionProduct[], search: string) {
 function filterFeatures(features: SubscriptionFeature[], search: string) {
   const normalized = search.trim().toLowerCase();
   if (!normalized) return features;
-  return features.filter((feature) => [feature.id, feature.product_id, feature.service_id ?? "", feature.feature_key, feature.name, feature.description, feature.status].join(" ").toLowerCase().includes(normalized));
+  return features.filter((feature) => [feature.id, feature.product_id, ...(feature.product_ids ?? []), feature.service_id ?? "", feature.feature_key, feature.name, feature.description, feature.status].join(" ").toLowerCase().includes(normalized));
 }
 
 function entitlementFeatureLabels(entitlements: ApplicationEntitlements, features: SubscriptionFeature[]) {
@@ -1860,25 +1860,8 @@ function CreatePlanForm({ billingCycles, compact = false, features, importPlans,
 function PlanForm({ action, billingCycles, buttonLabel, compact = false, features, importPlans, pendingLabel, plan, roles }: { action: (formData: FormData) => void | Promise<void>; billingCycles: SubscriptionBillingCycle[]; buttonLabel: string; compact?: boolean; features: SubscriptionFeature[]; importPlans: SubscriptionPlan[]; pendingLabel: string; plan?: SubscriptionPlan; roles: AuthorisationRole[] }) {
   const selectedFeatureIds = new Set(plan ? planFeatureIdsForForm(plan) : []);
   const availableImportPlans = importPlanOptions(importPlans, plan?.id);
-  const defaultTargetLevel = String(plan ? planTargetLevel(plan, roles) : lowestRoleLevel(roles));
-  return (
-    <form action={action} className={compact ? "grid w-full gap-3 rounded-lg border border-stone-200 bg-stone-50 p-3 sm:w-80" : "rounded-lg border border-stone-200 bg-white p-4 shadow-sm"}>
-      {plan ? <input type="hidden" name="planId" value={plan.id} /> : null}
-      <h2 className="text-lg font-black text-slate-950">{plan ? "Edit plan" : "New plan"}</h2>
-      <div className={compact ? "grid gap-3" : "mt-4 grid gap-3"}>
-        <Field name="name" label="Name" defaultValue={plan?.name ?? ""} />
-        <Field name="description" label="Description" defaultValue={plan?.description ?? ""} />
-        <Field name="priceMinor" label="Calculated display price minor" type="number" defaultValue={plan ? String(plan.price_minor) : ""} />
-        <CurrencyField />
-        <BillingCycleField cycles={billingCycles} defaultValue={plan?.billing_cycle ?? "month"} />
-        <TargetUserLevelField defaultValue={defaultTargetLevel} roles={roles} />
-        <InternalPlanField defaultChecked={plan?.is_internal ?? false} />
-        <PlanFeatureFields features={features} importPlans={availableImportPlans} selectedFeatureIds={Array.from(selectedFeatureIds)} />
-        {plan ? <StatusField defaultValue={plan.status} /> : null}
-        <SubscriptionSubmitButton label={buttonLabel} pendingLabel={pendingLabel} />
-      </div>
-    </form>
-  );
+  const planValue = plan ? { ...plan, target_user_level: planTargetLevel(plan, roles) } : undefined;
+  return <PlanWizardForm action={action} billingCycles={billingCycles} buttonLabel={buttonLabel} features={features} importPlans={availableImportPlans} pendingLabel={pendingLabel} plan={planValue} roles={roles} selectedFeatureIds={Array.from(selectedFeatureIds)} />;
 }
 
 function PlansTable({ pagination, plans, search }: { pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; plans: SubscriptionPlan[]; search: string }) {
@@ -1941,7 +1924,7 @@ function PlanDetailsPanel({ features, plan, products, roles }: { features: Subsc
     return {
       id: feature.feature_id,
       name: fullFeature?.name ?? feature.feature_id,
-      product: fullFeature?.product_id ? productById.get(fullFeature.product_id)?.name ?? fullFeature.product_id : "-",
+      description: fullFeature?.description || "No description",
       service: fullFeature?.service_id ?? feature.service_id ?? "-",
     };
   });
@@ -1980,7 +1963,7 @@ function PlanDetailsPanel({ features, plan, products, roles }: { features: Subsc
               <thead className="bg-slate-50 text-xs font-black uppercase tracking-normal text-slate-500">
                 <tr>
                   <th className="px-3 py-2">Feature</th>
-                  <th className="px-3 py-2">Product</th>
+                  <th className="px-3 py-2">Description</th>
                   <th className="px-3 py-2">Service</th>
                 </tr>
               </thead>
@@ -1988,7 +1971,7 @@ function PlanDetailsPanel({ features, plan, products, roles }: { features: Subsc
                 {featureRows.map((feature) => (
                   <tr key={feature.id}>
                     <td className="px-3 py-3 font-bold text-slate-950">{feature.name}</td>
-                    <td className="px-3 py-3 text-slate-600">{feature.product}</td>
+                    <td className="px-3 py-3 text-slate-600">{feature.description}</td>
                     <td className="px-3 py-3 text-slate-600">{feature.service}</td>
                   </tr>
                 ))}
@@ -2105,21 +2088,16 @@ function ProductActions({ productId, status }: { productId: string; status: stri
   );
 }
 
-function FeaturesTable({ features, pagination, products, search }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; products: SubscriptionProduct[]; search: string }) {
-  const productNames = new Map(products.map((product) => [product.id, product.name]));
+function FeaturesTable({ features, pagination, search }: { features: SubscriptionFeature[]; pagination: { page: number; previousHref: string; nextHref: string; totalPages: number }; search: string }) {
   const rows = features.map((feature) => ({
     id: feature.id,
     featureId: feature.id,
-    product: productNames.get(feature.product_id) ?? feature.product_id,
-    featureKey: feature.feature_key,
     name: feature.name,
     description: feature.description || "No description",
     controlled: feature.subscription_controlled ? "Subscription" : "IAM only",
     status: feature.status,
   }));
   const columns: TableColumn<(typeof rows)[number] & TableRecord>[] = [
-    { key: "product", title: "Product" },
-    { key: "featureKey", title: "Feature Key" },
     { key: "name", title: "Name" },
     { key: "description", title: "Description" },
     { key: "controlled", title: "Access" },
@@ -2145,7 +2123,7 @@ function FeaturesTable({ features, pagination, products, search }: { features: S
       }
       columns={columns}
       data={rows}
-      emptyMessage="No subscription features found."
+      emptyMessage="No plan features found."
       getRowHref={() => undefined}
       pagination={pagination}
     />

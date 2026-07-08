@@ -77,10 +77,6 @@ function selectedProductIds(formData: FormData) {
   return productIds;
 }
 
-function existingProductIds(formData: FormData) {
-  return new Set(formData.getAll("existingProductIds").map((item) => String(item).trim()).filter(Boolean));
-}
-
 type SelectedPermission = {
   code: string;
   name: string;
@@ -147,7 +143,7 @@ async function createMissingProductFeatures(productId: string, formData: FormDat
       status: "ACTIVE",
       is_selectable: true,
       subscription_controlled: true,
-      currency: "GBP",
+      currency: value(formData, "currency") || "GBP",
       base_price_minor: 0,
       metadata: { permission_code: permission.code },
     }, currentActor);
@@ -275,18 +271,17 @@ export async function createFeatureAction(formData: FormData) {
     const pricing = featurePricing(formData);
     const productIds = selectedProductIds(formData);
     const featureKey = value(formData, "featureKey") || featureKeyFromName(value(formData, "name"));
-    for (const productId of productIds) {
-      await createSubscriptionFeature({
-        product_id: productId,
-        feature_key: featureKey,
-        name: value(formData, "name"),
-        description: value(formData, "description"),
-        status: "ACTIVE",
-        is_selectable: true,
-        subscription_controlled: formData.get("subscriptionControlled") === "on",
-        ...pricing,
-      }, currentActor);
-    }
+    await createSubscriptionFeature({
+      product_id: productIds[0],
+      product_ids: productIds,
+      feature_key: featureKey,
+      name: value(formData, "name"),
+      description: value(formData, "description"),
+      status: "ACTIVE",
+      is_selectable: true,
+      subscription_controlled: formData.get("subscriptionControlled") === "on",
+      ...pricing,
+    }, currentActor);
     revalidatePath("/dashboard/subscriptions");
   } catch (err) {
     redirectWithActionError("features", err);
@@ -300,13 +295,11 @@ export async function updateFeatureAction(formData: FormData) {
     const currentActor = await actor();
     const pricing = featurePricing(formData);
     const productIds = selectedProductIds(formData);
-    const currentProductId = value(formData, "currentProductId");
-    const primaryProductId = currentProductId && productIds.includes(currentProductId) ? currentProductId : productIds[0];
-    const existingProducts = existingProductIds(formData);
-    const additionalProductIds = productIds.filter((productId) => productId !== primaryProductId && !existingProducts.has(productId));
+    const primaryProductId = productIds[0];
     const featureKey = value(formData, "featureKey") || featureKeyFromName(value(formData, "name"));
     await updateSubscriptionFeature(featureId, {
       product_id: primaryProductId,
+      product_ids: productIds,
       feature_key: featureKey,
       name: value(formData, "name"),
       description: value(formData, "description"),
@@ -315,18 +308,6 @@ export async function updateFeatureAction(formData: FormData) {
       subscription_controlled: formData.get("subscriptionControlled") === "on",
       ...pricing,
     }, currentActor);
-    for (const productId of additionalProductIds) {
-      await createSubscriptionFeature({
-        product_id: productId,
-        feature_key: featureKey,
-        name: value(formData, "name"),
-        description: value(formData, "description"),
-        status: value(formData, "status") || "ACTIVE",
-        is_selectable: true,
-        subscription_controlled: formData.get("subscriptionControlled") === "on",
-        ...pricing,
-      }, currentActor);
-    }
     revalidatePath("/dashboard/subscriptions");
   } catch (err) {
     redirectWithActionError("features", err);
@@ -358,8 +339,9 @@ export async function createPlanAction(formData: FormData) {
       name: value(formData, "name"),
       description: value(formData, "description"),
       status: "ACTIVE",
-      currency: "GBP",
+      currency: value(formData, "currency") || "GBP",
       price_minor: Number(value(formData, "priceMinor") || "0"),
+      discount_percent: Number(value(formData, "discountPercent") || "0"),
       billing_cycle: value(formData, "billingCycle") || "month",
       is_internal: formData.get("isInternal") === "on",
       target_user_level: Number(value(formData, "targetUserLevel") || value(formData, "lowestUserLevel") || "0"),
@@ -383,8 +365,9 @@ export async function updatePlanAction(formData: FormData) {
       name: value(formData, "name"),
       description: value(formData, "description"),
       status: value(formData, "status") || "ACTIVE",
-      currency: "GBP",
+      currency: value(formData, "currency") || "GBP",
       price_minor: Number(value(formData, "priceMinor") || "0"),
+      discount_percent: Number(value(formData, "discountPercent") || "0"),
       billing_cycle: value(formData, "billingCycle") || "month",
       is_internal: formData.get("isInternal") === "on",
       target_user_level: Number(value(formData, "targetUserLevel") || value(formData, "lowestUserLevel") || "0"),

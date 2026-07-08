@@ -42,6 +42,7 @@ type Product struct {
 type ProductFeature struct {
 	ID                     string          `json:"id"`
 	ProductID              string          `json:"product_id"`
+	ProductIDs             []string        `json:"product_ids,omitempty"`
 	ServiceID              string          `json:"service_id,omitempty"`
 	FeatureKey             string          `json:"feature_key"`
 	Name                   string          `json:"name"`
@@ -63,6 +64,7 @@ type Plan struct {
 	Status             string        `json:"status"`
 	Currency           string        `json:"currency"`
 	PriceMinor         int           `json:"price_minor"`
+	DiscountPercent    float64       `json:"discount_percent"`
 	BillingCycle       string        `json:"billing_cycle"`
 	IsInternal         bool          `json:"is_internal"`
 	TargetUserLevel    int           `json:"target_user_level"`
@@ -387,7 +389,122 @@ func (r *repository) deleteProduct(ctx context.Context, id string) error {
 func scanFeature(row interface{ Scan(...any) error }) (ProductFeature, error) {
 	var feature ProductFeature
 	err := row.Scan(&feature.ID, &feature.ProductID, &feature.ServiceID, &feature.FeatureKey, &feature.Name, &feature.Description, &feature.Status, &feature.IsSelectable, &feature.SubscriptionControlled, &feature.Currency, &feature.BasePriceMinor, &feature.Metadata, &feature.CreatedAt, &feature.UpdatedAt)
+	if err == nil && feature.ProductID != "" {
+		feature.ProductIDs = []string{feature.ProductID}
+	}
 	return feature, err
+}
+
+func normalizeProductIDs(productIDs []string, fallbackProductID string) []string {
+	seen := map[string]bool{}
+	normalized := []string{}
+	if fallbackProductID != "" {
+		seen[fallbackProductID] = true
+		normalized = append(normalized, fallbackProductID)
+	}
+	for _, productID := range productIDs {
+		productID = strings.TrimSpace(productID)
+		if productID == "" || seen[productID] {
+			continue
+		}
+		seen[productID] = true
+		normalized = append(normalized, productID)
+	}
+	return normalized
+}
+
+func (r *repository) featureProductIDs(ctx context.Context, featureID string) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT product_id
+		FROM plan_feature_products
+		WHERE feature_id = $1
+		ORDER BY created_at ASC, product_id ASC
+	`, featureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	productIDs := []string{}
+	for rows.Next() {
+		var productID string
+		if err := rows.Scan(&productID); err != nil {
+			return nil, err
+		}
+		productIDs = append(productIDs, productID)
+	}
+	return productIDs, rows.Err()
+}
+
+func (r *repository) attachFeatureProductIDs(ctx context.Context, feature ProductFeature) (ProductFeature, error) {
+	productIDs, err := r.featureProductIDs(ctx, feature.ID)
+	if err != nil {
+		return ProductFeature{}, err
+	}
+	if len(productIDs) == 0 && feature.ProductID != "" {
+		productIDs = []string{feature.ProductID}
+	}
+	feature.ProductIDs = productIDs
+	total, err := r.productIDsPrice(ctx, productIDs)
+	if err != nil {
+		return ProductFeature{}, err
+	}
+	feature.BasePriceMinor = total
+	return feature, nil
+}
+
+func (r *repository) productIDsPrice(ctx context.Context, productIDs []string) (int, error) {
+	productIDs = normalizeProductIDs(productIDs, "")
+	if len(productIDs) == 0 {
+		return 0, nil
+	}
+	placeholders := make([]string, 0, len(productIDs))
+	args := make([]any, 0, len(productIDs))
+	for index, productID := range productIDs {
+		placeholders = append(placeholders, "$"+itoa(index+1))
+		args = append(args, productID)
+	}
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT price_minor
+		FROM products
+		WHERE id IN (`+strings.Join(placeholders, ",")+`)
+		  AND status = 'ACTIVE'
+		  AND is_selectable = true
+	`, args...)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	total := 0
+	for rows.Next() {
+		var priceMinor int
+		if err := rows.Scan(&priceMinor); err != nil {
+			return 0, err
+		}
+		total += priceMinor
+	}
+	return total, rows.Err()
+}
+
+func (r *repository) replaceFeatureProducts(ctx context.Context, featureID string, productIDs []string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM plan_feature_products WHERE feature_id = $1`, featureID); err != nil {
+		return err
+	}
+	for _, productID := range productIDs {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT INTO plan_feature_products (feature_id, product_id)
+			SELECT $1, $2
+			WHERE EXISTS (SELECT 1 FROM products WHERE id = $2 AND status = 'ACTIVE')
+			ON CONFLICT (feature_id, product_id) DO NOTHING
+		`, featureID, productID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *repository) listFeatures(ctx context.Context, limit, offset int, productID string) ([]ProductFeature, error) {
@@ -395,7 +512,12 @@ func (r *repository) listFeatures(ctx context.Context, limit, offset int, produc
 	args := []any{}
 	if productID != "" {
 		args = append(args, productID)
-		query += ` WHERE f.product_id = $1`
+		query += ` WHERE f.product_id = $1 OR EXISTS (
+			SELECT 1
+			FROM plan_feature_products pfp
+			WHERE pfp.feature_id = f.id
+			  AND pfp.product_id = $1
+		)`
 	}
 	args = append(args, limit, offset)
 	query += ` ORDER BY f.product_id ASC, f.name ASC LIMIT LEAST(GREATEST($` + itoa(len(args)-1) + `, 1), 100) OFFSET GREATEST($` + itoa(len(args)) + `, 0)`
@@ -410,6 +532,10 @@ func (r *repository) listFeatures(ctx context.Context, limit, offset int, produc
 		if err != nil {
 			return nil, err
 		}
+		feature, err = r.attachFeatureProductIDs(ctx, feature)
+		if err != nil {
+			return nil, err
+		}
 		features = append(features, feature)
 	}
 	return features, rows.Err()
@@ -420,6 +546,10 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 	feature.FeatureKey = strings.ToLower(strings.TrimSpace(feature.FeatureKey))
 	if feature.FeatureKey == "" {
 		feature.FeatureKey = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(feature.Name), " ", "."))
+	}
+	productIDs := normalizeProductIDs(feature.ProductIDs, feature.ProductID)
+	if feature.ProductID == "" && len(productIDs) > 0 {
+		feature.ProductID = productIDs[0]
 	}
 	if feature.ID == "" || feature.ProductID == "" || feature.FeatureKey == "" || feature.Name == "" {
 		return ProductFeature{}, errInvalid
@@ -492,7 +622,16 @@ func (r *repository) upsertFeature(ctx context.Context, feature ProductFeature) 
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errInvalid
 	}
-	return result, err
+	if err != nil {
+		return ProductFeature{}, err
+	}
+	if len(productIDs) == 0 {
+		productIDs = []string{result.ProductID}
+	}
+	if err := r.replaceFeatureProducts(ctx, result.ID, productIDs); err != nil {
+		return ProductFeature{}, err
+	}
+	return r.attachFeatureProductIDs(ctx, result)
 }
 
 func (r *repository) getFeature(ctx context.Context, id string) (ProductFeature, error) {
@@ -504,7 +643,10 @@ func (r *repository) getFeature(ctx context.Context, id string) (ProductFeature,
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errNotFound
 	}
-	return feature, err
+	if err != nil {
+		return ProductFeature{}, err
+	}
+	return r.attachFeatureProductIDs(ctx, feature)
 }
 
 func (r *repository) setFeatureStatus(ctx context.Context, id string, status string) (ProductFeature, error) {
@@ -521,7 +663,10 @@ func (r *repository) setFeatureStatus(ctx context.Context, id string, status str
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProductFeature{}, errNotFound
 	}
-	return feature, err
+	if err != nil {
+		return ProductFeature{}, err
+	}
+	return r.attachFeatureProductIDs(ctx, feature)
 }
 
 func (r *repository) deleteFeature(ctx context.Context, id string) error {
@@ -537,12 +682,12 @@ func (r *repository) deleteFeature(ctx context.Context, id string) error {
 
 func scanPlan(row interface{ Scan(...any) error }) (Plan, error) {
 	var plan Plan
-	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.BillingCycle, &plan.IsInternal, &plan.TargetUserLevel, &plan.CreatedAt, &plan.UpdatedAt)
+	err := row.Scan(&plan.ID, &plan.Name, &plan.Description, &plan.Status, &plan.Currency, &plan.PriceMinor, &plan.DiscountPercent, &plan.BillingCycle, &plan.IsInternal, &plan.TargetUserLevel, &plan.CreatedAt, &plan.UpdatedAt)
 	return plan, err
 }
 
 func (r *repository) listPlans(ctx context.Context, limit, offset int) ([]Plan, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
+	rows, err := r.db.QueryContext(ctx, `SELECT id, name, description, status, currency, price_minor, discount_percent, billing_cycle, is_internal, target_user_level, created_at, updated_at FROM plans ORDER BY name ASC LIMIT LEAST(GREATEST($1, 1), 100) OFFSET GREATEST($2, 0)`, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -550,6 +695,10 @@ func (r *repository) listPlans(ctx context.Context, limit, offset int) ([]Plan, 
 	plans := []Plan{}
 	for rows.Next() {
 		plan, err := scanPlan(rows)
+		if err != nil {
+			return nil, err
+		}
+		plan.PriceMinor, err = r.calculatedPlanPrice(ctx, plan.ID, plan.DiscountPercent)
 		if err != nil {
 			return nil, err
 		}
@@ -686,22 +835,25 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 	if plan.BillingCycle == "" {
 		plan.BillingCycle = "month"
 	}
+	plan.DiscountPercent = math.Min(100, math.Max(0, plan.DiscountPercent))
+	plan.PriceMinor = 0
 	previous, previousErr := r.getPlan(ctx, plan.ID)
 	row := r.db.QueryRowContext(ctx, `
-		INSERT INTO plans (id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		INSERT INTO plans (id, name, description, status, currency, price_minor, discount_percent, billing_cycle, is_internal, target_user_level)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (id) DO UPDATE SET
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			status = EXCLUDED.status,
 			currency = EXCLUDED.currency,
 			price_minor = EXCLUDED.price_minor,
+			discount_percent = EXCLUDED.discount_percent,
 			billing_cycle = EXCLUDED.billing_cycle,
 			is_internal = EXCLUDED.is_internal,
 			target_user_level = EXCLUDED.target_user_level,
 			updated_at = now()
-		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at
-	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.BillingCycle, plan.IsInternal, plan.TargetUserLevel)
+		RETURNING id, name, description, status, currency, price_minor, discount_percent, billing_cycle, is_internal, target_user_level, created_at, updated_at
+	`, plan.ID, plan.Name, plan.Description, plan.Status, plan.Currency, plan.PriceMinor, plan.DiscountPercent, plan.BillingCycle, plan.IsInternal, plan.TargetUserLevel)
 	result, err := scanPlan(row)
 	if err != nil {
 		return Plan{}, err
@@ -727,7 +879,7 @@ func (r *repository) upsertPlan(ctx context.Context, plan Plan) (Plan, error) {
 }
 
 func (r *repository) getPlan(ctx context.Context, id string) (Plan, error) {
-	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at FROM plans WHERE id = $1`, id))
+	plan, err := scanPlan(r.db.QueryRowContext(ctx, `SELECT id, name, description, status, currency, price_minor, discount_percent, billing_cycle, is_internal, target_user_level, created_at, updated_at FROM plans WHERE id = $1`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
 	}
@@ -750,6 +902,10 @@ func (r *repository) getPlan(ctx context.Context, id string) (Plan, error) {
 	for _, product := range products {
 		plan.IncludedProductIDs = append(plan.IncludedProductIDs, product.ProductID)
 	}
+	plan.PriceMinor, err = r.calculatedPlanPrice(ctx, plan.ID, plan.DiscountPercent)
+	if err != nil {
+		return Plan{}, err
+	}
 	return plan, nil
 }
 
@@ -758,7 +914,7 @@ func (r *repository) setPlanStatus(ctx context.Context, id string, status string
 		UPDATE plans
 		SET status = $2, updated_at = now()
 		WHERE id = $1
-		RETURNING id, name, description, status, currency, price_minor, billing_cycle, is_internal, target_user_level, created_at, updated_at
+		RETURNING id, name, description, status, currency, price_minor, discount_percent, billing_cycle, is_internal, target_user_level, created_at, updated_at
 	`, id, activeStatus(status)))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Plan{}, errNotFound
@@ -921,6 +1077,7 @@ func (r *repository) replacePlanFeatures(ctx context.Context, planID string, fea
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
+	_ = r.refreshPlanPrice(ctx, planID)
 	return r.listPlanFeatures(ctx, planID)
 }
 
@@ -966,14 +1123,114 @@ func (r *repository) replacePlanProducts(ctx context.Context, planID string, pro
 	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
-	if quote, err := r.quotePlans(ctx, []string{planID}, "month"); err == nil {
-		_, _ = r.db.ExecContext(ctx, `UPDATE plans SET price_minor = $2, updated_at = now() WHERE id = $1`, planID, quote.TotalMinor)
-	}
+	_ = r.refreshPlanPrice(ctx, planID)
 	return r.listPlanProducts(ctx, planID)
 }
 
+func applyPlanDiscount(baseMinor int, discountPercent float64) int {
+	discountPercent = math.Min(100, math.Max(0, discountPercent))
+	discountMinor := int(math.Round(float64(baseMinor) * discountPercent / 100))
+	return int(math.Max(0, float64(baseMinor-discountMinor)))
+}
+
+func (r *repository) calculatedPlanPrice(ctx context.Context, planID string, discountPercent float64) (int, error) {
+	featureRows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT p.id, p.price_minor
+		FROM plan_features pf
+		JOIN product_features f ON f.id = pf.feature_id
+		LEFT JOIN plan_feature_products pfp ON pfp.feature_id = f.id
+		JOIN products p ON p.id = COALESCE(pfp.product_id, f.product_id)
+		WHERE pf.plan_id = $1
+		  AND f.status = 'ACTIVE'
+		  AND f.is_selectable = true
+		  AND p.status = 'ACTIVE'
+		  AND p.is_selectable = true
+		ORDER BY p.id ASC
+	`, planID)
+	if err != nil {
+		return 0, err
+	}
+	defer featureRows.Close()
+	total := 0
+	featureProductCount := 0
+	for featureRows.Next() {
+		var productID string
+		var priceMinor int
+		if err := featureRows.Scan(&productID, &priceMinor); err != nil {
+			return 0, err
+		}
+		featureProductCount++
+		total += priceMinor
+	}
+	if err := featureRows.Err(); err != nil {
+		return 0, err
+	}
+	if featureProductCount > 0 {
+		return applyPlanDiscount(total, discountPercent), nil
+	}
+
+	productRows, err := r.db.QueryContext(ctx, `
+		SELECT p.id, p.price_minor, pp.price_adjustment_percent
+		FROM plan_products pp
+		JOIN products p ON p.id = pp.product_id
+		WHERE pp.plan_id = $1
+		  AND p.status = 'ACTIVE'
+		  AND p.is_selectable = true
+		ORDER BY p.id ASC
+	`, planID)
+	if err != nil {
+		return 0, err
+	}
+	defer productRows.Close()
+	seenProducts := map[string]bool{}
+	for productRows.Next() {
+		var productID string
+		var priceMinor int
+		var adjustmentPercent float64
+		if err := productRows.Scan(&productID, &priceMinor, &adjustmentPercent); err != nil {
+			return 0, err
+		}
+		if seenProducts[productID] {
+			continue
+		}
+		seenProducts[productID] = true
+		adjustmentMinor := int(math.Round(float64(priceMinor) * adjustmentPercent / 100))
+		total += int(math.Max(0, float64(priceMinor+adjustmentMinor)))
+	}
+	if err := productRows.Err(); err != nil {
+		return 0, err
+	}
+	if len(seenProducts) > 0 {
+		return applyPlanDiscount(total, discountPercent), nil
+	}
+	return applyPlanDiscount(total, discountPercent), nil
+}
+
+func (r *repository) refreshPlanPrice(ctx context.Context, planID string) error {
+	var discountPercent float64
+	if err := r.db.QueryRowContext(ctx, `SELECT discount_percent FROM plans WHERE id = $1`, planID).Scan(&discountPercent); err != nil {
+		return err
+	}
+	priceMinor, err := r.calculatedPlanPrice(ctx, planID, discountPercent)
+	if err != nil {
+		return err
+	}
+	_, err = r.db.ExecContext(ctx, `UPDATE plans SET price_minor = $2, updated_at = now() WHERE id = $1`, planID, priceMinor)
+	return err
+}
+
 func (r *repository) refreshPlanPricesForProduct(ctx context.Context, productID string) error {
-	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT plan_id FROM plan_products WHERE product_id = $1`, productID)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT plan_id
+		FROM plan_products
+		WHERE product_id = $1
+		UNION
+		SELECT DISTINCT pf.plan_id
+		FROM plan_features pf
+		JOIN product_features f ON f.id = pf.feature_id
+		LEFT JOIN plan_feature_products pfp ON pfp.feature_id = f.id
+		WHERE COALESCE(pfp.product_id, f.product_id) = $1
+	`, productID)
 	if err != nil {
 		return err
 	}
@@ -984,11 +1241,7 @@ func (r *repository) refreshPlanPricesForProduct(ctx context.Context, productID 
 		if err := rows.Scan(&planID); err != nil {
 			return err
 		}
-		quote, err := r.quotePlans(ctx, []string{planID}, "month")
-		if err != nil {
-			return err
-		}
-		if _, err := r.db.ExecContext(ctx, `UPDATE plans SET price_minor = $2, updated_at = now() WHERE id = $1`, planID, quote.TotalMinor); err != nil {
+		if err := r.refreshPlanPrice(ctx, planID); err != nil {
 			return err
 		}
 	}
@@ -1029,6 +1282,9 @@ func (r *repository) quotePlans(ctx context.Context, planIDs []string, billingPe
 		planProductStart := len(quote.Products)
 		planTotal := 0
 		for _, planProduct := range plan.Products {
+			if len(plan.Features) > 0 {
+				break
+			}
 			product, err := r.getProduct(ctx, planProduct.ProductID)
 			if err != nil {
 				return SubscriptionQuote{}, err
@@ -1087,7 +1343,7 @@ func (r *repository) quotePlans(ctx context.Context, planIDs []string, billingPe
 			quote.TotalMinor += productTotal
 			planTotal += productTotal
 		}
-		if len(plan.Products) == 0 {
+		if len(plan.Features) > 0 {
 			productTotals := map[string]int{}
 			productNames := map[string]string{}
 			productSeen := map[string]bool{}
@@ -1099,37 +1355,52 @@ func (r *repository) quotePlans(ctx context.Context, planIDs []string, billingPe
 				if feature.Status != "ACTIVE" {
 					continue
 				}
-				product, err := r.getProduct(ctx, feature.ProductID)
-				if err != nil {
-					return SubscriptionQuote{}, err
-				}
-				if product.Currency != "" {
-					quote.Currency = product.Currency
-				}
-				quoteFeature := QuoteFeature{
-					FeatureID:      feature.ID,
-					FeatureName:    feature.Name,
-					ProductID:      feature.ProductID,
-					ProductName:    product.Name,
-					BasePriceMinor: feature.BasePriceMinor,
-					Currency:       feature.Currency,
-				}
+				productIDs := normalizeProductIDs(feature.ProductIDs, feature.ProductID)
 				if seenFeatures[feature.ID] {
-					quote.DuplicateFeatureSavingsMinor += feature.BasePriceMinor
-					quote.SkippedDuplicateFeatures = append(quote.SkippedDuplicateFeatures, quoteFeature)
+					for _, productID := range productIDs {
+						product, err := r.getProduct(ctx, productID)
+						if err != nil {
+							return SubscriptionQuote{}, err
+						}
+						quote.SkippedDuplicateFeatures = append(quote.SkippedDuplicateFeatures, QuoteFeature{
+							FeatureID:      feature.ID,
+							FeatureName:    feature.Name,
+							ProductID:      product.ID,
+							ProductName:    product.Name,
+							BasePriceMinor: feature.BasePriceMinor,
+							Currency:       feature.Currency,
+						})
+					}
 					continue
 				}
 				seenFeatures[feature.ID] = true
-				if !productSeen[feature.ProductID] && !seenProducts[feature.ProductID] {
-					productTotals[feature.ProductID] += product.PriceMinor
-					productSeen[feature.ProductID] = true
-					seenProducts[feature.ProductID] = true
-				} else if !productSeen[feature.ProductID] {
-					quote.DuplicateFeatureSavingsMinor += product.PriceMinor
-					productSeen[feature.ProductID] = true
+				for _, productID := range productIDs {
+					product, err := r.getProduct(ctx, productID)
+					if err != nil {
+						return SubscriptionQuote{}, err
+					}
+					if product.Currency != "" {
+						quote.Currency = product.Currency
+					}
+					quoteFeature := QuoteFeature{
+						FeatureID:      feature.ID,
+						FeatureName:    feature.Name,
+						ProductID:      product.ID,
+						ProductName:    product.Name,
+						BasePriceMinor: feature.BasePriceMinor,
+						Currency:       feature.Currency,
+					}
+					if !productSeen[product.ID] && !seenProducts[product.ID] {
+						productTotals[product.ID] += product.PriceMinor
+						productSeen[product.ID] = true
+						seenProducts[product.ID] = true
+					} else if !productSeen[product.ID] {
+						quote.DuplicateFeatureSavingsMinor += product.PriceMinor
+						productSeen[product.ID] = true
+					}
+					productNames[product.ID] = product.Name
+					quote.Features = append(quote.Features, quoteFeature)
 				}
-				productNames[feature.ProductID] = product.Name
-				quote.Features = append(quote.Features, quoteFeature)
 			}
 			productIDs := make([]string, 0, len(productTotals))
 			for productID := range productTotals {
@@ -1156,6 +1427,12 @@ func (r *repository) quotePlans(ctx context.Context, planIDs []string, billingPe
 			quote.Products[planProductStart].TotalMinor = plan.PriceMinor
 			quote.SubtotalMinor += plan.PriceMinor
 			quote.TotalMinor += plan.PriceMinor
+			planTotal += plan.PriceMinor
+		}
+		if planTotal > 0 && plan.DiscountPercent > 0 {
+			discountMinor := int(math.Round(float64(planTotal) * math.Min(100, math.Max(0, plan.DiscountPercent)) / 100))
+			quote.AdjustmentMinor -= discountMinor
+			quote.TotalMinor = int(math.Max(0, float64(quote.TotalMinor-discountMinor)))
 		}
 	}
 	if billingPeriod == "year" {
@@ -1236,12 +1513,17 @@ func (r *repository) createSubscription(ctx context.Context, item Subscription) 
 	if item.BillingEnd.IsZero() {
 		item.BillingEnd = item.BillingStart.AddDate(0, 1, 0)
 	}
-	var planPriceMinor int
+	var planID string
+	var discountPercent float64
 	var planBillingCycle string
-	if err := r.db.QueryRowContext(ctx, `SELECT price_minor, billing_cycle FROM plans WHERE id = $1 AND status = 'ACTIVE'`, item.PlanID).Scan(&planPriceMinor, &planBillingCycle); err != nil {
+	if err := r.db.QueryRowContext(ctx, `SELECT id, discount_percent, billing_cycle FROM plans WHERE id = $1 AND status = 'ACTIVE'`, item.PlanID).Scan(&planID, &discountPercent, &planBillingCycle); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Subscription{}, errInvalid
 		}
+		return Subscription{}, err
+	}
+	planPriceMinor, err := r.calculatedPlanPrice(ctx, planID, discountPercent)
+	if err != nil {
 		return Subscription{}, err
 	}
 	if item.Status == "" {
@@ -1250,7 +1532,7 @@ func (r *repository) createSubscription(ctx context.Context, item Subscription) 
 	if planPriceMinor > 0 && stripeBillableCycle(planBillingCycle) && activatesSubscription(item.Status) {
 		item.Status = "checkout_pending"
 	}
-	_, err := scanSubscription(r.db.QueryRowContext(ctx, `
+	_, err = scanSubscription(r.db.QueryRowContext(ctx, `
 		SELECT `+subscriptionSelectColumns+`
 		FROM subscriptions
 		WHERE owner_type = $1

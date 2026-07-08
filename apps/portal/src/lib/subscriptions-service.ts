@@ -27,6 +27,7 @@ export type SubscriptionProduct = {
 export type SubscriptionFeature = {
   id: string;
   product_id: string;
+  product_ids?: string[];
   service_id?: string;
   feature_key: string;
   name: string;
@@ -98,6 +99,7 @@ export type SubscriptionPlan = {
   status: string;
   currency: string;
   price_minor: number;
+  discount_percent: number;
   billing_cycle: string;
   is_internal: boolean;
   target_user_level: number;

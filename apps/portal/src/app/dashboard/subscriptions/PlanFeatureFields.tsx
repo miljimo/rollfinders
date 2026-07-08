@@ -8,11 +8,10 @@ type FeatureOption = {
   name: string;
   feature_key: string;
   product_id: string;
+  product_ids?: string[];
   service_id?: string;
   description?: string;
   status?: string;
-  currency?: string;
-  base_price_minor?: number;
 };
 
 type ImportPlanOption = {
@@ -26,23 +25,18 @@ function searchText(value: string) {
 }
 
 function featureText(feature: FeatureOption) {
-  return `${feature.name} ${feature.feature_key} ${feature.product_id} ${feature.service_id ?? ""} ${feature.description ?? ""} ${feature.status ?? ""}`.toLowerCase();
-}
-
-function priceLabel(feature: FeatureOption) {
-  const currency = feature.currency || "GBP";
-  const amount = feature.base_price_minor ?? 0;
-  if (currency === "Points") return `${amount.toLocaleString("en-GB")} Points`;
-  return `${currency} ${(amount / 100).toFixed(2)}`;
+  return `${feature.name} ${feature.feature_key} ${feature.product_id} ${(feature.product_ids ?? []).join(" ")} ${feature.service_id ?? ""} ${feature.description ?? ""} ${feature.status ?? ""}`.toLowerCase();
 }
 
 export function PlanFeatureFields({
   features,
   importPlans,
+  onSelectionChange,
   selectedFeatureIds,
 }: {
   features: FeatureOption[];
   importPlans: ImportPlanOption[];
+  onSelectionChange?: (featureIds: string[]) => void;
   selectedFeatureIds: string[];
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>(selectedFeatureIds);
@@ -80,13 +74,21 @@ export function PlanFeatureFields({
   }, [dropdownOpen]);
 
   function toggleFeature(featureId: string) {
-    setSelectedIds((current) => current.includes(featureId) ? current.filter((id) => id !== featureId) : [...current, featureId]);
+    setSelectedIds((current) => {
+      const next = current.includes(featureId) ? current.filter((id) => id !== featureId) : [...current, featureId];
+      onSelectionChange?.(next);
+      return next;
+    });
   }
 
   function importSelectedPlan() {
     const importPlan = importPlans.find((plan) => plan.id === importPlanId);
     if (!importPlan) return;
-    setSelectedIds((current) => Array.from(new Set([...current, ...importPlan.featureIds])));
+    setSelectedIds((current) => {
+      const next = Array.from(new Set([...current, ...importPlan.featureIds]));
+      onSelectionChange?.(next);
+      return next;
+    });
     setSelectedTableOpen(true);
   }
 
@@ -162,7 +164,6 @@ export function PlanFeatureFields({
                     />
                     <span className="min-w-0">
                       <span className="block truncate font-black text-slate-900">{feature.name}</span>
-                      <span className="block break-words font-medium text-slate-600">{feature.feature_key}</span>
                       {feature.description ? <span className="mt-0.5 block truncate text-slate-500">{feature.description}</span> : null}
                     </span>
                   </label>
@@ -202,8 +203,6 @@ export function PlanFeatureFields({
             <thead className="bg-stone-50 text-xs font-black uppercase text-stone-500">
               <tr>
                 <th className="px-3 py-3">Feature</th>
-                <th className="px-3 py-3">Product</th>
-                <th className="px-3 py-3">Base price</th>
                 <th className="px-3 py-3">Status</th>
                 <th className="px-3 py-3 text-right">Action</th>
               </tr>
@@ -213,10 +212,8 @@ export function PlanFeatureFields({
                 <tr key={feature.id}>
                   <td className="px-3 py-3 align-top">
                     <p className="break-words font-black text-slate-900">{feature.name}</p>
-                    <p className="mt-1 break-words text-xs font-medium text-slate-600">{feature.feature_key}</p>
+                    {feature.description ? <p className="mt-1 break-words text-xs font-medium text-slate-600">{feature.description}</p> : null}
                   </td>
-                  <td className="px-3 py-3 align-top font-medium text-slate-700">{feature.product_id}</td>
-                  <td className="px-3 py-3 align-top font-medium text-slate-700">{priceLabel(feature)}</td>
                   <td className="px-3 py-3 align-top font-medium text-slate-700">{feature.status ?? "ACTIVE"}</td>
                   <td className="px-3 py-3 text-right align-top">
                     <button

@@ -14,7 +14,8 @@ type ProductOption = {
 
 type ExistingFeature = {
   id?: string;
-  product_id: string;
+  product_id?: string;
+  product_ids?: string[];
   feature_key: string;
   name: string;
   description: string;
@@ -65,14 +66,8 @@ function priceTotalLabel(currency: string, amount: number) {
 }
 
 export function PlanFeatureEditFields({ feature, features = [], products }: { feature?: ExistingFeature; features?: SearchableProductFeature[]; products: ProductOption[] }) {
-  const matchingFeatureProductIds = feature
-    ? features
-      .filter((item) => item.feature_key === feature.feature_key && item.name === feature.name)
-      .map((item) => item.product_id)
-      .filter(Boolean)
-    : [];
   const initialProductIds = feature
-    ? Array.from(new Set([feature.product_id, ...matchingFeatureProductIds]))
+    ? Array.from(new Set([...(feature.product_ids ?? []), feature.product_id].filter((id): id is string => Boolean(id))))
     : products[0]?.id ? [products[0].id] : [];
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(initialProductIds);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -125,10 +120,7 @@ export function PlanFeatureEditFields({ feature, features = [], products }: { fe
       </label>
 
       <input type="hidden" name="featureKey" value={feature?.feature_key ?? ""} />
-      {feature?.product_id ? <input type="hidden" name="currentProductId" value={feature.product_id} /> : null}
-      {matchingFeatureProductIds.map((productId) => (
-        <input key={`existing-${productId}`} type="hidden" name="existingProductIds" value={productId} />
-      ))}
+      <input type="hidden" name="basePriceMinor" value={singleCurrencyTotal ? String(singleCurrencyTotal[1]) : "0"} />
       {selectedProductIds.map((productId) => (
         <input key={productId} type="hidden" name="productIds" value={productId} />
       ))}
