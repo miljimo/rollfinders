@@ -9,6 +9,7 @@ export const analyticsEventNames = [
   "claim_profile_submitted",
   "claim_approved",
   "claim_rejected",
+  "user_logged_in",
   "academy_created",
   "open_mat_created",
   "course_created",

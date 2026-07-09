@@ -39,6 +39,7 @@ type FounderSummaryResponse struct {
 	Trends      []DailyMetric   `json:"trends"`
 	Countries   []CountrySignal `json:"countries"`
 	DailyVisits []DailyVisit    `json:"dailyVisits"`
+	LoggedIn    LoggedInUsers   `json:"loggedInUsers"`
 	Days        int             `json:"days"`
 }
 
@@ -90,4 +91,17 @@ type DailyVisit struct {
 	UniqueVisitors int    `json:"uniqueVisitors"`
 	UniqueSessions int    `json:"uniqueSessions"`
 	EventCount     int    `json:"eventCount"`
+}
+
+type LoggedInUsers struct {
+	ActiveWindowMinutes   int                 `json:"activeWindowMinutes"`
+	CurrentCount          int                 `json:"currentCount"`
+	LoggedInTodayCount    int                 `json:"loggedInTodayCount"`
+	LoggedInSevenDayCount int                 `json:"loggedInSevenDayCount"`
+	ByRole                []LoggedInRoleCount `json:"byRole"`
+}
+
+type LoggedInRoleCount struct {
+	Role         string `json:"role"`
+	CurrentCount int    `json:"currentCount"`
 }

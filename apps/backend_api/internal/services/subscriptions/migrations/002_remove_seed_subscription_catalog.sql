@@ -38,7 +38,8 @@ BEGIN
     WHERE plan_id = ANY(seeded_plan_ids);
 
     IF referenced_count > 0 THEN
-        RAISE EXCEPTION 'Refusing to remove seeded subscription plans because % subscription row(s) reference them.', referenced_count;
+        RAISE NOTICE 'Skipping seeded subscription catalog cleanup because % subscription row(s) reference seeded plans.', referenced_count;
+        RETURN;
     END IF;
 
     SELECT count(*)
@@ -48,7 +49,8 @@ BEGIN
        OR to_plan_id = ANY(seeded_plan_ids);
 
     IF referenced_count > 0 THEN
-        RAISE EXCEPTION 'Refusing to remove seeded subscription plans because % plan change row(s) reference them.', referenced_count;
+        RAISE NOTICE 'Skipping seeded subscription catalog cleanup because % plan change row(s) reference seeded plans.', referenced_count;
+        RETURN;
     END IF;
 
     UPDATE subscriptions.subscription_owner_policies

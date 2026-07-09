@@ -47,54 +47,96 @@ function addMetric(summary: ReturnType<typeof cloneEmptySummary>, metricName: st
   if (metricName === "recurring_courses_created") summary.supply.recurringCoursesCreated += value;
 }
 
-export async function getFounderAnalyticsReport(days = 30, actor?: AnalyticsActor) {
-  const summary = cloneEmptySummary();
-  const boundedDays = Math.min(Math.max(Math.floor(days), 1), 365);
-  const trends: AnalyticsDailyMetric[] = [];
-  let dailyVisits: AnalyticsDailyVisit[] = [];
-  let countries: AnalyticsCountrySignal[] = [];
-  let loggedInUsers: AnalyticsLoggedInUsers = {
+function emptyLoggedInUsers(): AnalyticsLoggedInUsers {
+  return {
     activeWindowMinutes: activeLoginWindowMinutes,
     currentCount: 0,
     loggedInTodayCount: 0,
     loggedInSevenDayCount: 0,
     byRole: [],
   };
+}
+
+function isLoggedInUsers(value: unknown): value is AnalyticsLoggedInUsers {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<AnalyticsLoggedInUsers>;
+  return (
+    typeof candidate.currentCount === "number" &&
+    typeof candidate.loggedInTodayCount === "number" &&
+    typeof candidate.loggedInSevenDayCount === "number" &&
+    Array.isArray(candidate.byRole)
+  );
+}
+
+function loggedInUsersFromManagedUsers(users: Awaited<ReturnType<typeof listManagedUsers>>["users"]): AnalyticsLoggedInUsers {
+  const now = new Date();
+  const activeWindowStart = new Date(now.getTime() - activeLoginWindowMinutes * 60 * 1000);
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const sevenDayStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const activeUsers = users.filter((user) => !user.disabled && user.status === "ACTIVE" && user.lastLoginAt);
+  const recentlyActiveUsers = activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= activeWindowStart);
+  const byRoleMap = new Map<string, number>();
+  for (const user of recentlyActiveUsers) {
+    byRoleMap.set(user.role, (byRoleMap.get(user.role) ?? 0) + 1);
+  }
+  return {
+    activeWindowMinutes: activeLoginWindowMinutes,
+    currentCount: recentlyActiveUsers.length,
+    loggedInTodayCount: activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= todayStart).length,
+    loggedInSevenDayCount: activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= sevenDayStart).length,
+    byRole: Array.from(byRoleMap.entries())
+      .map(([role, currentCount]) => ({ role, currentCount }))
+      .sort((a, b) => b.currentCount - a.currentCount || a.role.localeCompare(b.role)),
+  };
+}
+
+function mergeLoggedInUsers(primary: AnalyticsLoggedInUsers, fallback: AnalyticsLoggedInUsers): AnalyticsLoggedInUsers {
+  const byRole = new Map<string, number>();
+  for (const item of [...fallback.byRole, ...primary.byRole]) {
+    byRole.set(item.role, Math.max(byRole.get(item.role) ?? 0, item.currentCount));
+  }
+  return {
+    activeWindowMinutes: primary.activeWindowMinutes || fallback.activeWindowMinutes || activeLoginWindowMinutes,
+    currentCount: Math.max(primary.currentCount, fallback.currentCount),
+    loggedInTodayCount: Math.max(primary.loggedInTodayCount, fallback.loggedInTodayCount),
+    loggedInSevenDayCount: Math.max(primary.loggedInSevenDayCount, fallback.loggedInSevenDayCount),
+    byRole: Array.from(byRole.entries())
+      .map(([role, currentCount]) => ({ role, currentCount }))
+      .sort((a, b) => b.currentCount - a.currentCount || a.role.localeCompare(b.role)),
+  };
+}
+
+export async function getFounderAnalyticsReport(days = 30, actor?: AnalyticsActor) {
+  const summary = cloneEmptySummary();
+  const boundedDays = Math.min(Math.max(Math.floor(days), 1), 365);
+  const trends: AnalyticsDailyMetric[] = [];
+  let dailyVisits: AnalyticsDailyVisit[] = [];
+  let countries: AnalyticsCountrySignal[] = [];
+  let loggedInUsers = emptyLoggedInUsers();
 
   try {
-    const [analyticsResponse, managedUsersResult] = await Promise.all([
-      analyticsFetch(`/v1/reports/founder-summary?days=${boundedDays}`).then((response) => response.ok ? response.json() : null),
-      listManagedUsers(
-        actor ?? { id: "analytics-reporting", role: "SUPER_ADMIN", email: "analytics@rollfinders.internal", privileges: ["users.admin.access"] },
-        "status=ACTIVE&pageSize=100",
-      ),
-    ]);
+    const response = await analyticsFetch(`/v1/reports/founder-summary?days=${boundedDays}`);
+    const analyticsResponse = response.ok ? await response.json() : null;
     if (analyticsResponse?.summary) Object.assign(summary, analyticsResponse.summary);
     if (Array.isArray(analyticsResponse?.trends)) trends.push(...analyticsResponse.trends);
     if (Array.isArray(analyticsResponse?.countries)) countries = analyticsResponse.countries;
     if (Array.isArray(analyticsResponse?.dailyVisits)) dailyVisits = analyticsResponse.dailyVisits;
-    const now = new Date();
-    const activeWindowStart = new Date(now.getTime() - activeLoginWindowMinutes * 60 * 1000);
-    const todayStart = new Date(now);
-    todayStart.setHours(0, 0, 0, 0);
-    const sevenDayStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const activeUsers = managedUsersResult.users.filter((user) => !user.disabled && user.status === "ACTIVE" && user.lastLoginAt);
-    const recentlyActiveUsers = activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= activeWindowStart);
-    const byRoleMap = new Map<string, number>();
-    for (const user of recentlyActiveUsers) {
-      byRoleMap.set(user.role, (byRoleMap.get(user.role) ?? 0) + 1);
+    if (isLoggedInUsers(analyticsResponse?.loggedInUsers)) {
+      loggedInUsers = { ...analyticsResponse.loggedInUsers, activeWindowMinutes: analyticsResponse.loggedInUsers.activeWindowMinutes || activeLoginWindowMinutes };
     }
-    loggedInUsers = {
-      activeWindowMinutes: activeLoginWindowMinutes,
-      currentCount: recentlyActiveUsers.length,
-      loggedInTodayCount: activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= todayStart).length,
-      loggedInSevenDayCount: activeUsers.filter((user) => new Date(user.lastLoginAt as string) >= sevenDayStart).length,
-      byRole: Array.from(byRoleMap.entries())
-        .map(([role, currentCount]) => ({ role, currentCount }))
-        .sort((a, b) => b.currentCount - a.currentCount || a.role.localeCompare(b.role)),
-    };
   } catch (error) {
-    console.error("[analytics] founder report failed", error);
+    console.error("[analytics] founder analytics service report failed", error);
+  }
+
+  try {
+    const managedUsersResult = await listManagedUsers(
+      actor ?? { id: "analytics-reporting", role: "SUPER_ADMIN", email: "analytics@rollfinders.internal", privileges: ["users.admin.access"] },
+      "status=ACTIVE&pageSize=100",
+    );
+    loggedInUsers = mergeLoggedInUsers(loggedInUsers, loggedInUsersFromManagedUsers(managedUsersResult.users));
+  } catch (error) {
+    console.error("[analytics] logged-in user fallback failed", error);
   }
 
   return { summary, trends, countries, dailyVisits, loggedInUsers, days: boundedDays };

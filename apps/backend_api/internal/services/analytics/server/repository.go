@@ -84,6 +84,8 @@ func (r *Repository) Aggregate(ctx context.Context, metricDate string) ([]DailyM
 		{"claim_submissions", "COUNT(*)", "event_name = 'claim_profile_submitted'"},
 		{"claims_approved", "COUNT(*)", "event_name = 'claim_approved'"},
 		{"claims_rejected", "COUNT(*)", "event_name = 'claim_rejected'"},
+		{"user_logins", "COUNT(*)", "event_name = 'user_logged_in'"},
+		{"logged_in_users", "COUNT(DISTINCT COALESCE(NULLIF(metadata->>'userId',''), NULLIF(visitor_id,''), NULLIF(session_id,'')))", "event_name = 'user_logged_in'"},
 		{"academies_created", "COUNT(*)", "event_name = 'academy_created'"},
 		{"open_mats_created", "COUNT(*)", "event_name = 'open_mat_created'"},
 		{"courses_created", "COUNT(*)", "event_name = 'course_created'"},
@@ -115,6 +117,7 @@ func (r *Repository) FounderSummary(ctx context.Context, days int) (FounderSumma
 	response.Trends = []DailyMetric{}
 	response.Countries = []CountrySignal{}
 	response.DailyVisits = []DailyVisit{}
+	response.LoggedIn = LoggedInUsers{ActiveWindowMinutes: 30, ByRole: []LoggedInRoleCount{}}
 	rows, err := r.db.Query(ctx, `
 SELECT metric_name, value, metric_date
 FROM analytics.daily_metrics
@@ -201,7 +204,51 @@ ORDER BY created_at::date DESC`, days)
 		visit.Date = date.Format("2006-01-02")
 		response.DailyVisits = append(response.DailyVisits, visit)
 	}
+	if err := r.loadLoggedInUsers(ctx, &response); err != nil {
+		return response, err
+	}
 	return response, nil
+}
+
+func (r *Repository) loadLoggedInUsers(ctx context.Context, response *FounderSummaryResponse) error {
+	const actorExpr = "COALESCE(NULLIF(metadata->>'userId',''), NULLIF(visitor_id,''), NULLIF(session_id,''))"
+	const activeWindowMinutes = 30
+	response.LoggedIn.ActiveWindowMinutes = activeWindowMinutes
+	response.LoggedIn.ByRole = []LoggedInRoleCount{}
+	if err := r.db.QueryRow(ctx, `
+SELECT
+  COUNT(DISTINCT CASE WHEN created_at >= (now() - ($1::int * INTERVAL '1 minute')) THEN `+actorExpr+` END)::int,
+  COUNT(DISTINCT CASE WHEN created_at >= CURRENT_DATE THEN `+actorExpr+` END)::int,
+  COUNT(DISTINCT CASE WHEN created_at >= (now() - INTERVAL '7 days') THEN `+actorExpr+` END)::int
+FROM analytics.events
+WHERE event_name = 'user_logged_in'
+  AND `+actorExpr+` IS NOT NULL`, activeWindowMinutes).Scan(
+		&response.LoggedIn.CurrentCount,
+		&response.LoggedIn.LoggedInTodayCount,
+		&response.LoggedIn.LoggedInSevenDayCount,
+	); err != nil {
+		return err
+	}
+	rows, err := r.db.Query(ctx, `
+SELECT COALESCE(NULLIF(metadata->>'role',''), 'unknown') AS role, COUNT(DISTINCT `+actorExpr+`)::int AS current_count
+FROM analytics.events
+WHERE event_name = 'user_logged_in'
+  AND created_at >= (now() - ($1::int * INTERVAL '1 minute'))
+  AND `+actorExpr+` IS NOT NULL
+GROUP BY COALESCE(NULLIF(metadata->>'role',''), 'unknown')
+ORDER BY current_count DESC, role ASC`, activeWindowMinutes)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var count LoggedInRoleCount
+		if err := rows.Scan(&count.Role, &count.CurrentCount); err != nil {
+			return err
+		}
+		response.LoggedIn.ByRole = append(response.LoggedIn.ByRole, count)
+	}
+	return rows.Err()
 }
 
 func (r *Repository) AcademyProfileViewCount(ctx context.Context, academyID string) (int, error) {

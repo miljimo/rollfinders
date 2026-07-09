@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/Button";
+import { trackAnalyticsEvent } from "@/components/Analytics/analyticsTracker";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { getSession, signIn } from "next-auth/react";
@@ -38,7 +39,12 @@ export function LoginForm({ callbackUrl = "/dashboard" }: { callbackUrl?: string
         return;
       }
 
-      await getSession();
+      const session = await getSession();
+      const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+      trackAnalyticsEvent("user_logged_in", {
+        role: sessionUser?.role ?? null,
+        userId: sessionUser?.id ?? null,
+      });
       window.location.href = result?.url ?? callbackUrl;
     } finally {
       setIsSubmitting(false);

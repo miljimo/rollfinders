@@ -280,8 +280,10 @@ CREATE TABLE IF NOT EXISTS subscriptions.subscription_plan_audit_events (
     created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_one_active_owner_subscription
-ON subscriptions.subscriptions (owner_type, owner_id)
+DROP INDEX IF EXISTS subscriptions.subscriptions_one_active_owner_subscription;
+
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_one_active_owner_plan_subscription
+ON subscriptions.subscriptions (owner_type, owner_id, plan_id)
 WHERE status IN ('TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'active', 'past_due', 'scheduled_downgrade', 'cancel_at_period_end', 'suspended');
 
 CREATE INDEX IF NOT EXISTS subscriptions_products_service_idx ON subscriptions.products(service_id);

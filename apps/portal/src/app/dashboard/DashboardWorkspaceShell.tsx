@@ -1018,7 +1018,7 @@ export default async function AdminDashboardWorkspace({
       icon: "payments",
       label: "Pricing Policies",
     }] : []);
-  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users", "wallet"].includes(panel);
+  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users", "analytics", "wallet"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
     ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
