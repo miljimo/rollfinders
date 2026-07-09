@@ -82,6 +82,102 @@ This evidence confirms production cleanup completed before this release ticket w
 
 - 2026-07-09: Created release ticket and committed it as `e6110c0 Add subscription cleanup release ticket`.
 - 2026-07-09: Updated release candidate metadata so production approval can name the current `master` head, not the previous application-code head.
+- 2026-07-09: Production release executed from clean worktree at `0b3c8767ef095edb359d323af0b3904733ee0c01`.
+- 2026-07-09: Broad Terraform deployment was stopped after planning an unrelated ECS security group replacement; release continued with a narrowed ECS task-definition deployment using the current production container set.
+- 2026-07-09: Production stabilized on ECS task definition `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:60`.
+
+## Production Release Evidence
+
+Released on 2026-07-09 from:
+
+```text
+0b3c8767ef095edb359d323af0b3904733ee0c01
+```
+
+Pre-release checks passed:
+
+```bash
+npm run typecheck
+npm run build
+cd apps/backend_api && go test ./internal/services/subscriptions/...
+bash -n scripts/cicd/run-service-sql-migrations.sh
+```
+
+Production deployment evidence:
+
+- Rollback task definition before release: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:59`
+- Released task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:60`
+- ECS desired/running/pending after release: `2/2/0`
+- ECS rollout state: `COMPLETED`
+- Migration task exit code: `0`
+- Internal ECS smoke task exit code: `0`
+- Post-release subscription seed verification exit code: `0`
+
+Deployed image tags:
+
+```text
+web:           533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:0b3c876
+api:           533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/api:0b3c876
+users:         533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/users:0b3c876
+authorisation: 533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/authorisation:0b3c876
+academy:       533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/academy:0b3c876
+organisation:  533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/organisation:0b3c876
+courses:       533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/courses:0b3c876
+booking:       533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/booking:0b3c876
+payments:      533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/payments:0b3c876
+subscriptions: 533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/subscriptions:0b3c876
+```
+
+Public endpoint smoke results:
+
+```text
+200 https://rollfinders.com/api/health
+200 https://rollfinders.com/api/health?deep=1
+200 https://rollfinders.com/
+200 https://rollfinders.com/about
+200 https://rollfinders.com/academies
+200 https://rollfinders.com/login
+200 https://rollfinders.com/register
+200 https://rollfinders.com/dashboard/subscriptions
+200 https://rollfinders.com/?when=today
+200 https://rollfinders.com/?when=tomorrow
+200 https://rollfinders.com/?when=weekend
+200 https://rollfinders.com/open-mats
+200 https://rollfinders.com/contact
+200 https://rollfinders.com/privacy-policy
+200 https://rollfinders.com/terms
+```
+
+Internal ECS service smoke covered the deployed container ports:
+
+```text
+3000 /api/health
+8080 /healthz, /readyz
+8081 /healthz, /readyz
+8082 /healthz, /readyz
+8083 /healthz, /readyz
+8084 /healthz, /readyz
+8085 /healthz, /readyz
+8086 /healthz, /readyz
+8087 /healthz, /readyz
+8090 /healthz, /readyz
+```
+
+Post-release subscription seed verification:
+
+```text
+plans=0
+features=0
+products=0
+subscription_refs=0
+plan_change_refs=0
+```
+
+Operational note:
+
+- The full Terraform plan attempted to replace `production-rollfinder-ecs` security group because of an existing description drift. That replacement failed with `InvalidGroup.Duplicate`.
+- The release therefore avoided unrelated infrastructure mutation and updated only the production ECS task definition/service for the currently running production container set.
+- The current production task definition does not include the additional `access-keys`, `analytics`, `wallet`, `transfer`, or `pricing` containers planned by Terraform because ECS rejected the full 16-container task definition as too many containers. Releasing those services requires a separate infrastructure/task-shape ticket.
 
 ## Required Pre-Release Checks
 
