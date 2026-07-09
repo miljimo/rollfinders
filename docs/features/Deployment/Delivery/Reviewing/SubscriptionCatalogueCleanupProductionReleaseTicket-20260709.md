@@ -10,6 +10,7 @@
 - Test owner: Tester agent
 - Dependencies: Production approval, subscriptions-only migration/data cleanup approval, production image build, smoke-test access
 - Source PRD: `apps/backend_api/internal/services/subscriptions/docs/product.md`
+- Ticket status: Reviewing, updated on 2026-07-09
 
 ## Goal
 
@@ -22,7 +23,8 @@ The release agent must:
 - Deploy from `master` after confirming the approved commit.
 - Include the subscription seed prevention commit `db2d460 Remove seeded subscription catalogue`.
 - Include the subscription product pricing workflow commits `d454d7d Implement subscription product pricing workflow` and `7142be9 Implement derived subscription plan pricing`.
-- Validate the current release candidate commit `0e48f9d Fix analytics stats and multi-plan subscriptions` before deployment if it remains the head of `master`.
+- Include the analytics and multi-plan subscription fix commit `0e48f9d Fix analytics stats and multi-plan subscriptions`.
+- Validate the current release candidate commit `e6110c0 Add subscription cleanup release ticket` before deployment if it remains the head of `master`.
 - Confirm production no longer contains the seeded plans `Free`, `Academy Starter`, `Academy Pro`, or `Enterprise` from the old migration seed.
 - Confirm no live subscription or subscription plan-change row references the removed seeded plan IDs.
 - Validate the guarded cleanup migration stays subscriptions-service scoped.
@@ -40,12 +42,14 @@ The release agent must not:
 ## Implementation Notes
 
 - Source branch: `master`
-- Current release candidate at ticket creation: `0e48f9d Fix analytics stats and multi-plan subscriptions`
+- Current release candidate after ticket update: `e6110c0 Add subscription cleanup release ticket`
+- Previous release candidate at ticket creation: `0e48f9d Fix analytics stats and multi-plan subscriptions`
 - Included commits:
   - `db2d460 Remove seeded subscription catalogue`
   - `d454d7d Implement subscription product pricing workflow`
   - `7142be9 Implement derived subscription plan pricing`
   - `0e48f9d Fix analytics stats and multi-plan subscriptions`
+  - `e6110c0 Add subscription cleanup release ticket`
 - Database impact: subscriptions-service data cleanup and schema-compatible migration changes only.
 - Migration path: `apps/backend_api/internal/services/subscriptions/migrations/`
 - New cleanup migration: `apps/backend_api/internal/services/subscriptions/migrations/002_remove_seed_subscription_catalog.sql`
@@ -73,6 +77,11 @@ Recorded result:
   - `plan_change_refs=0`
 
 This evidence confirms production cleanup completed before this release ticket was created. A release agent must still repeat the read-only verification before any new production deployment.
+
+## Ticket Update Log
+
+- 2026-07-09: Created release ticket and committed it as `e6110c0 Add subscription cleanup release ticket`.
+- 2026-07-09: Updated release candidate metadata so production approval can name the current `master` head, not the previous application-code head.
 
 ## Required Pre-Release Checks
 
