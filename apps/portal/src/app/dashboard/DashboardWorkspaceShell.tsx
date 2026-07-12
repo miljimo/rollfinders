@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { clsx } from "clsx";
-import { Activity, ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronDown, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Landmark, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Tag, Trash2, User, Users, Wallet } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Landmark, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Tag, Trash2, User, Users, Wallet } from "lucide-react";
 import { AcademyMap } from "../map/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-domain-data";
@@ -19,7 +19,7 @@ import { getMapItems } from "@/lib/data";
 import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
 import { listOrganisationApplications, listOrganisations } from "@/lib/organisation-service";
-import { calculatePlatformFeeMinor, defaultPaymentPlatformSettings, getPaymentPlatformSettings, platformFeeLabel, platformFeePercentage, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
+import { calculatePlatformFeeMinor, defaultPaymentPlatformSettings, getPaymentPlatformSettings, platformFeeLabel, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
 import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { getStripePaymentAccountSetting, listPaymentTransactionsPage, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
@@ -33,7 +33,6 @@ import { getWalletBalance, listLinkedWalletAccounts, listWalletTransfers, listWa
 import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
-import type { AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
 import { CopyButton } from "@/components/copy-button";
 import { DialogShell } from "@/components/DialogShell";
 import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboard";
@@ -74,8 +73,6 @@ import { NewAcademyPanelAction } from "./academies/NewAcademyPanelAction";
 import { SuperAdminPlatformAcademiesPanel } from "./academies/SuperAdminPlatformAcademiesPanel";
 import { CreateCourseDialog } from "./courses/CreateCourseDialog";
 import { ViewEventDialog, type DashboardEventDetail } from "./ViewEventDialog";
-import { updatePlatformPaymentFees } from "./payments/paymentSettingsActions";
-import { PricingPolicyScopeField } from "./payments/PricingPolicyScopeField";
 import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/bookingActions";
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
@@ -92,7 +89,6 @@ import { selectedWallet, selectedWalletTransaction, transactionDetailsCloseHref,
 import { WalletOwnerPickerDialog } from "./wallet/WalletOwnerPickerDialog";
 import { WalletTransactionDetailsDialog } from "./wallet/WalletTransactionDetailsDialog";
 import { WalletTransferDialog } from "./wallet/WalletTransferDialog";
-import { titleCase } from "./wallet/walletFormatting";
 
 export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
 
@@ -283,7 +279,7 @@ function effectiveSettingsActionForRole(action: SettingsAction, elevatedAdmin: b
 }
 
 type PaymentOverviewPeriod = "daily" | "weekly" | "monthly" | "yearly";
-type PaymentsDashboardView = "overview" | "transactions" | "earnings" | "refunds" | "payouts" | "settings";
+type PaymentsDashboardView = "overview" | "transactions" | "earnings" | "refunds" | "payouts";
 type UsersDashboardView = "overview" | "roles" | "permissions" | "access-keys" | "mfa";
 
 function selectedPaymentOverviewPeriod(value: string | undefined): PaymentOverviewPeriod {
@@ -296,7 +292,6 @@ function selectedPaymentsDashboardView(value: string | undefined): PaymentsDashb
   if (value === "earning" || value === "earnings") return "earnings";
   if (value === "refund" || value === "refunds") return "refunds";
   if (value === "payout" || value === "payouts") return "payouts";
-  if (value === "setting" || value === "settings") return "settings";
   return "overview";
 }
 
@@ -443,38 +438,6 @@ type DashboardWalletsResult = {
   wallets: WalletRecord[];
 };
 
-function pricingPolicyOptions(wallets: WalletRecord[], linkedAccounts: LinkedWalletAccount[]): AutoCompleteTextFieldOption[] {
-  const options = new Map<string, AutoCompleteTextFieldOption>();
-  options.set(defaultPaymentPlatformSettings.providerId, {
-    id: defaultPaymentPlatformSettings.providerId,
-    label: "RollFinders platform provider",
-    description: defaultPaymentPlatformSettings.providerId,
-    meta: "Default platform pricing policy",
-  });
-
-  wallets.forEach((wallet) => {
-    options.set(wallet.id, {
-      id: wallet.id,
-      label: `${titleCase(wallet.walletType)} wallet - ${wallet.ownerId}`,
-      description: `${wallet.currency} - ${wallet.status}`,
-      meta: `${wallet.id} ${wallet.ownerId} ${wallet.walletType} wallet pricing policy`,
-    });
-  });
-
-  linkedAccounts.forEach((account) => {
-    const providerId = account.providerAccountId || account.externalReference || account.id;
-    if (!providerId) return;
-    options.set(providerId, {
-      id: providerId,
-      label: `${account.displayName || account.provider} provider account`,
-      description: `${account.provider} - ${account.status}`,
-      meta: `${providerId} ${account.walletId} ${account.connectionType} linked provider pricing policy`,
-    });
-  });
-
-  return [...options.values()];
-}
-
 function emptyServicePagination(limit: number, offset = 0): ServicePaginationMeta {
   return { count: 0, has_more: false, limit, offset };
 }
@@ -620,8 +583,6 @@ export default async function AdminDashboardWorkspace({
   const walletDialog = firstParam(params.walletDialog);
   const walletActionError = firstParam(params.walletError);
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
-  const paymentSettingsMessage = firstParam(params.paymentSettingsMessage);
-  const paymentSettingsError = firstParam(params.paymentSettingsError);
   const pricingProviderId = (firstParam(params.pricingProviderId) ?? defaultPaymentPlatformSettings.providerId).trim() || defaultPaymentPlatformSettings.providerId;
   const bookingActionError = firstParam(params.bookingActionError);
   const bookingActionBookingId = firstParam(params.bookingActionBookingId);
@@ -849,7 +810,7 @@ export default async function AdminDashboardWorkspace({
     panel === "payments" ? getPaymentPlatformSettings({ accessToken: currentUser.accessToken, actorUserId: currentUser.id, providerId: pricingProviderId }) : Promise.resolve(null),
     panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
     panel === "bookings" ? getDashboardBookings(bookingPage, currentUser.id, currentUser.accessToken, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
-    panel === "wallet" || (panel === "payments" && paymentsView === "settings" && !academyAdmin)
+    panel === "wallet"
       ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
       : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
     panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction"
@@ -869,7 +830,6 @@ export default async function AdminDashboardWorkspace({
   ]);
   const authorisationRoles = authorisationRolesPage.roles;
   const paymentAccountSetting = paymentAccountResult?.setting ?? null;
-  const effectivePaymentSettingsError = paymentSettingsError ?? paymentAccountResult?.error;
   const authorisationPermissionCatalog = authorisationPermissionPage.permissions;
   const rolePermissionAssociations = panel === "users" && (usersView === "roles" || usersView === "permissions")
     ? await Promise.all(authorisationRoles.map(async (role) => ({
@@ -973,7 +933,6 @@ export default async function AdminDashboardWorkspace({
     { href: "/dashboard/payment?paymentsView=earnings", label: "Earnings", active: panel === "payments" && paymentsView === "earnings" },
     { href: "/dashboard/payment?paymentsView=refunds", label: "Refunds", active: panel === "payments" && paymentsView === "refunds" },
     { href: "/dashboard/payment?paymentsView=payouts", label: "Payouts", active: panel === "payments" && paymentsView === "payouts" },
-    { href: "/dashboard/payment?paymentsView=settings", label: "Payment Settings", active: panel === "payments" && paymentsView === "settings" },
   ];
   const walletNavigationSections = [
     { href: "/dashboard/wallet", icon: "dashboard", label: "Dashboard", active: panel === "wallet" && walletView === "dashboard" },
@@ -1011,13 +970,7 @@ export default async function AdminDashboardWorkspace({
       href: item.href,
       icon: item.icon,
       label: item.href === "/dashboard/academies" ? "Academies" : item.label,
-    }))
-    .concat(elevatedAdmin ? [{
-      description: "Set platform fee policies for wallets and linked provider accounts.",
-      href: "/dashboard/payment?paymentsView=settings",
-      icon: "payments",
-      label: "Pricing Policies",
-    }] : []);
+    }));
   const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users", "analytics", "wallet"].includes(panel);
   const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
   const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
@@ -1357,26 +1310,21 @@ export default async function AdminDashboardWorkspace({
           ) : null}
           {panel === "payments" ? (
             <AdminPanel
-              action={paymentsView === "payouts" || paymentsView === "settings" ? null : <PaymentsDashboardActions payments={paymentResult.payments} />}
-              description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : paymentsView === "settings" ? academyAdmin ? "Review academy payment settings." : "Manage platform payment fees and settings." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
+              description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
               id="payments"
               search={paymentsView === "overview" ? <PaymentsPanelSearch search={paymentsSearch} /> : null}
-              title={paymentsView === "transactions" ? "Transactions" : paymentsView === "earnings" ? "Earnings" : paymentsView === "refunds" ? "Refunds" : paymentsView === "payouts" ? "Payouts" : paymentsView === "settings" ? "Payment Settings" : "Payments Dashboard"}
+              title={paymentsView === "transactions" ? "Transactions" : paymentsView === "earnings" ? "Earnings" : paymentsView === "refunds" ? "Refunds" : paymentsView === "payouts" ? "Payouts" : "Payments Dashboard"}
             >
               <PaymentsPanel
                 academyAdmin={academyAdmin}
                 metricVisibility={paymentMetricVisibility}
                 paymentAccountSetting={paymentAccountSetting}
                 paymentPlatformSettings={paymentPlatformSettings ?? undefined}
-                pricingPolicyOptions={pricingPolicyOptions(walletResult.wallets, walletResult.linkedAccounts)}
-                selectedPricingProviderId={pricingProviderId}
                 period={paymentsPeriod}
                 payoutsPage={payoutsPage}
                 result={paymentResult}
                 search={paymentsSearch}
                 searchParams={params}
-                paymentSettingsError={effectivePaymentSettingsError}
-                paymentSettingsMessage={paymentSettingsMessage}
                 view={paymentsView}
               />
             </AdminPanel>
@@ -1814,29 +1762,6 @@ function PaymentsPanelSearch({ search }: { search: string }) {
 
 function BookingsPanelSearch({ search }: { search: string }) {
   return <DashboardSearchForm action="/dashboard/bookings" ariaLabel="Search bookings" name="bookingsSearch" placeholder="Search bookings by reference, event, customer, status, or payment" value={search} />;
-}
-
-function paymentDashboardRangeLabel(payments: PaymentRecord[]) {
-  const points = paymentOverviewChartPoints(payments, "daily");
-  const first = points[0]?.label ?? "";
-  const last = points[points.length - 1]?.label ?? "";
-  return first && last ? `${first} - ${last}` : "Last 7 days";
-}
-
-function PaymentsDashboardActions({ payments }: { payments: PaymentRecord[] }) {
-  return (
-    <div className="grid gap-2 sm:grid-cols-[auto_auto]">
-      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm">
-        <CalendarDays size={17} aria-hidden />
-        {paymentDashboardRangeLabel(payments)}
-        <ChevronDown size={16} aria-hidden />
-      </button>
-      <button type="button" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-stone-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm">
-        <Download size={17} aria-hidden />
-        Export
-      </button>
-    </div>
-  );
 }
 
 function ClaimsPanelSearch({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
@@ -3415,104 +3340,6 @@ function PaymentsPayoutsView({
   );
 }
 
-function PaymentsSettingsView({
-  academyAdmin,
-  paymentPlatformSettings,
-  paymentSettingsError,
-  paymentSettingsMessage,
-  pricingPolicyOptions,
-  selectedPricingProviderId,
-}: {
-  academyAdmin: boolean;
-  paymentPlatformSettings: PaymentPlatformSettings;
-  paymentSettingsError?: string;
-  paymentSettingsMessage?: string;
-  pricingPolicyOptions: AutoCompleteTextFieldOption[];
-  selectedPricingProviderId: string;
-}) {
-  const platformFeePercent = platformFeePercentage(paymentPlatformSettings);
-  const fixedPlatformFee = paymentPlatformSettings.platformFeeFixedMinor / 100;
-  const settingsNotice = paymentSettingsError
-    ? { tone: "error", text: paymentSettingsError }
-    : paymentSettingsMessage === "platform-fees-updated"
-        ? { tone: "success", text: "Platform fees have been updated." }
-        : null;
-
-  return (
-    <div className="grid gap-5">
-      <div className="text-sm font-semibold text-slate-600">
-        <Link href="/dashboard/payment?paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
-        <span className="mx-2 text-slate-400">›</span>
-        <span className="text-slate-800">Payment Settings</span>
-      </div>
-      {settingsNotice ? (
-        <div className={clsx("rounded-lg border px-4 py-3 text-sm font-black", settingsNotice.tone === "error" ? "border-red-200 bg-red-50 text-red-700" : "border-teal-200 bg-teal-50 text-teal-800")}>
-          {settingsNotice.text}
-        </div>
-      ) : null}
-
-      {!academyAdmin ? (
-        <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)] lg:items-start">
-            <div>
-              <h3 className="text-xl font-black text-slate-950">Platform Fees</h3>
-              <p className="mt-1 text-sm font-semibold text-slate-600">
-                These fees are applied to payments for the selected wallet or provider account before payout amounts are calculated.
-              </p>
-              <dl className="mt-5 grid gap-3 text-sm font-semibold text-slate-600">
-                <div className="flex justify-between gap-4">
-                  <dt>Policy scope</dt>
-                  <dd className="break-all text-right font-black text-slate-950">{paymentPlatformSettings.providerId}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt>Current fee</dt>
-                  <dd className="font-black text-slate-950">{platformFeeLabel(paymentPlatformSettings)}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt>Currency</dt>
-                  <dd className="font-black text-slate-950">{paymentPlatformSettings.currency}</dd>
-                </div>
-              </dl>
-            </div>
-            <form action={updatePlatformPaymentFees} className="grid gap-4 rounded-lg border border-stone-200 p-4">
-              <PricingPolicyScopeField options={pricingPolicyOptions} selectedProviderId={selectedPricingProviderId} />
-              <label className="grid gap-2 text-sm font-black text-slate-800">
-                Platform fee percentage
-                <input
-                  className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-semibold text-slate-950"
-                  defaultValue={Number.isInteger(platformFeePercent) ? platformFeePercent.toFixed(0) : platformFeePercent.toFixed(2)}
-                  inputMode="decimal"
-                  min="0"
-                  max="100"
-                  name="platformFeePercent"
-                  step="0.01"
-                  type="number"
-                />
-              </label>
-              <label className="grid gap-2 text-sm font-black text-slate-800">
-                Fixed platform fee
-                <div className="grid grid-cols-[auto_1fr] overflow-hidden rounded-md border border-stone-300">
-                  <span className="grid min-h-11 place-items-center border-r border-stone-300 bg-stone-50 px-3 text-base font-black text-slate-700">£</span>
-                  <input
-                    className="min-h-11 px-3 text-base font-semibold text-slate-950 outline-none"
-                    defaultValue={fixedPlatformFee.toFixed(2)}
-                    inputMode="decimal"
-                    min="0"
-                    name="platformFeeFixed"
-                    step="0.01"
-                    type="number"
-                  />
-                </div>
-              </label>
-              <Button type="submit">Save Platform Fees</Button>
-            </form>
-          </div>
-        </section>
-      ) : null}
-    </div>
-  );
-}
-
 function PaymentsPanel({
   academyAdmin,
   metricVisibility,
@@ -3523,30 +3350,22 @@ function PaymentsPanel({
     platformFeeFixedMinor: 0,
     providerId: defaultPaymentPlatformSettings.providerId,
   },
-  paymentSettingsError,
-  paymentSettingsMessage,
-  pricingPolicyOptions,
   period,
   payoutsPage,
   result,
   search,
   searchParams,
-  selectedPricingProviderId,
   view,
 }: {
   academyAdmin: boolean;
   metricVisibility: PaymentMetricVisibility;
   paymentAccountSetting: PaymentAccountSettingView | null;
   paymentPlatformSettings?: PaymentPlatformSettings;
-  paymentSettingsError?: string;
-  paymentSettingsMessage?: string;
-  pricingPolicyOptions: AutoCompleteTextFieldOption[];
   period: PaymentOverviewPeriod;
   payoutsPage: number;
   result: DashboardPaymentsResult;
   search: string;
   searchParams: AdminSearchParams;
-  selectedPricingProviderId: string;
   view: string;
 }) {
   const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
@@ -3602,19 +3421,6 @@ function PaymentsPanel({
 
   if (view === "payouts") {
     return <PaymentsPayoutsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} payoutsPage={payoutsPage} searchParams={searchParams} />;
-  }
-
-  if (view === "settings") {
-    return (
-      <PaymentsSettingsView
-        academyAdmin={academyAdmin}
-        paymentPlatformSettings={paymentPlatformSettings}
-        paymentSettingsError={paymentSettingsError}
-        paymentSettingsMessage={paymentSettingsMessage}
-        pricingPolicyOptions={pricingPolicyOptions}
-        selectedPricingProviderId={selectedPricingProviderId}
-      />
-    );
   }
 
   return (

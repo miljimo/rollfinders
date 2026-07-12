@@ -46,6 +46,7 @@ func New(opts Options) http.Handler {
 			domain.ProxyKeyWallet:        createNewProxyHandler(opts.Config.WalletBaseURL, "", ""),
 			domain.ProxyKeyTransfer:      createNewProxyHandler(opts.Config.TransferBaseURL, "", ""),
 			domain.ProxyKeyPricing:       createNewProxyHandler(opts.Config.PricingBaseURL, "", ""),
+			domain.ProxyKeyUsageLimits:   createNewProxyHandler(opts.Config.UsageLimitsBaseURL, "", ""),
 			domain.ProxyKeyLegacy:        createNewProxyHandler(opts.Config.LegacyNextBaseURL, domain.LegacyProxyPath, ""),
 		},
 		routeHandlers: map[routeHandlerKey]http.Handler{

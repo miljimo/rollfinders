@@ -8,6 +8,8 @@ type GatewayPermission = gatewayroutes.GatewayPermissionName
 type GatewayResourceType = gatewayroutes.GatewayResourceType
 type GatewayResourceIDParam = gatewayroutes.GatewayResourceIDParam
 type GatewaySubscriptionFeatureKey = gatewayroutes.GatewaySubscriptionFeatureKey
+type GatewayUsageActionKey = gatewayroutes.GatewayUsageActionKey
+type GatewayUsagePeriodType = gatewayroutes.GatewayUsagePeriodType
 
 const (
 	UserService          = gatewayroutes.UserService
@@ -21,6 +23,7 @@ const (
 	WalletService        = gatewayroutes.WalletService
 	TransferService      = gatewayroutes.TransferService
 	PricingService       = gatewayroutes.PricingService
+	UsageLimitsService   = gatewayroutes.UsageLimitsService
 )
 
 const (
@@ -158,6 +161,13 @@ const (
 	Transfers                                            = gatewayroutes.Transfers
 	PricingPlatformFee                                   = gatewayroutes.PricingPlatformFee
 	PricingPlatformFeePreview                            = gatewayroutes.PricingPlatformFeePreview
+	UsageLimitsCheck                                     = gatewayroutes.UsageLimitsCheck
+	UsageLimitsReservations                              = gatewayroutes.UsageLimitsReservations
+	UsageLimitsReservationConfirm                        = gatewayroutes.UsageLimitsReservationConfirm
+	UsageLimitsReservationRelease                        = gatewayroutes.UsageLimitsReservationRelease
+	UsageLimitsIncrement                                 = gatewayroutes.UsageLimitsIncrement
+	UsageLimitsDecrement                                 = gatewayroutes.UsageLimitsDecrement
+	UsageLimitsOwnerSummary                              = gatewayroutes.UsageLimitsOwnerSummary
 )
 
 const (
@@ -248,6 +258,8 @@ const (
 	PermissionPayoutRequestSearch                = gatewayroutes.PermissionPayoutRequestSearch
 	PermissionPricingPolicyRead                  = gatewayroutes.PermissionPricingPolicyRead
 	PermissionPricingPolicyUpdate                = gatewayroutes.PermissionPricingPolicyUpdate
+	PermissionUsageLimitRead                     = gatewayroutes.PermissionUsageLimitRead
+	PermissionUsageLimitManage                   = gatewayroutes.PermissionUsageLimitManage
 	PermissionSubscriptionProductRead            = gatewayroutes.PermissionSubscriptionProductRead
 	PermissionSubscriptionProductManage          = gatewayroutes.PermissionSubscriptionProductManage
 	PermissionSubscriptionPlanRead               = gatewayroutes.PermissionSubscriptionPlanRead
@@ -283,6 +295,7 @@ const (
 
 const (
 	ResourceAcademy                    = gatewayroutes.ResourceAcademy
+	ResourceAcademyUser                = gatewayroutes.ResourceAcademyUser
 	ResourceAccount                    = gatewayroutes.ResourceAccount
 	ResourceActivity                   = gatewayroutes.ResourceActivity
 	ResourceApplication                = gatewayroutes.ResourceApplication
@@ -305,7 +318,16 @@ const (
 	ResourceSession                    = gatewayroutes.ResourceSession
 	ResourceTransaction                = gatewayroutes.ResourceTransaction
 	ResourceUser                       = gatewayroutes.ResourceUser
+	ResourceUsageLimit                 = gatewayroutes.ResourceUsageLimit
 	ResourceWallet                     = gatewayroutes.ResourceWallet
+)
+
+const (
+	UsageActionCreate = gatewayroutes.UsageActionCreate
+	UsageActionInvite = gatewayroutes.UsageActionInvite
+
+	UsagePeriodLifetime           = gatewayroutes.UsagePeriodLifetime
+	UsagePeriodSubscriptionPeriod = gatewayroutes.UsagePeriodSubscriptionPeriod
 )
 
 const (

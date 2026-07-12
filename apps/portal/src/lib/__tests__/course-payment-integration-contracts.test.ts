@@ -214,14 +214,14 @@ describe("course payment service integration", () => {
     assert.match(dashboardSource, /PaymentsPanelSearch/);
     assert.match(dashboardSource, /<div className="flex flex-wrap items-start gap-4">/);
     assert.match(dashboardSource, /sm:w-fit sm:min-w-\[17rem\] sm:max-w-\[24rem\]/);
-    assert.match(dashboardSource, /action=\{paymentsView === "payouts" \|\| paymentsView === "settings" \? null : <PaymentsDashboardActions payments=\{paymentResult\.payments\} \/>\}/);
+    assert.doesNotMatch(dashboardSource, /PaymentsDashboardActions/);
     assert.match(dashboardSource, /paymentsSearch/);
     assert.match(dashboardSource, /paymentMatchesSearch/);
     assert.match(dashboardSource, /metadata\.payer_phone/);
     assert.match(dashboardSource, /formatMinorCurrency\(payment\.amount, payment\.currency\)/);
     assert.match(dashboardSource, /\/courses\/\$\{courseId\}/);
     assert.doesNotMatch(dashboardSource, /PaymentServiceStatusPanel|Payment Service Status|View system status/);
-    const payoutsViewSource = dashboardSource.match(/function PaymentsPayoutsView[\s\S]*?function PaymentsSettingsView/)?.[0] ?? "";
+    const payoutsViewSource = dashboardSource.match(/function PaymentsPayoutsView[\s\S]*?function PaymentsPanel/)?.[0] ?? "";
     assert.notEqual(payoutsViewSource, "", "Expected PaymentsPayoutsView source to be present");
     assert.doesNotMatch(payoutsViewSource, /Payout Account|Barclays Bank|Secure Payouts|•••• 5678/);
   });
@@ -241,15 +241,11 @@ describe("course payment service integration", () => {
     assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_last4"/);
     assert.match(removeKeysMigration, /DROP COLUMN IF EXISTS "api_key_mode"/);
 
-    const settingsSource = dashboardSource.match(/function PaymentsSettingsView[\s\S]*?function PaymentsPanel/)?.[0] ?? "";
-    assert.notEqual(settingsSource, "", "Expected PaymentsSettingsView source to be present");
-    assert.doesNotMatch(settingsSource, /\/api\/payments\/stripe-connect/);
-    assert.doesNotMatch(settingsSource, /Set Up Stripe Connect|Manage Stripe Account|Disconnect Payment Account|Danger Zone/);
-    assert.doesNotMatch(settingsSource, /<Button href=\{`\/api\/payments\/stripe-connect\/disconnect/);
-    assert.doesNotMatch(settingsSource, /Stripe API Key/i);
-    assert.doesNotMatch(settingsSource, /name=["'](?:api|secret|key|publishable)/i);
-    assert.doesNotMatch(settingsSource, /textarea[\s\S]*(api|secret|key|publishable)/i);
-    assert.doesNotMatch(settingsSource, /Payout Settings|Payment Methods|Fees & Pricing|Billing Information|Payment Notifications/);
+    assert.doesNotMatch(dashboardSource, /function PaymentsSettingsView/);
+    assert.doesNotMatch(dashboardSource, /Payment Settings/);
+    assert.doesNotMatch(dashboardSource, /Stripe API Key/i);
+    assert.doesNotMatch(dashboardSource, /name=["'](?:api|secret|key|publishable)/i);
+    assert.doesNotMatch(dashboardSource, /textarea[\s\S]*(api|secret|key|publishable)/i);
   });
 
   it("stores Stripe Connect accounts against academy or platform ownership", () => {

@@ -40,6 +40,18 @@ export type SubscriptionFeature = {
   metadata?: Record<string, unknown>;
 };
 
+export type SubscriptionAssignablePermission = {
+  code: string;
+  name: string;
+  description?: string | null;
+};
+
+export type SubscriptionAssignableFeature = {
+  key: string;
+  name: string;
+  permissions: SubscriptionAssignablePermission[];
+};
+
 export type SubscriptionPlanFeature = {
   id: string;
   plan_id: string;
@@ -112,6 +124,33 @@ export type SubscriptionPlan = {
 export type SubscriptionBillingCycle = {
   key: string;
   name: string;
+};
+
+export type UsageLimitSummary = {
+  owner_type: string;
+  owner_id: string;
+  items: Array<{
+    resource_type: string;
+    action_key: string;
+    period_type: string;
+    period_start?: string;
+    period_end?: string;
+    used: number;
+    reserved: number;
+  }>;
+  audit_events: Array<{
+    id: string;
+    subscription_plan_id?: string;
+    resource_type: string;
+    action_key: string;
+    decision: string;
+    reason?: string;
+    limit?: number | null;
+    used?: number | null;
+    reserved?: number | null;
+    amount?: number | null;
+    created_at: string;
+  }>;
 };
 
 export type SubscriptionBillingEvent = {
@@ -304,6 +343,27 @@ export async function listApplicationSubscriptions(applicationId = defaultApplic
 
 export async function getApplicationEntitlements(applicationId = defaultApplicationId(), actor?: SubscriptionActor | null) {
   return request(`/v1/applications/${encodeURIComponent(applicationId)}/entitlements`, actor) as Promise<ApplicationEntitlements>;
+}
+
+export async function listAvailableProductFeatureCandidates(applicationId = defaultApplicationId(), actor?: SubscriptionActor | null) {
+  const result = await request(`/v1/applications/${encodeURIComponent(applicationId)}/available-product-features`, actor) as {
+    bootstrap_candidates?: Array<{
+      service_key?: string;
+      name?: string;
+      permissions?: SubscriptionAssignablePermission[];
+    }>;
+  };
+  return (result.bootstrap_candidates ?? [])
+    .filter((candidate) => candidate.service_key)
+    .map((candidate): SubscriptionAssignableFeature => ({
+      key: String(candidate.service_key),
+      name: candidate.name || String(candidate.service_key),
+      permissions: candidate.permissions ?? [],
+    }));
+}
+
+export async function getUsageLimitOwnerSummary(ownerType: string, ownerId: string, actor?: SubscriptionActor | null) {
+  return request(`/v1/usage-limits/owners/${encodeURIComponent(ownerType)}/${encodeURIComponent(ownerId)}`, actor) as Promise<UsageLimitSummary>;
 }
 
 export async function createSubscriptionProduct(input: Partial<SubscriptionProduct>, actor?: SubscriptionActor | null) {

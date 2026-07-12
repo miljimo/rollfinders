@@ -11,7 +11,7 @@ function readSource(path: string) {
 
 describe("Usage Limits Service PRD boundary contracts", () => {
   it("keeps Usage Limits separate from subscriptions, authorisation, and pricing", () => {
-    const usage = readSource("docs/archive/unimplemented-services/usage_limits/product.md");
+    const usage = readSource("apps/backend_api/internal/services/usage_limits/docs/product.md");
     const subscriptions = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
     const authorisation = readSource("apps/backend_api/internal/services/authorisation/docs/product.md");
     const pricing = readSource("apps/backend_api/internal/services/pricing/docs/prds/proposal.md");
@@ -28,7 +28,7 @@ describe("Usage Limits Service PRD boundary contracts", () => {
   });
 
   it("does not introduce a second plan system for usage limits", () => {
-    const usage = readSource("docs/archive/unimplemented-services/usage_limits/product.md");
+    const usage = readSource("apps/backend_api/internal/services/usage_limits/docs/product.md");
 
     assert.match(usage, /subscription_plan_id text NOT NULL/);
     assert.match(usage, /opaque Subscription Service plan identifier/);
@@ -38,7 +38,7 @@ describe("Usage Limits Service PRD boundary contracts", () => {
   });
 
   it("documents gateway reservation enforcement and v1 quota semantics", () => {
-    const usage = readSource("docs/archive/unimplemented-services/usage_limits/product.md");
+    const usage = readSource("apps/backend_api/internal/services/usage_limits/docs/product.md");
     const subscriptions = readSource("apps/backend_api/internal/services/subscriptions/docs/product.md");
 
     assert.match(usage, /Authorisation Service:[\s\S]*Subscription Service:[\s\S]*Usage Limits Service:[\s\S]*Domain Service:/);

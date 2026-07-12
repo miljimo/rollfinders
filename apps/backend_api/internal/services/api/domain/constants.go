@@ -24,6 +24,7 @@ const (
 	ProxyKeyPricing       = "pricing"
 	ProxyKeySubscriptions = "subscriptions"
 	ProxyKeyTransfer      = "transfer"
+	ProxyKeyUsageLimits   = "usage_limits"
 	ProxyKeyUser          = "user"
 	ProxyKeyWallet        = "wallet"
 
@@ -49,6 +50,8 @@ const (
 	ReadyPath                        = "/readyz"
 	AuthorisationAuthorizePath       = "/v1/authorize"
 	SubscriptionEntitlementCheckPath = "/v1/entitlements/check"
+	UsageLimitsReservationsPath      = "/v1/usage-limits/reservations"
+	UsageLimitsReservationPathFormat = "/v1/usage-limits/reservations/%s/%s"
 
 	TransferType             = "TRANSFER"
 	TransferReferenceType    = "transfer"

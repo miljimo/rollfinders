@@ -10,6 +10,8 @@ const (
 	ErrCodeSubscriptionRequired      = "SUBSCRIPTION_REQUIRED"
 	ErrCodeSubscriptionUnavailable   = "subscription_unavailable"
 	ErrCodePlanFeatureNotIncluded    = "PLAN_FEATURE_NOT_INCLUDED"
+	ErrCodeUsageLimitExceeded        = "USAGE_LIMIT_EXCEEDED"
+	ErrCodeUsageLimitsUnavailable    = "usage_limits_unavailable"
 
 	ErrMessageAuthorisationUnavailable  = "Authorisation could not be completed."
 	ErrMessageNotAuthorised             = "Not authorised."
@@ -19,4 +21,6 @@ const (
 	ErrMessageServiceNotConfigured      = "The target service is not configured."
 	ErrMessageSubscriptionDenied        = "Subscription plan does not allow this feature."
 	ErrMessageSubscriptionUnavailable   = "Subscription entitlement could not be completed."
+	ErrMessageUsageLimitDenied          = "Usage limit does not allow this action."
+	ErrMessageUsageLimitsUnavailable    = "Usage limit check could not be completed."
 )

@@ -1,11 +1,13 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	pathpkg "path"
 	"strings"
+	"time"
 
 	"rollfinders/internal/services/api/domain"
 )
@@ -87,6 +89,54 @@ func (s *server) route(w http.ResponseWriter, r *http.Request) {
 			writeError(w, r, http.StatusBadGateway, domain.ErrCodeServiceNotConfigured, domain.ErrMessageServiceNotConfigured, map[string]string{"service": string(match.Definition.Service)})
 			return
 		}
-		proxy.ServeHTTP(w, r)
+		s.serveWithUsageFinalizer(proxy, w, r)
 	}
+}
+
+type usageStatusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *usageStatusRecorder) WriteHeader(status int) {
+	r.status = status
+	r.ResponseWriter.WriteHeader(status)
+}
+
+func (s *server) serveWithUsageFinalizer(proxy http.Handler, w http.ResponseWriter, r *http.Request) {
+	reservationID := strings.TrimSpace(r.Header.Get("X-Usage-Reservation-ID"))
+	if reservationID == "" {
+		proxy.ServeHTTP(w, r)
+		return
+	}
+	rec := &usageStatusRecorder{ResponseWriter: w, status: http.StatusOK}
+	proxy.ServeHTTP(rec, r)
+	action := "release"
+	if rec.status >= 200 && rec.status < 300 {
+		action = "confirm"
+	}
+	if err := s.updateUsageReservation(r, reservationID, action); err != nil {
+		s.logger.Warn("usage reservation finalizer failed", "request_id", requestIDFrom(r), "reservation_id", reservationID, "action", action, "error", err)
+	}
+}
+
+func (s *server) updateUsageReservation(r *http.Request, reservationID string, action string) error {
+	client := &http.Client{Timeout: 2 * time.Second}
+	target := s.cfg.UsageLimitsBaseURL + fmt.Sprintf(domain.UsageLimitsReservationPathFormat, url.PathEscape(reservationID), action)
+	req, err := http.NewRequest(http.MethodPost, target, nil)
+	if err != nil {
+		return err
+	}
+	if requestID := requestIDFrom(r); requestID != "" {
+		req.Header.Set(domain.RequestIDHeader, requestID)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("usage limits returned %s", resp.Status)
+	}
+	return nil
 }

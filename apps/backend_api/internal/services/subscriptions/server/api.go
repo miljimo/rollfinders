@@ -543,15 +543,12 @@ func (s *server) availableProductFeatures(w http.ResponseWriter, r *http.Request
 	source := "organisation_service"
 	fallback := false
 	candidate := false
-	bootstrapCandidates := []bootstrapProductCandidate{}
+	bootstrapCandidates := s.bootstrapProductCandidates(r.Context())
 	services, err := s.org.listApplicationServices(r.Context(), applicationID)
 	if err != nil {
 		source = "bootstrap_fallback"
 		fallback = true
 		candidate = true
-		if permissions, permissionErr := s.authz.listPermissions(r.Context()); permissionErr == nil {
-			bootstrapCandidates = bootstrapCandidatesFromPermissions(permissions)
-		}
 	} else {
 		enabledServices := map[string]bool{}
 		for _, service := range services {
@@ -583,6 +580,9 @@ func (s *server) availableProductFeatures(w http.ResponseWriter, r *http.Request
 		products = filteredProducts
 		activeFeatures = filteredFeatures
 	}
+	if len(products) == 0 || len(activeFeatures) == 0 {
+		candidate = len(bootstrapCandidates) > 0
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"application_id":       applicationID,
 		"source":               source,
@@ -592,6 +592,14 @@ func (s *server) availableProductFeatures(w http.ResponseWriter, r *http.Request
 		"features":             activeFeatures,
 		"bootstrap_candidates": bootstrapCandidates,
 	})
+}
+
+func (s *server) bootstrapProductCandidates(ctx context.Context) []bootstrapProductCandidate {
+	permissions, err := s.authz.listPermissions(ctx)
+	if err != nil {
+		return []bootstrapProductCandidate{}
+	}
+	return bootstrapCandidatesFromPermissions(permissions)
 }
 
 func (s *server) listSubscriptions(w http.ResponseWriter, r *http.Request) {
@@ -1477,6 +1485,8 @@ type entitlementCheckResponse struct {
 	OwnerPolicy            SubscriptionOwnerPolicy `json:"owner_policy"`
 	SubscriptionID         string                  `json:"subscription_id,omitempty"`
 	PlanID                 string                  `json:"plan_id,omitempty"`
+	BillingPeriodStart     *time.Time              `json:"billing_period_start,omitempty"`
+	BillingPeriodEnd       *time.Time              `json:"billing_period_end,omitempty"`
 	FeatureKey             string                  `json:"feature_key"`
 	FeatureID              string                  `json:"feature_id,omitempty"`
 	SubscriptionControlled bool                    `json:"subscription_controlled"`
@@ -1600,6 +1610,8 @@ func (s *server) checkEntitlement(w http.ResponseWriter, r *http.Request) {
 	}
 	response.SubscriptionID = subscription.ID
 	response.PlanID = subscription.PlanID
+	response.BillingPeriodStart = &subscription.BillingStart
+	response.BillingPeriodEnd = &subscription.BillingEnd
 
 	if !included {
 		response.Allowed = false

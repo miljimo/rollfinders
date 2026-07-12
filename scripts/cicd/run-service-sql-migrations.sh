@@ -105,6 +105,12 @@ if [ -d apps/backend_api/internal/services/pricing/migrations ]; then
   done
 fi
 
+if [ -d apps/backend_api/internal/services/usage_limits/migrations ]; then
+  if [ -f apps/backend_api/internal/services/usage_limits/migrations/001_core_schema.sql ]; then
+    (cd apps/backend_api/internal/services/usage_limits/migrations && psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f 001_core_schema.sql)
+  fi
+fi
+
 if [ -d apps/backend_api/internal/services/organisation/migrations ]; then
   for dir in schema tables procedures functions; do
     if [ -d "apps/backend_api/internal/services/organisation/migrations/${dir}" ]; then

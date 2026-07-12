@@ -23,7 +23,7 @@ export function rollfindersPlatformPaymentAccountStatus() {
 }
 
 export function paymentSettingsHref(params: Record<string, string | undefined> = {}) {
-  const urlParams = new URLSearchParams({ paymentsView: "settings" });
+  const urlParams = new URLSearchParams({ paymentsView: "overview" });
   Object.entries(params).forEach(([key, value]) => {
     if (value) urlParams.set(key, value);
   });

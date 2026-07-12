@@ -116,3 +116,10 @@ When implementing code, follow the ticket and relevant guides exactly.
 # Credentials
  - AWS credential are in `.env` file
  -  Run  ` eval "$(ssh-agent -s)" && ssh-add ~/.ssh/bitbucket_private ` to enable access git  
+
+
+ # Running the servers
+ ```bash
+   docker compose --profile app up --build -d --remove-orphans
+   
+ ```

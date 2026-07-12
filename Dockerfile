@@ -34,6 +34,7 @@ COPY apps/backend_api/internal/services/subscriptions/migrations ./apps/backend_
 COPY apps/backend_api/internal/services/wallet/migrations ./apps/backend_api/internal/services/wallet/migrations
 COPY apps/backend_api/internal/services/transfer/migrations ./apps/backend_api/internal/services/transfer/migrations
 COPY apps/backend_api/internal/services/pricing/migrations ./apps/backend_api/internal/services/pricing/migrations
+COPY apps/backend_api/internal/services/usage_limits/migrations ./apps/backend_api/internal/services/usage_limits/migrations
 COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
@@ -68,6 +69,7 @@ COPY --chown=nextjs:nodejs apps/backend_api/internal/services/subscriptions/migr
 COPY --chown=nextjs:nodejs apps/backend_api/internal/services/wallet/migrations ./apps/backend_api/internal/services/wallet/migrations
 COPY --chown=nextjs:nodejs apps/backend_api/internal/services/transfer/migrations ./apps/backend_api/internal/services/transfer/migrations
 COPY --chown=nextjs:nodejs apps/backend_api/internal/services/pricing/migrations ./apps/backend_api/internal/services/pricing/migrations
+COPY --chown=nextjs:nodejs apps/backend_api/internal/services/usage_limits/migrations ./apps/backend_api/internal/services/usage_limits/migrations
 COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs apps/portal/src/lib/email/templates ./apps/portal/src/lib/email/templates
 COPY --chown=nextjs:nodejs apps/portal/src/lib/prisma-pg-pool.ts ./apps/portal/src/lib/prisma-pg-pool.ts

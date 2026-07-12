@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -41,9 +42,35 @@ type entitlementCheckRequest struct {
 }
 
 type entitlementCheckResponse struct {
-	Allowed  bool   `json:"allowed"`
-	Decision string `json:"decision"`
-	Reason   string `json:"reason"`
+	Allowed            bool       `json:"allowed"`
+	Decision           string     `json:"decision"`
+	Reason             string     `json:"reason"`
+	PlanID             string     `json:"plan_id"`
+	BillingPeriodStart *time.Time `json:"billing_period_start"`
+	BillingPeriodEnd   *time.Time `json:"billing_period_end"`
+	OwnerType          string     `json:"owner_type"`
+	OwnerID            string     `json:"owner_id"`
+	SubscriptionID     string     `json:"subscription_id"`
+}
+
+type usageReservationRequest struct {
+	IdempotencyKey     string     `json:"idempotency_key"`
+	OwnerType          string     `json:"owner_type"`
+	OwnerID            string     `json:"owner_id"`
+	SubscriptionPlanID string     `json:"subscription_plan_id,omitempty"`
+	ResourceType       string     `json:"resource_type"`
+	ActionKey          string     `json:"action_key"`
+	Amount             int        `json:"amount"`
+	PeriodType         string     `json:"period_type"`
+	PeriodStart        *time.Time `json:"period_start,omitempty"`
+	PeriodEnd          *time.Time `json:"period_end,omitempty"`
+}
+
+type usageReservationResponse struct {
+	Allowed       bool   `json:"allowed"`
+	ReservationID string `json:"reservation_id"`
+	Decision      string `json:"decision"`
+	Reason        string `json:"reason"`
 }
 
 func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
@@ -90,26 +117,44 @@ func (s *server) authoriseRequest(w http.ResponseWriter, r *http.Request) bool {
 		writeError(w, r, http.StatusForbidden, domain.ErrCodeNotAuthorised, domain.ErrMessageNotAuthorised, map[string]string{"permission": string(permission)})
 		return false
 	}
+	var entitlementResult entitlementCheckResponse
 	if match.Definition.SubscriptionFeatureKey != "" {
 		entitlementRequest := s.entitlementRequestFromRoute(r, match, subjectID, resourceID)
-		allowed, reason, err := s.checkEntitlement(entitlementRequest)
+		result, err := s.checkEntitlement(entitlementRequest)
 		if err != nil {
 			s.logger.Error("subscription entitlement check failed", "request_id", requestIDFrom(r), "feature_key", entitlementRequest.FeatureKey, "error", err)
 			writeError(w, r, http.StatusServiceUnavailable, domain.ErrCodeSubscriptionUnavailable, domain.ErrMessageSubscriptionUnavailable, nil)
 			return false
 		}
-		if !allowed {
-			if reason == "" {
-				reason = domain.ErrCodePlanFeatureNotIncluded
+		entitlementResult = result
+		if !result.Allowed || !strings.EqualFold(result.Decision, domain.DecisionAllow) {
+			if result.Reason == "" {
+				result.Reason = domain.ErrCodePlanFeatureNotIncluded
 			}
-			s.auditSubscriptionDenial(r, entitlementRequest, reason)
-			writeError(w, r, http.StatusForbidden, reason, domain.ErrMessageSubscriptionDenied, map[string]string{
+			s.auditSubscriptionDenial(r, entitlementRequest, result.Reason)
+			writeError(w, r, http.StatusForbidden, result.Reason, domain.ErrMessageSubscriptionDenied, map[string]string{
 				"feature_key": entitlementRequest.FeatureKey,
 				"owner_type":  entitlementRequest.OwnerType,
 				"owner_id":    entitlementRequest.OwnerID,
 			})
 			return false
 		}
+	}
+	if match.Definition.UsageResourceType != "" {
+		reservationID, err := s.reserveUsage(r, match, resourceID, entitlementResult)
+		if err != nil {
+			s.logger.Error("usage limit reservation failed", "request_id", requestIDFrom(r), "error", err)
+			writeError(w, r, http.StatusServiceUnavailable, domain.ErrCodeUsageLimitsUnavailable, domain.ErrMessageUsageLimitsUnavailable, nil)
+			return false
+		}
+		if reservationID == "" {
+			writeError(w, r, http.StatusForbidden, domain.ErrCodeUsageLimitExceeded, domain.ErrMessageUsageLimitDenied, map[string]string{
+				"resource_type": string(match.Definition.UsageResourceType),
+				"action_key":    string(match.Definition.UsageActionKey),
+			})
+			return false
+		}
+		r.Header.Set("X-Usage-Reservation-ID", reservationID)
 	}
 	return true
 }
@@ -164,16 +209,16 @@ func (s *server) authorize(authRequest authoriseRequest) (bool, error) {
 	return result.Authorized && result.Decision == domain.DecisionAllow, nil
 }
 
-func (s *server) checkEntitlement(checkRequest entitlementCheckRequest) (bool, string, error) {
+func (s *server) checkEntitlement(checkRequest entitlementCheckRequest) (entitlementCheckResponse, error) {
 	payload, err := json.Marshal(checkRequest)
 	if err != nil {
-		return false, "", err
+		return entitlementCheckResponse{}, err
 	}
 
 	client := &http.Client{Timeout: 2 * time.Second}
 	req, err := http.NewRequest(http.MethodPost, s.cfg.SubscriptionBaseURL+domain.SubscriptionEntitlementCheckPath, bytes.NewReader(payload))
 	if err != nil {
-		return false, "", err
+		return entitlementCheckResponse{}, err
 	}
 	req.Header.Set(domain.ContentTypeHeader, domain.ContentTypeJSON)
 	if checkRequest.SubjectID != "" {
@@ -182,18 +227,94 @@ func (s *server) checkEntitlement(checkRequest entitlementCheckRequest) (bool, s
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, "", err
+		return entitlementCheckResponse{}, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return false, domain.ErrCodeSubscriptionRequired, nil
+		return entitlementCheckResponse{Allowed: false, Decision: "deny", Reason: domain.ErrCodeSubscriptionRequired}, nil
 	}
 
 	var result entitlementCheckResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return false, "", err
+		return entitlementCheckResponse{}, err
 	}
-	return result.Allowed && strings.EqualFold(result.Decision, domain.DecisionAllow), result.Reason, nil
+	return result, nil
+}
+
+func (s *server) reserveUsage(r *http.Request, match routeMatch, resourceID string, entitlement entitlementCheckResponse) (string, error) {
+	ownerType, ownerID := usageOwnerFrom(r, match, resourceID, entitlement, s.cfg.ApplicationID)
+	amount := match.Definition.UsageAmount
+	if amount < 1 {
+		amount = 1
+	}
+	periodType := string(match.Definition.UsagePeriodType)
+	if periodType == "" {
+		periodType = "lifetime"
+	}
+	body := usageReservationRequest{
+		IdempotencyKey:     usageIdempotencyKey(r, match),
+		OwnerType:          ownerType,
+		OwnerID:            ownerID,
+		SubscriptionPlanID: strings.TrimSpace(entitlement.PlanID),
+		ResourceType:       string(match.Definition.UsageResourceType),
+		ActionKey:          string(match.Definition.UsageActionKey),
+		Amount:             amount,
+		PeriodType:         periodType,
+	}
+	if periodType == "subscription_period" {
+		body.PeriodStart = entitlement.BillingPeriodStart
+		body.PeriodEnd = entitlement.BillingPeriodEnd
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return "", err
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	req, err := http.NewRequest(http.MethodPost, s.cfg.UsageLimitsBaseURL+domain.UsageLimitsReservationsPath, bytes.NewReader(payload))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set(domain.ContentTypeHeader, domain.ContentTypeJSON)
+	req.Header.Set(domain.IdempotencyHeader, body.IdempotencyKey)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	var result usageReservationResponse
+	_ = json.NewDecoder(resp.Body).Decode(&result)
+	if resp.StatusCode == http.StatusForbidden || !result.Allowed || !strings.EqualFold(result.Decision, domain.DecisionAllow) {
+		return "", nil
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("usage limits returned %s", resp.Status)
+	}
+	if result.ReservationID == "" {
+		return "", fmt.Errorf("usage limits did not return reservation id")
+	}
+	return result.ReservationID, nil
+}
+
+func usageOwnerFrom(r *http.Request, match routeMatch, resourceID string, entitlement entitlementCheckResponse, fallbackApplicationID string) (string, string) {
+	if match.Definition.UsageOwnerType != "" {
+		switch match.Definition.UsageOwnerType {
+		case "academy":
+			if match.Definition.ResourceType == ResourceAcademy && resourceID != "" {
+				return "academy", resourceID
+			}
+		}
+	}
+	if entitlement.OwnerType != "" && entitlement.OwnerID != "" {
+		return strings.ToLower(entitlement.OwnerType), entitlement.OwnerID
+	}
+	return subscriptionOwnerFrom(r, match, resourceID, fallbackApplicationID)
+}
+
+func usageIdempotencyKey(r *http.Request, match routeMatch) string {
+	if value := strings.TrimSpace(r.Header.Get(domain.IdempotencyHeader)); value != "" {
+		return value + ":" + string(match.Definition.UsageResourceType) + ":" + string(match.Definition.UsageActionKey)
+	}
+	return requestIDFrom(r) + ":" + r.Method + ":" + r.URL.Path + ":" + string(match.Definition.UsageResourceType) + ":" + string(match.Definition.UsageActionKey)
 }
 
 func (s *server) entitlementRequestFromRoute(r *http.Request, match routeMatch, subjectID string, resourceID string) entitlementCheckRequest {

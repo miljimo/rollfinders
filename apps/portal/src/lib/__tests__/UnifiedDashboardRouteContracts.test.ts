@@ -394,7 +394,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /label:\s*"Earnings"/);
     assert.match(source, /label:\s*"Refunds"/);
     assert.match(source, /label:\s*"Payouts"/);
-    assert.match(source, /label:\s*"Payment Settings"/);
+    assert.doesNotMatch(source, /label:\s*"Payment Settings"/);
     assert.match(source, /children:\s*paymentNavigationSections/);
     assert.match(source, /selectedPaymentOverviewPeriod\(firstParam\(params\.paymentsPeriod\)\)/);
     for (const period of ["Daily", "Weekly", "Monthly", "Yearly"]) {

@@ -490,9 +490,11 @@ func TestProductPatchSubscriptionTargetingContract(t *testing.T) {
 		"AUTHORISATION_PUBLIC_BASE_URL",
 		"authorisationClient",
 		"/v1/permissions?limit=100",
+		"bootstrapProductCandidates",
 		"bootstrapCandidatesFromPermissions",
 		"bootstrap_candidates",
 		"Candidate:   true",
+		"len(products) == 0 || len(activeFeatures) == 0",
 	} {
 		if !strings.Contains(apiSource+serverSource+repositorySource+schemaSource+organisationSource+authorisationSource+configSource, required) {
 			t.Fatalf("available product-feature loading must include Organisation Service filtering/fallback fragment %q", required)

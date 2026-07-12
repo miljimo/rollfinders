@@ -11,6 +11,8 @@ type GatewayPermissionName string
 type GatewayResourceType string
 type GatewayResourceIDParam string
 type GatewaySubscriptionFeatureKey string
+type GatewayUsageActionKey string
+type GatewayUsagePeriodType string
 
 type GatewayResourceDefinition struct {
 	Name        GatewayPermissionName
@@ -50,6 +52,7 @@ const (
 	WalletService        GatewayService = "wallet-service"
 	TransferService      GatewayService = "transfer-service"
 	PricingService       GatewayService = "pricing-service"
+	UsageLimitsService   GatewayService = "usage-limits-service"
 )
 
 const (
@@ -76,11 +79,20 @@ const (
 	FeatureAcademyProfileManage GatewaySubscriptionFeatureKey = "academy.profile.manage"
 	FeatureAcademyTeamManage    GatewaySubscriptionFeatureKey = "academy.team.manage"
 
-	ResourceAcademy    GatewayResourceType = "academy"
-	ResourceMembership GatewayResourceType = "membership"
+	ResourceAcademy     GatewayResourceType = "academy"
+	ResourceAcademyUser GatewayResourceType = "academy_user"
+	ResourceMembership  GatewayResourceType = "membership"
 
 	ParamAcademyId    GatewayResourceIDParam = "academyId"
 	ParamMembershipId GatewayResourceIDParam = "membershipId"
+)
+
+const (
+	UsageActionCreate GatewayUsageActionKey = "create"
+	UsageActionInvite GatewayUsageActionKey = "invite"
+
+	UsagePeriodLifetime           GatewayUsagePeriodType = "lifetime"
+	UsagePeriodSubscriptionPeriod GatewayUsagePeriodType = "subscription_period"
 )
 
 const (
@@ -386,6 +398,22 @@ const (
 )
 
 const (
+	// Usage Limits Service API Gateways
+	UsageLimitsCheck              GatewayTargetPath = "/v1/usage-limits/check"
+	UsageLimitsReservations       GatewayTargetPath = "/v1/usage-limits/reservations"
+	UsageLimitsReservationConfirm GatewayTargetPath = "/v1/usage-limits/reservations/{reservationId}/confirm"
+	UsageLimitsReservationRelease GatewayTargetPath = "/v1/usage-limits/reservations/{reservationId}/release"
+	UsageLimitsIncrement          GatewayTargetPath = "/v1/usage-limits/increment"
+	UsageLimitsDecrement          GatewayTargetPath = "/v1/usage-limits/decrement"
+	UsageLimitsOwnerSummary       GatewayTargetPath = "/v1/usage-limits/owners/{ownerType}/{ownerId}"
+
+	PermissionUsageLimitRead   GatewayPermissionName = "usage_limit.read"
+	PermissionUsageLimitManage GatewayPermissionName = "usage_limit.manage"
+
+	ResourceUsageLimit GatewayResourceType = "usage_limit"
+)
+
+const (
 	// Authorisation Service API Gateways
 	AuthorisationAuthorise                          GatewayTargetPath = "/v1/authorisation/authorise"
 	AuthorisationAuthorize                          GatewayTargetPath = "/v1/authorisation/authorize"
@@ -538,5 +566,7 @@ func GatewayResourceCatalog() map[GatewayPermissionName]GatewayResourceDefinitio
 		PermissionTransferCreate:                     createGatewayResource(PermissionTransferCreate, Transfers),
 		PermissionPricingPolicyRead:                  createGatewayResource(PermissionPricingPolicyRead, PricingPlatformFee),
 		PermissionPricingPolicyUpdate:                createGatewayResource(PermissionPricingPolicyUpdate, PricingPlatformFee),
+		PermissionUsageLimitRead:                     createGatewayResource(PermissionUsageLimitRead, UsageLimitsOwnerSummary),
+		PermissionUsageLimitManage:                   createGatewayResource(PermissionUsageLimitManage, UsageLimitsReservations),
 	}
 }

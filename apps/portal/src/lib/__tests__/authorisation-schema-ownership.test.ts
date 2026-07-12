@@ -135,3 +135,17 @@ test("Authorisation seed keeps platform payment revenue separate from academy pa
   assert.match(academyRoleBlock, /payment\.report\.refund\.read/);
   assert.doesNotMatch(academyRoleBlock, /payment\.report\.platform_revenue\.read/);
 });
+
+test("Authorisation seed includes wallet dashboard permissions", () => {
+  for (const permission of [
+    "wallet.create",
+    "wallet.search",
+    "wallet.read",
+    "wallet.transfer",
+    "wallet.reverse",
+    "wallet.adjustment",
+    "wallet.transaction.read",
+  ]) {
+    assert.ok(seedCatalog.includes(`'${permission}'`), `${permission} must be seeded`);
+  }
+});

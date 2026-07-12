@@ -17,11 +17,12 @@ import { listAuthorisationRoles, type AuthorisationRole } from "@/lib/authorisat
 import { listOrganisationApplications, listOrganisations, type OrganisationApplicationRecord, type OrganisationRecord } from "@/lib/organisation-service";
 import { listPaymentTransactionsPage, type PaymentRecord } from "@/lib/payments";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
-import { getUserPermissionPanelModel, type AssignableUserFeature } from "@/lib/users-service";
 import {
   getApplicationEntitlements,
   getCurrentApplicationSubscription,
+  getUsageLimitOwnerSummary,
   listApplicationSubscriptions,
+  listAvailableProductFeatureCandidates,
   listSubscriptionBillingCycles,
   listSubscriptionFeatures,
   listSubscriptionFeaturesPage,
@@ -36,9 +37,11 @@ import {
   SubscriptionServiceError,
   type SubscriptionBillingEvent,
   type SubscriptionFeature,
+  type SubscriptionAssignableFeature,
   type SubscriptionBillingCycle,
   type SubscriptionPlan,
   type SubscriptionProduct,
+  type UsageLimitSummary,
 } from "@/lib/subscriptions-service";
 import {
   cancelSubscriberAction,
@@ -231,7 +234,7 @@ export default async function SubscriptionsDashboardPage({
   }
 
   let error: string | null = actionError || null;
-  const [products, features, featureResult, planResult, subscriptions, currentSubscriptionState, entitlements, organisations, applications, assignableFeatures, billingCycles, roles, paymentTransactionsResult] = await Promise.all([
+  const [products, features, featureResult, planResult, subscriptions, currentSubscriptionState, entitlements, usageSummary, organisations, applications, assignableFeatures, billingCycles, roles, paymentTransactionsResult] = await Promise.all([
     listSubscriptionProducts(actor).catch((err) => {
       error = serviceErrorMessage(err);
       return [];
@@ -242,12 +245,10 @@ export default async function SubscriptionsDashboardPage({
     listApplicationSubscriptions(applicationId, actor).catch(() => []),
     getCurrentApplicationSubscription(applicationId, actor).catch((): CurrentSubscriptionState => ({ subscription: null, pending_change: null, billing_events: [], cancellation: null })),
     getApplicationEntitlements(applicationId, actor).catch((): ApplicationEntitlements => ({ application_id: applicationId, features: [] })),
+    getUsageLimitOwnerSummary("application", applicationId, actor).catch((): UsageLimitSummary => ({ owner_type: "application", owner_id: applicationId, items: [], audit_events: [] })),
     listOrganisations(actor).catch(() => []),
     listOrganisationApplications(actor).catch(() => []),
-    getUserPermissionPanelModel(actor, user.id, {
-      organisationId: user.academyId ?? undefined,
-      applicationId,
-    }).catch(() => []),
+    listAvailableProductFeatureCandidates(applicationId, actor).catch(() => []),
     listSubscriptionBillingCycles(actor).catch(() => [
       { key: "free", name: "Free" },
       { key: "month", name: "Month" },
@@ -305,7 +306,7 @@ export default async function SubscriptionsDashboardPage({
           {error ? <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div> : null}
           {recoveryPrompt ? <SubscriptionRecoveryPrompt prompt={recoveryPrompt} /> : null}
 
-          <SubscriptionViewPanel activeBillingPeriod={selectedBillingPeriod} activePaymentMode={selectedPaymentMode} activeView={activeView} applicationId={applicationId} applications={applications} billingEvents={billingEvents} billingSubscriptionPayments={paymentSubscriptionRows} currentSubscriptionState={currentSubscriptionState} entitlements={entitlements} featurePagination={featureResult.pagination} features={features} featuresSearch={featuresSearch} featureTableRows={featureResult.features} selectedMarketplaceCategory={selectedMarketplaceCategory} organisations={organisations} planPagination={planResult.pagination} plans={plans} plansPage={plansPage} plansSearch={plansSearch} products={products} productsPage={productsPage} productsSearch={productsSearch} roles={roles} selectedMarketplacePlanIds={selectedMarketplacePlanIds} subscribersPage={subscribersPage} subscribersSearch={subscribersSearch} subscriptions={subscriptions} userRole={user.role} />
+          <SubscriptionViewPanel activeBillingPeriod={selectedBillingPeriod} activePaymentMode={selectedPaymentMode} activeView={activeView} applicationId={applicationId} applications={applications} billingEvents={billingEvents} billingSubscriptionPayments={paymentSubscriptionRows} currentSubscriptionState={currentSubscriptionState} entitlements={entitlements} featurePagination={featureResult.pagination} features={features} featuresSearch={featuresSearch} featureTableRows={featureResult.features} selectedMarketplaceCategory={selectedMarketplaceCategory} organisations={organisations} planPagination={planResult.pagination} plans={plans} plansPage={plansPage} plansSearch={plansSearch} products={products} productsPage={productsPage} productsSearch={productsSearch} roles={roles} selectedMarketplacePlanIds={selectedMarketplacePlanIds} subscribersPage={subscribersPage} subscribersSearch={subscribersSearch} subscriptions={subscriptions} usageSummary={usageSummary} userRole={user.role} />
         </section>
       </main>
       {dialog === "new-plan" ? (
@@ -489,6 +490,7 @@ function SubscriptionViewPanel({
   subscribersPage,
   subscribersSearch,
   subscriptions,
+  usageSummary,
   userRole,
 }: {
   activeBillingPeriod: "month" | "year";
@@ -518,6 +520,7 @@ function SubscriptionViewPanel({
   subscribersPage: number;
   subscribersSearch: string;
   subscriptions: OrganisationSubscription[];
+  usageSummary: UsageLimitSummary;
   userRole: string;
 }) {
   if (activeView === "plans") {
@@ -617,7 +620,7 @@ function SubscriptionViewPanel({
   }
 
   if (activeView === "billing-events") return <BillingEventsTable billingSubscriptionPayments={billingSubscriptionPayments} currentState={currentSubscriptionState} events={billingEvents} plans={plans} subscriptions={subscriptions} />;
-  if (activeView === "usage-limits") return <EmptyOperationalPanel title="Usage Limits" description="Usage metering and limit enforcement are not connected yet." />;
+  if (activeView === "usage-limits") return <UsageLimitsPanel summary={usageSummary} />;
 
   return <SubscriptionMarketplace activeBillingPeriod={activeBillingPeriod} activePaymentMode={activePaymentMode} billingSubscriptionPayments={billingSubscriptionPayments} currentState={currentSubscriptionState} currentSubscriptionId={currentSubscriptionState.subscription?.id ?? entitlements.subscription_id} features={features} selectedMarketplaceCategory={selectedMarketplaceCategory} plans={plans.filter((plan) => !plan.is_internal)} products={products} roles={roles} selectedPlanIds={selectedMarketplacePlanIds} subscriptions={subscriptions} userRole={userRole} />;
 }
@@ -1656,6 +1659,70 @@ function EmptyOperationalPanel({ description, title }: { description: string; ti
   );
 }
 
+function UsageLimitsPanel({ summary }: { summary: UsageLimitSummary }) {
+  return (
+    <section className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-black text-slate-950">Usage Limits</h2>
+          <p className="mt-1 text-sm text-slate-600">Quota counters and recent usage decisions for {summary.owner_type}: {summary.owner_id}.</p>
+        </div>
+      </div>
+      <div className="mt-4 overflow-hidden rounded-md border border-stone-200">
+        <Table
+          columns={[
+            { key: "resource", title: "Resource" },
+            { key: "action", title: "Action" },
+            { key: "period", title: "Period" },
+            { key: "used", title: "Used" },
+            { key: "reserved", title: "Reserved" },
+          ]}
+          data={summary.items.map((item) => ({
+            id: `${item.resource_type}-${item.action_key}-${item.period_type}`,
+            resource: item.resource_type,
+            action: item.action_key,
+            period: item.period_type,
+            used: String(item.used),
+            reserved: String(item.reserved),
+          }))}
+          emptyMessage="No usage counters have been recorded yet."
+          getRowId={(row) => String(row.id)}
+        />
+      </div>
+      <div className="mt-5">
+        <h3 className="text-sm font-black uppercase text-slate-500">Recent decisions</h3>
+        <div className="mt-2 overflow-hidden rounded-md border border-stone-200">
+          <Table
+            columns={[
+              { key: "created", title: "Created" },
+              { key: "resource", title: "Resource" },
+              { key: "decision", title: "Decision" },
+              { key: "amount", title: "Amount" },
+              { key: "reason", title: "Reason" },
+            ]}
+            data={summary.audit_events.map((event) => ({
+              id: event.id,
+              created: formatDateTime(event.created_at),
+              resource: `${event.resource_type}:${event.action_key}`,
+              decision: event.decision,
+              amount: String(event.amount ?? 0),
+              reason: event.reason || "-",
+            }))}
+            emptyMessage="No usage decisions have been audited yet."
+            getRowId={(row) => String(row.id)}
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
 function Field({ defaultValue = "", label, name, type = "text" }: { defaultValue?: string; label: string; name: string; type?: string }) {
   return (
     <label className="grid gap-1 text-sm font-bold text-slate-700">
@@ -1760,7 +1827,7 @@ function InternalPlanField({ defaultChecked = false }: { defaultChecked?: boolea
   );
 }
 
-function serviceOptions(features: AssignableUserFeature[]): AutoCompleteTextFieldOption[] {
+function serviceOptions(features: SubscriptionAssignableFeature[]): AutoCompleteTextFieldOption[] {
   return features
     .map((feature) => ({
       id: feature.key,
@@ -1776,11 +1843,11 @@ const productCurrencyOptions: AutoCompleteTextFieldOption[] = [
   { id: "Points", label: "Points", description: "RollFinders points" },
 ];
 
-function CreateProductForm({ assignableFeatures, productFeatures }: { assignableFeatures: AssignableUserFeature[]; productFeatures: SubscriptionFeature[] }) {
+function CreateProductForm({ assignableFeatures, productFeatures }: { assignableFeatures: SubscriptionAssignableFeature[]; productFeatures: SubscriptionFeature[] }) {
   return <ProductForm action={createProductAction} assignableFeatures={assignableFeatures} buttonLabel="Create product" productFeatures={productFeatures} />;
 }
 
-function ProductForm({ action, assignableFeatures, buttonLabel, product, productFeatures }: { action: (formData: FormData) => void | Promise<void>; assignableFeatures: AssignableUserFeature[]; buttonLabel: string; product?: SubscriptionProduct; productFeatures: SubscriptionFeature[] }) {
+function ProductForm({ action, assignableFeatures, buttonLabel, product, productFeatures }: { action: (formData: FormData) => void | Promise<void>; assignableFeatures: SubscriptionAssignableFeature[]; buttonLabel: string; product?: SubscriptionProduct; productFeatures: SubscriptionFeature[] }) {
   return (
     <form action={action} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       {product ? <input type="hidden" name="productId" value={product.id} /> : null}

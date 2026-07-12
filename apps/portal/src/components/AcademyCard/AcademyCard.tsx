@@ -1,21 +1,9 @@
 import Link from "next/link";
-import { AcademyVerificationStatus, ClaimStatus, type Academy, type Event } from "@prisma/client";
+import { AcademyVerificationStatus, ClaimStatus } from "@prisma/client";
 import { CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/Button";
 import { formatDate, formatDistanceMiles, formatMoney } from "@/lib/utils";
-
-type AcademyCardItem = Academy & {
-  claims?: { status: ClaimStatus }[];
-  events: Event[];
-  members?: unknown[];
-  distanceMiles?: number | null;
-};
-type AcademyCardEvent = Event & {
-  occurrenceId?: string;
-  occurrenceDateParam?: string;
-  isRecurringOccurrence?: boolean;
-  occurrenceStatus?: "UPCOMING" | "IN_SESSION" | "COMPLETED";
-};
+import { type AcademyCardEvent, type AcademyCardItem } from "./types";
 
 function eventHref(event: AcademyCardEvent) {
   return `/open-mats/${event.id}${event.isRecurringOccurrence && event.occurrenceDateParam ? `?date=${event.occurrenceDateParam}` : ""}`;

@@ -108,7 +108,6 @@ describe("SidePanelControl", () => {
               { href: "/dashboard/payment?paymentsView=earnings", label: "Earnings" },
               { href: "/dashboard/payment?paymentsView=refunds", label: "Refunds" },
               { href: "/dashboard/payment?paymentsView=payouts", label: "Payouts" },
-              { href: "/dashboard/payment?paymentsView=settings", label: "Payment Settings" },
             ],
           },
         ]}
@@ -121,7 +120,7 @@ describe("SidePanelControl", () => {
     assert.match(markup, /Earnings/);
     assert.match(markup, /Refunds/);
     assert.match(markup, /Payouts/);
-    assert.match(markup, /Payment Settings/);
+    assert.doesNotMatch(markup, /Payment Settings/);
     assert.match(markup, /aria-current="page"[\s\S]*href="\/dashboard\/payment\?paymentsView=transactions"/);
   });
 });

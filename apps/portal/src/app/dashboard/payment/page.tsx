@@ -3,7 +3,7 @@ import AdminDashboardWorkspace from "../AdminDashboardWorkspace";
 
 export const metadata: Metadata = {
   title: "RollFinders | Payments",
-  description: "Review payment activity and payment settings.",
+  description: "Review payment activity.",
 };
 
 type PaymentDashboardParams = Record<string, string | string[] | undefined>;

@@ -34,6 +34,7 @@ func testConfig(baseURL string) config.Config {
 		WalletBaseURL:        baseURL,
 		TransferBaseURL:      baseURL,
 		PricingBaseURL:       baseURL,
+		UsageLimitsBaseURL:   baseURL,
 		LegacyNextBaseURL:    baseURL,
 	}
 }
@@ -55,7 +56,24 @@ func newGatewayTestServerWithAuthoriseCapture(t *testing.T, authorize bool, rece
 			return
 		}
 		if r.URL.Path == "/v1/entitlements/check" {
-			writeJSON(w, http.StatusOK, map[string]any{"allowed": true, "decision": "allow"})
+			now := time.Now().UTC()
+			writeJSON(w, http.StatusOK, map[string]any{
+				"allowed":              true,
+				"decision":             "allow",
+				"owner_type":           "application",
+				"owner_id":             "app_rollfinders",
+				"plan_id":              "plan_test",
+				"billing_period_start": now.Format(time.RFC3339),
+				"billing_period_end":   now.Add(30 * 24 * time.Hour).Format(time.RFC3339),
+			})
+			return
+		}
+		if r.URL.Path == "/v1/usage-limits/reservations" {
+			writeJSON(w, http.StatusOK, map[string]any{"allowed": true, "decision": "allow", "reservation_id": "ures_test"})
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/v1/usage-limits/reservations/") {
+			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 			return
 		}
 		if receivedPaths != nil {
