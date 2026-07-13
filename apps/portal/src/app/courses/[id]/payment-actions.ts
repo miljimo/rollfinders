@@ -3,7 +3,7 @@
 import { createHash, randomUUID } from "crypto";
 import { getServerSession } from "next-auth";
 import { EventPricingType } from "@prisma/client";
-import { isPublicAcademyTrusted } from "@/components/PublicListingWarning";
+import { isPublicAcademyBookingVerified, isPublicAcademyPaymentsVerified, isPublicAcademyTrusted } from "@/components/PublicListingWarning";
 import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { authOptions } from "@/lib/auth";
 import { BookingRecord, BookingServiceError, createBooking, linkBookingPayment, listBookings } from "@/lib/bookings";
@@ -94,6 +94,8 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
   const event = await getCourseOccurrence(courseId, occurrenceDate || undefined);
   if (!event) return checkoutError("This event is no longer available for payment.");
   if (!isPublicAcademyTrusted(event.academy)) return checkoutError("This academy is not verified for online payments.");
+  if (!isPublicAcademyBookingVerified(event.academy)) return checkoutError("This academy is not verified for online bookings.");
+  if (!isPublicAcademyPaymentsVerified(event.academy)) return checkoutError("This academy is not verified to accept online payments.");
   const paymentAccount = await academyPaymentAccountReadiness(event.academyId);
   if (!paymentAccount.ready) return checkoutError("This academy has not finished Stripe Connect setup for online payments.");
   if (event.pricingType !== EventPricingType.FIXED && event.pricingType !== EventPricingType.DONATION) {
@@ -218,7 +220,7 @@ export async function bookFreeCourseOccurrence(_state: CourseCheckoutState, form
   const event = await getCourseOccurrence(courseId, occurrenceDate || undefined);
   if (!event) return checkoutError("This event is no longer available for booking.");
   if (!event.active) return checkoutError("Booking is closed for this event.");
-  if (!isPublicAcademyTrusted(event.academy)) return checkoutError("This academy is not verified for online bookings.");
+  if (!isPublicAcademyTrusted(event.academy) || !isPublicAcademyBookingVerified(event.academy)) return checkoutError("This academy is not verified for online bookings.");
   if (event.pricingType !== EventPricingType.FREE) return checkoutError("This event is not configured as a free booking.");
   if (payerEmail && !payerEmail.includes("@")) return checkoutError("Enter a valid booking email address.");
 

@@ -20,7 +20,7 @@ import { LinkedText } from "@/components/LinkedText";
 import { MapWithDirection } from "@/components/MapWithDirection";
 import { PageShell } from "@/components/Page";
 import { PublicEventFlyer } from "@/components/PublicEventFlyer";
-import { isPublicAcademyTrusted, isPublicAcademyVerified, PublicListingWarning } from "@/components/PublicListingWarning";
+import { isPublicAcademyBookingVerified, isPublicAcademyTrusted, isPublicAcademyVerified, PublicListingWarning } from "@/components/PublicListingWarning";
 import { SummaryTile } from "@/components/SummaryTile";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { courseLocationLabel, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
@@ -30,6 +30,7 @@ import type { CourseCheckoutState } from "@/app/courses/[id]/payment-actions";
 type AcademyForDetail = {
   address: string;
   borough?: string | null;
+  bookingVerified?: boolean | null;
   city: string;
   claims?: { status: ClaimStatus }[];
   coverImageUrl?: string | null;
@@ -39,7 +40,9 @@ type AcademyForDetail = {
   longitude: number;
   members?: unknown[];
   name: string;
+  paymentsVerified?: boolean | null;
   postcode: string;
+  publicListingVerified?: boolean | null;
   slug: string;
   verificationStatus?: AcademyVerificationStatus;
   verified?: boolean;
@@ -127,6 +130,14 @@ function BookingAction({
   const closed = !event.active;
   const bookable = trusted && !closed && canCheckout;
   const freeBookable = trusted && !closed && isFree;
+  const bookingVerified = isPublicAcademyBookingVerified(event.academy);
+  const unavailableLabel = closed
+    ? "Booking Closed"
+    : !trusted || !bookingVerified
+      ? "Booking unavailable"
+      : !isFree && !canCheckout
+        ? "Payment unavailable"
+        : undefined;
 
   return (
     <section aria-label="Booking action">
@@ -140,7 +151,7 @@ function BookingAction({
         <BookEventButton
           disabled
           eventKind={eventKind}
-          label={closed ? "Booking Closed" : undefined}
+          label={unavailableLabel}
           priceLabel={closed ? undefined : priceLabel}
           className="w-full max-w-[300px]"
         />

@@ -70,7 +70,10 @@ export type AcademyMembershipRecord = {
 };
 
 export type AcademyServiceRecord = Academy & {
+  bookingVerified: boolean;
   members: { id: string; academyId?: string; userId?: string }[];
+  paymentsVerified: boolean;
+  publicListingVerified: boolean;
   claims: { status: ClaimStatus }[];
   socialLinks: Pick<AcademySocialLink, "id" | "academyId" | "platform" | "url" | "createdAt" | "updatedAt">[];
 };
@@ -102,6 +105,9 @@ export type AcademyWriteInput = {
   nogiAvailable?: boolean | null;
   beginnerFriendly?: boolean | null;
   competitionFocused?: boolean | null;
+  bookingVerified?: boolean | null;
+  paymentsVerified?: boolean | null;
+  publicListingVerified?: boolean | null;
   verificationStatus?: AcademyVerificationStatus | string | null;
   featured?: boolean | null;
   verified?: boolean | null;
@@ -214,6 +220,7 @@ function verificationStatusToService(value?: AcademyVerificationStatus | string 
 }
 
 function legacySettings(input: AcademyWriteInput) {
+  const publicListingVerified = input.publicListingVerified ?? input.verificationStatus === AcademyVerificationStatus.VERIFIED;
   return {
     legacy: {
       affiliation: input.affiliation ?? null,
@@ -227,7 +234,10 @@ function legacySettings(input: AcademyWriteInput) {
       nogiAvailable: input.nogiAvailable ?? true,
       beginnerFriendly: input.beginnerFriendly ?? true,
       competitionFocused: input.competitionFocused ?? false,
-      verified: input.verified ?? input.verificationStatus === AcademyVerificationStatus.VERIFIED,
+      publicListingVerified,
+      bookingVerified: input.bookingVerified ?? false,
+      paymentsVerified: input.paymentsVerified ?? false,
+      verified: input.verified ?? publicListingVerified,
       createdById: input.createdById ?? null,
       xUrl: input.xUrl ?? null,
       socialLinks: input.socialLinks ?? [],
@@ -261,7 +271,10 @@ function socialLinksFromSettings(settings: Record<string, unknown>, academyId: s
 function academyFromService(item: AcademyServiceAcademy, members: AcademyMembershipRecord[] = []): AcademyServiceRecord {
   const settings = item.settings ?? {};
   const verificationStatus = verificationStatusFromService(item.verification_status);
-  const verified = booleanSetting(settings, "verified", verificationStatus === AcademyVerificationStatus.VERIFIED);
+  const publicListingVerified = booleanSetting(settings, "publicListingVerified", verificationStatus === AcademyVerificationStatus.VERIFIED);
+  const bookingVerified = booleanSetting(settings, "bookingVerified", false);
+  const paymentsVerified = booleanSetting(settings, "paymentsVerified", false);
+  const verified = booleanSetting(settings, "verified", publicListingVerified);
   const createdAt = dateValue(item.created_at);
   const updatedAt = dateValue(item.updated_at);
   return {
@@ -291,6 +304,9 @@ function academyFromService(item: AcademyServiceAcademy, members: AcademyMembers
     nogiAvailable: booleanSetting(settings, "nogiAvailable", true),
     beginnerFriendly: booleanSetting(settings, "beginnerFriendly", true),
     competitionFocused: booleanSetting(settings, "competitionFocused", false),
+    publicListingVerified,
+    bookingVerified,
+    paymentsVerified,
     verificationStatus,
     featured: item.is_featured ?? false,
     verified,

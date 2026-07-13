@@ -3,6 +3,9 @@ import { WarningPanel } from "@/components/WarningPanel";
 
 type PublicAcademyTrust = {
   id?: string;
+  bookingVerified?: boolean | null;
+  paymentsVerified?: boolean | null;
+  publicListingVerified?: boolean | null;
   verified?: boolean;
   verificationStatus?: AcademyVerificationStatus;
   members?: unknown[];
@@ -18,14 +21,23 @@ type CourseCreatorTrust = {
 };
 
 export function isPublicAcademyTrusted(academy: PublicAcademyTrust) {
-  const verified = academy.verified === true || academy.verificationStatus === AcademyVerificationStatus.VERIFIED;
+  const verified = isPublicAcademyVerified(academy);
   const managed = Boolean(academy.members?.length) || Boolean(academy.claims?.some((claim) => claim.status === ClaimStatus.APPROVED));
 
 	return verified && managed;
 }
 
 export function isPublicAcademyVerified(academy: PublicAcademyTrust) {
+  if (typeof academy.publicListingVerified === "boolean") return academy.publicListingVerified;
   return academy.verified === true || academy.verificationStatus === AcademyVerificationStatus.VERIFIED;
+}
+
+export function isPublicAcademyBookingVerified(academy: PublicAcademyTrust) {
+  return academy.bookingVerified === true;
+}
+
+export function isPublicAcademyPaymentsVerified(academy: PublicAcademyTrust) {
+  return academy.paymentsVerified === true;
 }
 
 function wasCreatedByAcademyAdmin(academy: PublicAcademyTrust, course?: CourseCreatorTrust) {

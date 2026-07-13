@@ -85,6 +85,33 @@ func TestWalletServiceRejectsInsufficientFundsAndRequiresIdempotency(t *testing.
 	postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{"wallet_type": "internal", "owner_id": "rollfinders", "currency": "AUD"}, http.StatusBadRequest)
 }
 
+func TestWalletServiceRejectsDuplicateOwnerTypeCurrencyWallet(t *testing.T) {
+	handler := testHandler()
+	createWallet(t, handler, "internal", "owner_duplicate", "GBP")
+
+	body := postJSON(t, handler, "/v1/wallets", "", map[string]interface{}{
+		"wallet_type": "internal",
+		"owner_id":    "owner_duplicate",
+		"currency":    "GBP",
+	}, http.StatusConflict)
+	if body["error_code"] != "duplicate_wallet" {
+		t.Fatalf("expected duplicate wallet error code, got %#v", body)
+	}
+}
+
+func TestWalletServiceAllowsDifferentWalletTypeCurrencyOrOwner(t *testing.T) {
+	handler := testHandler()
+	createWallet(t, handler, "internal", "owner_combinations", "GBP")
+	createWallet(t, handler, "external", "owner_combinations", "GBP")
+	createWallet(t, handler, "internal", "owner_combinations", "Points")
+	createWallet(t, handler, "internal", "owner_other", "GBP")
+
+	page := getWallets(t, handler)
+	if page.Pagination.Total != 4 {
+		t.Fatalf("expected four allowed wallet combinations, got %+v", page)
+	}
+}
+
 func TestWalletServiceReplaysIdempotentTransfer(t *testing.T) {
 	handler := testHandler()
 	source := createWallet(t, handler, "internal", "owner_source", "GBP")

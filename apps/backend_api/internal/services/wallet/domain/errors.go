@@ -11,6 +11,7 @@ var (
 	ErrInvalidProvider            = errors.New("linked account provider is invalid")
 	ErrInvalidConnectionType      = errors.New("linked account connection type is invalid")
 	ErrInvalidLinkedAccountStatus = errors.New("linked account status is invalid")
+	ErrDuplicateWallet            = errors.New("wallet already exists for this owner, type, and currency")
 	ErrWalletNotFound             = errors.New("wallet not found")
 	ErrWalletInactive             = errors.New("wallet is not active")
 	ErrWalletReadOnly             = errors.New("wallet is read-only")

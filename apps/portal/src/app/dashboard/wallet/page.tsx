@@ -7,6 +7,6 @@ export default async function WalletDashboardRoute({
 }: {
   searchParams: Promise<WalletDashboardParams>;
 }) {
-  const params = await searchParams;
-  return <AdminDashboardWorkspace searchParams={Promise.resolve({ ...params, panel: "wallet" })} />;
+
+  return <AdminDashboardWorkspace searchParams={Promise.resolve({ ...(await searchParams), panel: "wallet" })} />;
 }

@@ -9,7 +9,12 @@ import { academySocialPlatformLabels, academySocialPlatformOptions, isAcademySoc
 import type { AcademyFormState } from "./actions";
 
 type AcademyAction = (state: AcademyFormState, formData: FormData) => Promise<AcademyFormState>;
-type AcademyWithSocialLinks = Academy & { socialLinks?: Pick<AcademySocialLink, "platform" | "url">[] };
+type AcademyWithSocialLinks = Academy & {
+  bookingVerified?: boolean | null;
+  paymentsVerified?: boolean | null;
+  publicListingVerified?: boolean | null;
+  socialLinks?: Pick<AcademySocialLink, "platform" | "url">[];
+};
 type SocialLinkDraft = { platform: AcademySocialPlatform; url: string };
 
 const initialAcademyFormState: AcademyFormState = {
@@ -60,6 +65,9 @@ const defaultValues: AcademyValues = {
   beginnerFriendly: "on",
   competitionFocused: "off",
   featured: "off",
+  publicListingVerified: "off",
+  bookingVerified: "off",
+  paymentsVerified: "off",
   verificationStatus: AcademyVerificationStatus.PENDING,
   sendClaimInvitation: "on",
 };
@@ -68,7 +76,7 @@ const fieldsByStep: Record<StepId, string[]> = {
   basics: ["name", "slug", "description", "affiliation", "website", "email", "phone"],
   location: ["address", "city", "postcode", "borough", "country", "latitude", "longitude"],
   media: ["logoUrl", "coverImageUrl", "categories", "socialLinksJson"],
-  settings: ["dropInPrice", "giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "verificationStatus", "sendClaimInvitation"],
+  settings: ["dropInPrice", "giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "verificationStatus", "publicListingVerified", "bookingVerified", "paymentsVerified", "sendClaimInvitation"],
   review: [],
 };
 
@@ -126,6 +134,9 @@ function academyValues(academy?: AcademyWithSocialLinks): AcademyValues {
     beginnerFriendly: checkboxValue(academy.beginnerFriendly),
     competitionFocused: checkboxValue(academy.competitionFocused),
     featured: checkboxValue(academy.featured),
+    publicListingVerified: checkboxValue(academy.publicListingVerified ?? academy.verified),
+    bookingVerified: checkboxValue(academy.bookingVerified ?? false),
+    paymentsVerified: checkboxValue(academy.paymentsVerified ?? false),
     verificationStatus: academy.verificationStatus,
     sendClaimInvitation: "off",
   };
@@ -551,6 +562,23 @@ function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values
   );
 }
 
+function CapabilityToggle({ description, label, name, updateField, values }: { description: string; label: string; name: string; updateField: (name: string, value: string) => void; values: AcademyValues }) {
+  return (
+    <label className="flex min-h-16 items-start gap-3 rounded-md border border-stone-200 bg-white p-3 text-sm font-semibold text-stone-800">
+      <input
+        type="checkbox"
+        checked={values[name] === "on"}
+        onChange={(event) => updateField(name, event.target.checked ? "on" : "off")}
+        className="mt-1 size-4 accent-teal-700"
+      />
+      <span>
+        <span className="block font-black text-stone-950">{label}</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-stone-600">{description}</span>
+      </span>
+    </label>
+  );
+}
+
 function SettingsStep({ canManagePlatformFields, errors, updateField, values }: StepProps & { canManagePlatformFields: boolean }) {
   return (
     <StepSection title="Settings" description={canManagePlatformFields ? "Training availability, commercial information, and verification state." : "Training availability and commercial information."}>
@@ -568,6 +596,37 @@ function SettingsStep({ canManagePlatformFields, errors, updateField, values }: 
           </label>
         ) : null}
       </div>
+      {canManagePlatformFields ? (
+        <section className="grid gap-3 rounded-md border border-stone-200 bg-stone-50 p-3">
+          <div>
+            <h5 className="font-black text-stone-950">Capability verification</h5>
+            <p className="mt-1 text-sm font-semibold text-stone-600">Approve each public capability separately. A verified listing does not automatically allow online booking or payments.</p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <CapabilityToggle
+              name="publicListingVerified"
+              label="Public listing"
+              description="Show the academy as verified in public listing and profile views."
+              updateField={updateField}
+              values={values}
+            />
+            <CapabilityToggle
+              name="bookingVerified"
+              label="Online booking"
+              description="Allow visitors to book free or checkout-backed sessions."
+              updateField={updateField}
+              values={values}
+            />
+            <CapabilityToggle
+              name="paymentsVerified"
+              label="Online payments"
+              description="Allow paid and donation checkout when Stripe readiness also passes."
+              updateField={updateField}
+              values={values}
+            />
+          </div>
+        </section>
+      ) : null}
       <div className="grid gap-3 rounded-md border border-stone-200 p-3 sm:grid-cols-2">
         <Toggle name="giAvailable" label="Gi available" updateField={updateField} values={values} />
         <Toggle name="nogiAvailable" label="No-Gi available" updateField={updateField} values={values} />
@@ -581,7 +640,7 @@ function SettingsStep({ canManagePlatformFields, errors, updateField, values }: 
             <Toggle name="sendClaimInvitation" label="Send claim invitation" updateField={updateField} values={values} />
             <p className="mt-2 text-sm font-semibold text-teal-900">Queues an email to the academy contact when the saved email is valid, usable, unclaimed, and outside reminder cooldown.</p>
           </div>
-          <p className="text-sm font-semibold text-stone-600">Public verified status is derived from the selected verification status.</p>
+          <p className="text-sm font-semibold text-stone-600">Public listing, booking, and payment verification are approved separately.</p>
         </>
       ) : null}
     </StepSection>
@@ -620,7 +679,7 @@ function ReviewStep({ canManagePlatformFields, coordinateSource, errors, mode, s
 }
 
 function LivePreview({ values }: { values: AcademyValues }) {
-  const verified = values.verificationStatus === AcademyVerificationStatus.VERIFIED;
+  const verified = values.publicListingVerified === "on";
   return (
     <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
       <div className="h-28 bg-stone-100">
@@ -634,7 +693,7 @@ function LivePreview({ values }: { values: AcademyValues }) {
           <div className="min-w-0">
             <h4 className="break-words text-lg font-black text-stone-950">{values.name || "Academy name"}</h4>
             <p className="mt-1 text-sm text-stone-600">{values.city || "City"}, {values.country || "Country"}</p>
-            <p className={`mt-2 inline-flex rounded-md px-2 py-1 text-xs font-bold ${verified ? "bg-teal-50 text-teal-800" : "bg-stone-100 text-stone-600"}`}>{verified ? "Verified" : values.verificationStatus}</p>
+            <p className={`mt-2 inline-flex rounded-md px-2 py-1 text-xs font-bold ${verified ? "bg-teal-50 text-teal-800" : "bg-stone-100 text-stone-600"}`}>{verified ? "Public listing verified" : values.verificationStatus}</p>
           </div>
         </div>
         <p className="mt-4 line-clamp-4 text-sm leading-6 text-stone-700">{values.description || "Public academy summary will appear here as you complete the form."}</p>
@@ -689,7 +748,7 @@ function ReviewValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ClassicAcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: Academy; cancelHref?: string; returnTo?: string }) {
+function ClassicAcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: AcademyWithSocialLinks; cancelHref?: string; returnTo?: string }) {
   const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
 
   return (
@@ -738,6 +797,9 @@ function ClassicAcademyForm({ action, academy, cancelHref, returnTo }: { action:
         <ClassicCheckbox name="beginnerFriendly" label="Beginner friendly" checked={state.values.beginnerFriendly ? state.values.beginnerFriendly === "on" : academy?.beginnerFriendly ?? true} />
         <ClassicCheckbox name="competitionFocused" label="Competition focused" checked={state.values.competitionFocused ? state.values.competitionFocused === "on" : academy?.competitionFocused ?? false} />
         <ClassicCheckbox name="featured" label="Featured academy" checked={state.values.featured ? state.values.featured === "on" : academy?.featured ?? false} />
+        <ClassicCheckbox name="publicListingVerified" label="Public listing verified" checked={state.values.publicListingVerified ? state.values.publicListingVerified === "on" : academy?.publicListingVerified ?? academy?.verified ?? false} />
+        <ClassicCheckbox name="bookingVerified" label="Online booking verified" checked={state.values.bookingVerified ? state.values.bookingVerified === "on" : academy?.bookingVerified ?? false} />
+        <ClassicCheckbox name="paymentsVerified" label="Online payments verified" checked={state.values.paymentsVerified ? state.values.paymentsVerified === "on" : academy?.paymentsVerified ?? false} />
       </div>
       <div className="flex flex-wrap gap-3">
         <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
@@ -775,7 +837,7 @@ function validateValues(values: AcademyValues) {
 
 function visibleFieldsByStep(step: StepId, canManagePlatformFields: boolean) {
   if (canManagePlatformFields) return fieldsByStep[step];
-  return fieldsByStep[step].filter((field) => field !== "verificationStatus" && field !== "featured" && field !== "sendClaimInvitation");
+  return fieldsByStep[step].filter((field) => !["verificationStatus", "featured", "publicListingVerified", "bookingVerified", "paymentsVerified", "sendClaimInvitation"].includes(field));
 }
 
 function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<string, string[] | undefined>) {
@@ -787,7 +849,7 @@ function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<
 }
 
 function displayValue(field: string, value: string, coordinateSource?: CoordinateSource) {
-  if (["giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "sendClaimInvitation"].includes(field)) return value === "on" ? "Yes" : "No";
+  if (["giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "publicListingVerified", "bookingVerified", "paymentsVerified", "sendClaimInvitation"].includes(field)) return value === "on" ? "Yes" : "No";
   if (field === "verificationStatus") return value;
   if ((field === "latitude" || field === "longitude") && value) {
     const source = coordinateSource === "auto" ? "Auto-filled" : coordinateSource === "manual" ? "Manual" : coordinateSource === "existing" ? "Existing" : "Default";

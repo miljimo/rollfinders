@@ -41,6 +41,11 @@ func (repo *InMemoryRepository) CreateWallet(_ context.Context, input dataaccess
 	repo.mu.Lock()
 	defer repo.mu.Unlock()
 	now := time.Now().UTC()
+	for _, existing := range repo.wallets {
+		if existing.OwnerID == input.OwnerID && existing.Type == input.Type && existing.Currency == input.Currency {
+			return nil, domain.ErrDuplicateWallet
+		}
+	}
 	wallet := domain.Wallet{
 		ID:        newID("wal"),
 		Type:      input.Type,

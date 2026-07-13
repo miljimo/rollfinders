@@ -3,60 +3,218 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { clsx } from "clsx";
-import { Activity, ArrowDownLeft, ArrowUpRight, Ban, BarChart3, Building2, CalendarDays, CheckCircle2, ChevronRight, ClipboardCheck, Clock, Copy, CreditCard, Download, Edit3, Eye, FileText, Filter, Globe2, Info, KeyRound, Landmark, Link2, Mail, MapPinned, MousePointerClick, Plus, QrCode, RefreshCw, Repeat2, Search, Send, ShieldCheck, Tag, Trash2, User, Users, Wallet } from "lucide-react";
+import {
+  Activity,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Ban,
+  BarChart3,
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
+  Clock,
+  Copy,
+  CreditCard,
+  Download,
+  Edit3,
+  Eye,
+  FileText,
+  Filter,
+  Globe2,
+  Info,
+  KeyRound,
+  Landmark,
+  Link2,
+  Mail,
+  MapPinned,
+  MousePointerClick,
+  Plus,
+  QrCode,
+  RefreshCw,
+  Repeat2,
+  Search,
+  Send,
+  ShieldCheck,
+  Tag,
+  Trash2,
+  User,
+  Users,
+  Wallet,
+} from "lucide-react";
 import { AcademyMap } from "../map/AcademyMap";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
-import { academyClaimStatuses, listAcademyClaimReminders } from "@/lib/academy-domain-data";
-import { academyMatchesSearch, getAcademyFromAcademyService, listAcademyMembersFromAcademyService, listAllAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
+import {
+  academyClaimStatuses,
+  listAcademyClaimReminders,
+} from "@/lib/academy-domain-data";
+import {
+  academyMatchesSearch,
+  getAcademyFromAcademyService,
+  listAcademyMembersFromAcademyService,
+  listAllAcademiesFromAcademyService,
+  type AcademyServiceRecord,
+} from "@/lib/academyService";
 import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
-import { academyScopedEventWhere, canSendManagedUserPasswordReset, elevatedAdminPrivacyAuditLogWhere, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole } from "@/lib/admin";
-import { authorize, listAuthorisationPermissionsPage, listAuthorisationResources, listAuthorisationRolePermissions, listAuthorisationRolesPage, listEffectiveUserPermissions, listUserAuthorisationRoles, listUserPermissionAssignments, type AuthorisationPagination, type AuthorisationPermission, type AuthorisationRole } from "@/lib/authorisation-service";
-import { BookingServiceError, listBookingsPage, type BookingRecord, type ServicePaginationMeta } from "@/lib/bookings";
+import {
+  academyScopedEventWhere,
+  canSendManagedUserPasswordReset,
+  elevatedAdminPrivacyAuditLogWhere,
+  getCurrentUser,
+  isAcademyAdminRole,
+  isPlatformAdminRole,
+  isProtectedSuperAdmin,
+  isSuperAdminRole,
+} from "@/lib/admin";
+import {
+  authorize,
+  listAuthorisationPermissionsPage,
+  listAuthorisationResources,
+  listAuthorisationRolePermissions,
+  listAuthorisationRolesPage,
+  listEffectiveUserPermissions,
+  listUserAuthorisationRoles,
+  listUserPermissionAssignments,
+  type AuthorisationPagination,
+  type AuthorisationPermission,
+  type AuthorisationRole,
+} from "@/lib/authorisation-service";
+import {
+  BookingServiceError,
+  listBookingsPage,
+  type BookingRecord,
+  type ServicePaginationMeta,
+} from "@/lib/bookings";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
-import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, recurrenceLabel as courseRecurrenceLabel } from "@/lib/courses";
+import {
+  courseAddress,
+  courseLocationLabel,
+  coursePriceLabel,
+  courseTypeLabel,
+  recurrenceLabel as courseRecurrenceLabel,
+} from "@/lib/courses";
 import { getMapItems } from "@/lib/data";
-import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";
+import {
+  eventPermanentPath,
+  eventPermanentUrl,
+  eventQrCodePath,
+} from "@/lib/event-share-links";
 import { getInstructorUserOptions } from "@/lib/instructor-users";
-import { listOrganisationApplications, listOrganisations } from "@/lib/organisation-service";
-import { calculatePlatformFeeMinor, defaultPaymentPlatformSettings, getPaymentPlatformSettings, platformFeeLabel, type PaymentPlatformSettings } from "@/lib/payment-platform-settings";
-import { getPlatformAdminActivitySummary, type PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
-import { getStripePaymentAccountSetting, listPaymentTransactionsPage, PaymentServiceError, type PaymentRecord } from "@/lib/payments";
+import {
+  listOrganisationApplications,
+  listOrganisations,
+} from "@/lib/organisation-service";
+import {
+  calculatePlatformFeeMinor,
+  defaultPaymentPlatformSettings,
+  getPaymentPlatformSettings,
+  platformFeeLabel,
+  type PaymentPlatformSettings,
+} from "@/lib/payment-platform-settings";
+import {
+  getPlatformAdminActivitySummary,
+  type PlatformAdminActivitySummary,
+} from "@/lib/platform-admin-activity";
+import {
+  getStripePaymentAccountSetting,
+  listPaymentTransactionsPage,
+  PaymentServiceError,
+  type PaymentRecord,
+} from "@/lib/payments";
 import { prisma } from "@/lib/prisma";
 import { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { enrichUsersWithAcademyNames } from "@/lib/rollfinder-user-profiles";
 import { getDashboardShadowAccount } from "@/lib/standard-dashboard";
 import { roleLevel } from "@/lib/role-hierarchy";
 import { rollfindersPlatformPaymentAccountStatus } from "@/lib/stripe-connect";
-import { getManagedUser, getUserPermissionPanelModel, listManagedUsers, UserServiceError, type ManagedUser } from "@/lib/users-service";
-import { getWalletBalance, listLinkedWalletAccounts, listWalletTransfers, listWalletsPage, WalletServiceError, type LinkedWalletAccount, type WalletBalance, type WalletPaginationMeta, type WalletRecord, type WalletTransaction } from "@/lib/wallet-service";
-import { AcademyVerificationStatus, ClaimStatus, CourseType, EventAudience, EventPricingType, Role, UserStatus, type Prisma } from "@prisma/client";
+import {
+  getManagedUser,
+  getUserPermissionPanelModel,
+  listManagedUsers,
+  UserServiceError,
+  type ManagedUser,
+} from "@/lib/users-service";
+import {
+  getWalletBalance,
+  listLinkedWalletAccounts,
+  listWalletTransfers,
+  listWalletsPage,
+  WalletServiceError,
+  type LinkedWalletAccount,
+  type WalletBalance,
+  type WalletPaginationMeta,
+  type WalletRecord,
+  type WalletTransaction,
+} from "@/lib/wallet-service";
+import {
+  AcademyVerificationStatus,
+  ClaimStatus,
+  CourseType,
+  EventAudience,
+  EventPricingType,
+  Role,
+  UserStatus,
+  type Prisma,
+} from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { CopyButton } from "@/components/copy-button";
 import { DialogShell } from "@/components/DialogShell";
-import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboard";
+import {
+  GridDashboard,
+  type GridDashboardItem,
+} from "@/components/GridDashboard";
 import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
 import { LineOverviewChart } from "@/components/LineOverviewChart";
 import { LinkedText } from "@/components/LinkedText";
-import { PaymentOverview, type PaymentOverviewMetric } from "@/components/payments/PaymentOverview";
+import {
+  PaymentOverview,
+  type PaymentOverviewMetric,
+} from "@/components/payments/PaymentOverview";
 import { Pagination as SharedPagination } from "@/components/pagination";
 import { PublicListingWarning } from "@/components/PublicListingWarning";
-import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
+import {
+  QuickActionPanel,
+  type QuickActionPanelItem,
+} from "@/components/QuickActionPanel";
 import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
-import { SidePanelControl, type SidePanelItem } from "@/components/SidePanelControl";
+import {
+  SidePanelControl,
+  type SidePanelItem,
+} from "@/components/SidePanelControl";
 import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
 import { SummaryTile } from "@/components/SummaryTile";
-import { Table, TableRow, TableStatusBadge, type TableColumn } from "@/components/Table";
-import { createAcademy, sendAcademyClaimReminder, sendBulkAcademyClaimReminders, updateAcademy } from "../admin/academies/actions";
+import {
+  Table,
+  TableRow,
+  TableStatusBadge,
+  type TableColumn,
+} from "@/components/Table";
+import {
+  createAcademy,
+  sendAcademyClaimReminder,
+  sendBulkAcademyClaimReminders,
+  updateAcademy,
+} from "../admin/academies/actions";
 import { AcademyForm } from "../admin/academies/AcademyForm";
 import { OpenMatForm } from "../admin/open-mats/OpenMatForm";
 import { createCourse } from "../admin/courses/actions";
-import { createManagedUser, deleteManagedUser, toggleManagedUserDisabled, updateManagedUser, verifyManagedUserEmail } from "../admin/users/actions";
+import {
+  createManagedUser,
+  deleteManagedUser,
+  toggleManagedUserDisabled,
+  updateManagedUser,
+  verifyManagedUserEmail,
+} from "../admin/users/actions";
 import { processEmailQueue } from "../admin/actions";
 import { UserForm } from "../admin/users/UserForm";
 import { ActionMenu } from "../admin/ActionMenu";
-import { fetchAcademyClaims, type AcademyClaimListItem } from "../admin/academy-claims/api";
+import {
+  fetchAcademyClaims,
+  type AcademyClaimListItem,
+} from "../admin/academy-claims/api";
 import { EmailOperationsPanel } from "../admin/EmailOperationsPanel";
 import { EditProfileForm } from "./settings/EditProfileForm";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
@@ -65,7 +223,10 @@ import { UserPermissionsBoard } from "./users/UserPermissionsBoard";
 import { UserResult } from "./users/UserResultNotice";
 import { NewUserDialog } from "./users/NewUserDialog";
 import { AcademiesTable } from "./academies/AcademiesTable";
-import { ClaimInvitationResult, ClaimReminderResult } from "./academies/AcademyResultNotices";
+import {
+  ClaimInvitationResult,
+  ClaimReminderResult,
+} from "./academies/AcademyResultNotices";
 import { BulkClaimReminderDialog } from "./academies/BulkClaimReminderDialog";
 import { ClaimReminderDialog } from "./academies/ClaimReminderDialog";
 import { NewAcademyDialog } from "./academies/NewAcademyDialog";
@@ -73,7 +234,10 @@ import { NewAcademyPanelAction } from "./academies/NewAcademyPanelAction";
 import { SuperAdminPlatformAcademiesPanel } from "./academies/SuperAdminPlatformAcademiesPanel";
 import { CreateCourseDialog } from "./courses/CreateCourseDialog";
 import { ViewEventDialog, type DashboardEventDetail } from "./ViewEventDialog";
-import { cancelDashboardBooking, confirmDashboardBooking } from "./bookings/bookingActions";
+import {
+  cancelDashboardBooking,
+  confirmDashboardBooking,
+} from "./bookings/bookingActions";
 import { BookingActionSubmitButton } from "./bookings/BookingActionSubmitButton";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 import { AdminPanel } from "./components/AdminPanel";
@@ -85,7 +249,13 @@ import { LinkedTableCell } from "./components/LinkedTableCell";
 import { CreateWalletDialog } from "./wallet/CreateWalletDialog";
 import { DisconnectWalletLinkedAccountDialog } from "./wallet/DisconnectWalletLinkedAccountDialog";
 import { WalletDetailsDialog } from "./wallet/WalletDetailsDialog";
-import { selectedWallet, selectedWalletTransaction, transactionDetailsCloseHref, walletDetailsCloseHref, WalletDashboard } from "./wallet/WalletDashboard";
+import {
+  selectedWallet,
+  selectedWalletTransaction,
+  transactionDetailsCloseHref,
+  walletDetailsCloseHref,
+  WalletDashboard,
+} from "./wallet/WalletDashboard";
 import { WalletOwnerPickerDialog } from "./wallet/WalletOwnerPickerDialog";
 import { WalletTransactionDetailsDialog } from "./wallet/WalletTransactionDetailsDialog";
 import { WalletTransferDialog } from "./wallet/WalletTransferDialog";
@@ -96,7 +266,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "RollFinders | Dashboard",
-  description: "Manage RollFinders academies, open mats, users, email delivery, and platform operations.",
+  description:
+    "Manage RollFinders academies, open mats, users, email delivery, and platform operations.",
 };
 
 const pageSize = 8;
@@ -132,16 +303,18 @@ function clampPage(page: number, totalItems: number, itemsPerPage = pageSize) {
 }
 
 function clampPlatformAcademyPage(page: number, totalItems: number) {
-  const totalPages = Math.max(1, Math.ceil(totalItems / platformAdminAcademyPageSize));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(totalItems / platformAdminAcademyPageSize),
+  );
   return Math.min(page, totalPages);
 }
 
-function platformAdminCreatedAcademyWhere(extra: Prisma.AcademyWhereInput = {}): Prisma.AcademyWhereInput {
+function platformAdminCreatedAcademyWhere(
+  extra: Prisma.AcademyWhereInput = {},
+): Prisma.AcademyWhereInput {
   return {
-    AND: [
-      { createdById: { not: null } },
-      extra,
-    ],
+    AND: [{ createdById: { not: null } }, extra],
   };
 }
 
@@ -153,12 +326,20 @@ function academyForEvent(academies: AcademyServiceRecord[], academyId: string) {
   return academies.find((academy) => academy.id === academyId) ?? null;
 }
 
-function academyMatchesDashboardSearch(academy: AcademyServiceRecord, search: string, verificationSearch: AcademyVerificationStatus | null) {
-  if (verificationSearch && academy.verificationStatus === verificationSearch) return true;
+function academyMatchesDashboardSearch(
+  academy: AcademyServiceRecord,
+  search: string,
+  verificationSearch: AcademyVerificationStatus | null,
+) {
+  if (verificationSearch && academy.verificationStatus === verificationSearch)
+    return true;
   return academyMatchesSearch(academy, search);
 }
 
-function academyMatchesPlatformSearch(academy: AcademyServiceRecord, search: string) {
+function academyMatchesPlatformSearch(
+  academy: AcademyServiceRecord,
+  search: string,
+) {
   return academyMatchesSearch(academy, search);
 }
 
@@ -171,52 +352,105 @@ function academyMatchesReminderFilter(
   if (filter === "all") return true;
   const hasEmail = Boolean(academy.email?.trim());
   const hasMembers = academy.members.length > 0;
-  const hasBlockingClaim = academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED || claim.status === ClaimStatus.PENDING);
-  const hasRecentQueuedReminder = reminders.some((reminder) => reminder.status === "QUEUED" && reminder.createdAt >= cooldownStart);
-  if (filter === "eligible") return hasEmail && !hasMembers && !hasBlockingClaim && !hasRecentQueuedReminder;
+  const hasBlockingClaim = academy.claims.some(
+    (claim) =>
+      claim.status === ClaimStatus.APPROVED ||
+      claim.status === ClaimStatus.PENDING,
+  );
+  const hasRecentQueuedReminder = reminders.some(
+    (reminder) =>
+      reminder.status === "QUEUED" && reminder.createdAt >= cooldownStart,
+  );
+  if (filter === "eligible")
+    return (
+      hasEmail && !hasMembers && !hasBlockingClaim && !hasRecentQueuedReminder
+    );
   if (filter === "recently-sent") return hasRecentQueuedReminder;
-  if (filter === "unavailable") return !hasEmail || hasMembers || hasBlockingClaim;
+  if (filter === "unavailable")
+    return !hasEmail || hasMembers || hasBlockingClaim;
   return true;
 }
 
-async function attachAcademyOperationalMetadata(academies: AcademyServiceRecord[]) {
+async function attachAcademyOperationalMetadata(
+  academies: AcademyServiceRecord[],
+) {
   if (!academies.length) return [];
   const academyIds = academies.map((academy) => academy.id);
   const [claimPairs, reminders, memberPairs] = await Promise.all([
-    Promise.all(academyIds.map(async (academyId) => ({ academyId, claims: await academyClaimStatuses(academyId).catch(() => []) }))),
+    Promise.all(
+      academyIds.map(async (academyId) => ({
+        academyId,
+        claims: await academyClaimStatuses(academyId).catch(() => []),
+      })),
+    ),
     listAcademyClaimReminders(academyIds),
-    Promise.all(academyIds.map(async (academyId) => ({ academyId, members: await listAcademyMembersFromAcademyService(academyId).catch(() => []) }))),
+    Promise.all(
+      academyIds.map(async (academyId) => ({
+        academyId,
+        members: await listAcademyMembersFromAcademyService(academyId).catch(
+          () => [],
+        ),
+      })),
+    ),
   ]);
   return academies.map((academy) => ({
     ...academy,
-    claims: claimPairs.find((pair) => pair.academyId === academy.id)?.claims ?? [],
-    claimReminders: reminders.filter((reminder) => reminder.academyId === academy.id),
-    members: memberPairs.find((pair) => pair.academyId === academy.id)?.members.map((member) => ({ id: member.id, academyId: member.academyId, userId: member.userId })) ?? academy.members,
+    claims:
+      claimPairs.find((pair) => pair.academyId === academy.id)?.claims ?? [],
+    claimReminders: reminders.filter(
+      (reminder) => reminder.academyId === academy.id,
+    ),
+    members:
+      memberPairs
+        .find((pair) => pair.academyId === academy.id)
+        ?.members.map((member) => ({
+          id: member.id,
+          academyId: member.academyId,
+          userId: member.userId,
+        })) ?? academy.members,
   }));
 }
 
 function selectedPanel(value: string | undefined) {
   if (value === "courses") return "open-mats";
-  if (value === "open-mats" || value === "users" || value === "settings" || value === "maps" || value === "payments" || value === "bookings" || value === "academy-claims" || value === "platform-admin-academies" || value === "analytics" || value === "subscriptions" || value === "wallet") return value;
+  if (
+    value === "open-mats" ||
+    value === "users" ||
+    value === "settings" ||
+    value === "maps" ||
+    value === "payments" ||
+    value === "bookings" ||
+    value === "academy-claims" ||
+    value === "platform-admin-academies" ||
+    value === "analytics" ||
+    value === "subscriptions" ||
+    value === "wallet"
+  )
+    return value;
   return "academies";
 }
 
 function dashboardServiceDescription(label: string, academyAdmin: boolean) {
   const descriptions: Record<string, string> = {
-    "Academies": academyAdmin ? "Manage your academy profile, listing, and operational details." : "Review, verify, and manage academy records.",
+    Academies: academyAdmin
+      ? "Manage your academy profile, listing, and operational details."
+      : "Review, verify, and manage academy records.",
     "Academy Claims": "Review ownership access requests and claim evidence.",
-    "Academy Profile": "Manage your academy profile, listing, and operational details.",
+    "Academy Profile":
+      "Manage your academy profile, listing, and operational details.",
     "Academy Review": "Review academies created by platform admins.",
-    "Analytics": "Review marketplace, visitor, profile, and commercial signals.",
-    "Bookings": "Review bookings for courses and events.",
-    "Courses/Events": "Create and manage courses, events, seminars, and open mats.",
+    Analytics: "Review marketplace, visitor, profile, and commercial signals.",
+    Bookings: "Review bookings for courses and events.",
+    "Courses/Events":
+      "Create and manage courses, events, seminars, and open mats.",
     "Manage Academies": "Review, verify, and manage academy records.",
     "Manage Users": "Create users, assign roles, and manage access.",
-    "Map": "Inspect academy locations on the platform map.",
-    "Payments": "Review payment activity, earnings, refunds, and payouts.",
-    "Settings": "Manage dashboard account and platform settings.",
-    "Subscriptions": "Manage products, plans, entitlements, and subscribers.",
-    "Wallet": "Manage internal wallets, ledger balances, reserves, and transfers.",
+    Map: "Inspect academy locations on the platform map.",
+    Payments: "Review payment activity, earnings, refunds, and payouts.",
+    Settings: "Manage dashboard account and platform settings.",
+    Subscriptions: "Manage products, plans, entitlements, and subscribers.",
+    Wallet:
+      "Manage internal wallets, ledger balances, reserves, and transfers.",
   };
   return descriptions[label] ?? "Open this RollFinders service dashboard.";
 }
@@ -226,27 +460,36 @@ function isPlatformOnlyPanel(panel: string) {
 }
 
 function isSuperOnlyPanel(panel: string) {
-  return panel === "platform-admin-academies" || panel === "analytics" || panel === "wallet";
+  return (
+    panel === "platform-admin-academies" ||
+    panel === "analytics" ||
+    panel === "wallet"
+  );
 }
 
-async function resolvePaymentMetricVisibility(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>): Promise<PaymentMetricVisibility> {
+async function resolvePaymentMetricVisibility(
+  user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>,
+): Promise<PaymentMetricVisibility> {
   const scope = {
     organisationId: user.academyId ?? undefined,
     applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
   };
-  const [grossPaid, successfulPayments, platformRevenue, refunds] = await Promise.all([
-    authorize(user, "payment.report.revenue.read", scope),
-    authorize(user, "payment.search", scope),
-    authorize(user, "payment.report.platform_revenue.read", scope),
-    authorize(user, "payment.report.refund.read", scope),
-  ]);
+  const [grossPaid, successfulPayments, platformRevenue, refunds] =
+    await Promise.all([
+      authorize(user, "payment.report.revenue.read", scope),
+      authorize(user, "payment.search", scope),
+      authorize(user, "payment.report.platform_revenue.read", scope),
+      authorize(user, "payment.report.refund.read", scope),
+    ]);
 
   return { grossPaid, platformRevenue, refunds, successfulPayments };
 }
 
 function selectedClaimStatus(value: string | undefined) {
   if (!value || value === "all") return "all";
-  return Object.values(ClaimStatus).includes(value as ClaimStatus) ? value : "all";
+  return Object.values(ClaimStatus).includes(value as ClaimStatus)
+    ? value
+    : "all";
 }
 
 function selectedClaimPageSize(value: string | undefined) {
@@ -255,67 +498,114 @@ function selectedClaimPageSize(value: string | undefined) {
 }
 
 function selectedAcademyReminderFilter(value: string | undefined) {
-  if (value === "eligible" || value === "recently-sent" || value === "unavailable") return value;
+  if (
+    value === "eligible" ||
+    value === "recently-sent" ||
+    value === "unavailable"
+  )
+    return value;
   return "all";
 }
 
 function selectedEmailOperationsView(value: string | undefined) {
-  if (value === "attention" || value === "invalid-emails" || value === "queued" || value === "scheduled-retries") return value;
+  if (
+    value === "attention" ||
+    value === "invalid-emails" ||
+    value === "queued" ||
+    value === "scheduled-retries"
+  )
+    return value;
   return "runs";
 }
 
 function selectedSettingsAction(value: string | undefined) {
-  if (value === "change-password" || value === "edit-profile" || value === "email-options" || value === "recent-audits" || value === "weekly-activity") return value;
+  if (
+    value === "change-password" ||
+    value === "edit-profile" ||
+    value === "email-options" ||
+    value === "recent-audits" ||
+    value === "weekly-activity"
+  )
+    return value;
   return "change-password";
 }
 
 type SettingsAction = ReturnType<typeof selectedSettingsAction>;
 
-function effectiveSettingsActionForRole(action: SettingsAction, elevatedAdmin: boolean, canViewWeeklyActivity: boolean): SettingsAction {
+function effectiveSettingsActionForRole(
+  action: SettingsAction,
+  elevatedAdmin: boolean,
+  canViewWeeklyActivity: boolean,
+): SettingsAction {
   if (action === "change-password" || action === "edit-profile") return action;
-  if (elevatedAdmin && (action === "email-options" || action === "recent-audits")) return action;
+  if (
+    elevatedAdmin &&
+    (action === "email-options" || action === "recent-audits")
+  )
+    return action;
   if (canViewWeeklyActivity && action === "weekly-activity") return action;
   return "change-password";
 }
 
 type PaymentOverviewPeriod = "daily" | "weekly" | "monthly" | "yearly";
-type PaymentsDashboardView = "overview" | "transactions" | "earnings" | "refunds" | "payouts";
-type UsersDashboardView = "overview" | "roles" | "permissions" | "access-keys" | "mfa";
+type PaymentsDashboardView =
+  "overview" | "transactions" | "earnings" | "refunds" | "payouts";
+type UsersDashboardView =
+  "overview" | "roles" | "permissions" | "access-keys" | "mfa";
 
-function selectedPaymentOverviewPeriod(value: string | undefined): PaymentOverviewPeriod {
-  if (value === "weekly" || value === "monthly" || value === "yearly") return value;
+function selectedPaymentOverviewPeriod(
+  value: string | undefined,
+): PaymentOverviewPeriod {
+  if (value === "weekly" || value === "monthly" || value === "yearly")
+    return value;
   return "daily";
 }
 
-function selectedPaymentsDashboardView(value: string | undefined): PaymentsDashboardView {
-  if (value === "transaction" || value === "transactions") return "transactions";
+function selectedPaymentsDashboardView(
+  value: string | undefined,
+): PaymentsDashboardView {
+  if (value === "transaction" || value === "transactions")
+    return "transactions";
   if (value === "earning" || value === "earnings") return "earnings";
   if (value === "refund" || value === "refunds") return "refunds";
   if (value === "payout" || value === "payouts") return "payouts";
   return "overview";
 }
 
-function selectedUsersDashboardView(value: string | undefined): UsersDashboardView {
+function selectedUsersDashboardView(
+  value: string | undefined,
+): UsersDashboardView {
   if (value === "role" || value === "roles") return "roles";
   if (value === "permission" || value === "permissions") return "permissions";
-  if (value === "access-key" || value === "access-keys" || value === "keys") return "access-keys";
+  if (value === "access-key" || value === "access-keys" || value === "keys")
+    return "access-keys";
   if (value === "mfa") return "mfa";
   return "overview";
 }
 
 function matchingAcademyVerificationStatus(search: string) {
   const value = search.trim().toUpperCase();
-  return Object.values(AcademyVerificationStatus).includes(value as AcademyVerificationStatus) ? value as AcademyVerificationStatus : null;
+  return Object.values(AcademyVerificationStatus).includes(
+    value as AcademyVerificationStatus,
+  )
+    ? (value as AcademyVerificationStatus)
+    : null;
 }
 
 function matchingRole(search: string) {
-  const value = search.trim().toUpperCase().replaceAll(" ", "_").replaceAll("-", "_");
-  return Object.values(Role).includes(value as Role) ? value as Role : null;
+  const value = search
+    .trim()
+    .toUpperCase()
+    .replaceAll(" ", "_")
+    .replaceAll("-", "_");
+  return Object.values(Role).includes(value as Role) ? (value as Role) : null;
 }
 
 function matchingUserStatus(search: string) {
   const value = search.trim().toUpperCase();
-  return Object.values(UserStatus).includes(value as UserStatus) ? value as UserStatus : null;
+  return Object.values(UserStatus).includes(value as UserStatus)
+    ? (value as UserStatus)
+    : null;
 }
 
 function pageHref(searchParams: AdminSearchParams, key: string, page: number) {
@@ -331,7 +621,9 @@ function pageHref(searchParams: AdminSearchParams, key: string, page: number) {
   });
   if (page > 1) params.set(key, String(page));
   const query = params.toString();
-  return query ? `${dashboardPanelPath(panel)}?${query}` : dashboardPanelPath(panel);
+  return query
+    ? `${dashboardPanelPath(panel)}?${query}`
+    : dashboardPanelPath(panel);
 }
 
 function dashboardPanelPath(panel: string) {
@@ -344,10 +636,17 @@ function dashboardPanelPath(panel: string) {
   if (panel === "wallet") return "/dashboard/wallet";
   if (panel === "platform-admin-academies") return "/dashboard/academy-review";
   if (panel === "users") return "/dashboard/users";
-  return panel === "dashboard" ? "/dashboard" : `/dashboard?panel=${encodeURIComponent(panel)}`;
+  return panel === "dashboard"
+    ? "/dashboard"
+    : `/dashboard?panel=${encodeURIComponent(panel)}`;
 }
 
-function dashboardPanelHref(pathname: string, searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>, omittedKeys: string[] = []) {
+function dashboardPanelHref(
+  pathname: string,
+  searchParams: AdminSearchParams,
+  overrides: Record<string, string | number | undefined>,
+  omittedKeys: string[] = [],
+) {
   const omit = new Set(["panel", ...omittedKeys]);
   const params = new URLSearchParams();
   Object.entries(searchParams).forEach(([key, value]) => {
@@ -369,23 +668,58 @@ function dashboardPanelHref(pathname: string, searchParams: AdminSearchParams, o
   return query ? `${pathname}?${query}` : pathname;
 }
 
-function adminClaimsHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>) {
-  return dashboardPanelHref("/dashboard/academy-claims", searchParams, overrides);
+function adminClaimsHref(
+  searchParams: AdminSearchParams,
+  overrides: Record<string, string | number | undefined>,
+) {
+  return dashboardPanelHref(
+    "/dashboard/academy-claims",
+    searchParams,
+    overrides,
+  );
 }
 
-function adminAcademiesHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>) {
+function adminAcademiesHref(
+  searchParams: AdminSearchParams,
+  overrides: Record<string, string | number | undefined>,
+) {
   return dashboardPanelHref("/dashboard/academies", searchParams, overrides);
 }
 
-function platformAdminAcademiesHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined>) {
-  return dashboardPanelHref("/dashboard/academy-review", searchParams, overrides);
+function platformAdminAcademiesHref(
+  searchParams: AdminSearchParams,
+  overrides: Record<string, string | number | undefined>,
+) {
+  return dashboardPanelHref(
+    "/dashboard/academy-review",
+    searchParams,
+    overrides,
+  );
 }
 
-function dashboardUsersHref(searchParams: AdminSearchParams, overrides: Record<string, string | number | undefined> = {}) {
-  return dashboardPanelHref("/dashboard/users", searchParams, overrides, ["userResult", "email", "dialog", "userId"]);
+function dashboardUsersHref(
+  searchParams: AdminSearchParams,
+  overrides: Record<string, string | number | undefined> = {},
+) {
+  return dashboardPanelHref("/dashboard/users", searchParams, overrides, [
+    "userResult",
+    "email",
+    "dialog",
+    "userId",
+  ]);
 }
 
-function claimApiParams({ page, pageSize, search, status }: { page: number; pageSize: number; search: string; status: string }) {
+function claimApiParams({
+  page,
+  pageSize,
+  search,
+  status,
+}: {
+  page: number;
+  pageSize: number;
+  search: string;
+  status: string;
+}) {
   const params = new URLSearchParams();
   params.set("page", String(page));
   params.set("pageSize", String(pageSize));
@@ -394,7 +728,9 @@ function claimApiParams({ page, pageSize, search, status }: { page: number; page
   return params;
 }
 
-function emptyEmailOperationsSummary(): Awaited<ReturnType<typeof getEmailQueueOperationsSummary>> {
+function emptyEmailOperationsSummary(): Awaited<
+  ReturnType<typeof getEmailQueueOperationsSummary>
+> {
   return {
     outboundEmailCount: 0,
     dueQueueCount: 0,
@@ -438,11 +774,17 @@ type DashboardWalletsResult = {
   wallets: WalletRecord[];
 };
 
-function emptyServicePagination(limit: number, offset = 0): ServicePaginationMeta {
+function emptyServicePagination(
+  limit: number,
+  offset = 0,
+): ServicePaginationMeta {
   return { count: 0, has_more: false, limit, offset };
 }
 
-function emptyAuthorisationPagination(limit: number, offset = 0): AuthorisationPagination {
+function emptyAuthorisationPagination(
+  limit: number,
+  offset = 0,
+): AuthorisationPagination {
   return { count: 0, has_more: false, limit, offset };
 }
 
@@ -455,20 +797,45 @@ function servicePaginationCurrentPage(pagination: ServicePaginationMeta) {
   return Math.floor(pagination.offset / Math.max(1, pagination.limit)) + 1;
 }
 
-async function getDashboardPayments(page: number, accessToken?: string, academyId?: string | null): Promise<DashboardPaymentsResult> {
+async function getDashboardPayments(
+  page: number,
+  accessToken?: string,
+  academyId?: string | null,
+): Promise<DashboardPaymentsResult> {
   const offset = (Math.max(1, page) - 1) * paymentsPageSize;
   try {
-    const result = await listPaymentTransactionsPage({ accessToken, limit: paymentsPageSize, offset });
+    const result = await listPaymentTransactionsPage({
+      accessToken,
+      limit: paymentsPageSize,
+      offset,
+    });
     const payments = result.payments;
     return {
       pagination: result.pagination,
-      payments: academyId ? payments.filter((payment) => payment.metadata?.academy_id === academyId || payment.resourceType === "subscription") : payments,
+      payments: academyId
+        ? payments.filter(
+            (payment) =>
+              payment.metadata?.academy_id === academyId ||
+              payment.resourceType === "subscription",
+          )
+        : payments,
     };
   } catch (error) {
     if (error instanceof PaymentServiceError) {
-      return { error: error.status === 0 ? error.message : `Payment service returned status ${error.status}.`, pagination: emptyServicePagination(paymentsPageSize, offset), payments: [] };
+      return {
+        error:
+          error.status === 0
+            ? error.message
+            : `Payment service returned status ${error.status}.`,
+        pagination: emptyServicePagination(paymentsPageSize, offset),
+        payments: [],
+      };
     }
-    return { error: "Payment service is unavailable.", pagination: emptyServicePagination(paymentsPageSize, offset), payments: [] };
+    return {
+      error: "Payment service is unavailable.",
+      pagination: emptyServicePagination(paymentsPageSize, offset),
+      payments: [],
+    };
   }
 }
 
@@ -492,59 +859,140 @@ async function getDashboardPaymentAccountSetting(input: {
   } catch (error) {
     if (error instanceof PaymentServiceError) {
       return {
-        error: error.code === "not_authorised" || error.status === 403
-          ? "You are not authorised to view payment account settings."
-          : error.status === 0
-            ? error.message
-            : `Payment account settings returned status ${error.status}.`,
+        error:
+          error.code === "not_authorised" || error.status === 403
+            ? "You are not authorised to view payment account settings."
+            : error.status === 0
+              ? error.message
+              : `Payment account settings returned status ${error.status}.`,
         setting: input.fallback,
       };
     }
-    return { error: "Payment account settings are unavailable.", setting: input.fallback };
+    return {
+      error: "Payment account settings are unavailable.",
+      setting: input.fallback,
+    };
   }
 }
 
-async function getDashboardBookings(page: number, actorUserId: string, accessToken?: string, academyId?: string | null): Promise<DashboardBookingsResult> {
+async function getDashboardBookings(
+  page: number,
+  actorUserId: string,
+  accessToken?: string,
+  academyId?: string | null,
+): Promise<DashboardBookingsResult> {
   const offset = (Math.max(1, page) - 1) * bookingsPageSize;
   try {
-    const result = await listBookingsPage({ accessToken, actorUserId, limit: bookingsPageSize, offset, organisationId: academyId });
+    const result = await listBookingsPage({
+      accessToken,
+      actorUserId,
+      limit: bookingsPageSize,
+      offset,
+      organisationId: academyId,
+    });
     return { bookings: result.bookings, pagination: result.pagination };
   } catch (error) {
     if (error instanceof BookingServiceError) {
-      return { bookings: [], error: error.status === 0 ? error.message : `Booking service returned status ${error.status}.`, pagination: emptyServicePagination(bookingsPageSize, offset) };
+      return {
+        bookings: [],
+        error:
+          error.status === 0
+            ? error.message
+            : `Booking service returned status ${error.status}.`,
+        pagination: emptyServicePagination(bookingsPageSize, offset),
+      };
     }
-    return { bookings: [], error: "Booking service is unavailable.", pagination: emptyServicePagination(bookingsPageSize, offset) };
+    return {
+      bookings: [],
+      error: "Booking service is unavailable.",
+      pagination: emptyServicePagination(bookingsPageSize, offset),
+    };
   }
 }
 
-async function getDashboardWallets(page: number, actorUserId: string, accessToken?: string): Promise<DashboardWalletsResult> {
+async function getDashboardWallets(
+  page: number,
+  actorUserId: string,
+  accessToken?: string,
+): Promise<DashboardWalletsResult> {
   const offset = (Math.max(1, page) - 1) * walletPageSize;
   try {
-    const result = await listWalletsPage({ accessToken, actorUserId, limit: walletPageSize, offset });
-    const [balanceResults, linkedAccountGroups, transactions] = await Promise.all([
-      Promise.all(result.wallets.map((wallet) => getWalletBalance(wallet.id, accessToken, actorUserId).catch(() => null))),
-      Promise.all(result.wallets.map((wallet) => wallet.walletType === "external" ? listLinkedWalletAccounts(wallet.id, accessToken, actorUserId).catch(() => []) : Promise.resolve([]))),
-      listWalletTransfers({ accessToken, actorUserId, limit: 100 }).catch(() => []),
-    ]);
+    const result = await listWalletsPage({
+      accessToken,
+      actorUserId,
+      limit: walletPageSize,
+      offset,
+    });
+    const [balanceResults, linkedAccountGroups, transactions] =
+      await Promise.all([
+        Promise.all(
+          result.wallets.map((wallet) =>
+            getWalletBalance(wallet.id, accessToken, actorUserId).catch(
+              () => null,
+            ),
+          ),
+        ),
+        Promise.all(
+          result.wallets.map((wallet) =>
+            wallet.walletType === "external"
+              ? listLinkedWalletAccounts(
+                  wallet.id,
+                  accessToken,
+                  actorUserId,
+                ).catch(() => [])
+              : Promise.resolve([]),
+          ),
+        ),
+        listWalletTransfers({ accessToken, actorUserId, limit: 100 }).catch(
+          () => [],
+        ),
+      ]);
     return {
-      balances: balanceResults.filter((balance): balance is WalletBalance => Boolean(balance)),
+      balances: balanceResults.filter((balance): balance is WalletBalance =>
+        Boolean(balance),
+      ),
       linkedAccounts: linkedAccountGroups.flat(),
       pagination: result.pagination,
-      transactions: transactions.sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
+      transactions: transactions.sort(
+        (left, right) =>
+          Date.parse(right.createdAt) - Date.parse(left.createdAt),
+      ),
       wallets: result.wallets,
     };
   } catch (error) {
     if (error instanceof WalletServiceError) {
       return {
-        error: error.status === 0 ? error.message : `Wallet service returned status ${error.status}.`,
+        error:
+          error.status === 0
+            ? error.message
+            : `Wallet service returned status ${error.status}.`,
         balances: [],
         linkedAccounts: [],
-        pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 },
+        pagination: {
+          count: 0,
+          has_more: false,
+          limit: walletPageSize,
+          offset,
+          total: 0,
+        },
         transactions: [],
         wallets: [],
       };
     }
-    return { error: "Wallet service is unavailable.", balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset, total: 0 }, transactions: [], wallets: [] };
+    return {
+      error: "Wallet service is unavailable.",
+      balances: [],
+      linkedAccounts: [],
+      pagination: {
+        count: 0,
+        has_more: false,
+        limit: walletPageSize,
+        offset,
+        total: 0,
+      },
+      transactions: [],
+      wallets: [],
+    };
   }
 }
 
@@ -556,44 +1004,73 @@ export default async function AdminDashboardWorkspace({
   const currentUser = await getCurrentUser();
   if (!currentUser) redirect("/login");
 
-  if (!isPlatformAdminRole(currentUser.role) && !isAcademyAdminRole(currentUser.role)) {
+  if (
+    !isPlatformAdminRole(currentUser.role) &&
+    !isAcademyAdminRole(currentUser.role)
+  ) {
     redirect("/");
   }
-  if (isAcademyAdminRole(currentUser.role) && !currentUser.academyId) redirect("/");
+  if (isAcademyAdminRole(currentUser.role) && !currentUser.academyId)
+    redirect("/");
   const account = await getDashboardShadowAccount(currentUser);
   const params = await searchParams;
   const requestedPanel = selectedPanel(firstParam(params.panel));
   const academyAdmin = isAcademyAdminRole(currentUser.role);
-  if (academyAdmin && isPlatformOnlyPanel(requestedPanel)) redirect("/dashboard");
+  if (academyAdmin && isPlatformOnlyPanel(requestedPanel))
+    redirect("/dashboard");
   const superAdmin = isSuperAdminRole(currentUser.role);
   if (!superAdmin && isSuperOnlyPanel(requestedPanel)) redirect("/dashboard");
   const panel = requestedPanel;
   const dialog = firstParam(params.dialog);
-  const activeSettingsAction = selectedSettingsAction(firstParam(params.settingsAction) ?? firstParam(params.settingsView));
+  const activeSettingsAction = selectedSettingsAction(
+    firstParam(params.settingsAction) ?? firstParam(params.settingsView),
+  );
   const userDialogId = firstParam(params.userId);
   const eventDialogId = firstParam(params.eventId);
   const cloneFromEventId = firstParam(params.cloneFrom);
   const academyDialogId = firstParam(params.academyId);
-  const selectedAcademyIds = Array.isArray(params.academyIds) ? params.academyIds : firstParam(params.academyIds) ? [firstParam(params.academyIds) as string] : [];
+  const selectedAcademyIds = Array.isArray(params.academyIds)
+    ? params.academyIds
+    : firstParam(params.academyIds)
+      ? [firstParam(params.academyIds) as string]
+      : [];
   const search = (firstParam(params.search) ?? "").trim();
   const paymentsSearch = (firstParam(params.paymentsSearch) ?? "").trim();
-  const paymentsView = selectedPaymentsDashboardView(firstParam(params.paymentsView));
-  const paymentsPeriod = selectedPaymentOverviewPeriod(firstParam(params.paymentsPeriod));
-  const walletView = firstParam(params.walletView) === "transactions" ? "transactions" : "dashboard";
+  const paymentsView = selectedPaymentsDashboardView(
+    firstParam(params.paymentsView),
+  );
+  const paymentsPeriod = selectedPaymentOverviewPeriod(
+    firstParam(params.paymentsPeriod),
+  );
+  const walletView =
+    firstParam(params.walletView) === "transactions"
+      ? "transactions"
+      : "dashboard";
   const walletDialog = firstParam(params.walletDialog);
   const walletActionError = firstParam(params.walletError);
   const usersView = selectedUsersDashboardView(firstParam(params.usersView));
-  const pricingProviderId = (firstParam(params.pricingProviderId) ?? defaultPaymentPlatformSettings.providerId).trim() || defaultPaymentPlatformSettings.providerId;
+  const pricingProviderId =
+    (
+      firstParam(params.pricingProviderId) ??
+      defaultPaymentPlatformSettings.providerId
+    ).trim() || defaultPaymentPlatformSettings.providerId;
   const bookingActionError = firstParam(params.bookingActionError);
   const bookingActionBookingId = firstParam(params.bookingActionBookingId);
   const bookingsSearch = (firstParam(params.bookingsSearch) ?? "").trim();
-  const platformAcademiesSearch = (firstParam(params.platformAcademiesSearch) ?? "").trim();
+  const platformAcademiesSearch = (
+    firstParam(params.platformAcademiesSearch) ?? ""
+  ).trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
-  const effectiveSettingsAction = effectiveSettingsActionForRole(activeSettingsAction, elevatedAdmin, elevatedAdmin);
-  const paymentAccountOwner = academyAdmin && currentUser.academyId
-    ? { ownerId: currentUser.academyId, ownerType: "academy" as const }
-    : { ownerId: "rollfinders", ownerType: "platform" as const };
+  const effectiveSettingsAction = effectiveSettingsActionForRole(
+    activeSettingsAction,
+    elevatedAdmin,
+    elevatedAdmin,
+  );
+  const paymentAccountOwner =
+    academyAdmin && currentUser.academyId
+      ? { ownerId: currentUser.academyId, ownerType: "academy" as const }
+      : { ownerId: "rollfinders", ownerType: "platform" as const };
 
   const academyPage = pageFromParams(params, "academiesPage");
   const eventPage = pageFromParams(params, "eventsPage");
@@ -608,13 +1085,19 @@ export default async function AdminDashboardWorkspace({
   const emailPage = pageFromParams(params, "emailPage");
   const claimPageSize = selectedClaimPageSize(firstParam(params.pageSize));
   const claimStatus = selectedClaimStatus(firstParam(params.status));
-  const academyReminderFilter = selectedAcademyReminderFilter(firstParam(params.reminderFilter));
-  const emailOperationsView = selectedEmailOperationsView(firstParam(params.emailView));
+  const academyReminderFilter = selectedAcademyReminderFilter(
+    firstParam(params.reminderFilter),
+  );
+  const emailOperationsView = selectedEmailOperationsView(
+    firstParam(params.emailView),
+  );
   const academyVerificationSearch = matchingAcademyVerificationStatus(search);
   const roleSearch = matchingRole(search);
   const userStatusSearch = matchingUserStatus(search);
   const reminderCooldownStart = new Date();
-  reminderCooldownStart.setDate(reminderCooldownStart.getDate() - claimReminderCooldownDays);
+  reminderCooldownStart.setDate(
+    reminderCooldownStart.getDate() - claimReminderCooldownDays,
+  );
   const monthStart = startOfMonth(new Date());
   const weekStart = startOfWeek(new Date());
 
@@ -625,27 +1108,44 @@ export default async function AdminDashboardWorkspace({
   if (search) userQueryParams.set("search", search);
   if (roleSearch) userQueryParams.set("role", roleSearch);
   if (userStatusSearch) userQueryParams.set("status", userStatusSearch);
-  const managedUsersPagePromise = listManagedUsers(currentUser, userQueryParams.toString())
+  const managedUsersPagePromise = listManagedUsers(
+    currentUser,
+    userQueryParams.toString(),
+  )
     .then((result) => ({ error: null as string | null, page: result }))
     .catch((error) => {
       if (error instanceof UserServiceError && error.status === 403) {
         return {
           error: "You do not have permission to view or manage users.",
-          page: { users: [], page: userPage, pageSize: usersPageSize, totalItems: 0, totalPages: 1 },
+          page: {
+            users: [],
+            page: userPage,
+            pageSize: usersPageSize,
+            totalItems: 0,
+            totalPages: 1,
+          },
         };
       }
       throw error;
     });
   const allAcademyRecords = await attachAcademyOperationalMetadata(
     academyAdmin && currentUser.academyId
-      ? (await getAcademyFromAcademyService(currentUser.academyId, currentUser).then((academy) => academy ? [academy] : []))
+      ? await getAcademyFromAcademyService(
+          currentUser.academyId,
+          currentUser,
+        ).then((academy) => (academy ? [academy] : []))
       : await listAllAcademiesFromAcademyService({ actor: currentUser }),
   );
-  const scopedAcademyRecords = academyAdmin && currentUser.academyId
-    ? allAcademyRecords.filter((academy) => academy.id === currentUser.academyId)
-    : allAcademyRecords;
+  const scopedAcademyRecords =
+    academyAdmin && currentUser.academyId
+      ? allAcademyRecords.filter(
+          (academy) => academy.id === currentUser.academyId,
+        )
+      : allAcademyRecords;
   const academyIdsMatchingSearch = search
-    ? scopedAcademyRecords.filter((academy) => academyMatchesSearch(academy, search)).map((academy) => academy.id)
+    ? scopedAcademyRecords
+        .filter((academy) => academyMatchesSearch(academy, search))
+        .map((academy) => academy.id)
     : [];
   const eventScopeWhere = academyScopedEventWhere(currentUser);
   const eventFilterWhere: Prisma.EventWhereInput = search
@@ -655,27 +1155,50 @@ export default async function AdminDashboardWorkspace({
           { description: { contains: search, mode: "insensitive" } },
           { startTime: { contains: search, mode: "insensitive" } },
           { endTime: { contains: search, mode: "insensitive" } },
-          ...(academyIdsMatchingSearch.length > 0 ? [{ academyId: { in: academyIdsMatchingSearch } }] : []),
+          ...(academyIdsMatchingSearch.length > 0
+            ? [{ academyId: { in: academyIdsMatchingSearch } }]
+            : []),
         ],
       }
     : {};
-  const eventWhere: Prisma.EventWhereInput = { AND: [eventScopeWhere, { active: true }, eventFilterWhere] };
-  const filteredAcademyRecords = scopedAcademyRecords.filter((academy) =>
-    academyMatchesDashboardSearch(academy, search, academyVerificationSearch)
-    && (!elevatedAdmin || academyMatchesReminderFilter(academy, academy.claimReminders, reminderCooldownStart, academyReminderFilter)),
+  const eventWhere: Prisma.EventWhereInput = {
+    AND: [eventScopeWhere, { active: true }, eventFilterWhere],
+  };
+  const filteredAcademyRecords = scopedAcademyRecords.filter(
+    (academy) =>
+      academyMatchesDashboardSearch(
+        academy,
+        search,
+        academyVerificationSearch,
+      ) &&
+      (!elevatedAdmin ||
+        academyMatchesReminderFilter(
+          academy,
+          academy.claimReminders,
+          reminderCooldownStart,
+          academyReminderFilter,
+        )),
   );
   const platformAdminAcademyRecords = allAcademyRecords
     .filter((academy) => academyCreatedById(academy))
-    .filter((academy) => academyMatchesPlatformSearch(academy, platformAcademiesSearch));
+    .filter((academy) =>
+      academyMatchesPlatformSearch(academy, platformAcademiesSearch),
+    );
   const managedUsersResult = await managedUsersPagePromise;
   const managedUsersPage = managedUsersResult.page;
   const managedUsersError = managedUsersResult.error;
-  const currentManagedUser = managedUsersPage.users.find((user) => user.id === currentUser.id)
-    ?? await getManagedUser(currentUser, currentUser.id).then((result) => result.user).catch(() => null);
+  const currentManagedUser =
+    managedUsersPage.users.find((user) => user.id === currentUser.id) ??
+    (await getManagedUser(currentUser, currentUser.id)
+      .then((result) => result.user)
+      .catch(() => null));
   const currentUserWalletOwner = {
     email: currentManagedUser?.email ?? currentUser.email,
     id: currentUser.id,
-    name: currentManagedUser?.name ?? currentManagedUser?.email ?? currentUser.email,
+    name:
+      currentManagedUser?.name ??
+      currentManagedUser?.email ??
+      currentUser.email,
   };
 
   const [
@@ -701,33 +1224,94 @@ export default async function AdminDashboardWorkspace({
   ] = await Promise.all([
     Promise.resolve(filteredAcademyRecords.length),
     Promise.resolve(scopedAcademyRecords.length),
-    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.VERIFIED).length),
-    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.PENDING).length),
-    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.members.length > 0).length),
+    Promise.resolve(
+      scopedAcademyRecords.filter(
+        (academy) =>
+          academy.verificationStatus === AcademyVerificationStatus.VERIFIED,
+      ).length,
+    ),
+    Promise.resolve(
+      scopedAcademyRecords.filter(
+        (academy) =>
+          academy.verificationStatus === AcademyVerificationStatus.PENDING,
+      ).length,
+    ),
+    Promise.resolve(
+      scopedAcademyRecords.filter((academy) => academy.members.length > 0)
+        .length,
+    ),
     Promise.resolve(managedUsersPage.totalItems),
     prisma.event.count({ where: eventWhere }),
     Promise.resolve(managedUsersPage.totalItems),
-    superAdmin ? Promise.resolve(platformAdminAcademyRecords.length) : Promise.resolve(0),
-    superAdmin ? Promise.resolve(platformAdminAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.VERIFIED).length) : Promise.resolve(0),
-    superAdmin ? Promise.resolve(platformAdminAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.PENDING).length) : Promise.resolve(0),
+    superAdmin
+      ? Promise.resolve(platformAdminAcademyRecords.length)
+      : Promise.resolve(0),
+    superAdmin
+      ? Promise.resolve(
+          platformAdminAcademyRecords.filter(
+            (academy) =>
+              academy.verificationStatus === AcademyVerificationStatus.VERIFIED,
+          ).length,
+        )
+      : Promise.resolve(0),
+    superAdmin
+      ? Promise.resolve(
+          platformAdminAcademyRecords.filter(
+            (academy) =>
+              academy.verificationStatus === AcademyVerificationStatus.PENDING,
+          ).length,
+        )
+      : Promise.resolve(0),
     Promise.resolve(0),
-    superAdmin ? Promise.resolve(platformAdminAcademyRecords.filter((academy) => academy.createdAt >= monthStart).length) : Promise.resolve(0),
-    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.createdAt >= monthStart).length),
-    Promise.resolve(scopedAcademyRecords.filter((academy) => academy.verificationStatus === AcademyVerificationStatus.VERIFIED && academy.updatedAt >= monthStart).length),
+    superAdmin
+      ? Promise.resolve(
+          platformAdminAcademyRecords.filter(
+            (academy) => academy.createdAt >= monthStart,
+          ).length,
+        )
+      : Promise.resolve(0),
+    Promise.resolve(
+      scopedAcademyRecords.filter((academy) => academy.createdAt >= monthStart)
+        .length,
+    ),
+    Promise.resolve(
+      scopedAcademyRecords.filter(
+        (academy) =>
+          academy.verificationStatus === AcademyVerificationStatus.VERIFIED &&
+          academy.updatedAt >= monthStart,
+      ).length,
+    ),
     Promise.resolve(0),
-    prisma.event.count({ where: { ...eventWhere, createdAt: { gte: weekStart } } }),
-    elevatedAdmin ? getEmailQueueOperationsSummary() : Promise.resolve(emptyEmailOperationsSummary()),
-    superAdmin ? getFounderAnalyticsReport(30, currentUser) : Promise.resolve(null),
+    prisma.event.count({
+      where: { ...eventWhere, createdAt: { gte: weekStart } },
+    }),
+    elevatedAdmin
+      ? getEmailQueueOperationsSummary()
+      : Promise.resolve(emptyEmailOperationsSummary()),
+    superAdmin
+      ? getFounderAnalyticsReport(30, currentUser)
+      : Promise.resolve(null),
   ]);
 
   const currentAcademyPage = clampPage(academyPage, academyCount);
   const currentEventPage = clampPage(eventPage, activeEventCount);
   const currentUserPage = managedUsersPage.page;
   const currentUserPageSize = managedUsersPage.pageSize || usersPageSize;
-  const currentPlatformAcademyPage = clampPlatformAcademyPage(platformAcademyPage, platformAdminAcademyCount);
-  const claimResult = panel === "academy-claims"
-    ? await fetchAcademyClaims(claimApiParams({ page: claimPage, pageSize: claimPageSize, search, status: claimStatus }))
-    : null;
+  const currentPlatformAcademyPage = clampPlatformAcademyPage(
+    platformAcademyPage,
+    platformAdminAcademyCount,
+  );
+  const claimResult =
+    panel === "academy-claims"
+      ? await fetchAcademyClaims(
+          claimApiParams({
+            page: claimPage,
+            pageSize: claimPageSize,
+            search,
+            status: claimStatus,
+          }),
+        )
+      : null;
 
   const [
     academies,
@@ -756,136 +1340,296 @@ export default async function AdminDashboardWorkspace({
     organisationOptions,
     applicationOptions,
   ] = await Promise.all([
-    Promise.resolve(filteredAcademyRecords.slice((currentAcademyPage - 1) * pageSize, currentAcademyPage * pageSize)),
-    superAdmin
-      ? Promise.resolve(platformAdminAcademyRecords.slice((currentPlatformAcademyPage - 1) * platformAdminAcademyPageSize, currentPlatformAcademyPage * platformAdminAcademyPageSize))
-      : Promise.resolve([]),
-    prisma.event.findMany({
-      skip: (currentEventPage - 1) * pageSize,
-      take: pageSize,
-      where: eventWhere,
-      orderBy: { eventDate: "asc" },
-    }).then((rows) =>
-      rows
-        .map((event) => {
-          const academy = academyForEvent(scopedAcademyRecords, event.academyId);
-          return academy ? { ...event, academy } : null;
-        })
-        .filter((event): event is DashboardEventListItem => Boolean(event)),
+    Promise.resolve(
+      filteredAcademyRecords.slice(
+        (currentAcademyPage - 1) * pageSize,
+        currentAcademyPage * pageSize,
+      ),
     ),
-    enrichUsersWithAcademyNames(managedUsersPage.users.map((user) => ({
+    superAdmin
+      ? Promise.resolve(
+          platformAdminAcademyRecords.slice(
+            (currentPlatformAcademyPage - 1) * platformAdminAcademyPageSize,
+            currentPlatformAcademyPage * platformAdminAcademyPageSize,
+          ),
+        )
+      : Promise.resolve([]),
+    prisma.event
+      .findMany({
+        skip: (currentEventPage - 1) * pageSize,
+        take: pageSize,
+        where: eventWhere,
+        orderBy: { eventDate: "asc" },
+      })
+      .then((rows) =>
+        rows
+          .map((event) => {
+            const academy = academyForEvent(
+              scopedAcademyRecords,
+              event.academyId,
+            );
+            return academy ? { ...event, academy } : null;
+          })
+          .filter((event): event is DashboardEventListItem => Boolean(event)),
+      ),
+    enrichUsersWithAcademyNames(
+      managedUsersPage.users.map((user) => ({
         ...user,
         role: user.role as Role,
         status: user.status as UserStatus,
         createdAt: new Date(user.createdAt),
-      })), currentUser),
+      })),
+      currentUser,
+    ),
     prisma.adminAuditLog.findMany({
       where: elevatedAdminPrivacyAuditLogWhere({ role: currentUser.role }),
       take: 8,
       orderBy: { createdAt: "desc" },
     }),
     panel === "maps" ? getMapItems() : Promise.resolve([]),
-    Promise.resolve(scopedAcademyRecords.slice().sort((left, right) => left.name.localeCompare(right.name))),
+    Promise.resolve(
+      scopedAcademyRecords
+        .slice()
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    ),
     Promise.resolve([]),
-    elevatedAdmin ? getPlatformAdminActivitySummary(currentUser.id) : Promise.resolve(null),
+    elevatedAdmin
+      ? getPlatformAdminActivitySummary(currentUser.id)
+      : Promise.resolve(null),
     academyAdmin && currentUser.academyId
       ? (async () => {
-          const academy = scopedAcademyRecords.find((item) => item.id === currentUser.academyId);
+          const academy = scopedAcademyRecords.find(
+            (item) => item.id === currentUser.academyId,
+          );
           if (!academy) return null;
-          const events = await prisma.event.findMany({ where: { academyId: academy.id, active: true }, orderBy: { eventDate: "asc" } });
+          const events = await prisma.event.findMany({
+            where: { academyId: academy.id, active: true },
+            orderBy: { eventDate: "asc" },
+          });
           return { ...academy, events };
         })()
       : Promise.resolve(null),
-    panel === "payments" ? getDashboardPayments(paymentPage, currentUser.accessToken, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ pagination: emptyServicePagination(paymentsPageSize), payments: [] }),
+    panel === "payments"
+      ? getDashboardPayments(
+          paymentPage,
+          currentUser.accessToken,
+          academyAdmin ? currentUser.academyId : null,
+        )
+      : Promise.resolve({
+          pagination: emptyServicePagination(paymentsPageSize),
+          payments: [],
+        }),
     panel === "payments"
       ? getDashboardPaymentAccountSetting({
           accessToken: currentUser.accessToken,
           actorUserId: currentUser.id,
-          fallback: academyAdmin ? null : rollfindersPlatformPaymentAccountStatus(),
+          fallback: academyAdmin
+            ? null
+            : rollfindersPlatformPaymentAccountStatus(),
           organisationId: currentUser.academyId,
           ownerId: paymentAccountOwner.ownerId,
           ownerType: paymentAccountOwner.ownerType,
         })
       : Promise.resolve(null),
-    panel === "payments" ? getPaymentPlatformSettings({ accessToken: currentUser.accessToken, actorUserId: currentUser.id, providerId: pricingProviderId }) : Promise.resolve(null),
-    panel === "payments" ? resolvePaymentMetricVisibility(currentUser) : Promise.resolve({ grossPaid: false, platformRevenue: false, refunds: false, successfulPayments: false }),
-    panel === "bookings" ? getDashboardBookings(bookingPage, currentUser.id, currentUser.accessToken, academyAdmin ? currentUser.academyId : null) : Promise.resolve({ bookings: [], pagination: emptyServicePagination(bookingsPageSize) }),
+    panel === "payments"
+      ? getPaymentPlatformSettings({
+          accessToken: currentUser.accessToken,
+          actorUserId: currentUser.id,
+          providerId: pricingProviderId,
+        })
+      : Promise.resolve(null),
+    panel === "payments"
+      ? resolvePaymentMetricVisibility(currentUser)
+      : Promise.resolve({
+          grossPaid: false,
+          platformRevenue: false,
+          refunds: false,
+          successfulPayments: false,
+        }),
+    panel === "bookings"
+      ? getDashboardBookings(
+          bookingPage,
+          currentUser.id,
+          currentUser.accessToken,
+          academyAdmin ? currentUser.academyId : null,
+        )
+      : Promise.resolve({
+          bookings: [],
+          pagination: emptyServicePagination(bookingsPageSize),
+        }),
     panel === "wallet"
       ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
-      : Promise.resolve<DashboardWalletsResult>({ balances: [], linkedAccounts: [], pagination: { count: 0, has_more: false, limit: walletPageSize, offset: 0, total: 0 }, transactions: [], wallets: [] }),
-    panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction"
-      ? authorize(currentUser, "wallet.transfer", { applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders" })
+      : Promise.resolve<DashboardWalletsResult>({
+          balances: [],
+          linkedAccounts: [],
+          pagination: {
+            count: 0,
+            has_more: false,
+            limit: walletPageSize,
+            offset: 0,
+            total: 0,
+          },
+          transactions: [],
+          wallets: [],
+        }),
+    panel === "wallet" &&
+    walletView === "transactions" &&
+    walletDialog === "create-transaction"
+      ? authorize(currentUser, "wallet.transfer", {
+          applicationId:
+            process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+        })
       : Promise.resolve(false),
-    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationRolesPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ roles: [], pagination: emptyAuthorisationPagination(pageSize) }),
-    panel === "users" && usersView === "roles" ? listUserAuthorisationRoles(currentUser.id, currentUser) : Promise.resolve([]),
-    panel === "users" ? listEffectiveUserPermissions(currentUser.id, {
-      organisationId: currentUser.academyId ?? undefined,
-      applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
-    }, currentUser) : Promise.resolve([]),
-    panel === "users" && (usersView === "roles" || usersView === "permissions") ? listAuthorisationPermissionsPage(currentUser, { limit: pageSize, offset: 0 }) : Promise.resolve({ permissions: [], pagination: emptyAuthorisationPagination(pageSize) }),
-    panel === "users" && usersView === "permissions" ? listAuthorisationResources(currentUser) : Promise.resolve([]),
-    panel === "users" ? listUserPermissionAssignments(currentUser.id, currentUser) : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listOrganisations(currentUser).catch(() => []) : Promise.resolve([]),
-    panel === "users" && usersView === "permissions" ? listOrganisationApplications(currentUser).catch(() => []) : Promise.resolve([]),
+    panel === "users" && (usersView === "roles" || usersView === "permissions")
+      ? listAuthorisationRolesPage(currentUser, { limit: pageSize, offset: 0 })
+      : Promise.resolve({
+          roles: [],
+          pagination: emptyAuthorisationPagination(pageSize),
+        }),
+    panel === "users" && usersView === "roles"
+      ? listUserAuthorisationRoles(currentUser.id, currentUser)
+      : Promise.resolve([]),
+    panel === "users"
+      ? listEffectiveUserPermissions(
+          currentUser.id,
+          {
+            organisationId: currentUser.academyId ?? undefined,
+            applicationId:
+              process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+          },
+          currentUser,
+        )
+      : Promise.resolve([]),
+    panel === "users" && (usersView === "roles" || usersView === "permissions")
+      ? listAuthorisationPermissionsPage(currentUser, {
+          limit: pageSize,
+          offset: 0,
+        })
+      : Promise.resolve({
+          permissions: [],
+          pagination: emptyAuthorisationPagination(pageSize),
+        }),
+    panel === "users" && usersView === "permissions"
+      ? listAuthorisationResources(currentUser)
+      : Promise.resolve([]),
+    panel === "users"
+      ? listUserPermissionAssignments(currentUser.id, currentUser)
+      : Promise.resolve([]),
+    panel === "users" && usersView === "permissions"
+      ? listOrganisations(currentUser).catch(() => [])
+      : Promise.resolve([]),
+    panel === "users" && usersView === "permissions"
+      ? listOrganisationApplications(currentUser).catch(() => [])
+      : Promise.resolve([]),
   ]);
   const authorisationRoles = authorisationRolesPage.roles;
   const paymentAccountSetting = paymentAccountResult?.setting ?? null;
-  const authorisationPermissionCatalog = authorisationPermissionPage.permissions;
-  const rolePermissionAssociations = panel === "users" && (usersView === "roles" || usersView === "permissions")
-    ? await Promise.all(authorisationRoles.map(async (role) => ({
-        role,
-        permissions: await listAuthorisationRolePermissions(role.id, currentUser),
-      })))
-    : [];
-  const selectedDialogUser = panel === "users" && userDialogId && (dialog === "view-user" || dialog === "edit-user")
-    ? users.find((user) => user.id === userDialogId)
-      ?? await getManagedUser(currentUser, userDialogId)
-        .then(({ user }) => managedUserToUserRow(user))
-        .catch(() => undefined)
-    : undefined;
-  const selectedDialogEvent = panel === "open-mats" && dialog === "view-event" && eventDialogId
-    ? await prisma.event.findFirst({
-        where: { AND: [eventScopeWhere, { id: eventDialogId, active: true }] },
-        include: { activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } },
-      }).then((event) => {
-        if (!event) return null;
-        const academy = academyForEvent(scopedAcademyRecords, event.academyId);
-        return academy ? { ...event, academy } : null;
-      })
-    : null;
-  const selectedWalletTransactionForDialog = panel === "wallet" && walletView === "transactions" && walletDialog === "transaction-details"
-    ? selectedWalletTransaction(walletResult.transactions, params)
-    : null;
-  const selectedWalletForDialog = panel === "wallet" && walletView === "dashboard" && (walletDialog === "wallet-details" || walletDialog === "disconnect-linked-account")
-    ? selectedWallet(walletResult.wallets, params)
-    : null;
+  const authorisationPermissionCatalog =
+    authorisationPermissionPage.permissions;
+  const rolePermissionAssociations =
+    panel === "users" && (usersView === "roles" || usersView === "permissions")
+      ? await Promise.all(
+          authorisationRoles.map(async (role) => ({
+            role,
+            permissions: await listAuthorisationRolePermissions(
+              role.id,
+              currentUser,
+            ),
+          })),
+        )
+      : [];
+  const selectedDialogUser =
+    panel === "users" &&
+    userDialogId &&
+    (dialog === "view-user" || dialog === "edit-user")
+      ? (users.find((user) => user.id === userDialogId) ??
+        (await getManagedUser(currentUser, userDialogId)
+          .then(({ user }) => managedUserToUserRow(user))
+          .catch(() => undefined)))
+      : undefined;
+  const selectedDialogEvent =
+    panel === "open-mats" && dialog === "view-event" && eventDialogId
+      ? await prisma.event
+          .findFirst({
+            where: {
+              AND: [eventScopeWhere, { id: eventDialogId, active: true }],
+            },
+            include: {
+              activities: {
+                orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }],
+              },
+            },
+          })
+          .then((event) => {
+            if (!event) return null;
+            const academy = academyForEvent(
+              scopedAcademyRecords,
+              event.academyId,
+            );
+            return academy ? { ...event, academy } : null;
+          })
+      : null;
+  const selectedWalletTransactionForDialog =
+    panel === "wallet" &&
+    walletView === "transactions" &&
+    walletDialog === "transaction-details"
+      ? selectedWalletTransaction(walletResult.transactions, params)
+      : null;
+  const selectedWalletForDialog =
+    panel === "wallet" &&
+    walletView === "dashboard" &&
+    (walletDialog === "wallet-details" ||
+      walletDialog === "disconnect-linked-account")
+      ? selectedWallet(walletResult.wallets, params)
+      : null;
   const selectedWalletLinkedAccount = selectedWalletForDialog
-    ? walletResult.linkedAccounts.find((account) => account.walletId === selectedWalletForDialog.id && account.status !== "DISABLED")
+    ? walletResult.linkedAccounts.find(
+        (account) =>
+          account.walletId === selectedWalletForDialog.id &&
+          account.status !== "DISABLED",
+      )
     : undefined;
-  const selectedDialogAcademy = panel === "academies" && (dialog === "view-academy" || dialog === "edit-academy") && academyDialogId
-    ? await (async () => {
-        const academy = scopedAcademyRecords.find((item) => item.id === academyDialogId);
-        if (!academy) return null;
-        const eventWhere = { academyId: academy.id, active: true };
-        const eventsTotalCount = await prisma.event.count({ where: eventWhere });
-        const eventPage = clampPage(academyEventsPage, eventsTotalCount, academyDialogEventPageSize);
-        const events = await prisma.event.findMany({
-          where: eventWhere,
-          orderBy: { eventDate: "asc" },
-          skip: (eventPage - 1) * academyDialogEventPageSize,
-          take: academyDialogEventPageSize,
-        });
-        return { ...academy, events, eventsTotalCount };
-      })()
-    : null;
-  const cloneSourceEvent = panel === "open-mats" && dialog === "create-course" && cloneFromEventId
-    ? await prisma.event.findFirst({
-        where: { AND: [eventScopeWhere, { id: cloneFromEventId }] },
-        include: { activities: { orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }] } },
-      })
-    : null;
+  const selectedDialogAcademy =
+    panel === "academies" &&
+    (dialog === "view-academy" || dialog === "edit-academy") &&
+    academyDialogId
+      ? await (async () => {
+          const academy = scopedAcademyRecords.find(
+            (item) => item.id === academyDialogId,
+          );
+          if (!academy) return null;
+          const eventWhere = { academyId: academy.id, active: true };
+          const eventsTotalCount = await prisma.event.count({
+            where: eventWhere,
+          });
+          const eventPage = clampPage(
+            academyEventsPage,
+            eventsTotalCount,
+            academyDialogEventPageSize,
+          );
+          const events = await prisma.event.findMany({
+            where: eventWhere,
+            orderBy: { eventDate: "asc" },
+            skip: (eventPage - 1) * academyDialogEventPageSize,
+            take: academyDialogEventPageSize,
+          });
+          return { ...academy, events, eventsTotalCount };
+        })()
+      : null;
+  const cloneSourceEvent =
+    panel === "open-mats" && dialog === "create-course" && cloneFromEventId
+      ? await prisma.event.findFirst({
+          where: { AND: [eventScopeWhere, { id: cloneFromEventId }] },
+          include: {
+            activities: {
+              orderBy: [{ startTime: "asc" }, { sortOrder: "asc" }],
+            },
+          },
+        })
+      : null;
   const selectedReminderAcademy = academyDialogId
-    ? scopedAcademyRecords.find((academy) => academy.id === academyDialogId) ?? null
+    ? (scopedAcademyRecords.find((academy) => academy.id === academyDialogId) ??
+      null)
     : null;
   const selectedBulkReminderAcademies = selectedAcademyIds.length
     ? scopedAcademyRecords
@@ -893,75 +1637,248 @@ export default async function AdminDashboardWorkspace({
         .sort((left, right) => left.name.localeCompare(right.name))
     : [];
   const adminNavigationItems: SidePanelItem[] = [
-    { active: !firstParam(params.panel), href: "/dashboard", icon: "dashboard", label: "Dashboard" },
+    {
+      active: !firstParam(params.panel),
+      href: "/dashboard",
+      icon: "dashboard",
+      label: "Dashboard",
+    },
     {
       active: panel === "academies",
       href: "/dashboard/academies",
       icon: "academies",
       label: academyAdmin ? "Academy Profile" : "Manage Academies",
     },
-    { active: panel === "open-mats", href: "/dashboard/courses", icon: "events", label: openMatSessionsLabel },
-    { active: panel === "bookings", href: "/dashboard/bookings", icon: "bookings", label: "Bookings" },
-    { active: panel === "payments", href: "/dashboard/payment", icon: "payments", label: "Payments" },
-    { active: panel === "users", href: "/dashboard/users", icon: "users", label: "Manage Users" },
+    {
+      active: panel === "open-mats",
+      href: "/dashboard/courses",
+      icon: "events",
+      label: openMatSessionsLabel,
+    },
+    {
+      active: panel === "bookings",
+      href: "/dashboard/bookings",
+      icon: "bookings",
+      label: "Bookings",
+    },
+    {
+      active: panel === "payments",
+      href: "/dashboard/payment",
+      icon: "payments",
+      label: "Payments",
+    },
+    {
+      active: panel === "users",
+      href: "/dashboard/users",
+      icon: "users",
+      label: "Manage Users",
+    },
     ...(superAdmin
       ? [
-          { active: panel === "analytics", href: "/dashboard/analytics", icon: "dashboard", label: "Analytics" } satisfies SidePanelItem,
-          { active: panel === "platform-admin-academies", href: "/dashboard/academy-review", icon: "academies", label: "Academy Review" } satisfies SidePanelItem,
-          { active: panel === "subscriptions", href: "/dashboard/subscriptions", icon: "payments", label: "Subscriptions" } satisfies SidePanelItem,
-          { active: panel === "wallet", href: "/dashboard/wallet", icon: "wallet", label: "Wallet" } satisfies SidePanelItem,
+          {
+            active: panel === "analytics",
+            href: "/dashboard/analytics",
+            icon: "dashboard",
+            label: "Analytics",
+          } satisfies SidePanelItem,
+          {
+            active: panel === "platform-admin-academies",
+            href: "/dashboard/academy-review",
+            icon: "academies",
+            label: "Academy Review",
+          } satisfies SidePanelItem,
+          {
+            active: panel === "subscriptions",
+            href: "/dashboard/subscriptions",
+            icon: "payments",
+            label: "Subscriptions",
+          } satisfies SidePanelItem,
+          {
+            active: panel === "wallet",
+            href: "/dashboard/wallet",
+            icon: "wallet",
+            label: "Wallet",
+          } satisfies SidePanelItem,
         ]
       : []),
     ...(elevatedAdmin
       ? [
-          { active: panel === "academy-claims", href: "/dashboard/academy-claims", icon: "claims", label: "Academy Claims" } satisfies SidePanelItem,
-          { active: panel === "maps", href: "/dashboard?panel=maps", icon: "map", label: "Map" } satisfies SidePanelItem,
-          { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
+          {
+            active: panel === "academy-claims",
+            href: "/dashboard/academy-claims",
+            icon: "claims",
+            label: "Academy Claims",
+          } satisfies SidePanelItem,
+          {
+            active: panel === "maps",
+            href: "/dashboard?panel=maps",
+            icon: "map",
+            label: "Map",
+          } satisfies SidePanelItem,
+          {
+            active: panel === "settings",
+            href: "/dashboard?panel=settings",
+            icon: "settings",
+            label: "Settings",
+          } satisfies SidePanelItem,
         ]
       : []),
     ...(academyAdmin
       ? [
-          { active: panel === "settings", href: "/dashboard?panel=settings", icon: "settings", label: "Settings" } satisfies SidePanelItem,
+          {
+            active: panel === "settings",
+            href: "/dashboard?panel=settings",
+            icon: "settings",
+            label: "Settings",
+          } satisfies SidePanelItem,
         ]
       : []),
   ];
-  const mapNavigationItem = adminNavigationItems.find((item) => item.href === "/dashboard?panel=maps");
-  const settingsNavigationItem = adminNavigationItems.find((item) => item.href === "/dashboard?panel=settings");
+  const mapNavigationItem = adminNavigationItems.find(
+    (item) => item.href === "/dashboard?panel=maps",
+  );
+  const settingsNavigationItem = adminNavigationItems.find(
+    (item) => item.href === "/dashboard?panel=settings",
+  );
   const paymentNavigationSections = [
-    { href: "/dashboard/payment?paymentsView=overview", label: "Overview", active: panel === "payments" && paymentsView === "overview" },
-    { href: "/dashboard/payment?paymentsView=transactions", label: "Transactions", active: panel === "payments" && paymentsView === "transactions" },
-    { href: "/dashboard/payment?paymentsView=earnings", label: "Earnings", active: panel === "payments" && paymentsView === "earnings" },
-    { href: "/dashboard/payment?paymentsView=refunds", label: "Refunds", active: panel === "payments" && paymentsView === "refunds" },
-    { href: "/dashboard/payment?paymentsView=payouts", label: "Payouts", active: panel === "payments" && paymentsView === "payouts" },
+    {
+      href: "/dashboard/payment?paymentsView=overview",
+      label: "Overview",
+      active: panel === "payments" && paymentsView === "overview",
+    },
+    {
+      href: "/dashboard/payment?paymentsView=transactions",
+      label: "Transactions",
+      active: panel === "payments" && paymentsView === "transactions",
+    },
+    {
+      href: "/dashboard/payment?paymentsView=earnings",
+      label: "Earnings",
+      active: panel === "payments" && paymentsView === "earnings",
+    },
+    {
+      href: "/dashboard/payment?paymentsView=refunds",
+      label: "Refunds",
+      active: panel === "payments" && paymentsView === "refunds",
+    },
+    {
+      href: "/dashboard/payment?paymentsView=payouts",
+      label: "Payouts",
+      active: panel === "payments" && paymentsView === "payouts",
+    },
   ];
   const walletNavigationSections = [
-    { href: "/dashboard/wallet", icon: "dashboard", label: "Dashboard", active: panel === "wallet" && walletView === "dashboard" },
-    { href: "/dashboard/wallet?walletView=transactions", icon: "transactions", label: "Transactions", active: panel === "wallet" && walletView === "transactions" },
+    {
+      href: "/dashboard/wallet",
+      icon: "dashboard",
+      label: "Dashboard",
+      active: panel === "wallet" && walletView === "dashboard",
+    },
+    {
+      href: "/dashboard/wallet?walletView=transactions",
+      icon: "transactions",
+      label: "Transactions",
+      active: panel === "wallet" && walletView === "transactions",
+    },
   ] satisfies SidePanelItem["children"];
   const userNavigationSections = [
-    { href: dashboardUsersHref(params, { usersView: "roles", usersPage: undefined }), icon: "roles", label: "Roles", active: panel === "users" && usersView === "roles" },
-    { href: dashboardUsersHref(params, { usersView: "permissions", usersPage: undefined }), icon: "permissions", label: "Permissions", active: panel === "users" && usersView === "permissions" },
-    { href: dashboardUsersHref(params, { usersView: "access-keys", usersPage: undefined }), icon: "accessKeys", label: "Access Keys", active: panel === "users" && usersView === "access-keys" },
-    { href: dashboardUsersHref(params, { usersView: "mfa", usersPage: undefined }), icon: "mfa", label: "MFA", active: panel === "users" && usersView === "mfa" },
+    {
+      href: dashboardUsersHref(params, {
+        usersView: "roles",
+        usersPage: undefined,
+      }),
+      icon: "roles",
+      label: "Roles",
+      active: panel === "users" && usersView === "roles",
+    },
+    {
+      href: dashboardUsersHref(params, {
+        usersView: "permissions",
+        usersPage: undefined,
+      }),
+      icon: "permissions",
+      label: "Permissions",
+      active: panel === "users" && usersView === "permissions",
+    },
+    {
+      href: dashboardUsersHref(params, {
+        usersView: "access-keys",
+        usersPage: undefined,
+      }),
+      icon: "accessKeys",
+      label: "Access Keys",
+      active: panel === "users" && usersView === "access-keys",
+    },
+    {
+      href: dashboardUsersHref(params, {
+        usersView: "mfa",
+        usersPage: undefined,
+      }),
+      icon: "mfa",
+      label: "MFA",
+      active: panel === "users" && usersView === "mfa",
+    },
   ] satisfies SidePanelItem["children"];
   const settingsNavigationSections = [
-    { href: "/dashboard?panel=settings&settingsAction=edit-profile", icon: "users", label: "Profile", active: panel === "settings" && effectiveSettingsAction === "edit-profile" },
-    { href: "/dashboard?panel=settings&settingsAction=change-password", icon: "mfa", label: "Change Password", active: panel === "settings" && effectiveSettingsAction === "change-password" },
+    {
+      href: "/dashboard?panel=settings&settingsAction=edit-profile",
+      icon: "users",
+      label: "Profile",
+      active:
+        panel === "settings" && effectiveSettingsAction === "edit-profile",
+    },
+    {
+      href: "/dashboard?panel=settings&settingsAction=change-password",
+      icon: "mfa",
+      label: "Change Password",
+      active:
+        panel === "settings" && effectiveSettingsAction === "change-password",
+    },
     ...(elevatedAdmin
-      ? [
-          { href: "/dashboard?panel=settings&settingsAction=email-options", icon: "settings", label: "Email Options", active: panel === "settings" && effectiveSettingsAction === "email-options" },
-          { href: "/dashboard?panel=settings&settingsAction=recent-audits", icon: "permissions", label: "Audits", active: panel === "settings" && effectiveSettingsAction === "recent-audits" },
-        ] satisfies SidePanelItem["children"]
+      ? ([
+          {
+            href: "/dashboard?panel=settings&settingsAction=email-options",
+            icon: "settings",
+            label: "Email Options",
+            active:
+              panel === "settings" &&
+              effectiveSettingsAction === "email-options",
+          },
+          {
+            href: "/dashboard?panel=settings&settingsAction=recent-audits",
+            icon: "permissions",
+            label: "Audits",
+            active:
+              panel === "settings" &&
+              effectiveSettingsAction === "recent-audits",
+          },
+        ] satisfies SidePanelItem["children"])
       : []),
     ...(elevatedAdmin
-      ? [
-          { href: "/dashboard?panel=settings&settingsAction=weekly-activity", icon: "dashboard", label: "Activities Summary", active: panel === "settings" && effectiveSettingsAction === "weekly-activity" },
-        ] satisfies SidePanelItem["children"]
+      ? ([
+          {
+            href: "/dashboard?panel=settings&settingsAction=weekly-activity",
+            icon: "dashboard",
+            label: "Activities Summary",
+            active:
+              panel === "settings" &&
+              effectiveSettingsAction === "weekly-activity",
+          },
+        ] satisfies SidePanelItem["children"])
       : []),
   ] satisfies SidePanelItem["children"];
   const dashboardServiceNavigationItems = adminNavigationItems
-    .filter((item) => item.href !== "/dashboard" && item.href !== "/dashboard?panel=maps" && item.href !== "/dashboard?panel=settings")
-    .map((item) => item.href === "/dashboard/academies" ? { ...item, label: "Academies" } : item);
+    .filter(
+      (item) =>
+        item.href !== "/dashboard" &&
+        item.href !== "/dashboard?panel=maps" &&
+        item.href !== "/dashboard?panel=settings",
+    )
+    .map((item) =>
+      item.href === "/dashboard/academies"
+        ? { ...item, label: "Academies" }
+        : item,
+    );
   const dashboardLanding = !firstParam(params.panel);
   const dashboardGridItems: GridDashboardItem[] = adminNavigationItems
     .filter((item) => item.href !== "/dashboard")
@@ -971,17 +1888,31 @@ export default async function AdminDashboardWorkspace({
       icon: item.icon,
       label: item.href === "/dashboard/academies" ? "Academies" : item.label,
     }));
-  const hideSharedDashboardSections = ["academies", "open-mats", "bookings", "payments", "users", "analytics", "wallet"].includes(panel);
-  const activeServiceNavigationItem = adminNavigationItems.find((item) => item.active) ?? dashboardServiceNavigationItems[0];
-  const activeServicePanelNavigationItem = activeServiceNavigationItem?.href === "/dashboard/payment"
-    ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
-    : activeServiceNavigationItem?.href === "/dashboard/wallet"
-      ? { ...activeServiceNavigationItem, children: walletNavigationSections }
-    : activeServiceNavigationItem?.href === "/dashboard/users"
-      ? { ...activeServiceNavigationItem, children: userNavigationSections }
-      : activeServiceNavigationItem?.href === "/dashboard?panel=settings"
-        ? { ...activeServiceNavigationItem, children: settingsNavigationSections }
-    : activeServiceNavigationItem;
+  const hideSharedDashboardSections = [
+    "academies",
+    "open-mats",
+    "bookings",
+    "payments",
+    "users",
+    "analytics",
+    "wallet",
+  ].includes(panel);
+  const activeServiceNavigationItem =
+    adminNavigationItems.find((item) => item.active) ??
+    dashboardServiceNavigationItems[0];
+  const activeServicePanelNavigationItem =
+    activeServiceNavigationItem?.href === "/dashboard/payment"
+      ? { ...activeServiceNavigationItem, children: paymentNavigationSections }
+      : activeServiceNavigationItem?.href === "/dashboard/wallet"
+        ? { ...activeServiceNavigationItem, children: walletNavigationSections }
+        : activeServiceNavigationItem?.href === "/dashboard/users"
+          ? { ...activeServiceNavigationItem, children: userNavigationSections }
+          : activeServiceNavigationItem?.href === "/dashboard?panel=settings"
+            ? {
+                ...activeServiceNavigationItem,
+                children: settingsNavigationSections,
+              }
+            : activeServiceNavigationItem;
   const serviceNavigationItems: SidePanelItem[] = [
     ...(activeServicePanelNavigationItem &&
     activeServicePanelNavigationItem.href !== mapNavigationItem?.href
@@ -990,7 +1921,9 @@ export default async function AdminDashboardWorkspace({
   ];
   const sidePanelFooterNavigationItems: SidePanelItem[] = [
     ...(mapNavigationItem ? [mapNavigationItem] : []),
-    ...(settingsNavigationItem && panel !== "settings" ? [settingsNavigationItem] : []),
+    ...(settingsNavigationItem && panel !== "settings"
+      ? [settingsNavigationItem]
+      : []),
   ];
   const statCards: StatsPanelItem[] = academyAdmin
     ? [
@@ -1005,7 +1938,10 @@ export default async function AdminDashboardWorkspace({
         {
           iconTone: "violet",
           icon: <CalendarDays size={34} aria-hidden />,
-          indicator: { label: "created this week", value: activeEventCountThisWeek },
+          indicator: {
+            label: "created this week",
+            value: activeEventCountThisWeek,
+          },
           id: "academy-open-mats-sessions",
           label: openMatSessionsLabel,
           value: activeEventCount,
@@ -1015,7 +1951,10 @@ export default async function AdminDashboardWorkspace({
         {
           iconTone: "teal",
           icon: <Building2 size={34} aria-hidden />,
-          indicator: { label: "new this month", value: newAcademyCountThisMonth },
+          indicator: {
+            label: "new this month",
+            value: newAcademyCountThisMonth,
+          },
           id: "total-academies",
           label: "Total Academies",
           value: totalAcademyCount,
@@ -1023,7 +1962,10 @@ export default async function AdminDashboardWorkspace({
         {
           iconTone: "teal",
           icon: <ShieldCheck size={34} aria-hidden />,
-          indicator: { label: "verified this month", value: verifiedAcademyCountThisMonth },
+          indicator: {
+            label: "verified this month",
+            value: verifiedAcademyCountThisMonth,
+          },
           id: "verified-academies",
           label: "Verified Academies",
           value: verifiedAcademyCount,
@@ -1031,7 +1973,10 @@ export default async function AdminDashboardWorkspace({
         {
           iconTone: "orange",
           icon: <CalendarDays size={34} aria-hidden />,
-          indicator: { label: "pending review", tone: pendingAcademyCount > 0 ? "warning" : "neutral" },
+          indicator: {
+            label: "pending review",
+            tone: pendingAcademyCount > 0 ? "warning" : "neutral",
+          },
           id: "pending-verification",
           label: "Pending Verification",
           value: pendingAcademyCount,
@@ -1047,7 +1992,10 @@ export default async function AdminDashboardWorkspace({
         {
           iconTone: "violet",
           icon: <CalendarDays size={34} aria-hidden />,
-          indicator: { label: "created this week", value: activeEventCountThisWeek },
+          indicator: {
+            label: "created this week",
+            value: activeEventCountThisWeek,
+          },
           id: "open-mats",
           label: "Courses/Events",
           value: activeEventCount,
@@ -1058,7 +2006,10 @@ export default async function AdminDashboardWorkspace({
       icon: <Building2 size={34} aria-hidden />,
       iconTone: "teal",
       id: "platform-admin-academies-total",
-      indicator: { label: "new this month", value: newPlatformAdminAcademyCountThisMonth },
+      indicator: {
+        label: "new this month",
+        value: newPlatformAdminAcademyCountThisMonth,
+      },
       label: "Platform Admin-Created Academies",
       value: platformAdminAcademyCount,
     },
@@ -1074,7 +2025,10 @@ export default async function AdminDashboardWorkspace({
       icon: <CalendarDays size={34} aria-hidden />,
       iconTone: "orange",
       id: "platform-admin-academies-pending",
-      indicator: { label: "pending review", tone: pendingPlatformAdminAcademyCount > 0 ? "warning" : "neutral" },
+      indicator: {
+        label: "pending review",
+        tone: pendingPlatformAdminAcademyCount > 0 ? "warning" : "neutral",
+      },
       label: "Pending Verification",
       value: pendingPlatformAdminAcademyCount,
     },
@@ -1098,7 +2052,9 @@ export default async function AdminDashboardWorkspace({
   const quickActionItems: QuickActionPanelItem[] = [
     {
       active: panel === "academies",
-      description: academyAdmin ? "View and manage your academy profile" : "Search, verify and manage academies",
+      description: academyAdmin
+        ? "View and manage your academy profile"
+        : "Search, verify and manage academies",
       href: "/dashboard/academies",
       icon: <Building2 size={24} aria-hidden />,
       id: "academies",
@@ -1110,7 +2066,8 @@ export default async function AdminDashboardWorkspace({
             ? [
                 {
                   active: panel === "analytics",
-                  description: "Review marketplace, visitor, profile, and commercial intent signals",
+                  description:
+                    "Review marketplace, visitor, profile, and commercial intent signals",
                   href: "/dashboard/analytics",
                   icon: <BarChart3 size={24} aria-hidden />,
                   id: "analytics",
@@ -1138,7 +2095,9 @@ export default async function AdminDashboardWorkspace({
       : []),
     {
       active: panel === "open-mats",
-      description: academyAdmin ? "Create and manage academy courses/events" : "Create, edit and manage courses/events",
+      description: academyAdmin
+        ? "Create and manage academy courses/events"
+        : "Create, edit and manage courses/events",
       href: "/dashboard/courses",
       icon: <CalendarDays size={24} aria-hidden />,
       id: "open-mats",
@@ -1146,7 +2105,9 @@ export default async function AdminDashboardWorkspace({
     },
     {
       active: panel === "bookings",
-      description: academyAdmin ? "Review bookings for your academy courses/events" : "Review course and event bookings",
+      description: academyAdmin
+        ? "Review bookings for your academy courses/events"
+        : "Review course and event bookings",
       href: "/dashboard/bookings",
       icon: <ClipboardCheck size={24} aria-hidden />,
       id: "bookings",
@@ -1154,7 +2115,9 @@ export default async function AdminDashboardWorkspace({
     },
     {
       active: panel === "payments",
-      description: academyAdmin ? "Review payments made to your academy courses/events" : "Review course and event payments",
+      description: academyAdmin
+        ? "Review payments made to your academy courses/events"
+        : "Review course and event payments",
       href: "/dashboard/payment",
       icon: <CreditCard size={24} aria-hidden />,
       id: "payments",
@@ -1162,7 +2125,9 @@ export default async function AdminDashboardWorkspace({
     },
     {
       active: panel === "users",
-      description: academyAdmin ? "Create and manage academy users" : "Create, edit and manage users",
+      description: academyAdmin
+        ? "Create and manage academy users"
+        : "Create, edit and manage users",
       href: "/dashboard/users",
       icon: <Users size={24} aria-hidden />,
       id: "users",
@@ -1188,7 +2153,9 @@ export default async function AdminDashboardWorkspace({
               accountEmail={account?.email ?? currentUser.email}
               accountName={account?.name ?? currentUser.email}
               accountRole={roleLabel(account?.role ?? currentUser.role)}
-              avatarLabel={initials(account?.name ?? account?.email ?? currentUser.email)}
+              avatarLabel={initials(
+                account?.name ?? account?.email ?? currentUser.email,
+              )}
               profileHref="/dashboard?panel=settings&settingsAction=edit-profile"
               settingsHref="/dashboard?panel=settings"
             />
@@ -1211,294 +2178,621 @@ export default async function AdminDashboardWorkspace({
         ) : panel === "maps" ? (
           <MapDashboardContent academies={mapItems} />
         ) : (
-        <section className={clsx("px-4 py-8 sm:px-8", dashboardLanding && "mx-auto w-full max-w-[112rem] py-8 lg:py-10")}>
-          <div className={clsx("flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between", dashboardLanding && "gap-6")}>
-            <div>
-              <h1 className={clsx("font-black leading-tight text-slate-950", dashboardLanding ? "text-3xl sm:text-4xl lg:text-5xl" : "text-3xl")}>{dashboardLanding ? "App Dashboard" : panel === "academies" ? "Academies" : panel === "open-mats" ? "Course/Events Dashboard" : panel === "bookings" ? "Bookings" : panel === "payments" ? "Payment Dashboard" : panel === "wallet" ? "Wallet Dashboard" : panel === "users" ? "Identity Access Management" : academyAdmin ? "Academy Admin Board" : "Dashboard"}</h1>
-              <p className={clsx("mt-2 max-w-3xl text-slate-600", dashboardLanding ? "text-base sm:text-lg" : "text-sm")}>{dashboardLanding ? "Open the services available to your account." : academyAdmin ? "Manage your assigned academy, users, and courses/events." : "Review platform health and manage operational records."}</p>
+          <section
+            className={clsx(
+              "px-4 py-8 sm:px-8",
+              dashboardLanding && "mx-auto w-full max-w-[112rem] py-8 lg:py-10",
+            )}
+          >
+            <div
+              className={clsx(
+                "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+                dashboardLanding && "gap-6",
+              )}
+            >
+              <div>
+                <h1
+                  className={clsx(
+                    "font-black leading-tight text-slate-950",
+                    dashboardLanding
+                      ? "text-3xl sm:text-4xl lg:text-5xl"
+                      : "text-3xl",
+                  )}
+                >
+                  {dashboardLanding
+                    ? "App Dashboard"
+                    : panel === "academies"
+                      ? "Academies"
+                      : panel === "open-mats"
+                        ? "Course/Events Dashboard"
+                        : panel === "bookings"
+                          ? "Bookings"
+                          : panel === "payments"
+                            ? "Payment Dashboard"
+                            : panel === "wallet"
+                              ? "Wallet Dashboard"
+                              : panel === "users"
+                                ? "Identity Access Management"
+                                : academyAdmin
+                                  ? "Academy Admin Board"
+                                  : "Dashboard"}
+                </h1>
+                <p
+                  className={clsx(
+                    "mt-2 max-w-3xl text-slate-600",
+                    dashboardLanding ? "text-base sm:text-lg" : "text-sm",
+                  )}
+                >
+                  {dashboardLanding
+                    ? "Open the services available to your account."
+                    : academyAdmin
+                      ? "Manage your assigned academy, users, and courses/events."
+                      : "Review platform health and manage operational records."}
+                </p>
+              </div>
             </div>
-          </div>
 
-          {dashboardLanding ? <GridDashboard items={dashboardGridItems} /> : null}
+            {dashboardLanding ? (
+              <GridDashboard items={dashboardGridItems} />
+            ) : null}
 
-          {!dashboardLanding && !hideSharedDashboardSections ? (
-            <>
-              <StatsPanel
-                className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
-                collapseStorageKey="rollfinders.dashboardStatsCollapsed"
-                collapsible
-                defaultCollapsed
-                items={statCards}
-                persistCollapseState
-                title="Stats Board"
-              />
-
-              <QuickActionPanel
-                className="mt-7 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
-                collapseStorageKey="rollfinders.dashboardQuickActionsCollapsed"
-                collapsible
-                defaultCollapsed
-                items={quickActionItems}
-                persistCollapseState
-              />
-            </>
-          ) : null}
-
-          {superAdmin && panel === "analytics" ? (
-            <FounderAnalyticsPanel
-              activeEventCount={activeEventCount}
-              academyCount={totalAcademyCount}
-              analyticsReport={founderAnalyticsReport}
-              claimCount={claimResult?.ok ? claimResult.data.totalItems : pendingAcademyCount}
-              managedAcademyCount={managedAcademyCount}
-              pendingAcademyCount={pendingAcademyCount}
-              platformAdminAcademyCount={platformAdminAcademyCount}
-              userCount={totalUserCount}
-              verifiedAcademyCount={verifiedAcademyCount}
-            />
-          ) : null}
-
-          {superAdmin && panel === "platform-admin-academies" ? (
-            <SuperAdminPlatformAcademiesPanel
-              academies={platformAdminAcademies}
-              currentPage={currentPlatformAcademyPage}
-              params={params}
-              search={platformAcademiesSearch}
-              stats={platformAdminAcademyStats}
-              totalItems={platformAdminAcademyCount}
-            />
-          ) : null}
-
-          {!dashboardLanding && panel !== "platform-admin-academies" && panel !== "analytics" ? (
-          <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-          {panel === "academies" ? (
-            <AdminPanel
-              action={elevatedAdmin ? <AcademiesPanelActions params={params} reminderFilter={academyReminderFilter} /> : null}
-              description={academyAdmin ? "Review your assigned academy record." : "Search academy records and send controlled claim reminders to eligible unclaimed academies."}
-              id="academies"
-              search={academyAdmin ? null : <AcademiesPanelSearch reminderFilter={academyReminderFilter} search={search} />}
-              title={academyAdmin ? "My Academy" : "Academies"}
-            >
-              {academyAdmin ? (
-                <AcademyProfilePanel academy={assignedAcademyProfile} />
-              ) : (
-                <>
-                  <ClaimInvitationResult params={params} />
-                  <ClaimReminderResult params={params} />
-                  <AcademiesTable academies={academies} params={params} />
-                  <Pagination currentPage={currentAcademyPage} totalItems={academyCount} pageKey="academiesPage" searchParams={params} />
-                </>
-              )}
-            </AdminPanel>
-          ) : null}
-          {panel === "open-mats" ? (
-            <AdminPanel
-              action={(
-                <Button href="/dashboard/courses?dialog=create-course" variant="primary" className="min-h-12 shadow-sm">
-                  <Plus size={18} aria-hidden />
-                  New Course
-                </Button>
-              )}
-              description="Active courses/events ordered by event date."
-              id="open-mats"
-              search={<PanelSearch panel={panel} search={search} />}
-              title="Courses/Events"
-            >
-              <OpenMatsTable events={events} />
-              <Pagination currentPage={currentEventPage} totalItems={activeEventCount} pageKey="eventsPage" searchParams={params} />
-            </AdminPanel>
-          ) : null}
-          {panel === "payments" ? (
-            <AdminPanel
-              description={paymentsView === "transactions" ? "View and manage all payments made to your academy." : paymentsView === "earnings" ? "Track your revenue and earnings over time." : paymentsView === "refunds" ? "View and manage all refunds issued." : paymentsView === "payouts" ? "Track and manage payouts sent to your bank account." : academyAdmin ? "Overview of payment activity for your academy courses and events." : "Overview of all payment activity across the RollFinders platform."}
-              id="payments"
-              search={paymentsView === "overview" ? <PaymentsPanelSearch search={paymentsSearch} /> : null}
-              title={paymentsView === "transactions" ? "Transactions" : paymentsView === "earnings" ? "Earnings" : paymentsView === "refunds" ? "Refunds" : paymentsView === "payouts" ? "Payouts" : "Payments Dashboard"}
-            >
-              <PaymentsPanel
-                academyAdmin={academyAdmin}
-                metricVisibility={paymentMetricVisibility}
-                paymentAccountSetting={paymentAccountSetting}
-                paymentPlatformSettings={paymentPlatformSettings ?? undefined}
-                period={paymentsPeriod}
-                payoutsPage={payoutsPage}
-                result={paymentResult}
-                search={paymentsSearch}
-                searchParams={params}
-                view={paymentsView}
-              />
-            </AdminPanel>
-          ) : null}
-          {panel === "wallet" ? (
-            <AdminPanel
-              description="Manage internal platform wallets, balances, reserves, and ledger state."
-              id="wallet"
-              title={walletView === "transactions" ? "Transactions" : "Wallets"}
-            >
-              <WalletDashboard balances={walletResult.balances} error={walletActionError ?? walletResult.error} linkedAccounts={walletResult.linkedAccounts} pagination={walletResult.pagination} searchParams={params} transactions={walletResult.transactions} view={walletView} wallets={walletResult.wallets} />
-            </AdminPanel>
-          ) : null}
-          {panel === "bookings" ? (
-            <AdminPanel
-              description={academyAdmin ? "Bookings made for your academy courses and events." : "Bookings made across RollFinders courses and events."}
-              id="bookings"
-              search={<BookingsPanelSearch search={bookingsSearch} />}
-              title="Bookings"
-            >
-              <BookingsPanel academyAdmin={academyAdmin} actionBookingId={bookingActionBookingId} actionError={bookingActionError} result={bookingResult} search={bookingsSearch} searchParams={params} />
-            </AdminPanel>
-          ) : null}
-          {panel === "academy-claims" ? (
-            <AdminPanel
-              action={<ClaimsFilter status={claimStatus} pageSize={claimPageSize} search={search} />}
-              description="Review academy ownership requests and grant access after evidence checks."
-              id="academy-claims"
-              search={<ClaimsPanelSearch pageSize={claimPageSize} search={search} status={claimStatus} />}
-              title="Academy Claims"
-            >
-              <ClaimStatusFilters params={params} status={claimStatus} />
-              {!claimResult ? null : !claimResult.ok ? (
-                <ClaimsErrorState message={claimResult.message} status={claimResult.status} />
-              ) : (
-                <ClaimsTable claims={claimResult.data.items} page={claimResult.data.page} pageSize={claimResult.data.pageSize} params={params} totalItems={claimResult.data.totalItems} totalPages={claimResult.data.totalPages} />
-              )}
-            </AdminPanel>
-          ) : null}
-          {panel === "users" ? (
-            <AdminPanel
-              action={usersView === "overview" ? (
-                <Button href="/dashboard/users?dialog=new-user" variant="primary" className="min-h-12 shadow-sm">
-                  <Plus size={18} aria-hidden />
-                  New User
-                </Button>
-              ) : null}
-              description={usersView === "roles"
-                ? "Roles configured in the Authorisation system."
-                : usersView === "permissions"
-                  ? "Effective permissions available to your account."
-                  : usersView === "access-keys"
-                    ? "Access key management for your account."
-                    : usersView === "mfa"
-                      ? "Multi-factor authentication settings for your account."
-                      : "Newest operational slice of user records and role assignments."}
-              id="users"
-              search={usersView === "overview" ? <PanelSearch panel={panel} search={search} /> : null}
-              title={usersView === "roles" ? "Roles" : usersView === "permissions" ? "Permissions" : usersView === "access-keys" ? "Access Keys" : usersView === "mfa" ? "MFA" : "Users & Roles"}
-            >
-              {usersView === "roles" ? (
-                <SystemRolesPanel
-                  actorRole={currentUser.role}
-                  actorRoleKeys={currentUserAuthorisationRoles.map((assignment) => assignment.role_key ?? "")}
-                  rolePermissions={rolePermissionAssociations.map(({ role, permissions }) => ({
-                    roleId: role.id,
-                    permissions,
-                  }))}
-                  permissions={authorisationPermissionCatalog}
-                  roles={authorisationRoles}
-                  rolesPagination={authorisationRolesPage.pagination}
-                  userPermissions={currentUserEffectivePermissions}
+            {!dashboardLanding && !hideSharedDashboardSections ? (
+              <>
+                <StatsPanel
+                  className="mt-6 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
+                  collapseStorageKey="rollfinders.dashboardStatsCollapsed"
+                  collapsible
+                  defaultCollapsed
+                  items={statCards}
+                  persistCollapseState
+                  title="Stats Board"
                 />
-              ) : usersView === "permissions" ? (
-                <UserPermissionsBoard
-                  directAssignments={currentUserPermissionAssignments}
-                  effectivePermissions={currentUserEffectivePermissions}
-                  permissions={authorisationPermissionCatalog}
-                  permissionsPagination={authorisationPermissionPage.pagination}
-                  resources={authorisationResources}
-                  roles={authorisationRoles}
-                  applications={applicationOptions.map((application) => ({ id: application.id, name: application.name, slug: application.slug }))}
-                  organisations={organisationOptions.map((organisation) => ({ id: organisation.id, name: organisation.name, slug: organisation.slug }))}
-                  rolePermissions={rolePermissionAssociations.map(({ role, permissions }) => ({
-                    role: { id: role.id, key: role.key, name: role.name },
-                    permissionIds: permissions.map((permission) => permission.id),
-                    permissionCodes: permissions.map((permission) => permission.code),
-                  }))}
-                  users={users.map((user) => ({ id: user.id, name: user.name, email: user.email }))}
+
+                <QuickActionPanel
+                  className="mt-7 hidden rounded-lg border border-teal-200 bg-white p-4 shadow-sm md:block"
+                  collapseStorageKey="rollfinders.dashboardQuickActionsCollapsed"
+                  collapsible
+                  defaultCollapsed
+                  items={quickActionItems}
+                  persistCollapseState
                 />
-              ) : usersView === "access-keys" ? (
-                <UnavailableUserSecurityPanel title="Access Keys" description="Access key management is not available in the current Users or Authorisation service contracts yet." />
-              ) : usersView === "mfa" ? (
-                <UnavailableUserSecurityPanel title="MFA" description="MFA management is not available in the current dashboard contract yet." />
-              ) : (
-                <>
-                  {managedUsersError ? (
-                    <div className="mt-4 rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
-                      {managedUsersError}
-                    </div>
-                  ) : null}
-                  <UserResult params={params} />
-                  <UsersTable actorAcademyId={currentUser.academyId} actorId={currentUser.id} actorRole={currentUser.role} params={params} users={users} />
-                  <Pagination currentPage={currentUserPage} itemsPerPage={currentUserPageSize} totalItems={userCount} pageKey="usersPage" searchParams={params} />
-                </>
-              )}
-            </AdminPanel>
-          ) : null}
-          </div>
-          ) : null}
-        </section>
+              </>
+            ) : null}
+
+            {superAdmin && panel === "analytics" ? (
+              <FounderAnalyticsPanel
+                activeEventCount={activeEventCount}
+                academyCount={totalAcademyCount}
+                analyticsReport={founderAnalyticsReport}
+                claimCount={
+                  claimResult?.ok
+                    ? claimResult.data.totalItems
+                    : pendingAcademyCount
+                }
+                managedAcademyCount={managedAcademyCount}
+                pendingAcademyCount={pendingAcademyCount}
+                platformAdminAcademyCount={platformAdminAcademyCount}
+                userCount={totalUserCount}
+                verifiedAcademyCount={verifiedAcademyCount}
+              />
+            ) : null}
+
+            {superAdmin && panel === "platform-admin-academies" ? (
+              <SuperAdminPlatformAcademiesPanel
+                academies={platformAdminAcademies}
+                currentPage={currentPlatformAcademyPage}
+                params={params}
+                search={platformAcademiesSearch}
+                stats={platformAdminAcademyStats}
+                totalItems={platformAdminAcademyCount}
+              />
+            ) : null}
+
+            {!dashboardLanding &&
+            panel !== "platform-admin-academies" &&
+            panel !== "analytics" ? (
+              <div className="mt-7 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+                {panel === "academies" ? (
+                  <AdminPanel
+                    action={
+                      elevatedAdmin ? (
+                        <AcademiesPanelActions
+                          params={params}
+                          reminderFilter={academyReminderFilter}
+                        />
+                      ) : null
+                    }
+                    description={
+                      academyAdmin
+                        ? "Review your assigned academy record."
+                        : "Search academy records and send controlled claim reminders to eligible unclaimed academies."
+                    }
+                    id="academies"
+                    search={
+                      academyAdmin ? null : (
+                        <AcademiesPanelSearch
+                          reminderFilter={academyReminderFilter}
+                          search={search}
+                        />
+                      )
+                    }
+                    title={academyAdmin ? "My Academy" : "Academies"}
+                  >
+                    {academyAdmin ? (
+                      <AcademyProfilePanel academy={assignedAcademyProfile} />
+                    ) : (
+                      <>
+                        <ClaimInvitationResult params={params} />
+                        <ClaimReminderResult params={params} />
+                        <AcademiesTable academies={academies} params={params} />
+                        <Pagination
+                          currentPage={currentAcademyPage}
+                          totalItems={academyCount}
+                          pageKey="academiesPage"
+                          searchParams={params}
+                        />
+                      </>
+                    )}
+                  </AdminPanel>
+                ) : null}
+                {panel === "open-mats" ? (
+                  <AdminPanel
+                    action={
+                      <Button
+                        href="/dashboard/courses?dialog=create-course"
+                        variant="primary"
+                        className="min-h-12 shadow-sm"
+                      >
+                        <Plus size={18} aria-hidden />
+                        New Course
+                      </Button>
+                    }
+                    description="Active courses/events ordered by event date."
+                    id="open-mats"
+                    search={<PanelSearch panel={panel} search={search} />}
+                    title="Courses/Events"
+                  >
+                    <OpenMatsTable events={events} />
+                    <Pagination
+                      currentPage={currentEventPage}
+                      totalItems={activeEventCount}
+                      pageKey="eventsPage"
+                      searchParams={params}
+                    />
+                  </AdminPanel>
+                ) : null}
+                {panel === "payments" ? (
+                  <AdminPanel
+                    description={
+                      paymentsView === "transactions"
+                        ? "View and manage all payments made to your academy."
+                        : paymentsView === "earnings"
+                          ? "Track your revenue and earnings over time."
+                          : paymentsView === "refunds"
+                            ? "View and manage all refunds issued."
+                            : paymentsView === "payouts"
+                              ? "Track and manage payouts sent to your bank account."
+                              : academyAdmin
+                                ? "Overview of payment activity for your academy courses and events."
+                                : "Overview of all payment activity across the RollFinders platform."
+                    }
+                    id="payments"
+                    search={
+                      paymentsView === "overview" ? (
+                        <PaymentsPanelSearch search={paymentsSearch} />
+                      ) : null
+                    }
+                    title={
+                      paymentsView === "transactions"
+                        ? "Transactions"
+                        : paymentsView === "earnings"
+                          ? "Earnings"
+                          : paymentsView === "refunds"
+                            ? "Refunds"
+                            : paymentsView === "payouts"
+                              ? "Payouts"
+                              : "Payments Dashboard"
+                    }
+                  >
+                    <PaymentsPanel
+                      academyAdmin={academyAdmin}
+                      metricVisibility={paymentMetricVisibility}
+                      paymentAccountSetting={paymentAccountSetting}
+                      paymentPlatformSettings={
+                        paymentPlatformSettings ?? undefined
+                      }
+                      period={paymentsPeriod}
+                      payoutsPage={payoutsPage}
+                      result={paymentResult}
+                      search={paymentsSearch}
+                      searchParams={params}
+                      view={paymentsView}
+                    />
+                  </AdminPanel>
+                ) : null}
+                {panel === "wallet" ? (
+                  <AdminPanel
+                    description="Manage internal platform wallets, balances, reserves, and ledger state."
+                    id="wallet"
+                    title={
+                      walletView === "transactions" ? "Transactions" : "Wallets"
+                    }
+                  >
+                    <WalletDashboard
+                      balances={walletResult.balances}
+                      error={walletActionError ?? walletResult.error}
+                      linkedAccounts={walletResult.linkedAccounts}
+                      pagination={walletResult.pagination}
+                      searchParams={params}
+                      transactions={walletResult.transactions}
+                      view={walletView}
+                      wallets={walletResult.wallets}
+                    />
+                  </AdminPanel>
+                ) : null}
+                {panel === "bookings" ? (
+                  <AdminPanel
+                    description={
+                      academyAdmin
+                        ? "Bookings made for your academy courses and events."
+                        : "Bookings made across RollFinders courses and events."
+                    }
+                    id="bookings"
+                    search={<BookingsPanelSearch search={bookingsSearch} />}
+                    title="Bookings"
+                  >
+                    <BookingsPanel
+                      academyAdmin={academyAdmin}
+                      actionBookingId={bookingActionBookingId}
+                      actionError={bookingActionError}
+                      result={bookingResult}
+                      search={bookingsSearch}
+                      searchParams={params}
+                    />
+                  </AdminPanel>
+                ) : null}
+                {panel === "academy-claims" ? (
+                  <AdminPanel
+                    action={
+                      <ClaimsFilter
+                        status={claimStatus}
+                        pageSize={claimPageSize}
+                        search={search}
+                      />
+                    }
+                    description="Review academy ownership requests and grant access after evidence checks."
+                    id="academy-claims"
+                    search={
+                      <ClaimsPanelSearch
+                        pageSize={claimPageSize}
+                        search={search}
+                        status={claimStatus}
+                      />
+                    }
+                    title="Academy Claims"
+                  >
+                    <ClaimStatusFilters params={params} status={claimStatus} />
+                    {!claimResult ? null : !claimResult.ok ? (
+                      <ClaimsErrorState
+                        message={claimResult.message}
+                        status={claimResult.status}
+                      />
+                    ) : (
+                      <ClaimsTable
+                        claims={claimResult.data.items}
+                        page={claimResult.data.page}
+                        pageSize={claimResult.data.pageSize}
+                        params={params}
+                        totalItems={claimResult.data.totalItems}
+                        totalPages={claimResult.data.totalPages}
+                      />
+                    )}
+                  </AdminPanel>
+                ) : null}
+                {panel === "users" ? (
+                  <AdminPanel
+                    action={
+                      usersView === "overview" ? (
+                        <Button
+                          href="/dashboard/users?dialog=new-user"
+                          variant="primary"
+                          className="min-h-12 shadow-sm"
+                        >
+                          <Plus size={18} aria-hidden />
+                          New User
+                        </Button>
+                      ) : null
+                    }
+                    description={
+                      usersView === "roles"
+                        ? "Roles configured in the Authorisation system."
+                        : usersView === "permissions"
+                          ? "Effective permissions available to your account."
+                          : usersView === "access-keys"
+                            ? "Access key management for your account."
+                            : usersView === "mfa"
+                              ? "Multi-factor authentication settings for your account."
+                              : "Newest operational slice of user records and role assignments."
+                    }
+                    id="users"
+                    search={
+                      usersView === "overview" ? (
+                        <PanelSearch panel={panel} search={search} />
+                      ) : null
+                    }
+                    title={
+                      usersView === "roles"
+                        ? "Roles"
+                        : usersView === "permissions"
+                          ? "Permissions"
+                          : usersView === "access-keys"
+                            ? "Access Keys"
+                            : usersView === "mfa"
+                              ? "MFA"
+                              : "Users & Roles"
+                    }
+                  >
+                    {usersView === "roles" ? (
+                      <SystemRolesPanel
+                        actorRole={currentUser.role}
+                        actorRoleKeys={currentUserAuthorisationRoles.map(
+                          (assignment) => assignment.role_key ?? "",
+                        )}
+                        rolePermissions={rolePermissionAssociations.map(
+                          ({ role, permissions }) => ({
+                            roleId: role.id,
+                            permissions,
+                          }),
+                        )}
+                        permissions={authorisationPermissionCatalog}
+                        roles={authorisationRoles}
+                        rolesPagination={authorisationRolesPage.pagination}
+                        userPermissions={currentUserEffectivePermissions}
+                      />
+                    ) : usersView === "permissions" ? (
+                      <UserPermissionsBoard
+                        directAssignments={currentUserPermissionAssignments}
+                        effectivePermissions={currentUserEffectivePermissions}
+                        permissions={authorisationPermissionCatalog}
+                        permissionsPagination={
+                          authorisationPermissionPage.pagination
+                        }
+                        resources={authorisationResources}
+                        roles={authorisationRoles}
+                        applications={applicationOptions.map((application) => ({
+                          id: application.id,
+                          name: application.name,
+                          slug: application.slug,
+                        }))}
+                        organisations={organisationOptions.map(
+                          (organisation) => ({
+                            id: organisation.id,
+                            name: organisation.name,
+                            slug: organisation.slug,
+                          }),
+                        )}
+                        rolePermissions={rolePermissionAssociations.map(
+                          ({ role, permissions }) => ({
+                            role: {
+                              id: role.id,
+                              key: role.key,
+                              name: role.name,
+                            },
+                            permissionIds: permissions.map(
+                              (permission) => permission.id,
+                            ),
+                            permissionCodes: permissions.map(
+                              (permission) => permission.code,
+                            ),
+                          }),
+                        )}
+                        users={users.map((user) => ({
+                          id: user.id,
+                          name: user.name,
+                          email: user.email,
+                        }))}
+                      />
+                    ) : usersView === "access-keys" ? (
+                      <UnavailableUserSecurityPanel
+                        title="Access Keys"
+                        description="Access key management is not available in the current Users or Authorisation service contracts yet."
+                      />
+                    ) : usersView === "mfa" ? (
+                      <UnavailableUserSecurityPanel
+                        title="MFA"
+                        description="MFA management is not available in the current dashboard contract yet."
+                      />
+                    ) : (
+                      <>
+                        {managedUsersError ? (
+                          <div className="mt-4 rounded-md border border-red-100 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
+                            {managedUsersError}
+                          </div>
+                        ) : null}
+                        <UserResult params={params} />
+                        <UsersTable
+                          actorAcademyId={currentUser.academyId}
+                          actorId={currentUser.id}
+                          actorRole={currentUser.role}
+                          params={params}
+                          users={users}
+                        />
+                        <Pagination
+                          currentPage={currentUserPage}
+                          itemsPerPage={currentUserPageSize}
+                          totalItems={userCount}
+                          pageKey="usersPage"
+                          searchParams={params}
+                        />
+                      </>
+                    )}
+                  </AdminPanel>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
         )}
       </main>
       {panel === "users" && dialog === "new-user" ? (
-        <NewUserDialog academies={academyOptions} academyAdmin={academyAdmin} actorRole={currentUser.role} superAdmin={superAdmin} />
+        <NewUserDialog
+          academies={academyOptions}
+          academyAdmin={academyAdmin}
+          actorRole={currentUser.role}
+          superAdmin={superAdmin}
+        />
       ) : null}
       {panel === "users" && dialog === "view-user" && selectedDialogUser ? (
         <ViewUserDialog user={selectedDialogUser} />
       ) : null}
       {panel === "users" && dialog === "edit-user" && selectedDialogUser ? (
-        <EditUserDialog actor={currentUser} academies={academyOptions} academyAdmin={academyAdmin} superAdmin={superAdmin} user={selectedDialogUser} />
+        <EditUserDialog
+          actor={currentUser}
+          academies={academyOptions}
+          academyAdmin={academyAdmin}
+          superAdmin={superAdmin}
+          user={selectedDialogUser}
+        />
       ) : null}
       {panel === "academies" && dialog === "new-academy" && platformAdmin ? (
         <NewAcademyDialog />
       ) : null}
-      {panel === "academies" && dialog === "view-academy" && selectedDialogAcademy ? (
+      {panel === "academies" &&
+      dialog === "view-academy" &&
+      selectedDialogAcademy ? (
         <ViewAcademyDialog
           academy={selectedDialogAcademy}
-          closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined, academyEventsPage: undefined })}
+          closeHref={adminAcademiesHref(params, {
+            dialog: undefined,
+            academyId: undefined,
+            academyEventsPage: undefined,
+          })}
           currentEventsPage={academyEventsPage}
           searchParams={params}
           showAcademyStats={platformAdmin}
         />
       ) : null}
-      {panel === "academies" && dialog === "edit-academy" && selectedDialogAcademy ? (
-        <EditAcademyDialog academy={selectedDialogAcademy} academyAdmin={academyAdmin} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} />
+      {panel === "academies" &&
+      dialog === "edit-academy" &&
+      selectedDialogAcademy ? (
+        <EditAcademyDialog
+          academy={selectedDialogAcademy}
+          academyAdmin={academyAdmin}
+          closeHref={adminAcademiesHref(params, {
+            dialog: undefined,
+            academyId: undefined,
+          })}
+        />
       ) : null}
-      {panel === "academies" && dialog === "claim-reminder" && selectedReminderAcademy ? (
-        <ClaimReminderDialog academy={selectedReminderAcademy} closeHref={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyId: undefined })} />
+      {panel === "academies" &&
+      dialog === "claim-reminder" &&
+      selectedReminderAcademy ? (
+        <ClaimReminderDialog
+          academy={selectedReminderAcademy}
+          closeHref={adminAcademiesHref(params, {
+            dialog: undefined,
+            academyId: undefined,
+          })}
+          returnTo={adminAcademiesHref(params, {
+            dialog: undefined,
+            academyId: undefined,
+          })}
+        />
       ) : null}
       {panel === "academies" && dialog === "bulk-claim-reminders" ? (
-        <BulkClaimReminderDialog academies={selectedBulkReminderAcademies} closeHref={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} returnTo={adminAcademiesHref(params, { dialog: undefined, academyIds: undefined })} />
+        <BulkClaimReminderDialog
+          academies={selectedBulkReminderAcademies}
+          closeHref={adminAcademiesHref(params, {
+            dialog: undefined,
+            academyIds: undefined,
+          })}
+          returnTo={adminAcademiesHref(params, {
+            dialog: undefined,
+            academyIds: undefined,
+          })}
+        />
       ) : null}
       {panel === "open-mats" && dialog === "create-course" ? (
-        <CreateCourseDialog academies={academyOptions} cloneSource={cloneSourceEvent} instructorUsers={instructorUsers} />
+        <CreateCourseDialog
+          academies={academyOptions}
+          cloneSource={cloneSourceEvent}
+          instructorUsers={instructorUsers}
+        />
       ) : null}
-      {panel === "open-mats" && dialog === "view-event" && selectedDialogEvent ? (
+      {panel === "open-mats" &&
+      dialog === "view-event" &&
+      selectedDialogEvent ? (
         <ViewEventDialog event={selectedDialogEvent} />
       ) : null}
-      {panel === "wallet" && walletView === "transactions" && walletDialog === "create-transaction" ? (
-        <WalletTransferDialog balances={walletResult.balances} canCreateTransfer={canCreateWalletTransfer} wallets={walletResult.wallets} />
+      {panel === "wallet" &&
+      walletView === "transactions" &&
+      walletDialog === "create-transaction" ? (
+        <WalletTransferDialog
+          balances={walletResult.balances}
+          canCreateTransfer={canCreateWalletTransfer}
+          wallets={walletResult.wallets}
+        />
       ) : null}
-      {panel === "wallet" && walletView === "dashboard" && walletDialog === "create-wallet" ? (
-        <CreateWalletDialog currentUser={currentUserWalletOwner} params={params} users={managedUsersPage.users} />
+      {panel === "wallet" &&
+      walletView === "dashboard" &&
+      walletDialog === "create-wallet" ? (
+        <CreateWalletDialog
+          currentUser={currentUserWalletOwner}
+          params={params}
+          users={managedUsersPage.users}
+          wallets={walletResult.wallets}
+        />
       ) : null}
-      {panel === "wallet" && walletView === "dashboard" && walletDialog === "select-wallet-owner" ? (
-        <WalletOwnerPickerDialog currentUser={currentUserWalletOwner} params={params} users={managedUsersPage.users} />
+      {panel === "wallet" &&
+      walletView === "dashboard" &&
+      walletDialog === "select-wallet-owner" ? (
+        <WalletOwnerPickerDialog
+          currentUser={currentUserWalletOwner}
+          params={params}
+          users={managedUsersPage.users}
+        />
       ) : null}
-      {panel === "wallet" && walletView === "dashboard" && walletDialog === "wallet-details" && selectedWalletForDialog ? (
-        <WalletDetailsDialog closeHref={walletDetailsCloseHref(params)} linkedAccount={selectedWalletLinkedAccount} wallet={selectedWalletForDialog} />
+      {panel === "wallet" &&
+      walletView === "dashboard" &&
+      walletDialog === "wallet-details" &&
+      selectedWalletForDialog ? (
+        <WalletDetailsDialog
+          closeHref={walletDetailsCloseHref(params)}
+          linkedAccount={selectedWalletLinkedAccount}
+          wallet={selectedWalletForDialog}
+        />
       ) : null}
-      {panel === "wallet" && walletView === "dashboard" && walletDialog === "disconnect-linked-account" && selectedWalletForDialog && selectedWalletLinkedAccount ? (
-        <DisconnectWalletLinkedAccountDialog closeHref={walletDetailsCloseHref(params)} linkedAccount={selectedWalletLinkedAccount} wallet={selectedWalletForDialog} />
+      {panel === "wallet" &&
+      walletView === "dashboard" &&
+      walletDialog === "disconnect-linked-account" &&
+      selectedWalletForDialog &&
+      selectedWalletLinkedAccount ? (
+        <DisconnectWalletLinkedAccountDialog
+          closeHref={walletDetailsCloseHref(params)}
+          linkedAccount={selectedWalletLinkedAccount}
+          wallet={selectedWalletForDialog}
+        />
       ) : null}
-      {panel === "wallet" && walletView === "transactions" && walletDialog === "transaction-details" && selectedWalletTransactionForDialog ? (
-        <WalletTransactionDetailsDialog closeHref={transactionDetailsCloseHref(params)} transaction={selectedWalletTransactionForDialog} />
+      {panel === "wallet" &&
+      walletView === "transactions" &&
+      walletDialog === "transaction-details" &&
+      selectedWalletTransactionForDialog ? (
+        <WalletTransactionDetailsDialog
+          closeHref={transactionDetailsCloseHref(params)}
+          transaction={selectedWalletTransactionForDialog}
+        />
       ) : null}
     </div>
   );
 }
 
-type DashboardEventListItem = Prisma.EventGetPayload<{}> & { academy: AcademyServiceRecord };
+type DashboardEventListItem = Prisma.EventGetPayload<{}> & {
+  academy: AcademyServiceRecord;
+};
 
-type DashboardAcademyDetail = AcademyServiceRecord & { events: Prisma.EventGetPayload<{}>[]; eventsTotalCount: number };
+type DashboardAcademyDetail = AcademyServiceRecord & {
+  events: Prisma.EventGetPayload<{}>[];
+  eventsTotalCount: number;
+};
 
 function ViewAcademyDialog({
   academy,
@@ -1513,15 +2807,26 @@ function ViewAcademyDialog({
   searchParams: AdminSearchParams;
   showAcademyStats: boolean;
 }) {
-  const claimState = academy.members.length > 0 || academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)
-    ? "Claimed"
-    : academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)
-      ? "Pending claim"
-      : "Unclaimed";
-  const eventPage = clampPage(currentEventsPage, academy.eventsTotalCount, academyDialogEventPageSize);
+  const claimState =
+    academy.members.length > 0 ||
+    academy.claims.some((claim) => claim.status === ClaimStatus.APPROVED)
+      ? "Claimed"
+      : academy.claims.some((claim) => claim.status === ClaimStatus.PENDING)
+        ? "Pending claim"
+        : "Unclaimed";
+  const eventPage = clampPage(
+    currentEventsPage,
+    academy.eventsTotalCount,
+    academyDialogEventPageSize,
+  );
 
   return (
-    <DialogShell closeHref={closeHref} description={`${academy.city}, ${academy.postcode}`} maxWidthClass="max-w-5xl" title={academy.name}>
+    <DialogShell
+      closeHref={closeHref}
+      description={`${academy.city}, ${academy.postcode}`}
+      maxWidthClass="max-w-5xl"
+      title={academy.name}
+    >
       <section className="pt-5">
         <div className="flex flex-wrap gap-2">
           <Badge>{academy.verificationStatus}</Badge>
@@ -1529,17 +2834,73 @@ function ViewAcademyDialog({
           <Badge>{claimState}</Badge>
         </div>
 
-        <div className={`mt-6 grid gap-4 ${showAcademyStats ? "lg:grid-cols-3" : ""}`}>
-          <section className={`rounded-lg border border-stone-200 bg-white p-4 ${showAcademyStats ? "lg:col-span-2" : ""}`}>
+        <div
+          className={`mt-6 grid gap-4 ${showAcademyStats ? "lg:grid-cols-3" : ""}`}
+        >
+          <section
+            className={`rounded-lg border border-stone-200 bg-white p-4 ${showAcademyStats ? "lg:col-span-2" : ""}`}
+          >
             <h3 className="text-lg font-black text-stone-950">Summary</h3>
-            <p className="mt-3 whitespace-pre-wrap leading-7 text-stone-700">{academy.description || "No description has been added."}</p>
+            <p className="mt-3 whitespace-pre-wrap leading-7 text-stone-700">
+              {academy.description || "No description has been added."}
+            </p>
             <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-              <DialogInfo label="Website" value={academy.website ? <a className="break-all text-teal-800" href={academy.website} target="_blank" rel="noreferrer">{academy.website}</a> : "Not listed"} />
-              <DialogInfo label="Email" value={academy.email ? <a className="break-all text-teal-800" href={`mailto:${academy.email}`}>{academy.email}</a> : "Not listed"} />
-              <DialogInfo label="Phone" value={academy.phone ? <a className="text-teal-800" href={`tel:${academy.phone}`}>{academy.phone}</a> : "Not listed"} />
-              <DialogInfo label="Categories" value={academy.categories || "Not categorised"} />
-              <DialogInfo label="Address" value={`${academy.address}, ${academy.city} ${academy.postcode}`} />
-              <DialogInfo label="Location" value={academy.borough ?? academy.city} />
+              <DialogInfo
+                label="Website"
+                value={
+                  academy.website ? (
+                    <a
+                      className="break-all text-teal-800"
+                      href={academy.website}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {academy.website}
+                    </a>
+                  ) : (
+                    "Not listed"
+                  )
+                }
+              />
+              <DialogInfo
+                label="Email"
+                value={
+                  academy.email ? (
+                    <a
+                      className="break-all text-teal-800"
+                      href={`mailto:${academy.email}`}
+                    >
+                      {academy.email}
+                    </a>
+                  ) : (
+                    "Not listed"
+                  )
+                }
+              />
+              <DialogInfo
+                label="Phone"
+                value={
+                  academy.phone ? (
+                    <a className="text-teal-800" href={`tel:${academy.phone}`}>
+                      {academy.phone}
+                    </a>
+                  ) : (
+                    "Not listed"
+                  )
+                }
+              />
+              <DialogInfo
+                label="Categories"
+                value={academy.categories || "Not categorised"}
+              />
+              <DialogInfo
+                label="Address"
+                value={`${academy.address}, ${academy.city} ${academy.postcode}`}
+              />
+              <DialogInfo
+                label="Location"
+                value={academy.borough ?? academy.city}
+              />
             </div>
           </section>
 
@@ -1547,9 +2908,18 @@ function ViewAcademyDialog({
             <section className="rounded-lg border border-stone-200 bg-white p-4">
               <h3 className="text-lg font-black text-stone-950">Statistics</h3>
               <div className="mt-3 grid gap-3">
-                <DialogInfo label="Claim requests" value={academy.claims.length.toString()} />
-                <DialogInfo label="Admins" value={academy.members.length.toString()} />
-                <DialogInfo label="Upcoming courses/events" value={academy.eventsTotalCount.toString()} />
+                <DialogInfo
+                  label="Claim requests"
+                  value={academy.claims.length.toString()}
+                />
+                <DialogInfo
+                  label="Admins"
+                  value={academy.members.length.toString()}
+                />
+                <DialogInfo
+                  label="Upcoming courses/events"
+                  value={academy.eventsTotalCount.toString()}
+                />
                 <DialogInfo label="Reviews" value="0" />
                 <DialogInfo label="Average rating" value="Not rated" />
               </div>
@@ -1562,7 +2932,14 @@ function ViewAcademyDialog({
             <h3 className="text-lg font-black text-stone-950">Social Links</h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {academy.socialLinks.map((link) => (
-                <Button key={link.id} href={link.url} target="_blank" rel="noreferrer" variant="secondary" size="sm">
+                <Button
+                  key={link.id}
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  variant="secondary"
+                  size="sm"
+                >
                   {sentenceCase(link.platform)}
                 </Button>
               ))}
@@ -1571,33 +2948,80 @@ function ViewAcademyDialog({
         ) : null}
 
         <section className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
-          <h3 className="text-lg font-black text-stone-950">Upcoming Courses/Events</h3>
+          <h3 className="text-lg font-black text-stone-950">
+            Upcoming Courses/Events
+          </h3>
           <div className="mt-3 grid gap-3">
             {academy.events.map((event) => (
-              <div key={event.id} className="rounded-md bg-stone-50 p-3 text-sm text-stone-700">
+              <div
+                key={event.id}
+                className="rounded-md bg-stone-50 p-3 text-sm text-stone-700"
+              >
                 <p className="font-bold text-stone-950">{event.title}</p>
-                <p>{formatDate(event.eventDate)} · {event.startTime}-{event.endTime}</p>
+                <p>
+                  {formatDate(event.eventDate)} · {event.startTime}-
+                  {event.endTime}
+                </p>
               </div>
             ))}
-            {!academy.events.length ? <p className="text-sm font-semibold text-stone-600">No active courses or events are listed.</p> : null}
+            {!academy.events.length ? (
+              <p className="text-sm font-semibold text-stone-600">
+                No active courses or events are listed.
+              </p>
+            ) : null}
           </div>
           {academy.eventsTotalCount > academyDialogEventPageSize ? (
-            <Pagination currentPage={eventPage} itemsPerPage={academyDialogEventPageSize} totalItems={academy.eventsTotalCount} pageKey="academyEventsPage" searchParams={searchParams} />
+            <Pagination
+              currentPage={eventPage}
+              itemsPerPage={academyDialogEventPageSize}
+              totalItems={academy.eventsTotalCount}
+              pageKey="academyEventsPage"
+              searchParams={searchParams}
+            />
           ) : null}
         </section>
 
         <div className="mt-6 flex flex-wrap gap-2">
-          <Button href={`/academies/${academy.slug}`} target="_blank" rel="noreferrer" variant="secondary">View Public Profile</Button>
-          <Button href={directionsUrl(`${academy.address}, ${academy.city} ${academy.postcode}`)} target="_blank" rel="noreferrer" variant="neutral">Directions</Button>
+          <Button
+            href={`/academies/${academy.slug}`}
+            target="_blank"
+            rel="noreferrer"
+            variant="secondary"
+          >
+            View Public Profile
+          </Button>
+          <Button
+            href={directionsUrl(
+              `${academy.address}, ${academy.city} ${academy.postcode}`,
+            )}
+            target="_blank"
+            rel="noreferrer"
+            variant="neutral"
+          >
+            Directions
+          </Button>
         </div>
       </section>
     </DialogShell>
   );
 }
 
-function EditAcademyDialog({ academy, academyAdmin, closeHref }: { academy: DashboardAcademyDetail; academyAdmin: boolean; closeHref: string }) {
+function EditAcademyDialog({
+  academy,
+  academyAdmin,
+  closeHref,
+}: {
+  academy: DashboardAcademyDetail;
+  academyAdmin: boolean;
+  closeHref: string;
+}) {
   return (
-    <DialogShell closeHref={closeHref} description="Edit academy information without leaving the dashboard." maxWidthClass="max-w-6xl" title={`Edit ${academy.name}`}>
+    <DialogShell
+      closeHref={closeHref}
+      description="Edit academy information without leaving the dashboard."
+      maxWidthClass="max-w-6xl"
+      title={`Edit ${academy.name}`}
+    >
       <AcademyForm
         action={updateAcademy.bind(null, academy.id)}
         academy={academy}
@@ -1612,14 +3036,22 @@ function EditAcademyDialog({ academy, academyAdmin, closeHref }: { academy: Dash
 function ViewUserDialog({ user }: { user: UserRow }) {
   const disabled = user.status === UserStatus.DISABLED || user.disabled;
   return (
-    <DialogShell closeHref="/dashboard/users" description="Review this user profile and access details." title="User Profile">
+    <DialogShell
+      closeHref="/dashboard/users"
+      description="Review this user profile and access details."
+      title="User Profile"
+    >
       <div className="mt-6 grid gap-6">
         <div className="flex items-center gap-4">
-          <div className={`grid size-16 shrink-0 place-items-center rounded-full text-xl font-black ring-1 ${avatarTone(user.email)}`}>
+          <div
+            className={`grid size-16 shrink-0 place-items-center rounded-full text-xl font-black ring-1 ${avatarTone(user.email)}`}
+          >
             {initials(user.name ?? user.email)}
           </div>
           <div>
-            <h3 className="text-2xl font-black text-slate-950">{user.name ?? user.email}</h3>
+            <h3 className="text-2xl font-black text-slate-950">
+              {user.name ?? user.email}
+            </h3>
             <p className="mt-1 break-all text-slate-600">{user.email}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <RolePill role={user.role} />
@@ -1630,7 +3062,10 @@ function ViewUserDialog({ user }: { user: UserRow }) {
         <div className="grid gap-4 border-t border-stone-100 pt-5 sm:grid-cols-2">
           <ProfileInfo label="Role" value={roleLabel(user.role)} />
           <ProfileInfo label="Academy" value={user.academy?.name ?? "None"} />
-          <ProfileInfo label="Status" value={disabled ? "Disabled" : "Active"} />
+          <ProfileInfo
+            label="Status"
+            value={disabled ? "Disabled" : "Active"}
+          />
           <ProfileInfo label="Created" value={formatDate(user.createdAt)} />
         </div>
       </div>
@@ -1647,7 +3082,9 @@ async function EditUserDialog({
 }: {
   academies: { id: string; name: string }[];
   academyAdmin: boolean;
-  actor: Pick<ManagedUser, "id" | "role" | "email" | "academyId"> & { privileges?: string[] };
+  actor: Pick<ManagedUser, "id" | "role" | "email" | "academyId"> & {
+    privileges?: string[];
+  };
   superAdmin: boolean;
   user: UserRow;
 }) {
@@ -1657,7 +3094,12 @@ async function EditUserDialog({
   }).catch(() => []);
 
   return (
-    <DialogShell closeHref="/dashboard/users" description="Update user details, role, status and permissions." maxWidthClass="max-w-[96rem]" title="Edit User">
+    <DialogShell
+      closeHref="/dashboard/users"
+      description="Update user details, role, status and permissions."
+      maxWidthClass="max-w-[96rem]"
+      title="Edit User"
+    >
       <UserForm
         academies={academies}
         action={updateManagedUser.bind(null, user.id)}
@@ -1668,25 +3110,56 @@ async function EditUserDialog({
         academyAdmin={academyAdmin}
         actorRole={actor.role}
         superAdmin={superAdmin}
-        user={{ id: user.id, name: user.name, email: user.email, phone: user.phone, role: user.role, status: user.status, academyId: user.academyId }}
+        user={{
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role,
+          status: user.status,
+          academyId: user.academyId,
+        }}
       />
     </DialogShell>
   );
 }
 
-function AcademiesPanelSearch({ reminderFilter, search }: { reminderFilter: string; search: string }) {
+function AcademiesPanelSearch({
+  reminderFilter,
+  search,
+}: {
+  reminderFilter: string;
+  search: string;
+}) {
   return (
-    <DashboardSearchForm action="/dashboard/academies" ariaLabel="Search academies" placeholder="Search academies" value={search}>
-      {reminderFilter !== "all" ? <input type="hidden" name="reminderFilter" value={reminderFilter} /> : null}
+    <DashboardSearchForm
+      action="/dashboard/academies"
+      ariaLabel="Search academies"
+      placeholder="Search academies"
+      value={search}
+    >
+      {reminderFilter !== "all" ? (
+        <input type="hidden" name="reminderFilter" value={reminderFilter} />
+      ) : null}
     </DashboardSearchForm>
   );
 }
 
-function AcademiesPanelActions({ params, reminderFilter }: { params: AdminSearchParams; reminderFilter: string }) {
+function AcademiesPanelActions({
+  params,
+  reminderFilter,
+}: {
+  params: AdminSearchParams;
+  reminderFilter: string;
+}) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">
       <Button
-        href={adminAcademiesHref(params, { reminderFilter: reminderFilter === "eligible" ? undefined : "eligible", academiesPage: 1 })}
+        href={adminAcademiesHref(params, {
+          reminderFilter:
+            reminderFilter === "eligible" ? undefined : "eligible",
+          academiesPage: 1,
+        })}
         variant={reminderFilter === "eligible" ? "primary" : "secondary"}
         className="min-h-12 whitespace-nowrap"
       >
@@ -1694,7 +3167,14 @@ function AcademiesPanelActions({ params, reminderFilter }: { params: AdminSearch
         Unclaimed with valid email
       </Button>
       {reminderFilter !== "all" ? (
-        <Button href={adminAcademiesHref(params, { reminderFilter: undefined, academiesPage: 1 })} variant="secondary" className="min-h-12 border-stone-200 text-slate-700">
+        <Button
+          href={adminAcademiesHref(params, {
+            reminderFilter: undefined,
+            academiesPage: 1,
+          })}
+          variant="secondary"
+          className="min-h-12 border-stone-200 text-slate-700"
+        >
           Reset filters
         </Button>
       ) : null}
@@ -1730,57 +3210,123 @@ function SystemRolesPanel({
   const visibleRoles = roles.filter((role) => role.level <= actorMaxLevel);
   const visibleRoleIds = new Set(visibleRoles.map((role) => role.id));
 
-  const userPermissionCodes = new Set(userPermissions.map((permission) => permission.code));
+  const userPermissionCodes = new Set(
+    userPermissions.map((permission) => permission.code),
+  );
   return (
     <SystemRolesBoard
-      canAddPrivileges={userPermissionCodes.has("authorisation.role_permission.add") || userPermissionCodes.has("authorisation.role_permission.assign") || userPermissionCodes.has("authorisation.manage")}
-      canCreateRoles={userPermissionCodes.has("authorisation.role.create") || userPermissionCodes.has("authorisation.manage")}
+      canAddPrivileges={
+        userPermissionCodes.has("authorisation.role_permission.add") ||
+        userPermissionCodes.has("authorisation.role_permission.assign") ||
+        userPermissionCodes.has("authorisation.manage")
+      }
+      canCreateRoles={
+        userPermissionCodes.has("authorisation.role.create") ||
+        userPermissionCodes.has("authorisation.manage")
+      }
       permissions={permissions}
-      rolePermissions={rolePermissions.filter((item) => visibleRoleIds.has(item.roleId))}
+      rolePermissions={rolePermissions.filter((item) =>
+        visibleRoleIds.has(item.roleId),
+      )}
       roles={visibleRoles}
       rolesPagination={rolesPagination}
     />
   );
 }
 
-function UnavailableUserSecurityPanel({ description, title }: { description: string; title: string }) {
+function UnavailableUserSecurityPanel({
+  description,
+  title,
+}: {
+  description: string;
+  title: string;
+}) {
   return (
     <div className="rounded-lg border border-stone-200 bg-white px-5 py-8">
       <h3 className="text-lg font-black text-stone-950">{title}</h3>
-      <p className="mt-2 max-w-2xl text-sm font-medium text-stone-600">{description}</p>
+      <p className="mt-2 max-w-2xl text-sm font-medium text-stone-600">
+        {description}
+      </p>
     </div>
   );
 }
 
 function PanelSearch({ panel, search }: { panel: string; search: string }) {
-  return <DashboardSearchForm action={dashboardPanelPath(panel)} value={search} />;
+  return (
+    <DashboardSearchForm action={dashboardPanelPath(panel)} value={search} />
+  );
 }
 
 function PaymentsPanelSearch({ search }: { search: string }) {
-  return <DashboardSearchForm action="/dashboard/payment" ariaLabel="Search payments" name="paymentsSearch" placeholder="Search payments by amount, event, email, or phone" value={search} />;
+  return (
+    <DashboardSearchForm
+      action="/dashboard/payment"
+      ariaLabel="Search payments"
+      name="paymentsSearch"
+      placeholder="Search payments by amount, event, email, or phone"
+      value={search}
+    />
+  );
 }
 
 function BookingsPanelSearch({ search }: { search: string }) {
-  return <DashboardSearchForm action="/dashboard/bookings" ariaLabel="Search bookings" name="bookingsSearch" placeholder="Search bookings by reference, event, customer, status, or payment" value={search} />;
+  return (
+    <DashboardSearchForm
+      action="/dashboard/bookings"
+      ariaLabel="Search bookings"
+      name="bookingsSearch"
+      placeholder="Search bookings by reference, event, customer, status, or payment"
+      value={search}
+    />
+  );
 }
 
-function ClaimsPanelSearch({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
+function ClaimsPanelSearch({
+  pageSize,
+  search,
+  status,
+}: {
+  pageSize: number;
+  search: string;
+  status: string;
+}) {
   return (
-    <DashboardSearchForm action="/dashboard/academy-claims" ariaLabel="Search claims" placeholder="Search by academy, requester, or email" value={search}>
-      {status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
-      {pageSize !== 20 ? <input type="hidden" name="pageSize" value={pageSize} /> : null}
+    <DashboardSearchForm
+      action="/dashboard/academy-claims"
+      ariaLabel="Search claims"
+      placeholder="Search by academy, requester, or email"
+      value={search}
+    >
+      {status !== "all" ? (
+        <input type="hidden" name="status" value={status} />
+      ) : null}
+      {pageSize !== 20 ? (
+        <input type="hidden" name="pageSize" value={pageSize} />
+      ) : null}
     </DashboardSearchForm>
   );
 }
 
 function startOfMonth(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1, 0, 0, 0, 0),
+  );
 }
 
 function startOfWeek(date: Date) {
   const day = date.getUTCDay();
   const diff = day === 0 ? 6 : day - 1;
-  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+  const start = new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
   start.setUTCDate(start.getUTCDate() - diff);
   return start;
 }
@@ -1811,10 +3357,20 @@ function FounderAnalyticsPanel({
   const dailyVisits = analyticsReport?.dailyVisits ?? [];
   const loggedInUsers = analyticsReport?.loggedInUsers;
   const loggedInByRole = loggedInUsers?.byRole.length
-    ? loggedInUsers.byRole.map((item) => `${roleLabel(item.role)}: ${item.currentCount.toLocaleString()}`).join(" / ")
+    ? loggedInUsers.byRole
+        .map(
+          (item) =>
+            `${roleLabel(item.role)}: ${item.currentCount.toLocaleString()}`,
+        )
+        .join(" / ")
     : "No recent logins";
   const countrySignalSummary = countrySignals.length
-    ? countrySignals.map((country) => `${country.countryName}: ${country.visitorCount} visitors / ${country.eventCount} events`).join(" · ")
+    ? countrySignals
+        .map(
+          (country) =>
+            `${country.countryName}: ${country.visitorCount} visitors / ${country.eventCount} events`,
+        )
+        .join(" · ")
     : "Unknown";
   const analyticsStats: Array<{
     icon: ReactNode;
@@ -1828,7 +3384,10 @@ function FounderAnalyticsPanel({
       icon: <Globe2 size={34} aria-hidden />,
       iconTone: "teal",
       id: "marketplace-supply",
-      indicator: { label: "sessions", value: summary?.marketplace.sessionCount ?? 0 },
+      indicator: {
+        label: "sessions",
+        value: summary?.marketplace.sessionCount ?? 0,
+      },
       label: "Visitors",
       value: summary?.marketplace.visitorCount ?? 0,
     },
@@ -1836,7 +3395,10 @@ function FounderAnalyticsPanel({
       icon: <CalendarDays size={34} aria-hidden />,
       iconTone: "violet",
       id: "open-mat-supply",
-      indicator: { label: "open mat searches", value: summary?.search.openMatSearches ?? 0 },
+      indicator: {
+        label: "open mat searches",
+        value: summary?.search.openMatSearches ?? 0,
+      },
       label: "Academy Searches",
       value: summary?.search.academySearches ?? 0,
     },
@@ -1844,7 +3406,12 @@ function FounderAnalyticsPanel({
       icon: <MousePointerClick size={34} aria-hidden />,
       iconTone: "blue",
       id: "commercial-intent",
-      indicator: { label: "profile views", value: (summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0) },
+      indicator: {
+        label: "profile views",
+        value:
+          (summary?.profile.academyProfileViews ?? 0) +
+          (summary?.profile.openMatViews ?? 0),
+      },
       label: "Commercial Intent",
       value: summary?.commercial.commercialIntentClicks ?? 0,
     },
@@ -1852,7 +3419,10 @@ function FounderAnalyticsPanel({
       icon: <Users size={34} aria-hidden />,
       iconTone: "orange",
       id: "logged-in-users",
-      indicator: { label: "today", value: loggedInUsers?.loggedInTodayCount ?? 0 },
+      indicator: {
+        label: "today",
+        value: loggedInUsers?.loggedInTodayCount ?? 0,
+      },
       label: "Logged In Now",
       value: loggedInUsers?.currentCount ?? 0,
     },
@@ -1860,34 +3430,110 @@ function FounderAnalyticsPanel({
       icon: <ClipboardCheck size={34} aria-hidden />,
       iconTone: "neutral",
       id: "claim-funnel",
-      indicator: { label: "submitted", value: summary?.claim.claimSubmissions ?? 0 },
+      indicator: {
+        label: "submitted",
+        value: summary?.claim.claimSubmissions ?? 0,
+      },
       label: "Claim Funnel",
       value: summary?.claim.claimStarts ?? 0,
     },
   ];
   const rows: FounderAnalyticsRow[] = [
-    { id: "visitors", area: "Visitor analytics", metric: "unique_visitors and unique_sessions", value: `${summary?.visitor.uniqueVisitors ?? 0} visitors` },
-    { id: "logged-in-now", area: "Logged-in users", metric: `users.last_login_at within ${loggedInUsers?.activeWindowMinutes ?? 30} minutes`, value: `${loggedInUsers?.currentCount ?? 0} users` },
-    { id: "logged-in-role", area: "Logged-in users by role", metric: "Recent users grouped by role", value: loggedInByRole },
-    { id: "search", area: "Search demand", metric: "academy_search_submitted and open_mat_search_submitted", value: `${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0)} searches` },
-    { id: "profiles", area: "Profile engagement", metric: "academy_profile_viewed and open_mat_viewed", value: `${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0)} views` },
-    { id: "commercial", area: "Commercial intent", metric: "commercial_intent_clicked", value: `${summary?.commercial.commercialIntentClicks ?? 0} clicks` },
-    { id: "countries", area: "Country attribution", metric: "country_code and country_name from trusted request headers", value: countrySignalSummary },
-    { id: "claims", area: "Claim funnel", metric: "claim_profile_started and claim_profile_submitted", value: `${summary?.claim.claimStarts ?? 0} starts / ${summary?.claim.claimSubmissions ?? 0} submitted` },
-    { id: "supply", area: "Marketplace supply", metric: "academy_created and open_mat_created", value: `${summary?.supply.academiesCreated ?? 0} academies / ${summary?.supply.openMatsCreated ?? 0} open mats` },
-    { id: "platform", area: "Platform Admin supply", metric: "Academies created by Platform Admins", value: platformAdminAcademyCount.toLocaleString() },
-    { id: "inventory", area: "Current inventory", metric: "Current academies, verified, open mats, users, managed", value: `${academyCount.toLocaleString()} academies / ${verifiedAcademyCount.toLocaleString()} verified / ${activeEventCount.toLocaleString()} open mats / ${userCount.toLocaleString()} users / ${managedAcademyCount.toLocaleString()} managed / ${claimCount.toLocaleString()} claims / ${pendingAcademyCount.toLocaleString()} pending` },
+    {
+      id: "visitors",
+      area: "Visitor analytics",
+      metric: "unique_visitors and unique_sessions",
+      value: `${summary?.visitor.uniqueVisitors ?? 0} visitors`,
+    },
+    {
+      id: "logged-in-now",
+      area: "Logged-in users",
+      metric: `users.last_login_at within ${loggedInUsers?.activeWindowMinutes ?? 30} minutes`,
+      value: `${loggedInUsers?.currentCount ?? 0} users`,
+    },
+    {
+      id: "logged-in-role",
+      area: "Logged-in users by role",
+      metric: "Recent users grouped by role",
+      value: loggedInByRole,
+    },
+    {
+      id: "search",
+      area: "Search demand",
+      metric: "academy_search_submitted and open_mat_search_submitted",
+      value: `${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0)} searches`,
+    },
+    {
+      id: "profiles",
+      area: "Profile engagement",
+      metric: "academy_profile_viewed and open_mat_viewed",
+      value: `${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0)} views`,
+    },
+    {
+      id: "commercial",
+      area: "Commercial intent",
+      metric: "commercial_intent_clicked",
+      value: `${summary?.commercial.commercialIntentClicks ?? 0} clicks`,
+    },
+    {
+      id: "countries",
+      area: "Country attribution",
+      metric: "country_code and country_name from trusted request headers",
+      value: countrySignalSummary,
+    },
+    {
+      id: "claims",
+      area: "Claim funnel",
+      metric: "claim_profile_started and claim_profile_submitted",
+      value: `${summary?.claim.claimStarts ?? 0} starts / ${summary?.claim.claimSubmissions ?? 0} submitted`,
+    },
+    {
+      id: "supply",
+      area: "Marketplace supply",
+      metric: "academy_created and open_mat_created",
+      value: `${summary?.supply.academiesCreated ?? 0} academies / ${summary?.supply.openMatsCreated ?? 0} open mats`,
+    },
+    {
+      id: "platform",
+      area: "Platform Admin supply",
+      metric: "Academies created by Platform Admins",
+      value: platformAdminAcademyCount.toLocaleString(),
+    },
+    {
+      id: "inventory",
+      area: "Current inventory",
+      metric: "Current academies, verified, open mats, users, managed",
+      value: `${academyCount.toLocaleString()} academies / ${verifiedAcademyCount.toLocaleString()} verified / ${activeEventCount.toLocaleString()} open mats / ${userCount.toLocaleString()} users / ${managedAcademyCount.toLocaleString()} managed / ${claimCount.toLocaleString()} claims / ${pendingAcademyCount.toLocaleString()} pending`,
+    },
   ];
 
   return (
-    <section id="founder-analytics" className="mt-7 rounded-lg border border-teal-100 bg-white p-5 shadow-sm" aria-labelledby="founder-analytics-title">
+    <section
+      id="founder-analytics"
+      className="mt-7 rounded-lg border border-teal-100 bg-white p-5 shadow-sm"
+      aria-labelledby="founder-analytics-title"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-xs font-black uppercase text-teal-800">Super Admin analytics</p>
-          <h2 id="founder-analytics-title" className="mt-1 text-2xl font-black text-slate-950">Analytics</h2>
-          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">Founder-only visibility for marketplace, visitor, search, profile, commercial intent, claim funnel, and supply metrics.</p>
+          <p className="text-xs font-black uppercase text-teal-800">
+            Super Admin analytics
+          </p>
+          <h2
+            id="founder-analytics-title"
+            className="mt-1 text-2xl font-black text-slate-950"
+          >
+            Analytics
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
+            Founder-only visibility for marketplace, visitor, search, profile,
+            commercial intent, claim funnel, and supply metrics.
+          </p>
         </div>
-        <Button href="/dashboard" variant="secondary" className="border-teal-200 text-teal-800">
+        <Button
+          href="/dashboard"
+          variant="secondary"
+          className="border-teal-200 text-teal-800"
+        >
           <MapPinned size={16} aria-hidden />
           Operational Dashboard
         </Button>
@@ -1908,22 +3554,54 @@ function FounderAnalyticsPanel({
 
       <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.55fr)]">
         <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-          <h3 className="text-base font-black text-slate-950">Activity Signals</h3>
+          <h3 className="text-base font-black text-slate-950">
+            Activity Signals
+          </h3>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <AnalyticsSignal label="Recent logins by role" value={loggedInByRole} />
-            <AnalyticsSignal label="Country attribution" value={countrySignalSummary} />
-            <AnalyticsSignal label="Supply" value={`${summary?.supply.academiesCreated ?? 0} academies / ${summary?.supply.openMatsCreated ?? 0} open mats / ${summary?.supply.coursesCreated ?? 0} courses`} />
-            <AnalyticsSignal label="Current inventory" value={`${academyCount.toLocaleString()} academies / ${verifiedAcademyCount.toLocaleString()} verified / ${activeEventCount.toLocaleString()} active events / ${userCount.toLocaleString()} users`} />
+            <AnalyticsSignal
+              label="Recent logins by role"
+              value={loggedInByRole}
+            />
+            <AnalyticsSignal
+              label="Country attribution"
+              value={countrySignalSummary}
+            />
+            <AnalyticsSignal
+              label="Supply"
+              value={`${summary?.supply.academiesCreated ?? 0} academies / ${summary?.supply.openMatsCreated ?? 0} open mats / ${summary?.supply.coursesCreated ?? 0} courses`}
+            />
+            <AnalyticsSignal
+              label="Current inventory"
+              value={`${academyCount.toLocaleString()} academies / ${verifiedAcademyCount.toLocaleString()} verified / ${activeEventCount.toLocaleString()} active events / ${userCount.toLocaleString()} users`}
+            />
           </div>
         </div>
 
         <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-          <h3 className="text-base font-black text-slate-950">Tracked Events</h3>
+          <h3 className="text-base font-black text-slate-950">
+            Tracked Events
+          </h3>
           <div className="mt-4 space-y-3 text-sm font-semibold text-slate-600">
-            <AnalyticsSignal label="Search demand" value={`${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0) + (summary?.search.courseSearches ?? 0)} searches`} compact />
-            <AnalyticsSignal label="Profile engagement" value={`${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0) + (summary?.profile.courseViews ?? 0)} views`} compact />
-            <AnalyticsSignal label="Claim funnel" value={`${summary?.claim.claimStarts ?? 0} starts / ${summary?.claim.claimSubmissions ?? 0} submitted`} compact />
-            <AnalyticsSignal label="Platform admin supply" value={platformAdminAcademyCount.toLocaleString()} compact />
+            <AnalyticsSignal
+              label="Search demand"
+              value={`${(summary?.search.academySearches ?? 0) + (summary?.search.openMatSearches ?? 0) + (summary?.search.courseSearches ?? 0)} searches`}
+              compact
+            />
+            <AnalyticsSignal
+              label="Profile engagement"
+              value={`${(summary?.profile.academyProfileViews ?? 0) + (summary?.profile.openMatViews ?? 0) + (summary?.profile.courseViews ?? 0)} views`}
+              compact
+            />
+            <AnalyticsSignal
+              label="Claim funnel"
+              value={`${summary?.claim.claimStarts ?? 0} starts / ${summary?.claim.claimSubmissions ?? 0} submitted`}
+              compact
+            />
+            <AnalyticsSignal
+              label="Platform admin supply"
+              value={platformAdminAcademyCount.toLocaleString()}
+              compact
+            />
           </div>
         </div>
       </div>
@@ -1931,9 +3609,19 @@ function FounderAnalyticsPanel({
       <Table
         className="mt-5"
         columns={[
-          { key: "area", title: "Analytics Area", render: (value) => <span className="font-bold text-slate-950">{String(value)}</span> },
+          {
+            key: "area",
+            title: "Analytics Area",
+            render: (value) => (
+              <span className="font-bold text-slate-950">{String(value)}</span>
+            ),
+          },
           { key: "metric", title: "Tracked Metrics" },
-          { key: "value", title: "Current Signal", render: (value) => <TableStatusBadge status={String(value)} /> },
+          {
+            key: "value",
+            title: "Current Signal",
+            render: (value) => <TableStatusBadge status={String(value)} />,
+          },
         ]}
         data={rows}
         emptyMessage="Analytics metrics will appear here once events are available."
@@ -1946,10 +3634,30 @@ function FounderAnalyticsPanel({
         <Table
           className="mt-3"
           columns={[
-            { key: "date", title: "Date", render: (value) => <span className="font-bold text-slate-950">{String(value)}</span> },
-            { key: "uniqueVisitors", title: "Unique Visitors", render: (value) => Number(value).toLocaleString() },
-            { key: "uniqueSessions", title: "Unique Sessions", render: (value) => Number(value).toLocaleString() },
-            { key: "eventCount", title: "Event Count", render: (value) => Number(value).toLocaleString() },
+            {
+              key: "date",
+              title: "Date",
+              render: (value) => (
+                <span className="font-bold text-slate-950">
+                  {String(value)}
+                </span>
+              ),
+            },
+            {
+              key: "uniqueVisitors",
+              title: "Unique Visitors",
+              render: (value) => Number(value).toLocaleString(),
+            },
+            {
+              key: "uniqueSessions",
+              title: "Unique Sessions",
+              render: (value) => Number(value).toLocaleString(),
+            },
+            {
+              key: "eventCount",
+              title: "Event Count",
+              render: (value) => Number(value).toLocaleString(),
+            },
           ]}
           data={dailyVisits}
           emptyMessage="Daily visits will appear here once analytics events are available."
@@ -1985,22 +3693,59 @@ function CompactAnalyticsMetric({
   return (
     <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
-        <div className={clsx("flex size-12 shrink-0 items-center justify-center rounded-lg", iconClass)}>{icon}</div>
+        <div
+          className={clsx(
+            "flex size-12 shrink-0 items-center justify-center rounded-lg",
+            iconClass,
+          )}
+        >
+          {icon}
+        </div>
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-normal text-slate-500">{label}</p>
-          <p className="mt-1 text-3xl font-black text-slate-950">{value.toLocaleString()}</p>
-          <p className="mt-1 text-xs font-bold text-slate-500">{indicator.value.toLocaleString()} {indicator.label}</p>
+          <p className="text-xs font-black uppercase tracking-normal text-slate-500">
+            {label}
+          </p>
+          <p className="mt-1 text-3xl font-black text-slate-950">
+            {value.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs font-bold text-slate-500">
+            {indicator.value.toLocaleString()} {indicator.label}
+          </p>
         </div>
       </div>
     </article>
   );
 }
 
-function AnalyticsSignal({ compact = false, label, value }: { compact?: boolean; label: string; value: string }) {
+function AnalyticsSignal({
+  compact = false,
+  label,
+  value,
+}: {
+  compact?: boolean;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className={compact ? "flex items-start justify-between gap-4 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0" : "rounded-lg bg-slate-50 p-3"}>
-      <p className="text-xs font-black uppercase tracking-normal text-slate-500">{label}</p>
-      <p className={compact ? "max-w-[65%] text-right text-sm font-black text-slate-950" : "mt-1 text-sm font-black text-slate-950"}>{value}</p>
+    <div
+      className={
+        compact
+          ? "flex items-start justify-between gap-4 border-b border-stone-100 pb-3 last:border-b-0 last:pb-0"
+          : "rounded-lg bg-slate-50 p-3"
+      }
+    >
+      <p className="text-xs font-black uppercase tracking-normal text-slate-500">
+        {label}
+      </p>
+      <p
+        className={
+          compact
+            ? "max-w-[65%] text-right text-sm font-black text-slate-950"
+            : "mt-1 text-sm font-black text-slate-950"
+        }
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -2033,18 +3778,29 @@ function SettingsDashboardContent({
     role: Role;
     status: UserStatus;
   } | null;
-  activeSettingsAction: "change-password" | "edit-profile" | "email-options" | "recent-audits" | "weekly-activity";
+  activeSettingsAction:
+    | "change-password"
+    | "edit-profile"
+    | "email-options"
+    | "recent-audits"
+    | "weekly-activity";
   academyAdmin: boolean;
   canViewWeeklyActivity: boolean;
   elevatedAdmin: boolean;
   emailPage: number;
-  emailOperationsView: "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
+  emailOperationsView:
+    "attention" | "invalid-emails" | "queued" | "runs" | "scheduled-retries";
   emailOperations: Awaited<ReturnType<typeof getEmailQueueOperationsSummary>>;
   platformAdminActivitySummary: PlatformAdminActivitySummary | null;
   recentAuditLogs: SettingsAuditLog[];
 }) {
-  const emailOptionsHref = "/dashboard?panel=settings&settingsAction=email-options";
-  const effectiveSettingsAction = effectiveSettingsActionForRole(activeSettingsAction, elevatedAdmin, canViewWeeklyActivity);
+  const emailOptionsHref =
+    "/dashboard?panel=settings&settingsAction=email-options";
+  const effectiveSettingsAction = effectiveSettingsActionForRole(
+    activeSettingsAction,
+    elevatedAdmin,
+    canViewWeeklyActivity,
+  );
   const selectedSettingsTitle = {
     "change-password": "Change Password",
     "edit-profile": "Profile",
@@ -2070,7 +3826,7 @@ function SettingsDashboardContent({
       id: "change-password",
     },
     ...(elevatedAdmin
-      ? [
+      ? ([
           {
             active: effectiveSettingsAction === "email-options",
             title: "Email Options",
@@ -2087,7 +3843,7 @@ function SettingsDashboardContent({
             icon: <ShieldCheck size={24} aria-hidden />,
             id: "recent-audits",
           },
-        ] satisfies QuickActionPanelItem[]
+        ] satisfies QuickActionPanelItem[])
       : []),
     ...(canViewWeeklyActivity
       ? [
@@ -2108,7 +3864,11 @@ function SettingsDashboardContent({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-3xl font-black text-slate-950">Settings</h1>
-          <p className="mt-2 text-slate-600">{academyAdmin ? "Manage your account password and profile information." : "Manage email operations, audit activity, and your account password."}</p>
+          <p className="mt-2 text-slate-600">
+            {academyAdmin
+              ? "Manage your account password and profile information."
+              : "Manage email operations, audit activity, and your account password."}
+          </p>
         </div>
         <Button href="/dashboard?panel=settings" variant="secondary">
           <RefreshCw size={16} aria-hidden /> Refresh
@@ -2120,9 +3880,14 @@ function SettingsDashboardContent({
       <SettingsDetailPanel title={selectedSettingsTitle}>
         {effectiveSettingsAction === "change-password" ? (
           <div className="max-w-xl">
-            <p className="text-sm font-semibold leading-6 text-slate-600">Set a new password for your administrator account.</p>
+            <p className="text-sm font-semibold leading-6 text-slate-600">
+              Set a new password for your administrator account.
+            </p>
             <div className="mt-5">
-              <ChangePasswordForm cancelHref="/dashboard?panel=settings" embedded />
+              <ChangePasswordForm
+                cancelHref="/dashboard?panel=settings"
+                embedded
+              />
             </div>
           </div>
         ) : null}
@@ -2134,7 +3899,11 @@ function SettingsDashboardContent({
             email={account.email}
             name={account.name}
             roleLabel={roleLabel(account.role)}
-            statusLabel={account.status === UserStatus.DISABLED || account.disabled ? "Disabled" : "Active"}
+            statusLabel={
+              account.status === UserStatus.DISABLED || account.disabled
+                ? "Disabled"
+                : "Active"
+            }
           />
         ) : null}
 
@@ -2160,10 +3929,15 @@ function SettingsDashboardContent({
 
         {effectiveSettingsAction === "weekly-activity" && elevatedAdmin ? (
           platformAdminActivitySummary ? (
-            <PlatformAdminActivitySummaryPanel embedded summary={platformAdminActivitySummary} />
+            <PlatformAdminActivitySummaryPanel
+              embedded
+              summary={platformAdminActivitySummary}
+            />
           ) : (
             <p className="text-sm font-semibold leading-6 text-slate-600">
-              Weekly activity summaries are tracked for Platform Admin contribution accounts. No current weekly activity summary is available for this account.
+              Weekly activity summaries are tracked for Platform Admin
+              contribution accounts. No current weekly activity summary is
+              available for this account.
             </p>
           )
         ) : null}
@@ -2172,10 +3946,24 @@ function SettingsDashboardContent({
   );
 }
 
-function SettingsDetailPanel({ children, title }: { children: React.ReactNode; title: string }) {
+function SettingsDetailPanel({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) {
   return (
-    <section className="mt-7 rounded-lg border border-blue-300 bg-blue-50/20 p-4 shadow-sm sm:p-5" aria-labelledby="settings-detail-title">
-      <h2 id="settings-detail-title" className="text-xl font-black text-blue-950">{title}</h2>
+    <section
+      className="mt-7 rounded-lg border border-blue-300 bg-blue-50/20 p-4 shadow-sm sm:p-5"
+      aria-labelledby="settings-detail-title"
+    >
+      <h2
+        id="settings-detail-title"
+        className="text-xl font-black text-blue-950"
+      >
+        {title}
+      </h2>
       <div className="mt-5">{children}</div>
     </section>
   );
@@ -2186,12 +3974,22 @@ function RecentAuditList({ logs }: { logs: SettingsAuditLog[] }) {
     <div>
       {logs.length ? (
         logs.map((log) => (
-          <div key={log.id} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3 last:border-b-0">
+          <div
+            key={log.id}
+            className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-3 last:border-b-0"
+          >
             <div className="min-w-0">
-              <p className="truncate font-semibold text-stone-950">{sentenceCase(log.action)}</p>
-              <p className="truncate text-sm text-stone-600">{log.actorUserId}{log.targetUserId ? ` -> ${log.targetUserId}` : ""}</p>
+              <p className="truncate font-semibold text-stone-950">
+                {sentenceCase(log.action)}
+              </p>
+              <p className="truncate text-sm text-stone-600">
+                {log.actorUserId}
+                {log.targetUserId ? ` -> ${log.targetUserId}` : ""}
+              </p>
             </div>
-            <p className="shrink-0 text-xs font-semibold text-stone-500">{formatDate(log.createdAt)}</p>
+            <p className="shrink-0 text-xs font-semibold text-stone-500">
+              {formatDate(log.createdAt)}
+            </p>
           </div>
         ))
       ) : (
@@ -2202,7 +4000,10 @@ function RecentAuditList({ logs }: { logs: SettingsAuditLog[] }) {
 }
 
 function sentenceCase(value: string) {
-  return value.replaceAll("_", " ").toLowerCase().replace(/^\w/, (letter) => letter.toUpperCase());
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
 type MapItem = Awaited<ReturnType<typeof getMapItems>>[number];
@@ -2211,21 +4012,37 @@ function MapDashboardContent({ academies }: { academies: MapItem[] }) {
   return (
     <section className="px-4 py-8 sm:px-8">
       <h1 className="text-3xl font-black text-slate-950">Map</h1>
-      <p className="mt-2 max-w-3xl text-slate-600">Scan London by training opportunity, not just club location. See nearby academies, upcoming open mats, and details before you travel.</p>
+      <p className="mt-2 max-w-3xl text-slate-600">
+        Scan London by training opportunity, not just club location. See nearby
+        academies, upcoming open mats, and details before you travel.
+      </p>
       <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_380px]">
         <div className="min-h-[480px] overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
           <AcademyMap academies={academies} />
         </div>
         <div className="grid max-h-[480px] gap-3 overflow-auto pr-1">
           {academies.map((academy) => (
-            <Link key={academy.id} href={`/academies/${academy.slug}`} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+            <Link
+              key={academy.id}
+              href={`/academies/${academy.slug}`}
+              className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm"
+            >
               <p className="font-bold text-stone-950">{academy.name}</p>
-              <p className="text-sm text-stone-600">{academy.borough ?? academy.city}, {academy.postcode}</p>
-              {academy.events[0] ? <p className="mt-2 text-xs font-semibold text-teal-800">{academy.events[0].title} · {formatDate(academy.events[0].eventDate)}</p> : null}
+              <p className="text-sm text-stone-600">
+                {academy.borough ?? academy.city}, {academy.postcode}
+              </p>
+              {academy.events[0] ? (
+                <p className="mt-2 text-xs font-semibold text-teal-800">
+                  {academy.events[0].title} ·{" "}
+                  {formatDate(academy.events[0].eventDate)}
+                </p>
+              ) : null}
             </Link>
           ))}
           {!academies.length ? (
-            <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600 shadow-sm">No map listings are available yet.</div>
+            <div className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600 shadow-sm">
+              No map listings are available yet.
+            </div>
           ) : null}
         </div>
       </div>
@@ -2234,7 +4051,13 @@ function MapDashboardContent({ academies }: { academies: MapItem[] }) {
 }
 
 function initials(value: string) {
-  return value.split(/\s|@/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
+  return value
+    .split(/\s|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 function roleLabel(role: string) {
@@ -2245,16 +4068,29 @@ function roleLabel(role: string) {
 }
 
 function formatMinorCurrency(amount: number, currency: string) {
-  return new Intl.NumberFormat("en-GB", { currency: currency || "GBP", style: "currency" }).format((amount || 0) / 100);
+  return new Intl.NumberFormat("en-GB", {
+    currency: currency || "GBP",
+    style: "currency",
+  }).format((amount || 0) / 100);
 }
 
 function formatPaymentDate(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return Number.isNaN(date.getTime())
+    ? "Unknown"
+    : date.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      });
 }
 
 function paymentOverviewDateLabel(date: Date) {
-  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+  return date.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
 }
 
 function paymentOverviewDateKey(date: Date) {
@@ -2262,7 +4098,17 @@ function paymentOverviewDateKey(date: Date) {
 }
 
 function startOfUtcDay(date: Date) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+  return new Date(
+    Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    ),
+  );
 }
 
 function paymentOverviewPeriodLabel(date: Date, period: PaymentOverviewPeriod) {
@@ -2271,13 +4117,23 @@ function paymentOverviewPeriodLabel(date: Date, period: PaymentOverviewPeriod) {
     endDate.setUTCDate(date.getUTCDate() + 6);
     return `${paymentOverviewDateLabel(date)} - ${paymentOverviewDateLabel(endDate)}`;
   }
-  if (period === "monthly") return date.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC", year: "numeric" });
-  if (period === "yearly") return date.toLocaleDateString("en-GB", { timeZone: "UTC", year: "numeric" });
+  if (period === "monthly")
+    return date.toLocaleDateString("en-GB", {
+      month: "short",
+      timeZone: "UTC",
+      year: "numeric",
+    });
+  if (period === "yearly")
+    return date.toLocaleDateString("en-GB", {
+      timeZone: "UTC",
+      year: "numeric",
+    });
   return paymentOverviewDateLabel(date);
 }
 
 function paymentOverviewPeriodKey(date: Date, period: PaymentOverviewPeriod) {
-  if (period === "monthly") return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  if (period === "monthly")
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
   if (period === "yearly") return String(date.getUTCFullYear());
   return paymentOverviewDateKey(date);
 }
@@ -2297,25 +4153,40 @@ function paymentOverviewBucketDate(date: Date, period: PaymentOverviewPeriod) {
   return bucketDate;
 }
 
-function paymentOverviewStartDate(latestDate: Date, period: PaymentOverviewPeriod) {
+function paymentOverviewStartDate(
+  latestDate: Date,
+  period: PaymentOverviewPeriod,
+) {
   const startDate = paymentOverviewBucketDate(latestDate, period);
   if (period === "daily") startDate.setUTCDate(startDate.getUTCDate() - 6);
   if (period === "weekly") startDate.setUTCDate(startDate.getUTCDate() - 35);
   if (period === "monthly") startDate.setUTCMonth(startDate.getUTCMonth() - 5);
-  if (period === "yearly") startDate.setUTCFullYear(startDate.getUTCFullYear() - 4);
+  if (period === "yearly")
+    startDate.setUTCFullYear(startDate.getUTCFullYear() - 4);
   return startDate;
 }
 
-function addPaymentOverviewPeriod(date: Date, period: PaymentOverviewPeriod, increment: number) {
+function addPaymentOverviewPeriod(
+  date: Date,
+  period: PaymentOverviewPeriod,
+  increment: number,
+) {
   const nextDate = new Date(date);
-  if (period === "daily") nextDate.setUTCDate(nextDate.getUTCDate() + increment);
-  if (period === "weekly") nextDate.setUTCDate(nextDate.getUTCDate() + (increment * 7));
-  if (period === "monthly") nextDate.setUTCMonth(nextDate.getUTCMonth() + increment);
-  if (period === "yearly") nextDate.setUTCFullYear(nextDate.getUTCFullYear() + increment);
+  if (period === "daily")
+    nextDate.setUTCDate(nextDate.getUTCDate() + increment);
+  if (period === "weekly")
+    nextDate.setUTCDate(nextDate.getUTCDate() + increment * 7);
+  if (period === "monthly")
+    nextDate.setUTCMonth(nextDate.getUTCMonth() + increment);
+  if (period === "yearly")
+    nextDate.setUTCFullYear(nextDate.getUTCFullYear() + increment);
   return nextDate;
 }
 
-function paymentOverviewChartPoints(payments: PaymentRecord[], period: PaymentOverviewPeriod) {
+function paymentOverviewChartPoints(
+  payments: PaymentRecord[],
+  period: PaymentOverviewPeriod,
+) {
   const grossPaid = new Map<string, number>();
   const parsedDates = payments
     .map((payment) => new Date(payment.createdAt))
@@ -2329,7 +4200,10 @@ function paymentOverviewChartPoints(payments: PaymentRecord[], period: PaymentOv
     if (payment.status !== "succeeded") return;
     const createdAt = new Date(payment.createdAt);
     if (Number.isNaN(createdAt.getTime()) || createdAt < startDate) return;
-    const key = paymentOverviewPeriodKey(paymentOverviewBucketDate(createdAt, period), period);
+    const key = paymentOverviewPeriodKey(
+      paymentOverviewBucketDate(createdAt, period),
+      period,
+    );
     grossPaid.set(key, (grossPaid.get(key) ?? 0) + payment.amount);
   });
 
@@ -2345,16 +4219,20 @@ function paymentOverviewChartPoints(payments: PaymentRecord[], period: PaymentOv
 }
 
 function paymentStatusTone(status: string) {
-  if (status === "succeeded" || status === "active" || status === "trialing") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
-  if (status === "failed" || status === "cancelled") return "bg-red-50 text-red-700 ring-red-100";
-  if (status === "refunded" || status === "partially_refunded") return "bg-amber-50 text-amber-800 ring-amber-100";
+  if (status === "succeeded" || status === "active" || status === "trialing")
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "failed" || status === "cancelled")
+    return "bg-red-50 text-red-700 ring-red-100";
+  if (status === "refunded" || status === "partially_refunded")
+    return "bg-amber-50 text-amber-800 ring-amber-100";
   return "bg-slate-50 text-slate-700 ring-slate-100";
 }
 
 function paymentStatusLabel(status: string) {
   if (status === "succeeded" || status === "active") return "Paid";
   if (status === "trialing") return "Trial";
-  if (status === "checkout_pending" || status === "pending") return "Pending payment";
+  if (status === "checkout_pending" || status === "pending")
+    return "Pending payment";
   return status.replaceAll("_", " ");
 }
 
@@ -2393,21 +4271,31 @@ function paymentSearchText(payment: PaymentRecord) {
 function paymentMatchesSearch(payment: PaymentRecord, search: string) {
   const normalizedSearch = search.trim().toLowerCase();
   if (!normalizedSearch) return true;
-  return normalizedSearch.split(/\s+/).every((term) => paymentSearchText(payment).includes(term));
+  return normalizedSearch
+    .split(/\s+/)
+    .every((term) => paymentSearchText(payment).includes(term));
 }
 
-function metadataText(metadata: Record<string, unknown> | undefined, key: string) {
+function metadataText(
+  metadata: Record<string, unknown> | undefined,
+  key: string,
+) {
   const value = metadata?.[key];
   if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   return undefined;
 }
 
 function bookingStatusTone(status: string) {
-  if (status === "confirmed" || status === "completed") return "bg-emerald-50 text-emerald-700 ring-emerald-100";
-  if (status === "cancelled" || status === "expired") return "bg-red-50 text-red-700 ring-red-100";
-  if (status === "payment_received") return "bg-blue-50 text-blue-700 ring-blue-100";
-  if (status === "payment_pending") return "bg-amber-50 text-amber-800 ring-amber-100";
+  if (status === "confirmed" || status === "completed")
+    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
+  if (status === "cancelled" || status === "expired")
+    return "bg-red-50 text-red-700 ring-red-100";
+  if (status === "payment_received")
+    return "bg-blue-50 text-blue-700 ring-blue-100";
+  if (status === "payment_pending")
+    return "bg-amber-50 text-amber-800 ring-amber-100";
   return "bg-slate-50 text-slate-700 ring-slate-100";
 }
 
@@ -2452,11 +4340,14 @@ function bookingSearchText(booking: BookingRecord) {
 function bookingMatchesSearch(booking: BookingRecord, search: string) {
   const normalizedSearch = search.trim().toLowerCase();
   if (!normalizedSearch) return true;
-  return normalizedSearch.split(/\s+/).every((term) => bookingSearchText(booking).includes(term));
+  return normalizedSearch
+    .split(/\s+/)
+    .every((term) => bookingSearchText(booking).includes(term));
 }
 
 function bookingEventHref(booking: BookingRecord) {
-  const courseId = metadataText(booking.metadata, "course_id") ?? booking.bookableId;
+  const courseId =
+    metadataText(booking.metadata, "course_id") ?? booking.bookableId;
   if (!courseId) return undefined;
   const params = new URLSearchParams();
   const occurrenceDate = metadataText(booking.metadata, "occurrence_date");
@@ -2466,20 +4357,35 @@ function bookingEventHref(booking: BookingRecord) {
 }
 
 function bookingTitle(booking: BookingRecord) {
-  return metadataText(booking.metadata, "course_title") ?? metadataText(booking.metadata, "event_title") ?? booking.bookableId;
+  return (
+    metadataText(booking.metadata, "course_title") ??
+    metadataText(booking.metadata, "event_title") ??
+    booking.bookableId
+  );
 }
 
 function bookingAcademyLabel(booking: BookingRecord) {
-  return metadataText(booking.metadata, "academy_name") ?? metadataText(booking.metadata, "academy_id") ?? booking.organisationId;
+  return (
+    metadataText(booking.metadata, "academy_name") ??
+    metadataText(booking.metadata, "academy_id") ??
+    booking.organisationId
+  );
 }
 
 function bookingCustomerLabel(booking: BookingRecord) {
-  return metadataText(booking.metadata, "payer_email") ?? booking.customerId ?? booking.guestReference ?? "Guest";
+  return (
+    metadataText(booking.metadata, "payer_email") ??
+    booking.customerId ??
+    booking.guestReference ??
+    "Guest"
+  );
 }
 
 function BookingActionsMenu({ booking }: { booking: BookingRecord }) {
   const canConfirm = booking.status === "payment_received";
-  const canCancel = booking.status === "payment_pending" || booking.status === "payment_received";
+  const canCancel =
+    booking.status === "payment_pending" ||
+    booking.status === "payment_received";
   return (
     <ActionMenu
       label={`Open actions for ${booking.reference || booking.id}`}
@@ -2509,7 +4415,10 @@ function BookingActionsMenu({ booking }: { booking: BookingRecord }) {
         </form>
       ) : null}
       {!canConfirm && !canCancel ? (
-        <span className="block rounded-md px-3 py-2 text-sm font-semibold text-slate-400" role="menuitem">
+        <span
+          className="block rounded-md px-3 py-2 text-sm font-semibold text-slate-400"
+          role="menuitem"
+        >
           No actions available
         </span>
       ) : null}
@@ -2517,26 +4426,46 @@ function BookingActionsMenu({ booking }: { booking: BookingRecord }) {
   );
 }
 
-function bookingActionNotice(error: string | null | undefined, booking: BookingRecord | undefined) {
+function bookingActionNotice(
+  error: string | null | undefined,
+  booking: BookingRecord | undefined,
+) {
   if (!error) return null;
   if (!booking && error !== "booking-missing") return null;
   if (error === "refund-requested") {
     return {
-      message: "Booking cancelled and refund request queued for the received payment.",
+      message:
+        "Booking cancelled and refund request queued for the received payment.",
       tone: "success" as const,
     };
   }
-  if (error === "payment-cancel-failed" && booking?.status !== "payment_pending") return null;
+  if (
+    error === "payment-cancel-failed" &&
+    booking?.status !== "payment_pending"
+  )
+    return null;
   let message = "Booking action failed. Please try again.";
-  if (error === "payment-cancel-failed") message = "Payment cancellation failed. The booking was not cancelled.";
-  if (error === "payment-already-complete") message = "Stripe says this payment is already complete. The booking was not cancelled; refresh the booking payment status before requesting a refund.";
-  if (error === "refund-missing-payment") message = "This paid booking has no payment reference, so a refund request could not be queued.";
-  if (error === "refund-request-failed") message = "Refund request failed. The booking was not cancelled.";
-  if (error === "cancel-invalid-status") message = "Only pending-payment or payment-received bookings can be cancelled from this action.";
-  if (error === "booking-load-failed") message = "Booking details could not be loaded. Please try again.";
-  if (error === "forbidden") message = "You do not have permission to update that booking.";
-  if (error === "confirm-failed") message = "Booking confirmation failed. Please try again.";
-  if (error === "cancel-failed") message = "Booking cancellation failed. Please try again.";
+  if (error === "payment-cancel-failed")
+    message = "Payment cancellation failed. The booking was not cancelled.";
+  if (error === "payment-already-complete")
+    message =
+      "Stripe says this payment is already complete. The booking was not cancelled; refresh the booking payment status before requesting a refund.";
+  if (error === "refund-missing-payment")
+    message =
+      "This paid booking has no payment reference, so a refund request could not be queued.";
+  if (error === "refund-request-failed")
+    message = "Refund request failed. The booking was not cancelled.";
+  if (error === "cancel-invalid-status")
+    message =
+      "Only pending-payment or payment-received bookings can be cancelled from this action.";
+  if (error === "booking-load-failed")
+    message = "Booking details could not be loaded. Please try again.";
+  if (error === "forbidden")
+    message = "You do not have permission to update that booking.";
+  if (error === "confirm-failed")
+    message = "Booking confirmation failed. Please try again.";
+  if (error === "cancel-failed")
+    message = "Booking cancellation failed. Please try again.";
   return {
     message,
     tone: "error" as const,
@@ -2558,29 +4487,85 @@ function BookingsPanel({
   search: string;
   searchParams: AdminSearchParams;
 }) {
-  const visibleBookings = result.bookings.filter((booking) => bookingMatchesSearch(booking, search));
-  const confirmedBookings = visibleBookings.filter((booking) => booking.status === "confirmed" || booking.status === "completed");
-  const pendingPaymentBookings = visibleBookings.filter((booking) => booking.status === "payment_pending");
-  const paymentReceivedBookings = visibleBookings.filter((booking) => booking.status === "payment_received");
-  const participantTotal = visibleBookings.reduce((sum, booking) => sum + booking.participantCount, 0);
+  const visibleBookings = result.bookings.filter((booking) =>
+    bookingMatchesSearch(booking, search),
+  );
+  const confirmedBookings = visibleBookings.filter(
+    (booking) =>
+      booking.status === "confirmed" || booking.status === "completed",
+  );
+  const pendingPaymentBookings = visibleBookings.filter(
+    (booking) => booking.status === "payment_pending",
+  );
+  const paymentReceivedBookings = visibleBookings.filter(
+    (booking) => booking.status === "payment_received",
+  );
+  const participantTotal = visibleBookings.reduce(
+    (sum, booking) => sum + booking.participantCount,
+    0,
+  );
   const currentPage = servicePaginationCurrentPage(result.pagination);
   const totalItems = servicePaginationTotalItems(result.pagination);
   const start = totalItems === 0 ? 0 : result.pagination.offset + 1;
-  const end = visibleBookings.length === 0 ? result.pagination.offset : result.pagination.offset + visibleBookings.length;
+  const end =
+    visibleBookings.length === 0
+      ? result.pagination.offset
+      : result.pagination.offset + visibleBookings.length;
   const summaryCards: PaymentSummaryCard[] = [
-    { changeLabel: result.pagination.has_more ? "More records available" : "All loaded records", icon: <ClipboardCheck size={27} aria-hidden />, id: "total-bookings", label: "Total Bookings", value: totalItems.toLocaleString() },
-    { changeLabel: "Confirmed or completed", icon: <CheckCircle2 size={28} aria-hidden />, id: "confirmed-bookings", label: "Confirmed", value: confirmedBookings.length.toLocaleString() },
-    { changeLabel: "Awaiting academy confirmation", icon: <ShieldCheck size={28} aria-hidden />, id: "payment-received-bookings", label: "Payment Received", value: paymentReceivedBookings.length.toLocaleString() },
-    { changeLabel: "Waiting for payment", icon: <CreditCard size={28} aria-hidden />, id: "pending-payment-bookings", label: "Pending Payment", value: pendingPaymentBookings.length.toLocaleString() },
-    { changeLabel: "Booked participant count", icon: <Users size={27} aria-hidden />, id: "participants", label: "Participants", value: participantTotal.toLocaleString() },
+    {
+      changeLabel: result.pagination.has_more
+        ? "More records available"
+        : "All loaded records",
+      icon: <ClipboardCheck size={27} aria-hidden />,
+      id: "total-bookings",
+      label: "Total Bookings",
+      value: totalItems.toLocaleString(),
+    },
+    {
+      changeLabel: "Confirmed or completed",
+      icon: <CheckCircle2 size={28} aria-hidden />,
+      id: "confirmed-bookings",
+      label: "Confirmed",
+      value: confirmedBookings.length.toLocaleString(),
+    },
+    {
+      changeLabel: "Awaiting academy confirmation",
+      icon: <ShieldCheck size={28} aria-hidden />,
+      id: "payment-received-bookings",
+      label: "Payment Received",
+      value: paymentReceivedBookings.length.toLocaleString(),
+    },
+    {
+      changeLabel: "Waiting for payment",
+      icon: <CreditCard size={28} aria-hidden />,
+      id: "pending-payment-bookings",
+      label: "Pending Payment",
+      value: pendingPaymentBookings.length.toLocaleString(),
+    },
+    {
+      changeLabel: "Booked participant count",
+      icon: <Users size={27} aria-hidden />,
+      id: "participants",
+      label: "Participants",
+      value: participantTotal.toLocaleString(),
+    },
   ];
-  const actionBooking = actionBookingId ? result.bookings.find((booking) => booking.id === actionBookingId) : undefined;
+  const actionBooking = actionBookingId
+    ? result.bookings.find((booking) => booking.id === actionBookingId)
+    : undefined;
   const actionNotice = bookingActionNotice(actionError, actionBooking);
 
   return (
     <div className="grid gap-5">
       {actionNotice ? (
-        <section className={clsx("rounded-lg border p-4 text-sm font-bold", actionNotice.tone === "success" ? "border-teal-200 bg-teal-50 text-teal-800" : "border-red-200 bg-red-50 text-red-800")}>
+        <section
+          className={clsx(
+            "rounded-lg border p-4 text-sm font-bold",
+            actionNotice.tone === "success"
+              ? "border-teal-200 bg-teal-50 text-teal-800"
+              : "border-red-200 bg-red-50 text-red-800",
+          )}
+        >
           {actionNotice.message}
         </section>
       ) : null}
@@ -2603,27 +4588,78 @@ function BookingsPanel({
             render: (booking) => {
               const href = bookingEventHref(booking);
               const title = bookingTitle(booking);
-              const subtitle = metadataText(booking.metadata, "occurrence_date") ?? booking.bookableInstanceId;
+              const subtitle =
+                metadataText(booking.metadata, "occurrence_date") ??
+                booking.bookableInstanceId;
               return (
                 <div className="grid gap-1">
                   {href ? (
-                    <Link href={href} className="font-bold text-slate-950 hover:text-teal-800">
+                    <Link
+                      href={href}
+                      className="font-bold text-slate-950 hover:text-teal-800"
+                    >
                       {title}
                     </Link>
                   ) : (
                     <span className="font-bold text-slate-950">{title}</span>
                   )}
-                  <span className="text-xs font-semibold text-slate-500">{booking.reference || subtitle}</span>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {booking.reference || subtitle}
+                  </span>
                 </div>
               );
             },
           },
-          ...(!academyAdmin ? [{ key: "academy", title: "Academy", render: (booking: BookingRecord) => bookingAcademyLabel(booking) }] : []),
-          { key: "customer", title: "Customer", render: (booking) => bookingCustomerLabel(booking) },
-          { key: "participants", title: "Participants", render: (booking) => <span className="font-bold text-slate-950">{booking.participantCount.toLocaleString()}</span> },
-          { key: "payment", title: "Payment", render: (booking) => booking.paymentId ? <span className="font-mono text-xs">{booking.paymentId}</span> : <span className="text-slate-400">None</span> },
-          { key: "status", title: "Status", render: (booking) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${bookingStatusTone(booking.status)}`}>{bookingStatusLabel(booking.status)}</span> },
-          { key: "created", title: "Created", render: (booking) => formatPaymentDate(booking.createdAt) },
+          ...(!academyAdmin
+            ? [
+                {
+                  key: "academy",
+                  title: "Academy",
+                  render: (booking: BookingRecord) =>
+                    bookingAcademyLabel(booking),
+                },
+              ]
+            : []),
+          {
+            key: "customer",
+            title: "Customer",
+            render: (booking) => bookingCustomerLabel(booking),
+          },
+          {
+            key: "participants",
+            title: "Participants",
+            render: (booking) => (
+              <span className="font-bold text-slate-950">
+                {booking.participantCount.toLocaleString()}
+              </span>
+            ),
+          },
+          {
+            key: "payment",
+            title: "Payment",
+            render: (booking) =>
+              booking.paymentId ? (
+                <span className="font-mono text-xs">{booking.paymentId}</span>
+              ) : (
+                <span className="text-slate-400">None</span>
+              ),
+          },
+          {
+            key: "status",
+            title: "Status",
+            render: (booking) => (
+              <span
+                className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${bookingStatusTone(booking.status)}`}
+              >
+                {bookingStatusLabel(booking.status)}
+              </span>
+            ),
+          },
+          {
+            key: "created",
+            title: "Created",
+            render: (booking) => formatPaymentDate(booking.createdAt),
+          },
           {
             key: "action",
             title: "Actions",
@@ -2632,7 +4668,11 @@ function BookingsPanel({
         ]}
         data={visibleBookings}
         emptyIcon={<ClipboardCheck size={28} aria-hidden />}
-        emptyMessage={result.bookings.length ? "No bookings match that search." : "No bookings have been recorded yet."}
+        emptyMessage={
+          result.bookings.length
+            ? "No bookings match that search."
+            : "No bookings have been recorded yet."
+        }
         getRowId={(booking) => booking.id}
         getRowHref={(booking) => bookingEventHref(booking)}
         pagination={{
@@ -2642,7 +4682,10 @@ function BookingsPanel({
           previousHref: pageHref(searchParams, "bookingsPage", currentPage - 1),
           start,
           totalItems,
-          totalPages: Math.max(currentPage, Math.ceil(totalItems / bookingsPageSize)),
+          totalPages: Math.max(
+            currentPage,
+            Math.ceil(totalItems / bookingsPageSize),
+          ),
         }}
         title="Recent Bookings"
         viewAllLabel={`Showing ${start}-${end} of ${totalItems.toLocaleString()} bookings`}
@@ -2665,18 +4708,41 @@ function PaymentMetricCards({ cards }: { cards: PaymentSummaryCard[] }) {
   return (
     <div className="flex flex-wrap items-start gap-4">
       {cards.map((card) => (
-        <section key={card.id} className="w-full rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:w-fit sm:min-w-[17rem] sm:max-w-[24rem]">
+        <section
+          key={card.id}
+          className="w-full rounded-lg border border-stone-200 bg-white p-5 shadow-sm sm:w-fit sm:min-w-[17rem] sm:max-w-[24rem]"
+        >
           <div className="grid grid-cols-[auto_1fr] gap-4">
-            <div className={clsx("flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100", card.iconClassName)}>
+            <div
+              className={clsx(
+                "flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-800 ring-1 ring-teal-100",
+                card.iconClassName,
+              )}
+            >
               {card.icon}
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-black text-slate-600">{card.label}</p>
-                <Info size={15} className="shrink-0 text-slate-400" aria-hidden />
+                <p className="truncate text-sm font-black text-slate-600">
+                  {card.label}
+                </p>
+                <Info
+                  size={15}
+                  className="shrink-0 text-slate-400"
+                  aria-hidden
+                />
               </div>
-              <p className="mt-1 text-2xl font-black text-slate-950">{card.value}</p>
-              <p className={clsx("mt-1 text-sm font-semibold text-slate-500", card.changeClassName)}>{card.changeLabel}</p>
+              <p className="mt-1 text-2xl font-black text-slate-950">
+                {card.value}
+              </p>
+              <p
+                className={clsx(
+                  "mt-1 text-sm font-semibold text-slate-500",
+                  card.changeClassName,
+                )}
+              >
+                {card.changeLabel}
+              </p>
             </div>
           </div>
         </section>
@@ -2724,7 +4790,9 @@ function PaymentDashboardTable<T>({
     <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
       <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate text-lg font-black text-slate-950">{title}</h3>
+          <h3 className="truncate text-lg font-black text-slate-950">
+            {title}
+          </h3>
           <Info size={17} className="shrink-0 text-slate-400" aria-hidden />
         </div>
         <span className="text-sm font-black text-teal-800">{viewAllLabel}</span>
@@ -2734,7 +4802,9 @@ function PaymentDashboardTable<T>({
           <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
             <tr>
               {columns.map((column) => (
-                <th key={column.key} className="px-4 py-3">{column.title}</th>
+                <th key={column.key} className="px-4 py-3">
+                  {column.title}
+                </th>
               ))}
             </tr>
           </thead>
@@ -2742,7 +4812,11 @@ function PaymentDashboardTable<T>({
             {data.map((row, index) => {
               const rowHref = getRowHref?.(row, index);
               return (
-                <TableRow key={getRowId(row, index)} href={rowHref} className="border-b border-stone-100 last:border-b-0">
+                <TableRow
+                  key={getRowId(row, index)}
+                  href={rowHref}
+                  className="border-b border-stone-100 last:border-b-0"
+                >
                   {columns.map((column) => (
                     <td key={column.key} className="px-4 py-4 text-slate-700">
                       <div>{column.render?.(row) ?? ""}</div>
@@ -2759,13 +4833,16 @@ function PaymentDashboardTable<T>({
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-50 text-teal-700 ring-1 ring-teal-100">
             {emptyIcon}
           </div>
-          <p className="mt-4 text-sm font-semibold text-slate-500">{emptyMessage}</p>
+          <p className="mt-4 text-sm font-semibold text-slate-500">
+            {emptyMessage}
+          </p>
         </div>
       ) : null}
       {pagination ? (
         <div className="flex flex-col gap-3 border-t border-stone-100 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="font-semibold text-slate-600">
-            Showing {pagination.start}-{pagination.end} of {pagination.totalItems}
+            Showing {pagination.start}-{pagination.end} of{" "}
+            {pagination.totalItems}
           </p>
           <SharedPagination
             ariaLabel="Table pagination"
@@ -2792,17 +4869,45 @@ const paymentOverviewPeriodOptions = [
 
 function paymentDescription(payment: PaymentRecord) {
   if (payment.metadata?.payment_scope === "SUBSCRIPTION") {
-    const interval = payment.metadata.billing_interval === "year" ? "yearly" : payment.metadata.billing_interval === "month" ? "monthly" : payment.metadata.billing_interval;
-    const mode = payment.metadata.payment_mode === "one_time" ? "one-time" : payment.metadata.payment_mode === "subscription" ? "recurring" : "";
-    return [payment.metadata.plan_name ?? payment.resourceLabel ?? "Subscription plan", interval, mode].filter(Boolean).join(" - ");
+    const interval =
+      payment.metadata.billing_interval === "year"
+        ? "yearly"
+        : payment.metadata.billing_interval === "month"
+          ? "monthly"
+          : payment.metadata.billing_interval;
+    const mode =
+      payment.metadata.payment_mode === "one_time"
+        ? "one-time"
+        : payment.metadata.payment_mode === "subscription"
+          ? "recurring"
+          : "";
+    return [
+      payment.metadata.plan_name ??
+        payment.resourceLabel ??
+        "Subscription plan",
+      interval,
+      mode,
+    ]
+      .filter(Boolean)
+      .join(" - ");
   }
-  return payment.metadata?.course_title ?? payment.resourceLabel ?? payment.resourceId ?? "Course/Event payment";
+  return (
+    payment.metadata?.course_title ??
+    payment.resourceLabel ??
+    payment.resourceId ??
+    "Course/Event payment"
+  );
 }
 
 function paymentDescriptionType(payment: PaymentRecord) {
-  if (payment.metadata?.payment_scope === "SUBSCRIPTION" || payment.resourceType === "subscription") return "Subscription payment";
+  if (
+    payment.metadata?.payment_scope === "SUBSCRIPTION" ||
+    payment.resourceType === "subscription"
+  )
+    return "Subscription payment";
   const resourceType = payment.resourceType?.replaceAll("_", " ");
-  if (resourceType) return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
+  if (resourceType)
+    return resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
   return "Booking";
 }
 
@@ -2810,36 +4915,102 @@ function paymentOrderId(payment: PaymentRecord) {
   return payment.checkoutSessionId ?? payment.providerPaymentId ?? payment.id;
 }
 
-function PaymentsTransactionsView({ currency, payments, result, search, searchParams }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; searchParams: AdminSearchParams }) {
-  const successfulPayments = payments.filter((payment) => payment.status === "succeeded" || payment.status === "active" || payment.status === "trialing");
-  const failedPayments = payments.filter((payment) => payment.status === "failed" || payment.status === "cancelled");
-  const totalAmount = successfulPayments.reduce((sum, payment) => sum + payment.amount, 0);
+function PaymentsTransactionsView({
+  currency,
+  payments,
+  result,
+  search,
+  searchParams,
+}: {
+  currency: string;
+  payments: PaymentRecord[];
+  result: DashboardPaymentsResult;
+  search: string;
+  searchParams: AdminSearchParams;
+}) {
+  const successfulPayments = payments.filter(
+    (payment) =>
+      payment.status === "succeeded" ||
+      payment.status === "active" ||
+      payment.status === "trialing",
+  );
+  const failedPayments = payments.filter(
+    (payment) => payment.status === "failed" || payment.status === "cancelled",
+  );
+  const totalAmount = successfulPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  );
   const currentPage = servicePaginationCurrentPage(result.pagination);
   const totalItems = servicePaginationTotalItems(result.pagination);
   const start = totalItems === 0 ? 0 : result.pagination.offset + 1;
-  const end = payments.length === 0 ? result.pagination.offset : result.pagination.offset + payments.length;
+  const end =
+    payments.length === 0
+      ? result.pagination.offset
+      : result.pagination.offset + payments.length;
   const summaryCards: PaymentSummaryCard[] = [
-    { changeClassName: "text-emerald-700", changeLabel: "↑ 14.3% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "total-transactions", label: "Total Transactions", value: payments.length.toLocaleString() },
-    { changeClassName: "text-emerald-700", changeLabel: "↑ 13.6% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-transactions", label: "Successful", value: successfulPayments.length.toLocaleString() },
-    { changeClassName: "text-red-600", changeLabel: "↓ 0.4% vs Jun 07 - Jun 13", icon: <Ban size={27} aria-hidden />, iconClassName: "bg-red-50 text-red-700 ring-red-100", id: "failed-transactions", label: "Failed", value: failedPayments.length.toLocaleString() },
-    { changeClassName: "text-emerald-700", changeLabel: "↑ 12.5% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "total-amount", label: "Total Amount", value: formatMinorCurrency(totalAmount, currency) },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "↑ 14.3% vs Jun 07 - Jun 13",
+      icon: <Wallet size={27} aria-hidden />,
+      id: "total-transactions",
+      label: "Total Transactions",
+      value: payments.length.toLocaleString(),
+    },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "↑ 13.6% vs Jun 07 - Jun 13",
+      icon: <CheckCircle2 size={28} aria-hidden />,
+      id: "successful-transactions",
+      label: "Successful",
+      value: successfulPayments.length.toLocaleString(),
+    },
+    {
+      changeClassName: "text-red-600",
+      changeLabel: "↓ 0.4% vs Jun 07 - Jun 13",
+      icon: <Ban size={27} aria-hidden />,
+      iconClassName: "bg-red-50 text-red-700 ring-red-100",
+      id: "failed-transactions",
+      label: "Failed",
+      value: failedPayments.length.toLocaleString(),
+    },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "↑ 12.5% vs Jun 07 - Jun 13",
+      icon: <CreditCard size={28} aria-hidden />,
+      id: "total-amount",
+      label: "Total Amount",
+      value: formatMinorCurrency(totalAmount, currency),
+    },
   ];
 
   return (
     <div className="grid gap-5">
       <div className="text-sm font-semibold text-slate-600">
-        <Link href="/dashboard/payment?paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <Link
+          href="/dashboard/payment?paymentsView=overview"
+          className="text-slate-600 hover:text-teal-800"
+        >
+          Payments
+        </Link>
         <span className="mx-2 text-slate-400">›</span>
         <span className="text-slate-800">Transactions</span>
       </div>
       <PaymentMetricCards cards={summaryCards} />
       <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-        <form action="/dashboard/payment" className="grid gap-4 border-b border-stone-100 p-4 lg:grid-cols-[minmax(240px,1.3fr)_minmax(170px,0.65fr)_minmax(180px,0.7fr)_minmax(180px,0.7fr)_auto]">
+        <form
+          action="/dashboard/payment"
+          className="grid gap-4 border-b border-stone-100 p-4 lg:grid-cols-[minmax(240px,1.3fr)_minmax(170px,0.65fr)_minmax(180px,0.7fr)_minmax(180px,0.7fr)_auto]"
+        >
           <input type="hidden" name="paymentsView" value="transactions" />
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             <span className="sr-only">Search transactions</span>
             <span className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} aria-hidden />
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                size={18}
+                aria-hidden
+              />
               <input
                 className="min-h-12 w-full rounded-md border border-stone-200 pl-10 pr-3 text-sm font-normal text-slate-800"
                 defaultValue={search}
@@ -2850,7 +5021,10 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             Status
-            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+            <select
+              className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+              defaultValue=""
+            >
               <option value="">All Status</option>
               <option value="succeeded">Paid</option>
               <option value="pending">Pending</option>
@@ -2859,35 +5033,57 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
             </select>
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
-              Course / Plan
-            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+            Course / Plan
+            <select
+              className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+              defaultValue=""
+            >
               <option value="">All</option>
             </select>
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             Payment Method
-            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+            <select
+              className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+              defaultValue=""
+            >
               <option value="">All</option>
               <option value="card">Card</option>
               <option value="google_pay">Google Pay</option>
               <option value="wallet">Wallet</option>
             </select>
           </label>
-          <Button type="submit" variant="secondary" className="min-h-12 self-end">
+          <Button
+            type="submit"
+            variant="secondary"
+            className="min-h-12 self-end"
+          >
             <Filter size={17} aria-hidden />
             Filters
           </Button>
         </form>
         <PaymentDashboardTable
           columns={[
-            { key: "date", title: "Date ↓", render: (payment) => <span className="font-semibold text-slate-700">{formatPaymentDate(payment.createdAt)}</span> },
+            {
+              key: "date",
+              title: "Date ↓",
+              render: (payment) => (
+                <span className="font-semibold text-slate-700">
+                  {formatPaymentDate(payment.createdAt)}
+                </span>
+              ),
+            },
             {
               key: "description",
               title: "Description",
               render: (payment) => (
                 <div className="grid gap-1">
-                  <span className="font-bold text-slate-950">{paymentDescription(payment)}</span>
-                  <span className="text-sm font-semibold text-slate-500">{paymentDescriptionType(payment)}</span>
+                  <span className="font-bold text-slate-950">
+                    {paymentDescription(payment)}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-500">
+                    {paymentDescriptionType(payment)}
+                  </span>
                 </div>
               ),
             },
@@ -2896,29 +5092,86 @@ function PaymentsTransactionsView({ currency, payments, result, search, searchPa
               title: "Payer",
               render: (payment) => (
                 <div className="grid gap-1">
-                  <span className="font-semibold text-slate-950">{payment.payerEmail ? payment.payerEmail.split("@")[0] : "Guest"}</span>
-                  <span className="text-sm font-semibold text-slate-500">{payment.payerEmail ?? payment.payerUserId ?? "Guest checkout"}</span>
+                  <span className="font-semibold text-slate-950">
+                    {payment.payerEmail
+                      ? payment.payerEmail.split("@")[0]
+                      : "Guest"}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-500">
+                    {payment.payerEmail ??
+                      payment.payerUserId ??
+                      "Guest checkout"}
+                  </span>
                 </div>
               ),
             },
-            { key: "amount", title: "Amount", render: (payment) => <span className="font-bold text-slate-950">{formatMinorCurrency(payment.amount, payment.currency)}</span> },
-            { key: "method", title: "Method", render: (payment) => <Badge>{payment.paymentMethodType.replaceAll("_", " ")}</Badge> },
-            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{paymentStatusLabel(payment.status)}</span> },
-            { key: "order", title: "Payment Ref", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#{paymentOrderId(payment)}</span> },
-            { key: "actions", title: "Actions", render: () => <span className="text-xl font-black text-slate-500">⋮</span> },
+            {
+              key: "amount",
+              title: "Amount",
+              render: (payment) => (
+                <span className="font-bold text-slate-950">
+                  {formatMinorCurrency(payment.amount, payment.currency)}
+                </span>
+              ),
+            },
+            {
+              key: "method",
+              title: "Method",
+              render: (payment) => (
+                <Badge>{payment.paymentMethodType.replaceAll("_", " ")}</Badge>
+              ),
+            },
+            {
+              key: "status",
+              title: "Status",
+              render: (payment) => (
+                <span
+                  className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}
+                >
+                  {paymentStatusLabel(payment.status)}
+                </span>
+              ),
+            },
+            {
+              key: "order",
+              title: "Payment Ref",
+              render: (payment) => (
+                <span className="font-mono text-xs font-semibold text-slate-700">
+                  #{paymentOrderId(payment)}
+                </span>
+              ),
+            },
+            {
+              key: "actions",
+              title: "Actions",
+              render: () => (
+                <span className="text-xl font-black text-slate-500">⋮</span>
+              ),
+            },
           ]}
           data={payments}
           emptyIcon={<CreditCard size={28} aria-hidden />}
-          emptyMessage={result.payments.length ? "No transactions match that search." : "No transactions have been recorded yet."}
+          emptyMessage={
+            result.payments.length
+              ? "No transactions match that search."
+              : "No transactions have been recorded yet."
+          }
           getRowId={(payment) => payment.id}
           pagination={{
             currentPage,
             end,
             nextHref: pageHref(searchParams, "paymentsPage", currentPage + 1),
-            previousHref: pageHref(searchParams, "paymentsPage", currentPage - 1),
+            previousHref: pageHref(
+              searchParams,
+              "paymentsPage",
+              currentPage - 1,
+            ),
             start,
             totalItems,
-            totalPages: Math.max(currentPage, Math.ceil(totalItems / paymentsPageSize)),
+            totalPages: Math.max(
+              currentPage,
+              Math.ceil(totalItems / paymentsPageSize),
+            ),
           }}
           title="Transactions"
           viewAllLabel={`Showing ${start}-${end} of ${totalItems.toLocaleString()} transactions`}
@@ -2932,8 +5185,16 @@ function platformFeeAmount(amount: number, settings: PaymentPlatformSettings) {
   return calculatePlatformFeeMinor(amount, settings);
 }
 
-function netPaymentAmount(payment: PaymentRecord, settings: PaymentPlatformSettings) {
-  return Math.max(0, payment.amount - platformFeeAmount(payment.amount, settings) - payment.refundedAmount);
+function netPaymentAmount(
+  payment: PaymentRecord,
+  settings: PaymentPlatformSettings,
+) {
+  return Math.max(
+    0,
+    payment.amount -
+      platformFeeAmount(payment.amount, settings) -
+      payment.refundedAmount,
+  );
 }
 
 type EarningsCourseRow = {
@@ -2944,23 +5205,51 @@ type EarningsCourseRow = {
   platformFees: number;
 };
 
-function earningsCourseRows(payments: PaymentRecord[], settings: PaymentPlatformSettings): EarningsCourseRow[] {
+function earningsCourseRows(
+  payments: PaymentRecord[],
+  settings: PaymentPlatformSettings,
+): EarningsCourseRow[] {
   const rows = new Map<string, EarningsCourseRow>();
   payments.forEach((payment) => {
     if (payment.status !== "succeeded") return;
     const label = paymentDescription(payment);
     const id = payment.metadata?.course_id ?? payment.resourceId ?? label;
-    const row = rows.get(id) ?? { grossRevenue: 0, id, label, netEarnings: 0, platformFees: 0 };
+    const row = rows.get(id) ?? {
+      grossRevenue: 0,
+      id,
+      label,
+      netEarnings: 0,
+      platformFees: 0,
+    };
     const platformFees = platformFeeAmount(payment.amount, settings);
     row.grossRevenue += payment.amount;
     row.platformFees += platformFees;
-    row.netEarnings += Math.max(0, payment.amount - platformFees - payment.refundedAmount);
+    row.netEarnings += Math.max(
+      0,
+      payment.amount - platformFees - payment.refundedAmount,
+    );
     rows.set(id, row);
   });
-  return Array.from(rows.values()).sort((left, right) => right.netEarnings - left.netEarnings).slice(0, 5);
+  return Array.from(rows.values())
+    .sort((left, right) => right.netEarnings - left.netEarnings)
+    .slice(0, 5);
 }
 
-function EarningsSummaryPanel({ currency, feeLabel, grossRevenue, netEarnings, platformFees, refunds }: { currency: string; feeLabel: string; grossRevenue: number; netEarnings: number; platformFees: number; refunds: number }) {
+function EarningsSummaryPanel({
+  currency,
+  feeLabel,
+  grossRevenue,
+  netEarnings,
+  platformFees,
+  refunds,
+}: {
+  currency: string;
+  feeLabel: string;
+  grossRevenue: number;
+  netEarnings: number;
+  platformFees: number;
+  refunds: number;
+}) {
   return (
     <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
@@ -2970,24 +5259,34 @@ function EarningsSummaryPanel({ currency, feeLabel, grossRevenue, netEarnings, p
       <dl className="mt-6 grid gap-4 text-sm font-semibold text-slate-600">
         <div className="flex justify-between gap-4">
           <dt>Gross Revenue</dt>
-          <dd className="font-black text-slate-950">{formatMinorCurrency(grossRevenue, currency)}</dd>
+          <dd className="font-black text-slate-950">
+            {formatMinorCurrency(grossRevenue, currency)}
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt>Platform Fees ({feeLabel})</dt>
-          <dd className="font-black text-red-600">-{formatMinorCurrency(platformFees, currency)}</dd>
+          <dd className="font-black text-red-600">
+            -{formatMinorCurrency(platformFees, currency)}
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt>Refunds</dt>
-          <dd className="font-black text-red-600">-{formatMinorCurrency(refunds, currency)}</dd>
+          <dd className="font-black text-red-600">
+            -{formatMinorCurrency(refunds, currency)}
+          </dd>
         </div>
         <div className="my-1 border-t border-stone-200" />
         <div className="flex justify-between gap-4">
           <dt>Net Revenue</dt>
-          <dd className="font-black text-slate-950">{formatMinorCurrency(netEarnings, currency)}</dd>
+          <dd className="font-black text-slate-950">
+            {formatMinorCurrency(netEarnings, currency)}
+          </dd>
         </div>
         <div className="flex justify-between gap-4">
           <dt>Payouts Sent</dt>
-          <dd className="font-black text-red-600">-{formatMinorCurrency(0, currency)}</dd>
+          <dd className="font-black text-red-600">
+            -{formatMinorCurrency(0, currency)}
+          </dd>
         </div>
       </dl>
       <div className="mt-6 flex min-h-14 items-center justify-between rounded-lg bg-teal-50 px-4 text-base font-black text-teal-800 ring-1 ring-teal-100">
@@ -2998,21 +5297,41 @@ function EarningsSummaryPanel({ currency, feeLabel, grossRevenue, netEarnings, p
   );
 }
 
-function EarningsBreakdownPanel({ currency, rows, total }: { currency: string; rows: EarningsCourseRow[]; total: number }) {
-  const colors = ["bg-teal-700", "bg-emerald-400", "bg-violet-500", "bg-orange-400", "bg-sky-500"];
+function EarningsBreakdownPanel({
+  currency,
+  rows,
+  total,
+}: {
+  currency: string;
+  rows: EarningsCourseRow[];
+  total: number;
+}) {
+  const colors = [
+    "bg-teal-700",
+    "bg-emerald-400",
+    "bg-violet-500",
+    "bg-orange-400",
+    "bg-sky-500",
+  ];
 
   return (
     <section className="rounded-lg border border-stone-200 bg-white shadow-sm">
       <div className="flex items-center gap-2 border-b border-stone-100 px-5 py-4">
-        <h3 className="text-lg font-black text-slate-950">Earnings Breakdown</h3>
+        <h3 className="text-lg font-black text-slate-950">
+          Earnings Breakdown
+        </h3>
         <Info size={17} className="text-slate-400" aria-hidden />
       </div>
       <div className="grid gap-6 p-5 lg:grid-cols-[220px_1fr] lg:items-center">
         <div className="relative mx-auto grid h-44 w-44 place-items-center rounded-full bg-[conic-gradient(#0f766e_0_35%,#34d399_35%_58%,#8b5cf6_58%_74%,#fb923c_74%_88%,#38bdf8_88%_100%)]">
           <div className="grid h-28 w-28 place-items-center rounded-full bg-white text-center shadow-sm">
             <div>
-              <p className="text-xl font-black text-slate-950">{formatMinorCurrency(total, currency)}</p>
-              <p className="text-sm font-semibold text-slate-500">Net Earnings</p>
+              <p className="text-xl font-black text-slate-950">
+                {formatMinorCurrency(total, currency)}
+              </p>
+              <p className="text-sm font-semibold text-slate-500">
+                Net Earnings
+              </p>
             </div>
           </div>
         </div>
@@ -3020,17 +5339,33 @@ function EarningsBreakdownPanel({ currency, rows, total }: { currency: string; r
           {rows.map((row, index) => {
             const percentage = total > 0 ? (row.netEarnings / total) * 100 : 0;
             return (
-              <div key={row.id} className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 text-sm">
-                <span className={clsx("h-3 w-3 rounded-full", colors[index % colors.length])} aria-hidden />
+              <div
+                key={row.id}
+                className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 text-sm"
+              >
+                <span
+                  className={clsx(
+                    "h-3 w-3 rounded-full",
+                    colors[index % colors.length],
+                  )}
+                  aria-hidden
+                />
                 <dt className="font-semibold text-slate-700">{row.label}</dt>
-                <dd className="font-semibold text-slate-500">{percentage.toFixed(1)}%</dd>
-                <dd className="font-black text-slate-950">{formatMinorCurrency(row.netEarnings, currency)}</dd>
+                <dd className="font-semibold text-slate-500">
+                  {percentage.toFixed(1)}%
+                </dd>
+                <dd className="font-black text-slate-950">
+                  {formatMinorCurrency(row.netEarnings, currency)}
+                </dd>
               </div>
             );
           })}
         </dl>
       </div>
-      <Link href="/dashboard/payment?paymentsView=earnings" className="flex min-h-14 items-center justify-between border-t border-stone-100 px-5 text-sm font-black text-teal-800">
+      <Link
+        href="/dashboard/payment?paymentsView=earnings"
+        className="flex min-h-14 items-center justify-between border-t border-stone-100 px-5 text-sm font-black text-teal-800"
+      >
         View full report
         <ChevronRight size={18} aria-hidden />
       </Link>
@@ -3038,32 +5373,119 @@ function EarningsBreakdownPanel({ currency, rows, total }: { currency: string; r
   );
 }
 
-function PaymentsEarningsView({ currency, payments, paymentPlatformSettings, period }: { currency: string; payments: PaymentRecord[]; paymentPlatformSettings: PaymentPlatformSettings; period: PaymentOverviewPeriod }) {
-  const succeededPayments = payments.filter((payment) => payment.status === "succeeded");
-  const grossRevenue = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const platformFees = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount, paymentPlatformSettings), 0);
-  const refunds = payments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
-  const netEarnings = succeededPayments.reduce((sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings), 0);
-  const pendingEarnings = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + payment.amount, 0);
+function PaymentsEarningsView({
+  currency,
+  payments,
+  paymentPlatformSettings,
+  period,
+}: {
+  currency: string;
+  payments: PaymentRecord[];
+  paymentPlatformSettings: PaymentPlatformSettings;
+  period: PaymentOverviewPeriod;
+}) {
+  const succeededPayments = payments.filter(
+    (payment) => payment.status === "succeeded",
+  );
+  const grossRevenue = succeededPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  );
+  const platformFees = succeededPayments.reduce(
+    (sum, payment) =>
+      sum + platformFeeAmount(payment.amount, paymentPlatformSettings),
+    0,
+  );
+  const refunds = payments.reduce(
+    (sum, payment) => sum + payment.refundedAmount,
+    0,
+  );
+  const netEarnings = succeededPayments.reduce(
+    (sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings),
+    0,
+  );
+  const pendingEarnings = payments
+    .filter(
+      (payment) =>
+        payment.status !== "succeeded" &&
+        payment.status !== "failed" &&
+        payment.status !== "cancelled",
+    )
+    .reduce((sum, payment) => sum + payment.amount, 0);
   const courseRows = earningsCourseRows(payments, paymentPlatformSettings);
-  const maxNetEarnings = Math.max(...courseRows.map((row) => row.netEarnings), 1);
+  const maxNetEarnings = Math.max(
+    ...courseRows.map((row) => row.netEarnings),
+    1,
+  );
   const summaryCards: PaymentSummaryCard[] = [
-    { changeClassName: "text-emerald-700", changeLabel: "↑ 11.7% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "net-earnings", label: "Net Earnings", value: formatMinorCurrency(netEarnings, currency) },
-    { changeClassName: "text-orange-600", changeLabel: `${payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").length.toLocaleString()} payments`, icon: <CalendarDays size={28} aria-hidden />, id: "pending-earnings", label: "Pending Earnings", value: formatMinorCurrency(pendingEarnings, currency) },
-    { changeLabel: "On Jun 10, 2026", icon: <Wallet size={27} aria-hidden />, id: "payouts-sent", label: "Payouts Sent", value: formatMinorCurrency(0, currency) },
-    { changeClassName: "text-emerald-700", changeLabel: "Excellent", icon: <BarChart3 size={28} aria-hidden />, id: "average-payout-time", label: "Avg. Payout Time", value: "2.3 days" },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "↑ 11.7% vs Jun 07 - Jun 13",
+      icon: <CreditCard size={28} aria-hidden />,
+      id: "net-earnings",
+      label: "Net Earnings",
+      value: formatMinorCurrency(netEarnings, currency),
+    },
+    {
+      changeClassName: "text-orange-600",
+      changeLabel: `${payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").length.toLocaleString()} payments`,
+      icon: <CalendarDays size={28} aria-hidden />,
+      id: "pending-earnings",
+      label: "Pending Earnings",
+      value: formatMinorCurrency(pendingEarnings, currency),
+    },
+    {
+      changeLabel: "On Jun 10, 2026",
+      icon: <Wallet size={27} aria-hidden />,
+      id: "payouts-sent",
+      label: "Payouts Sent",
+      value: formatMinorCurrency(0, currency),
+    },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "Excellent",
+      icon: <BarChart3 size={28} aria-hidden />,
+      id: "average-payout-time",
+      label: "Avg. Payout Time",
+      value: "2.3 days",
+    },
   ];
   const earningsMetrics: PaymentOverviewMetric[] = [
-    { colorClassName: "bg-teal-700", id: "gross-revenue", label: "Gross Revenue", value: formatMinorCurrency(grossRevenue, currency) },
-    { colorClassName: "bg-teal-700", id: "platform-fees", label: "Platform Fees", value: formatMinorCurrency(platformFees, currency) },
-    { colorClassName: "bg-teal-700", id: "pending-earnings", label: "Pending Earnings", value: formatMinorCurrency(pendingEarnings, currency) },
-    { colorClassName: "bg-emerald-400", id: "net-earnings", label: "Net Earnings", value: formatMinorCurrency(netEarnings, currency) },
+    {
+      colorClassName: "bg-teal-700",
+      id: "gross-revenue",
+      label: "Gross Revenue",
+      value: formatMinorCurrency(grossRevenue, currency),
+    },
+    {
+      colorClassName: "bg-teal-700",
+      id: "platform-fees",
+      label: "Platform Fees",
+      value: formatMinorCurrency(platformFees, currency),
+    },
+    {
+      colorClassName: "bg-teal-700",
+      id: "pending-earnings",
+      label: "Pending Earnings",
+      value: formatMinorCurrency(pendingEarnings, currency),
+    },
+    {
+      colorClassName: "bg-emerald-400",
+      id: "net-earnings",
+      label: "Net Earnings",
+      value: formatMinorCurrency(netEarnings, currency),
+    },
   ];
 
   return (
     <div className="grid gap-5">
       <div className="text-sm font-semibold text-slate-600">
-        <Link href="/dashboard/payment?paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <Link
+          href="/dashboard/payment?paymentsView=overview"
+          className="text-slate-600 hover:text-teal-800"
+        >
+          Payments
+        </Link>
         <span className="mx-2 text-slate-400">›</span>
         <span className="text-slate-800">Earnings</span>
       </div>
@@ -3072,14 +5494,24 @@ function PaymentsEarningsView({ currency, payments, paymentPlatformSettings, per
         <section className="rounded-lg border border-stone-200 bg-white p-5 shadow-sm">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-black text-slate-950">Earnings Over Time</h3>
+              <h3 className="text-lg font-black text-slate-950">
+                Earnings Over Time
+              </h3>
               <Info size={17} className="text-slate-400" aria-hidden />
             </div>
-            <span className="inline-flex min-h-11 items-center rounded-md border border-stone-200 px-4 text-sm font-black text-slate-700 shadow-sm">Daily</span>
+            <span className="inline-flex min-h-11 items-center rounded-md border border-stone-200 px-4 text-sm font-black text-slate-700 shadow-sm">
+              Daily
+            </span>
           </div>
           <LineOverviewChart
             className="mt-4"
-            formatValue={(value) => new Intl.NumberFormat("en-GB", { currency, maximumFractionDigits: 0, style: "currency" }).format(value / 100)}
+            formatValue={(value) =>
+              new Intl.NumberFormat("en-GB", {
+                currency,
+                maximumFractionDigits: 0,
+                style: "currency",
+              }).format(value / 100)
+            }
             id="earnings-over-time-chart"
             maxTicks={5}
             maxValue={30000}
@@ -3088,29 +5520,74 @@ function PaymentsEarningsView({ currency, payments, paymentPlatformSettings, per
           />
           <dl className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {earningsMetrics.map((metric) => (
-              <div key={metric.id} className="grid grid-cols-[auto_1fr] gap-x-3">
-                <dt className="col-start-2 text-sm font-bold text-slate-500">{metric.label}</dt>
-                <dd className="col-start-2 row-start-1 text-xl font-black text-slate-950">{metric.value}</dd>
-                <span className={clsx("row-span-2 mt-2 h-2.5 w-2.5 rounded-full", metric.colorClassName)} aria-hidden />
+              <div
+                key={metric.id}
+                className="grid grid-cols-[auto_1fr] gap-x-3"
+              >
+                <dt className="col-start-2 text-sm font-bold text-slate-500">
+                  {metric.label}
+                </dt>
+                <dd className="col-start-2 row-start-1 text-xl font-black text-slate-950">
+                  {metric.value}
+                </dd>
+                <span
+                  className={clsx(
+                    "row-span-2 mt-2 h-2.5 w-2.5 rounded-full",
+                    metric.colorClassName,
+                  )}
+                  aria-hidden
+                />
               </div>
             ))}
           </dl>
         </section>
-        <EarningsSummaryPanel currency={currency} feeLabel={platformFeeLabel(paymentPlatformSettings)} grossRevenue={grossRevenue} netEarnings={netEarnings} platformFees={platformFees} refunds={refunds} />
+        <EarningsSummaryPanel
+          currency={currency}
+          feeLabel={platformFeeLabel(paymentPlatformSettings)}
+          grossRevenue={grossRevenue}
+          netEarnings={netEarnings}
+          platformFees={platformFees}
+          refunds={refunds}
+        />
       </div>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)]">
         <PaymentDashboardTable
           columns={[
-            { key: "course", title: "Course / Event", render: (row) => <span className="font-bold text-slate-950">{row.label}</span> },
-            { key: "gross", title: "Gross Revenue", render: (row) => formatMinorCurrency(row.grossRevenue, currency) },
-            { key: "fees", title: "Platform Fees", render: (row) => <span className="text-slate-700">-{formatMinorCurrency(row.platformFees, currency)}</span> },
+            {
+              key: "course",
+              title: "Course / Event",
+              render: (row) => (
+                <span className="font-bold text-slate-950">{row.label}</span>
+              ),
+            },
+            {
+              key: "gross",
+              title: "Gross Revenue",
+              render: (row) => formatMinorCurrency(row.grossRevenue, currency),
+            },
+            {
+              key: "fees",
+              title: "Platform Fees",
+              render: (row) => (
+                <span className="text-slate-700">
+                  -{formatMinorCurrency(row.platformFees, currency)}
+                </span>
+              ),
+            },
             {
               key: "net",
               title: "Net Earnings",
               render: (row) => (
                 <div className="grid gap-2">
-                  <span className="font-black text-teal-800">{formatMinorCurrency(row.netEarnings, currency)}</span>
-                  <span className="h-1.5 rounded-full bg-teal-700" style={{ width: `${Math.max(12, (row.netEarnings / maxNetEarnings) * 100)}%` }} />
+                  <span className="font-black text-teal-800">
+                    {formatMinorCurrency(row.netEarnings, currency)}
+                  </span>
+                  <span
+                    className="h-1.5 rounded-full bg-teal-700"
+                    style={{
+                      width: `${Math.max(12, (row.netEarnings / maxNetEarnings) * 100)}%`,
+                    }}
+                  />
                 </div>
               ),
             },
@@ -3121,55 +5598,150 @@ function PaymentsEarningsView({ currency, payments, paymentPlatformSettings, per
           getRowId={(row) => row.id}
           title="Earnings by Course / Event"
         />
-        <EarningsBreakdownPanel currency={currency} rows={courseRows} total={netEarnings} />
+        <EarningsBreakdownPanel
+          currency={currency}
+          rows={courseRows}
+          total={netEarnings}
+        />
       </div>
       <section className="grid gap-4 rounded-lg border border-teal-100 bg-teal-50/60 p-5 shadow-sm sm:grid-cols-[auto_1fr_auto] sm:items-center">
-        <span className="grid h-14 w-14 place-items-center rounded-full bg-teal-700 text-white" aria-hidden>
+        <span
+          className="grid h-14 w-14 place-items-center rounded-full bg-teal-700 text-white"
+          aria-hidden
+        >
           <CalendarDays size={27} />
         </span>
         <div>
-          <h3 className="text-base font-black text-slate-950">Payouts are sent securely to your bank account</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-600">Next payout is estimated for Jun 24, 2026</p>
+          <h3 className="text-base font-black text-slate-950">
+            Payouts are sent securely to your bank account
+          </h3>
+          <p className="mt-1 text-sm font-semibold text-slate-600">
+            Next payout is estimated for Jun 24, 2026
+          </p>
         </div>
-        <Button href="/dashboard/payment?paymentsView=payouts" variant="secondary">View Payouts</Button>
+        <Button
+          href="/dashboard/payment?paymentsView=payouts"
+          variant="secondary"
+        >
+          View Payouts
+        </Button>
       </section>
     </div>
   );
 }
 
-function PaymentsRefundsView({ currency, payments, result, search, searchParams }: { currency: string; payments: PaymentRecord[]; result: DashboardPaymentsResult; search: string; searchParams: AdminSearchParams }) {
-  const refundedPayments = payments.filter((payment) => payment.refundedAmount > 0 || payment.status === "refunded" || payment.status === "partially_refunded");
-  const processedRefunds = refundedPayments.filter((payment) => payment.status === "refunded" || payment.status === "partially_refunded");
-  const pendingRefunds = refundedPayments.filter((payment) => payment.status !== "refunded" && payment.status !== "partially_refunded");
-  const totalRefunded = refundedPayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
-  const paidAmount = payments.filter((payment) => payment.status === "succeeded").reduce((sum, payment) => sum + payment.amount, 0);
+function PaymentsRefundsView({
+  currency,
+  payments,
+  result,
+  search,
+  searchParams,
+}: {
+  currency: string;
+  payments: PaymentRecord[];
+  result: DashboardPaymentsResult;
+  search: string;
+  searchParams: AdminSearchParams;
+}) {
+  const refundedPayments = payments.filter(
+    (payment) =>
+      payment.refundedAmount > 0 ||
+      payment.status === "refunded" ||
+      payment.status === "partially_refunded",
+  );
+  const processedRefunds = refundedPayments.filter(
+    (payment) =>
+      payment.status === "refunded" || payment.status === "partially_refunded",
+  );
+  const pendingRefunds = refundedPayments.filter(
+    (payment) =>
+      payment.status !== "refunded" && payment.status !== "partially_refunded",
+  );
+  const totalRefunded = refundedPayments.reduce(
+    (sum, payment) => sum + payment.refundedAmount,
+    0,
+  );
+  const paidAmount = payments
+    .filter((payment) => payment.status === "succeeded")
+    .reduce((sum, payment) => sum + payment.amount, 0);
   const refundRate = paidAmount > 0 ? (totalRefunded / paidAmount) * 100 : 0;
   const currentPage = servicePaginationCurrentPage(result.pagination);
   const totalItems = servicePaginationTotalItems(result.pagination);
   const start = totalItems === 0 ? 0 : result.pagination.offset + 1;
-  const end = refundedPayments.length === 0 ? result.pagination.offset : result.pagination.offset + refundedPayments.length;
+  const end =
+    refundedPayments.length === 0
+      ? result.pagination.offset
+      : result.pagination.offset + refundedPayments.length;
   const summaryCards: PaymentSummaryCard[] = [
-    { changeClassName: "text-red-600", changeLabel: "↓ 12.5% vs Jun 07 - Jun 13", icon: <Download size={27} aria-hidden />, iconClassName: "bg-red-50 text-red-700 ring-red-100", id: "total-refunds", label: "Total Refunds", value: formatMinorCurrency(totalRefunded, currency) },
-    { changeClassName: "text-red-600", changeLabel: "↓ 20% vs Jun 07 - Jun 13", icon: <CalendarDays size={28} aria-hidden />, id: "refunds-processed", label: "Refunds Processed", value: processedRefunds.length.toLocaleString() },
-    { changeClassName: "text-orange-600", changeLabel: formatMinorCurrency(pendingRefunds.reduce((sum, payment) => sum + payment.refundedAmount, 0), currency), icon: <Wallet size={27} aria-hidden />, iconClassName: "bg-orange-50 text-orange-700 ring-orange-100", id: "pending-refunds", label: "Pending Refunds", value: pendingRefunds.length.toLocaleString() },
-    { changeClassName: "text-red-600", changeLabel: "↓ 0.3% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refund-rate", label: "Refund Rate", value: `${refundRate.toFixed(1)}%` },
+    {
+      changeClassName: "text-red-600",
+      changeLabel: "↓ 12.5% vs Jun 07 - Jun 13",
+      icon: <Download size={27} aria-hidden />,
+      iconClassName: "bg-red-50 text-red-700 ring-red-100",
+      id: "total-refunds",
+      label: "Total Refunds",
+      value: formatMinorCurrency(totalRefunded, currency),
+    },
+    {
+      changeClassName: "text-red-600",
+      changeLabel: "↓ 20% vs Jun 07 - Jun 13",
+      icon: <CalendarDays size={28} aria-hidden />,
+      id: "refunds-processed",
+      label: "Refunds Processed",
+      value: processedRefunds.length.toLocaleString(),
+    },
+    {
+      changeClassName: "text-orange-600",
+      changeLabel: formatMinorCurrency(
+        pendingRefunds.reduce(
+          (sum, payment) => sum + payment.refundedAmount,
+          0,
+        ),
+        currency,
+      ),
+      icon: <Wallet size={27} aria-hidden />,
+      iconClassName: "bg-orange-50 text-orange-700 ring-orange-100",
+      id: "pending-refunds",
+      label: "Pending Refunds",
+      value: pendingRefunds.length.toLocaleString(),
+    },
+    {
+      changeClassName: "text-red-600",
+      changeLabel: "↓ 0.3% vs Jun 07 - Jun 13",
+      icon: <RefreshCw size={27} aria-hidden />,
+      id: "refund-rate",
+      label: "Refund Rate",
+      value: `${refundRate.toFixed(1)}%`,
+    },
   ];
 
   return (
     <div className="grid gap-5">
       <div className="text-sm font-semibold text-slate-600">
-        <Link href="/dashboard/payment?paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <Link
+          href="/dashboard/payment?paymentsView=overview"
+          className="text-slate-600 hover:text-teal-800"
+        >
+          Payments
+        </Link>
         <span className="mx-2 text-slate-400">›</span>
         <span className="text-slate-800">Refunds</span>
       </div>
       <PaymentMetricCards cards={summaryCards} />
       <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-        <form action="/dashboard/payment" className="grid gap-4 border-b border-stone-100 p-4 lg:grid-cols-[minmax(240px,1.4fr)_minmax(170px,0.65fr)_minmax(180px,0.75fr)_minmax(180px,0.75fr)_auto]">
+        <form
+          action="/dashboard/payment"
+          className="grid gap-4 border-b border-stone-100 p-4 lg:grid-cols-[minmax(240px,1.4fr)_minmax(170px,0.65fr)_minmax(180px,0.75fr)_minmax(180px,0.75fr)_auto]"
+        >
           <input type="hidden" name="paymentsView" value="refunds" />
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             <span className="sr-only">Search refunds</span>
             <span className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} aria-hidden />
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                size={18}
+                aria-hidden
+              />
               <input
                 className="min-h-12 w-full rounded-md border border-stone-200 pl-10 pr-3 text-sm font-normal text-slate-800"
                 defaultValue={search}
@@ -3180,7 +5752,10 @@ function PaymentsRefundsView({ currency, payments, result, search, searchParams 
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             Status
-            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+            <select
+              className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+              defaultValue=""
+            >
               <option value="">All Status</option>
               <option value="refunded">Completed</option>
               <option value="partially_refunded">Partially refunded</option>
@@ -3189,55 +5764,156 @@ function PaymentsRefundsView({ currency, payments, result, search, searchParams 
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             Course / Event
-            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+            <select
+              className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+              defaultValue=""
+            >
               <option value="">All</option>
             </select>
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-600">
             Refund Method
-            <select className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800" defaultValue="">
+            <select
+              className="min-h-12 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+              defaultValue=""
+            >
               <option value="">All</option>
               <option value="original_payment">Original payment</option>
             </select>
           </label>
-          <Button type="submit" variant="secondary" className="min-h-12 self-end">
+          <Button
+            type="submit"
+            variant="secondary"
+            className="min-h-12 self-end"
+          >
             <Filter size={17} aria-hidden />
             Filters
           </Button>
         </form>
         <PaymentDashboardTable
           columns={[
-            { key: "date", title: "Date", render: (payment) => <span className="font-semibold text-slate-700">{formatPaymentDate(payment.updatedAt)}</span> },
-            { key: "refund", title: "Refund ID", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#REF-{payment.id}</span> },
-            { key: "order", title: "Order / Payment", render: (payment) => <span className="font-mono text-xs font-semibold text-slate-700">#{paymentOrderId(payment)}</span> },
-            { key: "course", title: "Course / Event", render: (payment) => <span className="font-bold text-slate-950">{paymentDescription(payment)}</span> },
+            {
+              key: "date",
+              title: "Date",
+              render: (payment) => (
+                <span className="font-semibold text-slate-700">
+                  {formatPaymentDate(payment.updatedAt)}
+                </span>
+              ),
+            },
+            {
+              key: "refund",
+              title: "Refund ID",
+              render: (payment) => (
+                <span className="font-mono text-xs font-semibold text-slate-700">
+                  #REF-{payment.id}
+                </span>
+              ),
+            },
+            {
+              key: "order",
+              title: "Order / Payment",
+              render: (payment) => (
+                <span className="font-mono text-xs font-semibold text-slate-700">
+                  #{paymentOrderId(payment)}
+                </span>
+              ),
+            },
+            {
+              key: "course",
+              title: "Course / Event",
+              render: (payment) => (
+                <span className="font-bold text-slate-950">
+                  {paymentDescription(payment)}
+                </span>
+              ),
+            },
             {
               key: "payer",
               title: "Payer",
               render: (payment) => (
                 <div className="grid gap-1">
-                  <span className="font-semibold text-slate-950">{payment.payerEmail ? payment.payerEmail.split("@")[0] : "Guest"}</span>
-                  <span className="text-sm font-semibold text-slate-500">{payment.payerEmail ?? payment.payerUserId ?? "Guest checkout"}</span>
+                  <span className="font-semibold text-slate-950">
+                    {payment.payerEmail
+                      ? payment.payerEmail.split("@")[0]
+                      : "Guest"}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-500">
+                    {payment.payerEmail ??
+                      payment.payerUserId ??
+                      "Guest checkout"}
+                  </span>
                 </div>
               ),
             },
-            { key: "amount", title: "Amount", render: (payment) => <span className="font-black text-red-600">-{formatMinorCurrency(payment.refundedAmount, payment.currency)}</span> },
-            { key: "status", title: "Status", render: (payment) => <span className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}>{payment.status === "refunded" || payment.status === "partially_refunded" ? "Completed" : "Processing"}</span> },
-            { key: "method", title: "Refund Method", render: (payment) => <span className="font-semibold text-slate-600">Original Payment ({payment.paymentMethodType.replaceAll("_", " ")})</span> },
-            { key: "actions", title: "Actions", render: () => <span className="text-xl font-black text-slate-500">⋮</span> },
+            {
+              key: "amount",
+              title: "Amount",
+              render: (payment) => (
+                <span className="font-black text-red-600">
+                  -
+                  {formatMinorCurrency(
+                    payment.refundedAmount,
+                    payment.currency,
+                  )}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              title: "Status",
+              render: (payment) => (
+                <span
+                  className={`inline-flex rounded-md px-2 py-1 text-xs font-black ring-1 ${paymentStatusTone(payment.status)}`}
+                >
+                  {payment.status === "refunded" ||
+                  payment.status === "partially_refunded"
+                    ? "Completed"
+                    : "Processing"}
+                </span>
+              ),
+            },
+            {
+              key: "method",
+              title: "Refund Method",
+              render: (payment) => (
+                <span className="font-semibold text-slate-600">
+                  Original Payment (
+                  {payment.paymentMethodType.replaceAll("_", " ")})
+                </span>
+              ),
+            },
+            {
+              key: "actions",
+              title: "Actions",
+              render: () => (
+                <span className="text-xl font-black text-slate-500">⋮</span>
+              ),
+            },
           ]}
           data={refundedPayments}
           emptyIcon={<RefreshCw size={28} aria-hidden />}
-          emptyMessage={result.payments.length ? "No refunds match that search." : "No refunds have been recorded yet."}
+          emptyMessage={
+            result.payments.length
+              ? "No refunds match that search."
+              : "No refunds have been recorded yet."
+          }
           getRowId={(payment) => payment.id}
           pagination={{
             currentPage,
             end,
             nextHref: pageHref(searchParams, "paymentsPage", currentPage + 1),
-            previousHref: pageHref(searchParams, "paymentsPage", currentPage - 1),
+            previousHref: pageHref(
+              searchParams,
+              "paymentsPage",
+              currentPage - 1,
+            ),
             start,
             totalItems,
-            totalPages: Math.max(currentPage, Math.ceil(totalItems / paymentsPageSize)),
+            totalPages: Math.max(
+              currentPage,
+              Math.ceil(totalItems / paymentsPageSize),
+            ),
           }}
           title="Refunds"
           viewAllLabel={`Showing ${start}-${end} of ${totalItems.toLocaleString()} payments`}
@@ -3255,12 +5931,17 @@ type PayoutDashboardRow = {
   status: string;
 };
 
-function payoutRows(payments: PaymentRecord[], settings: PaymentPlatformSettings): PayoutDashboardRow[] {
+function payoutRows(
+  payments: PaymentRecord[],
+  settings: PaymentPlatformSettings,
+): PayoutDashboardRow[] {
   return payments
     .filter((payment) => payment.status === "succeeded")
     .map((payment, index) => {
       const paidAt = new Date(payment.createdAt);
-      const arrivalDate = Number.isNaN(paidAt.getTime()) ? payment.createdAt : new Date(paidAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
+      const arrivalDate = Number.isNaN(paidAt.getTime())
+        ? payment.createdAt
+        : new Date(paidAt.getTime() + 24 * 60 * 60 * 1000).toISOString();
       return {
         amount: netPaymentAmount(payment, settings),
         arrivalDate,
@@ -3286,39 +5967,142 @@ function PaymentsPayoutsView({
   payoutsPage: number;
   searchParams: AdminSearchParams;
 }) {
-  const successfulPayments = payments.filter((payment) => payment.status === "succeeded");
+  const successfulPayments = payments.filter(
+    (payment) => payment.status === "succeeded",
+  );
   const rows = payoutRows(payments, paymentPlatformSettings);
-  const totalPayouts = successfulPayments.reduce((sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings), 0);
-  const pendingPayouts = payments.filter((payment) => payment.status !== "succeeded" && payment.status !== "failed" && payment.status !== "cancelled").reduce((sum, payment) => sum + Math.max(0, payment.amount - platformFeeAmount(payment.amount, paymentPlatformSettings)), 0);
+  const totalPayouts = successfulPayments.reduce(
+    (sum, payment) => sum + netPaymentAmount(payment, paymentPlatformSettings),
+    0,
+  );
+  const pendingPayouts = payments
+    .filter(
+      (payment) =>
+        payment.status !== "succeeded" &&
+        payment.status !== "failed" &&
+        payment.status !== "cancelled",
+    )
+    .reduce(
+      (sum, payment) =>
+        sum +
+        Math.max(
+          0,
+          payment.amount -
+            platformFeeAmount(payment.amount, paymentPlatformSettings),
+        ),
+      0,
+    );
   const totalPages = Math.max(1, Math.ceil(rows.length / payoutsPageSize));
   const currentPage = Math.min(payoutsPage, totalPages);
   const start = rows.length === 0 ? 0 : (currentPage - 1) * payoutsPageSize + 1;
   const end = Math.min(currentPage * payoutsPageSize, rows.length);
-  const pagedRows = rows.slice((currentPage - 1) * payoutsPageSize, currentPage * payoutsPageSize);
+  const pagedRows = rows.slice(
+    (currentPage - 1) * payoutsPageSize,
+    currentPage * payoutsPageSize,
+  );
   const summaryCards: PaymentSummaryCard[] = [
-    { changeClassName: "text-emerald-700", changeLabel: "↑ 15.4% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "total-payouts", label: "Total Payouts", value: formatMinorCurrency(totalPayouts, currency) },
-    { changeClassName: "text-emerald-700", changeLabel: `${rows.length.toLocaleString()} payouts`, icon: <Wallet size={27} aria-hidden />, id: "payouts-sent", label: "Payouts Sent", value: formatMinorCurrency(totalPayouts, currency) },
-    { changeClassName: "text-orange-600", changeLabel: `${pendingPayouts > 0 ? 1 : 0} payout`, icon: <Download size={27} aria-hidden />, iconClassName: "bg-orange-50 text-orange-700 ring-orange-100", id: "pending-payouts", label: "Pending Payouts", value: formatMinorCurrency(pendingPayouts, currency) },
-    { changeClassName: "text-emerald-700", changeLabel: "Estimated", icon: <CalendarDays size={28} aria-hidden />, id: "next-payout", label: "Next Payout", value: "Jun 24, 2026" },
-    { changeClassName: "text-emerald-700", changeLabel: "Excellent", icon: <BarChart3 size={28} aria-hidden />, id: "average-payout-time", label: "Avg. Payout Time", value: "2.3 days" },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "↑ 15.4% vs Jun 07 - Jun 13",
+      icon: <CreditCard size={28} aria-hidden />,
+      id: "total-payouts",
+      label: "Total Payouts",
+      value: formatMinorCurrency(totalPayouts, currency),
+    },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: `${rows.length.toLocaleString()} payouts`,
+      icon: <Wallet size={27} aria-hidden />,
+      id: "payouts-sent",
+      label: "Payouts Sent",
+      value: formatMinorCurrency(totalPayouts, currency),
+    },
+    {
+      changeClassName: "text-orange-600",
+      changeLabel: `${pendingPayouts > 0 ? 1 : 0} payout`,
+      icon: <Download size={27} aria-hidden />,
+      iconClassName: "bg-orange-50 text-orange-700 ring-orange-100",
+      id: "pending-payouts",
+      label: "Pending Payouts",
+      value: formatMinorCurrency(pendingPayouts, currency),
+    },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "Estimated",
+      icon: <CalendarDays size={28} aria-hidden />,
+      id: "next-payout",
+      label: "Next Payout",
+      value: "Jun 24, 2026",
+    },
+    {
+      changeClassName: "text-emerald-700",
+      changeLabel: "Excellent",
+      icon: <BarChart3 size={28} aria-hidden />,
+      id: "average-payout-time",
+      label: "Avg. Payout Time",
+      value: "2.3 days",
+    },
   ];
 
   return (
     <div className="grid gap-5">
       <div className="text-sm font-semibold text-slate-600">
-        <Link href="/dashboard/payment?paymentsView=overview" className="text-slate-600 hover:text-teal-800">Payments</Link>
+        <Link
+          href="/dashboard/payment?paymentsView=overview"
+          className="text-slate-600 hover:text-teal-800"
+        >
+          Payments
+        </Link>
         <span className="mx-2 text-slate-400">›</span>
         <span className="text-slate-800">Payouts</span>
       </div>
       <PaymentMetricCards cards={summaryCards} />
       <PaymentDashboardTable
         columns={[
-          { key: "id", title: "Payout ID", render: (row) => <span className="font-mono text-xs font-semibold text-slate-700">#{row.id}</span> },
-          { key: "date", title: "Payout Date", render: (row) => formatPaymentDate(row.date) },
-          { key: "amount", title: "Amount", render: (row) => <span className="font-black text-slate-950">{formatMinorCurrency(row.amount, currency)}</span> },
-          { key: "status", title: "Status", render: (row) => <span className="inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">{row.status}</span> },
-          { key: "arrival", title: "Est. Arrival", render: (row) => formatPaymentDate(row.arrivalDate) },
-          { key: "actions", title: "Actions", render: () => <Download size={17} className="text-slate-600" aria-hidden /> },
+          {
+            key: "id",
+            title: "Payout ID",
+            render: (row) => (
+              <span className="font-mono text-xs font-semibold text-slate-700">
+                #{row.id}
+              </span>
+            ),
+          },
+          {
+            key: "date",
+            title: "Payout Date",
+            render: (row) => formatPaymentDate(row.date),
+          },
+          {
+            key: "amount",
+            title: "Amount",
+            render: (row) => (
+              <span className="font-black text-slate-950">
+                {formatMinorCurrency(row.amount, currency)}
+              </span>
+            ),
+          },
+          {
+            key: "status",
+            title: "Status",
+            render: (row) => (
+              <span className="inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black text-teal-800 ring-1 ring-teal-100">
+                {row.status}
+              </span>
+            ),
+          },
+          {
+            key: "arrival",
+            title: "Est. Arrival",
+            render: (row) => formatPaymentDate(row.arrivalDate),
+          },
+          {
+            key: "actions",
+            title: "Actions",
+            render: () => (
+              <Download size={17} className="text-slate-600" aria-hidden />
+            ),
+          },
         ]}
         data={pagedRows}
         emptyIcon={<Wallet size={28} aria-hidden />}
@@ -3368,59 +6152,186 @@ function PaymentsPanel({
   searchParams: AdminSearchParams;
   view: string;
 }) {
-  const visiblePayments = result.payments.filter((payment) => paymentMatchesSearch(payment, search));
-  const succeededPayments = visiblePayments.filter((payment) => payment.status === "succeeded" || payment.status === "active" || payment.status === "trialing");
-  const grossAmount = succeededPayments.reduce((sum, payment) => sum + payment.amount, 0);
-  const platformRevenue = succeededPayments.reduce((sum, payment) => sum + platformFeeAmount(payment.amount, paymentPlatformSettings), 0);
-  const refundedAmount = visiblePayments.reduce((sum, payment) => sum + payment.refundedAmount, 0);
-  const currency = visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
-  const hasConnectedPaymentAccount = Boolean(paymentAccountSetting?.providerAccountId);
-  const paymentAccountVerified = hasConnectedPaymentAccount && paymentAccountSetting?.status === "verified";
+  const visiblePayments = result.payments.filter((payment) =>
+    paymentMatchesSearch(payment, search),
+  );
+  const succeededPayments = visiblePayments.filter(
+    (payment) =>
+      payment.status === "succeeded" ||
+      payment.status === "active" ||
+      payment.status === "trialing",
+  );
+  const grossAmount = succeededPayments.reduce(
+    (sum, payment) => sum + payment.amount,
+    0,
+  );
+  const platformRevenue = succeededPayments.reduce(
+    (sum, payment) =>
+      sum + platformFeeAmount(payment.amount, paymentPlatformSettings),
+    0,
+  );
+  const refundedAmount = visiblePayments.reduce(
+    (sum, payment) => sum + payment.refundedAmount,
+    0,
+  );
+  const currency =
+    visiblePayments[0]?.currency ?? result.payments[0]?.currency ?? "GBP";
+  const hasConnectedPaymentAccount = Boolean(
+    paymentAccountSetting?.providerAccountId,
+  );
+  const paymentAccountVerified =
+    hasConnectedPaymentAccount && paymentAccountSetting?.status === "verified";
   const paymentOverviewMetrics: PaymentOverviewMetric[] = [
-    { colorClassName: "bg-teal-700", id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
-    { colorClassName: "bg-teal-700", id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
-    { colorClassName: "bg-orange-500", id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(platformRevenue, currency) },
-    { colorClassName: "bg-emerald-400", id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
+    {
+      colorClassName: "bg-teal-700",
+      id: "gross-paid",
+      label: "Gross Paid",
+      value: formatMinorCurrency(grossAmount, currency),
+    },
+    {
+      colorClassName: "bg-teal-700",
+      id: "successful-payments",
+      label: "Successful Payments",
+      value: succeededPayments.length.toLocaleString(),
+    },
+    {
+      colorClassName: "bg-orange-500",
+      id: "platform-revenue",
+      label: "Platform Revenue",
+      value: formatMinorCurrency(platformRevenue, currency),
+    },
+    {
+      colorClassName: "bg-emerald-400",
+      id: "refunds",
+      label: "Refunds",
+      value: formatMinorCurrency(refundedAmount, currency),
+    },
   ].filter((metric) => {
     if (metric.id === "gross-paid") return metricVisibility.grossPaid;
-    if (metric.id === "successful-payments") return metricVisibility.successfulPayments;
-    if (metric.id === "platform-revenue") return metricVisibility.platformRevenue;
+    if (metric.id === "successful-payments")
+      return metricVisibility.successfulPayments;
+    if (metric.id === "platform-revenue")
+      return metricVisibility.platformRevenue;
     if (metric.id === "refunds") return metricVisibility.refunds;
     return false;
   });
   const summaryCards: PaymentSummaryCard[] = [
-    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <Wallet size={27} aria-hidden />, id: "gross-paid", label: "Gross Paid", value: formatMinorCurrency(grossAmount, currency) },
-    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CheckCircle2 size={28} aria-hidden />, id: "successful-payments", label: "Successful Payments", value: succeededPayments.length.toLocaleString() },
-    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <CreditCard size={28} aria-hidden />, id: "platform-revenue", label: "Platform Revenue", value: formatMinorCurrency(platformRevenue, currency) },
-    { changeLabel: "- 0% vs Jun 07 - Jun 13", icon: <RefreshCw size={27} aria-hidden />, id: "refunds", label: "Refunds", value: formatMinorCurrency(refundedAmount, currency) },
+    {
+      changeLabel: "- 0% vs Jun 07 - Jun 13",
+      icon: <Wallet size={27} aria-hidden />,
+      id: "gross-paid",
+      label: "Gross Paid",
+      value: formatMinorCurrency(grossAmount, currency),
+    },
+    {
+      changeLabel: "- 0% vs Jun 07 - Jun 13",
+      icon: <CheckCircle2 size={28} aria-hidden />,
+      id: "successful-payments",
+      label: "Successful Payments",
+      value: succeededPayments.length.toLocaleString(),
+    },
+    {
+      changeLabel: "- 0% vs Jun 07 - Jun 13",
+      icon: <CreditCard size={28} aria-hidden />,
+      id: "platform-revenue",
+      label: "Platform Revenue",
+      value: formatMinorCurrency(platformRevenue, currency),
+    },
+    {
+      changeLabel: "- 0% vs Jun 07 - Jun 13",
+      icon: <RefreshCw size={27} aria-hidden />,
+      id: "refunds",
+      label: "Refunds",
+      value: formatMinorCurrency(refundedAmount, currency),
+    },
   ].filter((card) => {
     if (card.id === "gross-paid") return metricVisibility.grossPaid;
-    if (card.id === "successful-payments") return metricVisibility.successfulPayments;
+    if (card.id === "successful-payments")
+      return metricVisibility.successfulPayments;
     if (card.id === "platform-revenue") return metricVisibility.platformRevenue;
     if (card.id === "refunds") return metricVisibility.refunds;
     return false;
   });
   const paymentAccountSetupItems = [
-    { complete: !result.error, id: "payment-gateway", label: "Payment gateway", statusLabel: result.error ? "Unavailable" : "Connected" },
-    { complete: hasConnectedPaymentAccount, id: "rollfinders-account", label: academyAdmin ? "Academy payout account" : "RollFinders platform account", statusLabel: hasConnectedPaymentAccount ? paymentAccountVerified ? "Verified" : "Action needed" : "Setup needed" },
-    { complete: !result.error, id: "webhooks", label: "Payment webhooks", statusLabel: result.error ? "Pending" : "Active" },
-    { complete: Boolean(paymentAccountSetting?.payoutsEnabled), id: "payouts", label: "Payouts", statusLabel: paymentAccountSetting?.payoutsEnabled ? "Enabled" : "Pending" },
+    {
+      complete: !result.error,
+      id: "payment-gateway",
+      label: "Payment gateway",
+      statusLabel: result.error ? "Unavailable" : "Connected",
+    },
+    {
+      complete: hasConnectedPaymentAccount,
+      id: "rollfinders-account",
+      label: academyAdmin
+        ? "Academy payout account"
+        : "RollFinders platform account",
+      statusLabel: hasConnectedPaymentAccount
+        ? paymentAccountVerified
+          ? "Verified"
+          : "Action needed"
+        : "Setup needed",
+    },
+    {
+      complete: !result.error,
+      id: "webhooks",
+      label: "Payment webhooks",
+      statusLabel: result.error ? "Pending" : "Active",
+    },
+    {
+      complete: Boolean(paymentAccountSetting?.payoutsEnabled),
+      id: "payouts",
+      label: "Payouts",
+      statusLabel: paymentAccountSetting?.payoutsEnabled
+        ? "Enabled"
+        : "Pending",
+    },
   ];
 
   if (view === "transactions") {
-    return <PaymentsTransactionsView currency={currency} payments={visiblePayments} result={result} search={search} searchParams={searchParams} />;
+    return (
+      <PaymentsTransactionsView
+        currency={currency}
+        payments={visiblePayments}
+        result={result}
+        search={search}
+        searchParams={searchParams}
+      />
+    );
   }
 
   if (view === "earnings") {
-    return <PaymentsEarningsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} period={period} />;
+    return (
+      <PaymentsEarningsView
+        currency={currency}
+        payments={visiblePayments}
+        paymentPlatformSettings={paymentPlatformSettings}
+        period={period}
+      />
+    );
   }
 
   if (view === "refunds") {
-    return <PaymentsRefundsView currency={currency} payments={visiblePayments} result={result} search={search} searchParams={searchParams} />;
+    return (
+      <PaymentsRefundsView
+        currency={currency}
+        payments={visiblePayments}
+        result={result}
+        search={search}
+        searchParams={searchParams}
+      />
+    );
   }
 
   if (view === "payouts") {
-    return <PaymentsPayoutsView currency={currency} payments={visiblePayments} paymentPlatformSettings={paymentPlatformSettings} payoutsPage={payoutsPage} searchParams={searchParams} />;
+    return (
+      <PaymentsPayoutsView
+        currency={currency}
+        payments={visiblePayments}
+        paymentPlatformSettings={paymentPlatformSettings}
+        payoutsPage={payoutsPage}
+        searchParams={searchParams}
+      />
+    );
   }
 
   return (
@@ -3428,7 +6339,8 @@ function PaymentsPanel({
       <PaymentMetricCards cards={summaryCards} />
       {search ? (
         <p className="text-sm font-semibold text-slate-600">
-          Showing {visiblePayments.length} of {result.payments.length} payments matching &quot;{search}&quot;.
+          Showing {visiblePayments.length} of {result.payments.length} payments
+          matching &quot;{search}&quot;.
         </p>
       ) : null}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.7fr)_minmax(360px,1fr)]">
@@ -3439,7 +6351,6 @@ function PaymentsPanel({
           periodOptions={paymentOverviewPeriodOptions}
           periodValue={period}
         />
-        
       </div>
     </div>
   );
@@ -3458,10 +6369,17 @@ type AcademyRow = {
   featured: boolean;
   claims: { status: ClaimStatus }[];
   members: { id: string }[];
-  claimReminders: { status: string; skipReason: string | null; createdAt: Date; recipientEmail: string | null }[];
+  claimReminders: {
+    status: string;
+    skipReason: string | null;
+    createdAt: Date;
+    recipientEmail: string | null;
+  }[];
 };
 
-type AcademyProfilePanelAcademy = AcademyServiceRecord & { events: Prisma.EventGetPayload<{}>[] };
+type AcademyProfilePanelAcademy = AcademyServiceRecord & {
+  events: Prisma.EventGetPayload<{}>[];
+};
 
 type FounderAnalyticsRow = Record<string, unknown> & {
   id: string;
@@ -3502,9 +6420,11 @@ type UserRow = {
 };
 
 function managedUserToUserRow(user: ManagedUser): UserRow {
-  const academy = "academy" in user
-    ? (user as ManagedUser & { academy?: { name: string } | null }).academy ?? null
-    : null;
+  const academy =
+    "academy" in user
+      ? ((user as ManagedUser & { academy?: { name: string } | null })
+          .academy ?? null)
+      : null;
   return {
     ...user,
     role: user.role as Role,
@@ -3514,10 +6434,16 @@ function managedUserToUserRow(user: ManagedUser): UserRow {
   };
 }
 
-const menuItemClass = "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
-const dangerMenuItemClass = "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50";
+const menuItemClass =
+  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50";
+const dangerMenuItemClass =
+  "flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold text-red-600 hover:bg-red-50";
 
-function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy | null }) {
+function AcademyProfilePanel({
+  academy,
+}: {
+  academy: AcademyProfilePanelAcademy | null;
+}) {
   if (!academy) {
     return (
       <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
@@ -3531,25 +6457,56 @@ function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy 
       <section className="rounded-lg border border-stone-200 bg-stone-50 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h3 className="text-2xl font-black text-slate-950">{academy.name}</h3>
-            <p className="mt-1 text-sm font-semibold text-slate-600">{academy.city}, {academy.postcode}</p>
-            <p className="mt-3 max-w-4xl leading-7 text-slate-700">{academy.description}</p>
+            <h3 className="text-2xl font-black text-slate-950">
+              {academy.name}
+            </h3>
+            <p className="mt-1 text-sm font-semibold text-slate-600">
+              {academy.city}, {academy.postcode}
+            </p>
+            <p className="mt-3 max-w-4xl leading-7 text-slate-700">
+              {academy.description}
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge>{academy.verificationStatus}</Badge>
             <Badge>{academy.featured ? "Featured" : "Not Featured"}</Badge>
-            <Button href={`/academies/${academy.slug}`} size="sm" variant="secondary" className="px-3 py-2 text-sm">View Public Profile</Button>
+            <Button
+              href={`/academies/${academy.slug}`}
+              size="sm"
+              variant="secondary"
+              className="px-3 py-2 text-sm"
+            >
+              View Public Profile
+            </Button>
           </div>
         </div>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <ProfileInfo label="Email" value={academy.email ?? "Not listed"} />
           <ProfileInfo label="Phone" value={academy.phone ?? "Not listed"} />
-          <ProfileInfo label="Website" value={academy.website ?? "Not listed"} />
-          <ProfileInfo label="Courses/Events" value={academy.events.length.toString()} />
-          <ProfileInfo label="Academy Users" value={academy.members.length.toString()} />
-          <ProfileInfo label="Claims" value={academy.claims.length.toString()} />
-          <ProfileInfo label="Categories" value={academy.categories ?? "Not categorised"} />
-          <ProfileInfo label="Borough" value={academy.borough ?? "Not listed"} />
+          <ProfileInfo
+            label="Website"
+            value={academy.website ?? "Not listed"}
+          />
+          <ProfileInfo
+            label="Courses/Events"
+            value={academy.events.length.toString()}
+          />
+          <ProfileInfo
+            label="Academy Users"
+            value={academy.members.length.toString()}
+          />
+          <ProfileInfo
+            label="Claims"
+            value={academy.claims.length.toString()}
+          />
+          <ProfileInfo
+            label="Categories"
+            value={academy.categories ?? "Not categorised"}
+          />
+          <ProfileInfo
+            label="Borough"
+            value={academy.borough ?? "Not listed"}
+          />
         </div>
       </section>
 
@@ -3564,14 +6521,28 @@ function AcademyProfilePanel({ academy }: { academy: AcademyProfilePanelAcademy 
   );
 }
 
-function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { actorAcademyId?: string | null; actorId: string; actorRole: Role; params: AdminSearchParams; users: UserRow[] }) {
+function UsersTable({
+  actorAcademyId,
+  actorId,
+  actorRole,
+  params,
+  users,
+}: {
+  actorAcademyId?: string | null;
+  actorId: string;
+  actorRole: Role;
+  params: AdminSearchParams;
+  users: UserRow[];
+}) {
   const canViewRoleColumn = isPlatformAdminRole(actorRole);
   const emptyColSpan = canViewRoleColumn ? 6 : 5;
   const returnTo = dashboardUsersHref(params);
 
   return (
     <div className="mt-4 overflow-x-auto">
-      <table className={`w-full border-collapse text-left text-sm ${canViewRoleColumn ? "min-w-[1120px]" : "min-w-[980px]"}`}>
+      <table
+        className={`w-full border-collapse text-left text-sm ${canViewRoleColumn ? "min-w-[1120px]" : "min-w-[980px]"}`}
+      >
         <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
           <tr>
             <th className="px-5 py-4">User</th>
@@ -3585,79 +6556,146 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
         <tbody>
           {users.map((user) => {
             const protectedUser = isProtectedSuperAdmin(user);
-            const academyCanManage = isAcademyAdminRole(actorRole) && actorId !== user.id && actorAcademyId === user.academyId && (user.role === Role.STANDARD_USER || user.role === Role.USER || user.role === Role.ACADEMY_ADMIN || user.role === Role.ACADEMY_OWNER);
-            const canManage = academyCanManage || isSuperAdminRole(actorRole) || (isPlatformAdminRole(actorRole) && !protectedUser && user.role !== Role.SUPER_ADMIN && user.role !== Role.ADMIN && user.role !== Role.PLATFORM_ADMIN);
-            const canSendPasswordReset = canSendManagedUserPasswordReset({ id: actorId, role: actorRole, academyId: actorAcademyId }, user);
-            const superUserTarget = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
-            const canDelete = canManage && actorId !== user.id && !superUserTarget;
-            const disabled = user.status === UserStatus.DISABLED || user.disabled;
+            const academyCanManage =
+              isAcademyAdminRole(actorRole) &&
+              actorId !== user.id &&
+              actorAcademyId === user.academyId &&
+              (user.role === Role.STANDARD_USER ||
+                user.role === Role.USER ||
+                user.role === Role.ACADEMY_ADMIN ||
+                user.role === Role.ACADEMY_OWNER);
+            const canManage =
+              academyCanManage ||
+              isSuperAdminRole(actorRole) ||
+              (isPlatformAdminRole(actorRole) &&
+                !protectedUser &&
+                user.role !== Role.SUPER_ADMIN &&
+                user.role !== Role.ADMIN &&
+                user.role !== Role.PLATFORM_ADMIN);
+            const canSendPasswordReset = canSendManagedUserPasswordReset(
+              { id: actorId, role: actorRole, academyId: actorAcademyId },
+              user,
+            );
+            const superUserTarget =
+              user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN;
+            const canDelete =
+              canManage && actorId !== user.id && !superUserTarget;
+            const disabled =
+              user.status === UserStatus.DISABLED || user.disabled;
             const userHref = `/dashboard/users?dialog=view-user&userId=${user.id}`;
             return (
               <TableRow key={user.id} href={userHref}>
                 <LinkedTableCell href={userHref}>
                   <div className="flex items-center gap-4">
-                    <div className={`grid size-12 shrink-0 place-items-center rounded-full text-base font-black ring-1 ${avatarTone(user.email)}`}>
+                    <div
+                      className={`grid size-12 shrink-0 place-items-center rounded-full text-base font-black ring-1 ${avatarTone(user.email)}`}
+                    >
                       {initials(user.name ?? user.email)}
                     </div>
                     <div>
-                      <p className="font-bold text-slate-950">{user.name ?? user.email}</p>
+                      <p className="font-bold text-slate-950">
+                        {user.name ?? user.email}
+                      </p>
                       <p className="break-all text-slate-500">{user.email}</p>
                     </div>
                   </div>
-                  {protectedUser ? <p className="mt-2 text-xs font-bold uppercase text-teal-800">Protected</p> : null}
+                  {protectedUser ? (
+                    <p className="mt-2 text-xs font-bold uppercase text-teal-800">
+                      Protected
+                    </p>
+                  ) : null}
                 </LinkedTableCell>
-                {canViewRoleColumn ? <LinkedTableCell href={userHref}><RolePill role={user.role} /></LinkedTableCell> : null}
-                <LinkedTableCell href={userHref} className="text-slate-700">{user.academy?.name ?? "None"}</LinkedTableCell>
-                <LinkedTableCell href={userHref}><StatusPill disabled={disabled} /></LinkedTableCell>
-                <LinkedTableCell href={userHref} className="text-slate-600">{formatDate(user.createdAt)}</LinkedTableCell>
+                {canViewRoleColumn ? (
+                  <LinkedTableCell href={userHref}>
+                    <RolePill role={user.role} />
+                  </LinkedTableCell>
+                ) : null}
+                <LinkedTableCell href={userHref} className="text-slate-700">
+                  {user.academy?.name ?? "None"}
+                </LinkedTableCell>
+                <LinkedTableCell href={userHref}>
+                  <StatusPill disabled={disabled} />
+                </LinkedTableCell>
+                <LinkedTableCell href={userHref} className="text-slate-600">
+                  {formatDate(user.createdAt)}
+                </LinkedTableCell>
                 <td className="px-5 py-4 text-center">
                   {canManage ? (
-                    <ActionMenu label={`Open actions for ${user.name ?? user.email}`}>
-                        <Link href={`/dashboard/users?dialog=view-user&userId=${user.id}`} className={menuItemClass}>
-                          <User size={18} aria-hidden />
-                          View Profile
-                        </Link>
-                        <Link href={`/dashboard/users?dialog=edit-user&userId=${user.id}`} className={menuItemClass}>
-                          <Edit3 size={18} aria-hidden />
-                          Edit User
-                        </Link>
-                        {canSendPasswordReset ? (
-                          <form action={`/api/admin/users/${user.id}/password-reset`} method="post">
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <button type="submit" className={menuItemClass}>
-                              <KeyRound size={18} aria-hidden />
-                              Send Password Reset
-                            </button>
-                          </form>
-                        ) : null}
-                        {user.emailStatus === "PENDING_VERIFICATION" ? (
-                          <form action={verifyManagedUserEmail.bind(null, user.id)}>
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <button type="submit" className={menuItemClass}>
-                              <ShieldCheck size={18} aria-hidden />
-                              Verify Email
-                            </button>
-                          </form>
-                        ) : null}
-                        <form action={toggleManagedUserDisabled.bind(null, user.id)}>
-                          <input type="hidden" name="returnTo" value={returnTo} />
-                          <button className={dangerMenuItemClass}>
-                            <Ban size={18} aria-hidden />
-                            {disabled ? "Enable Account" : "Disable Account"}
+                    <ActionMenu
+                      label={`Open actions for ${user.name ?? user.email}`}
+                    >
+                      <Link
+                        href={`/dashboard/users?dialog=view-user&userId=${user.id}`}
+                        className={menuItemClass}
+                      >
+                        <User size={18} aria-hidden />
+                        View Profile
+                      </Link>
+                      <Link
+                        href={`/dashboard/users?dialog=edit-user&userId=${user.id}`}
+                        className={menuItemClass}
+                      >
+                        <Edit3 size={18} aria-hidden />
+                        Edit User
+                      </Link>
+                      {canSendPasswordReset ? (
+                        <form
+                          action={`/api/admin/users/${user.id}/password-reset`}
+                          method="post"
+                        >
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={returnTo}
+                          />
+                          <button type="submit" className={menuItemClass}>
+                            <KeyRound size={18} aria-hidden />
+                            Send Password Reset
                           </button>
                         </form>
-                        {canDelete ? (
-                          <form action={deleteManagedUser.bind(null, user.id)}>
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <button className={dangerMenuItemClass}>
-                              <Trash2 size={18} aria-hidden />
-                              Delete User
-                            </button>
-                          </form>
-                        ) : null}
+                      ) : null}
+                      {user.emailStatus === "PENDING_VERIFICATION" ? (
+                        <form
+                          action={verifyManagedUserEmail.bind(null, user.id)}
+                        >
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={returnTo}
+                          />
+                          <button type="submit" className={menuItemClass}>
+                            <ShieldCheck size={18} aria-hidden />
+                            Verify Email
+                          </button>
+                        </form>
+                      ) : null}
+                      <form
+                        action={toggleManagedUserDisabled.bind(null, user.id)}
+                      >
+                        <input type="hidden" name="returnTo" value={returnTo} />
+                        <button className={dangerMenuItemClass}>
+                          <Ban size={18} aria-hidden />
+                          {disabled ? "Enable Account" : "Disable Account"}
+                        </button>
+                      </form>
+                      {canDelete ? (
+                        <form action={deleteManagedUser.bind(null, user.id)}>
+                          <input
+                            type="hidden"
+                            name="returnTo"
+                            value={returnTo}
+                          />
+                          <button className={dangerMenuItemClass}>
+                            <Trash2 size={18} aria-hidden />
+                            Delete User
+                          </button>
+                        </form>
+                      ) : null}
                     </ActionMenu>
                   ) : (
-                    <span className="text-xs font-semibold text-stone-500">Read only</span>
+                    <span className="text-xs font-semibold text-stone-500">
+                      Read only
+                    </span>
                   )}
                 </td>
               </TableRow>
@@ -3665,7 +6703,12 @@ function UsersTable({ actorAcademyId, actorId, actorRole, params, users }: { act
           })}
           {!users.length ? (
             <tr>
-              <td colSpan={emptyColSpan} className="px-4 py-8 text-center text-stone-600">No users to show.</td>
+              <td
+                colSpan={emptyColSpan}
+                className="px-4 py-8 text-center text-stone-600"
+              >
+                No users to show.
+              </td>
             </tr>
           ) : null}
         </tbody>
@@ -3683,25 +6726,41 @@ function avatarTone(value: string) {
     "bg-blue-50 text-blue-700 ring-blue-100",
     "bg-orange-50 text-orange-700 ring-orange-100",
   ];
-  const total = Array.from(value).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const total = Array.from(value).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0,
+  );
   return tones[total % tones.length];
 }
 
 function RolePill({ role }: { role: Role }) {
   const className =
-    role === Role.PLATFORM_ADMIN || role === Role.SUPER_ADMIN || role === Role.ADMIN
+    role === Role.PLATFORM_ADMIN ||
+    role === Role.SUPER_ADMIN ||
+    role === Role.ADMIN
       ? "border-violet-200 bg-violet-50 text-violet-700"
       : role === Role.ACADEMY_ADMIN
         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
         : "border-sky-200 bg-sky-50 text-sky-700";
 
-  return <span className={`inline-flex rounded-md border px-3 py-1 text-xs font-black uppercase ${className}`}>{role}</span>;
+  return (
+    <span
+      className={`inline-flex rounded-md border px-3 py-1 text-xs font-black uppercase ${className}`}
+    >
+      {role}
+    </span>
+  );
 }
 
 function StatusPill({ disabled }: { disabled: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ${disabled ? "bg-red-50 text-red-700 ring-1 ring-red-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"}`}>
-      <span className={`size-2.5 rounded-full ${disabled ? "bg-red-500" : "bg-emerald-500"}`} aria-hidden />
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ${disabled ? "bg-red-50 text-red-700 ring-1 ring-red-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"}`}
+    >
+      <span
+        className={`size-2.5 rounded-full ${disabled ? "bg-red-500" : "bg-emerald-500"}`}
+        aria-hidden
+      />
       {disabled ? "Disabled" : "Active"}
     </span>
   );
@@ -3736,14 +6795,33 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
 
             return (
               <TableRow key={event.id} href={detailHref}>
-                <LinkedTableCell href={detailHref} className="font-bold text-slate-950">{event.title}</LinkedTableCell>
-                <LinkedTableCell href={detailHref} className="text-slate-700">{event.academy.name}</LinkedTableCell>
-                <LinkedTableCell href={detailHref} className="text-slate-700">{formatDate(event.eventDate)}</LinkedTableCell>
-                <LinkedTableCell href={detailHref} className="text-slate-700">{event.startTime}-{event.endTime}</LinkedTableCell>
-                <LinkedTableCell href={detailHref}><Badge>{event.giType.replace("_", "-")}</Badge></LinkedTableCell>
-                <LinkedTableCell href={detailHref} className="text-slate-700">{coursePriceLabel(event)}</LinkedTableCell>
-                <LinkedTableCell href={detailHref} className="text-slate-700">{event.capacity ?? "None"}</LinkedTableCell>
-                <LinkedTableCell href={detailHref}><Badge>{event.active ? "Active" : "Inactive"}</Badge></LinkedTableCell>
+                <LinkedTableCell
+                  href={detailHref}
+                  className="font-bold text-slate-950"
+                >
+                  {event.title}
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">
+                  {event.academy.name}
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">
+                  {formatDate(event.eventDate)}
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">
+                  {event.startTime}-{event.endTime}
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref}>
+                  <Badge>{event.giType.replace("_", "-")}</Badge>
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">
+                  {coursePriceLabel(event)}
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref} className="text-slate-700">
+                  {event.capacity ?? "None"}
+                </LinkedTableCell>
+                <LinkedTableCell href={detailHref}>
+                  <Badge>{event.active ? "Active" : "Inactive"}</Badge>
+                </LinkedTableCell>
                 <td className="px-5 py-4 text-center">
                   <ActionMenu label={`Open actions for ${event.title}`}>
                     <Link href={detailHref} className={menuItemClass}>
@@ -3758,11 +6836,21 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
                       <Copy size={18} aria-hidden />
                       Clone Course
                     </Link>
-                    <Link href={permanentHref} className={menuItemClass} target="_blank" rel="noreferrer">
+                    <Link
+                      href={permanentHref}
+                      className={menuItemClass}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <Globe2 size={18} aria-hidden />
                       Integration URI
                     </Link>
-                    <Link href={qrCodeHref} className={menuItemClass} target="_blank" rel="noreferrer">
+                    <Link
+                      href={qrCodeHref}
+                      className={menuItemClass}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       <QrCode size={18} aria-hidden />
                       QR Code
                     </Link>
@@ -3773,7 +6861,9 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
           })}
           {!events.length ? (
             <tr>
-              <td colSpan={9} className="px-4 py-8 text-center text-stone-600">No open mats to show.</td>
+              <td colSpan={9} className="px-4 py-8 text-center text-stone-600">
+                No open mats to show.
+              </td>
             </tr>
           ) : null}
         </tbody>
@@ -3782,7 +6872,15 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
   );
 }
 
-function ClaimsFilter({ pageSize, search, status }: { pageSize: number; search: string; status: string }) {
+function ClaimsFilter({
+  pageSize,
+  search,
+  status,
+}: {
+  pageSize: number;
+  search: string;
+  status: string;
+}) {
   return (
     <details className="group relative">
       <summary className="inline-flex min-h-12 cursor-pointer list-none items-center justify-center gap-3 rounded-md border border-stone-200 bg-white px-5 text-sm font-bold text-teal-800 shadow-sm transition hover:border-teal-600 hover:bg-teal-50 [&::-webkit-details-marker]:hidden">
@@ -3794,7 +6892,11 @@ function ClaimsFilter({ pageSize, search, status }: { pageSize: number; search: 
           {search ? <input type="hidden" name="search" value={search} /> : null}
           <label className="grid gap-1 text-sm font-semibold text-slate-700">
             Status
-            <select name="status" defaultValue={status} className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800">
+            <select
+              name="status"
+              defaultValue={status}
+              className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+            >
               <option value="all">All</option>
               <option value={ClaimStatus.PENDING}>Pending</option>
               <option value={ClaimStatus.APPROVED}>Approved</option>
@@ -3803,13 +6905,29 @@ function ClaimsFilter({ pageSize, search, status }: { pageSize: number; search: 
           </label>
           <label className="grid gap-1 text-sm font-semibold text-slate-700">
             Rows
-            <select name="pageSize" defaultValue={pageSize} className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800">
-              {claimPageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+            <select
+              name="pageSize"
+              defaultValue={pageSize}
+              className="min-h-11 rounded-md border border-stone-200 px-3 font-normal text-slate-800"
+            >
+              {claimPageSizes.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
             </select>
           </label>
           <div className="flex items-end gap-2 sm:col-span-2">
-            <Button type="submit" variant="primary">Apply</Button>
-            <Button href="/dashboard/academy-claims" variant="secondary" className="border-stone-200 text-slate-700">Reset</Button>
+            <Button type="submit" variant="primary">
+              Apply
+            </Button>
+            <Button
+              href="/dashboard/academy-claims"
+              variant="secondary"
+              className="border-stone-200 text-slate-700"
+            >
+              Reset
+            </Button>
           </div>
         </form>
       </div>
@@ -3817,39 +6935,121 @@ function ClaimsFilter({ pageSize, search, status }: { pageSize: number; search: 
   );
 }
 
-function ClaimStatusFilters({ params, status }: { params: AdminSearchParams; status: string }) {
+function ClaimStatusFilters({
+  params,
+  status,
+}: {
+  params: AdminSearchParams;
+  status: string;
+}) {
   return (
     <div className="mt-4 flex flex-wrap gap-3">
-      <ClaimFilterPill href={adminClaimsHref(params, { status: undefined, claimsPage: 1 })} active={status === "all"} icon={<ShieldCheck size={18} aria-hidden />}>All Claims</ClaimFilterPill>
-      <ClaimFilterPill href={adminClaimsHref(params, { status: ClaimStatus.PENDING, claimsPage: 1 })} active={status === ClaimStatus.PENDING} dotClassName="bg-amber-500">Pending</ClaimFilterPill>
-      <ClaimFilterPill href={adminClaimsHref(params, { status: ClaimStatus.APPROVED, claimsPage: 1 })} active={status === ClaimStatus.APPROVED} dotClassName="bg-emerald-500">Approved</ClaimFilterPill>
-      <ClaimFilterPill href={adminClaimsHref(params, { status: ClaimStatus.REJECTED, claimsPage: 1 })} active={status === ClaimStatus.REJECTED} dotClassName="bg-red-500">Rejected</ClaimFilterPill>
+      <ClaimFilterPill
+        href={adminClaimsHref(params, { status: undefined, claimsPage: 1 })}
+        active={status === "all"}
+        icon={<ShieldCheck size={18} aria-hidden />}
+      >
+        All Claims
+      </ClaimFilterPill>
+      <ClaimFilterPill
+        href={adminClaimsHref(params, {
+          status: ClaimStatus.PENDING,
+          claimsPage: 1,
+        })}
+        active={status === ClaimStatus.PENDING}
+        dotClassName="bg-amber-500"
+      >
+        Pending
+      </ClaimFilterPill>
+      <ClaimFilterPill
+        href={adminClaimsHref(params, {
+          status: ClaimStatus.APPROVED,
+          claimsPage: 1,
+        })}
+        active={status === ClaimStatus.APPROVED}
+        dotClassName="bg-emerald-500"
+      >
+        Approved
+      </ClaimFilterPill>
+      <ClaimFilterPill
+        href={adminClaimsHref(params, {
+          status: ClaimStatus.REJECTED,
+          claimsPage: 1,
+        })}
+        active={status === ClaimStatus.REJECTED}
+        dotClassName="bg-red-500"
+      >
+        Rejected
+      </ClaimFilterPill>
     </div>
   );
 }
 
-function ClaimFilterPill({ active, children, dotClassName, href, icon }: { active?: boolean; children: React.ReactNode; dotClassName?: string; href: string; icon?: React.ReactNode }) {
+function ClaimFilterPill({
+  active,
+  children,
+  dotClassName,
+  href,
+  icon,
+}: {
+  active?: boolean;
+  children: React.ReactNode;
+  dotClassName?: string;
+  href: string;
+  icon?: React.ReactNode;
+}) {
   return (
-    <Link href={href} className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold transition ${active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-stone-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50"}`}>
+    <Link
+      href={href}
+      className={`inline-flex min-h-10 items-center gap-2 rounded-md border px-3 text-sm font-bold transition ${active ? "border-teal-700 bg-teal-50 text-teal-800" : "border-stone-200 bg-white text-slate-700 hover:border-teal-300 hover:bg-teal-50"}`}
+    >
       {icon}
-      {dotClassName ? <span className={`size-2.5 rounded-full ${dotClassName}`} aria-hidden /> : null}
+      {dotClassName ? (
+        <span className={`size-2.5 rounded-full ${dotClassName}`} aria-hidden />
+      ) : null}
       {children}
     </Link>
   );
 }
 
-function ClaimsErrorState({ message, status }: { message: string; status: number }) {
+function ClaimsErrorState({
+  message,
+  status,
+}: {
+  message: string;
+  status: number;
+}) {
   const title = status === 403 ? "Access restricted" : "Claims unavailable";
   return (
     <div className="mt-4 rounded-lg border border-stone-200 bg-stone-50 px-5 py-10 text-center">
       <h3 className="text-xl font-black text-slate-950">{title}</h3>
       <p className="mx-auto mt-2 max-w-xl text-slate-600">{message}</p>
-      <Button href="/dashboard/academy-claims" variant="secondary" className="mt-5">Refresh Claims</Button>
+      <Button
+        href="/dashboard/academy-claims"
+        variant="secondary"
+        className="mt-5"
+      >
+        Refresh Claims
+      </Button>
     </div>
   );
 }
 
-function ClaimsTable({ claims, page, pageSize, params, totalItems, totalPages }: { claims: AcademyClaimListItem[]; page: number; pageSize: number; params: AdminSearchParams; totalItems: number; totalPages: number }) {
+function ClaimsTable({
+  claims,
+  page,
+  pageSize,
+  params,
+  totalItems,
+  totalPages,
+}: {
+  claims: AcademyClaimListItem[];
+  page: number;
+  pageSize: number;
+  params: AdminSearchParams;
+  totalItems: number;
+  totalPages: number;
+}) {
   const start = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, totalItems);
 
@@ -3872,27 +7072,60 @@ function ClaimsTable({ claims, page, pageSize, params, totalItems, totalPages }:
               const claimHref = `/admin/academy-claims/${claim.id}?returnTo=${encodeURIComponent(adminClaimsHref(params, {}))}`;
 
               return (
-              <TableRow key={claim.id} href={claimHref}>
-                <LinkedTableCell href={claimHref}>
-                  <p className="font-bold text-slate-950">{claim.academy.name}</p>
-                  {claim.academy.city || claim.academy.postcode ? <p className="mt-1 text-slate-500">{[claim.academy.city, claim.academy.postcode].filter(Boolean).join(", ")}</p> : null}
-                </LinkedTableCell>
-                <LinkedTableCell href={claimHref}>
-                  <p className="font-bold text-slate-950">{claim.requester.name}</p>
-                  <p className="break-all text-slate-500">{claim.requester.email}</p>
-                </LinkedTableCell>
-                <LinkedTableCell href={claimHref} className="text-slate-700">{claimRoleLabel(claim.requester.role)}</LinkedTableCell>
-                <LinkedTableCell href={claimHref}><ClaimStatusBadge status={claim.status} /></LinkedTableCell>
-                <LinkedTableCell href={claimHref} className="text-slate-600">{formatDate(new Date(claim.createdAt))}</LinkedTableCell>
-                <td className="px-5 py-4 text-right">
-                  <Button href={claimHref} size="sm" variant={claim.status === ClaimStatus.PENDING ? "primary" : "secondary"}>Review</Button>
-                </td>
-              </TableRow>
+                <TableRow key={claim.id} href={claimHref}>
+                  <LinkedTableCell href={claimHref}>
+                    <p className="font-bold text-slate-950">
+                      {claim.academy.name}
+                    </p>
+                    {claim.academy.city || claim.academy.postcode ? (
+                      <p className="mt-1 text-slate-500">
+                        {[claim.academy.city, claim.academy.postcode]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </p>
+                    ) : null}
+                  </LinkedTableCell>
+                  <LinkedTableCell href={claimHref}>
+                    <p className="font-bold text-slate-950">
+                      {claim.requester.name}
+                    </p>
+                    <p className="break-all text-slate-500">
+                      {claim.requester.email}
+                    </p>
+                  </LinkedTableCell>
+                  <LinkedTableCell href={claimHref} className="text-slate-700">
+                    {claimRoleLabel(claim.requester.role)}
+                  </LinkedTableCell>
+                  <LinkedTableCell href={claimHref}>
+                    <ClaimStatusBadge status={claim.status} />
+                  </LinkedTableCell>
+                  <LinkedTableCell href={claimHref} className="text-slate-600">
+                    {formatDate(new Date(claim.createdAt))}
+                  </LinkedTableCell>
+                  <td className="px-5 py-4 text-right">
+                    <Button
+                      href={claimHref}
+                      size="sm"
+                      variant={
+                        claim.status === ClaimStatus.PENDING
+                          ? "primary"
+                          : "secondary"
+                      }
+                    >
+                      Review
+                    </Button>
+                  </td>
+                </TableRow>
               );
             })}
             {!claims.length ? (
               <tr>
-                <td colSpan={6} className="px-5 py-12 text-center text-stone-600">No academy claims match these filters.</td>
+                <td
+                  colSpan={6}
+                  className="px-5 py-12 text-center text-stone-600"
+                >
+                  No academy claims match these filters.
+                </td>
               </tr>
             ) : null}
           </tbody>
@@ -3900,13 +7133,17 @@ function ClaimsTable({ claims, page, pageSize, params, totalItems, totalPages }:
       </div>
 
       <div className="flex flex-col gap-4 border-t border-stone-100 px-1 py-5 text-sm lg:flex-row lg:items-center lg:justify-between">
-        <p className="text-slate-700">Showing {start} to {end} of {totalItems} claims</p>
+        <p className="text-slate-700">
+          Showing {start} to {end} of {totalItems} claims
+        </p>
         <SharedPagination
           ariaLabel="Academy claims pagination"
           className="m-0"
           currentPage={page}
           totalPages={totalPages}
-          getPageHref={(pageNumber) => adminClaimsHref(params, { claimsPage: pageNumber })}
+          getPageHref={(pageNumber) =>
+            adminClaimsHref(params, { claimsPage: pageNumber })
+          }
         />
       </div>
     </>
@@ -3921,15 +7158,23 @@ function ClaimStatusBadge({ status }: { status: ClaimStatus }) {
   }[status];
 
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ring-1 ${className}`}>
-      <span className={`size-2.5 rounded-full ${statusDot(status)}`} aria-hidden />
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-bold ring-1 ${className}`}
+    >
+      <span
+        className={`size-2.5 rounded-full ${statusDot(status)}`}
+        aria-hidden
+      />
       {claimStatusLabel(status)}
     </span>
   );
 }
 
 function claimRoleLabel(value: string) {
-  return value.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function claimStatusLabel(status: ClaimStatus) {

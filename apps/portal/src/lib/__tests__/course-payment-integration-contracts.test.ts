@@ -170,10 +170,12 @@ describe("course payment service integration", () => {
     const actionSource = readSource("apps/portal/src/app/courses/[id]/payment-actions.ts");
 
     assert.match(coursePageSource, /isPublicAcademyTrusted/);
-    assert.match(coursePageSource, /event\.active\s*&&\s*academyTrusted\s*&&\s*paymentAccount\.ready\s*&&/);
+    assert.match(coursePageSource, /event\.active\s*&&\s*academyTrusted\s*&&\s*academyBookingVerified\s*&&\s*academyPaymentsVerified\s*&&\s*paymentAccount\.ready\s*&&/);
     assert.match(openMatPageSource, /isPublicAcademyTrusted/);
-    assert.match(openMatPageSource, /event\.active\s*&&\s*academyTrusted\s*&&\s*paymentAccount\.ready\s*&&/);
+    assert.match(openMatPageSource, /event\.active\s*&&\s*academyTrusted\s*&&\s*academyBookingVerified\s*&&\s*academyPaymentsVerified\s*&&\s*paymentAccount\.ready\s*&&/);
     assert.match(actionSource, /isPublicAcademyTrusted\(event\.academy\)/);
+    assert.match(actionSource, /isPublicAcademyBookingVerified\(event\.academy\)/);
+    assert.match(actionSource, /isPublicAcademyPaymentsVerified\(event\.academy\)/);
     assert.match(actionSource, /not verified for online payments/);
   });
 

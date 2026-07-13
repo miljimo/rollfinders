@@ -14,8 +14,14 @@ import { distanceMiles } from "./utils";
 
 export { courseTypeLabel, courseTypeLabels, courseTypeOptions, selectableCourseTypeOptions } from "./course-types";
 
-export type CourseWithAcademy = RollfindersCourseRecord & { academy: Academy; distanceMiles?: number | null };
-type AcademyWithTrust = Academy & { members: { id: string }[]; claims: { status: ClaimStatus }[] };
+type AcademyCapabilityFlags = {
+  bookingVerified?: boolean | null;
+  paymentsVerified?: boolean | null;
+  publicListingVerified?: boolean | null;
+};
+
+export type CourseWithAcademy = RollfindersCourseRecord & { academy: Academy & AcademyCapabilityFlags; distanceMiles?: number | null };
+type AcademyWithTrust = Academy & AcademyCapabilityFlags & { members: { id: string }[]; claims: { status: ClaimStatus }[] };
 type ServiceCourseWithAcademy = RollfindersCourseRecord & { academy: AcademyWithTrust };
 
 export function courseDisplayName(course: Pick<Event, "title">) {
@@ -201,7 +207,7 @@ export async function getCourseOccurrence(id: string, occurrenceDateParam?: stri
     listRollfindersCourseActivitiesFromCourseService(course),
   ]);
   if (!academy) return null;
-  const event = { ...course, academy, activities } as unknown as Event & { academy: Academy; activities: RollfindersCourseActivityRecord[] };
+  const event = { ...course, academy, activities } as unknown as Event & { academy: AcademyWithTrust; activities: RollfindersCourseActivityRecord[] };
 
   const now = new Date();
   const from = occurrenceDateParam ? startOfDay(new Date(`${occurrenceDateParam}T00:00:00.000Z`)) : startOfDay(now);

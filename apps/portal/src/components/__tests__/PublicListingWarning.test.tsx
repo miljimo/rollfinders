@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AcademyVerificationStatus, ClaimStatus, Role } from "@prisma/client";
-import { isPublicAcademyTrusted, PublicListingWarning } from "../PublicListingWarning";
+import { isPublicAcademyBookingVerified, isPublicAcademyPaymentsVerified, isPublicAcademyTrusted, PublicListingWarning } from "../PublicListingWarning";
 
 describe("PublicListingWarning", () => {
   it("renders the strong warning for unclaimed or unverified academies", () => {
@@ -46,6 +46,19 @@ describe("PublicListingWarning", () => {
       isPublicAcademyTrusted({ id: "academy-1", verificationStatus: AcademyVerificationStatus.VERIFIED, members: [], claims: [] }),
       false,
     );
+  });
+
+  it("keeps booking and payment verification separate from public listing verification", () => {
+    const academy = {
+      id: "academy-1",
+      bookingVerified: true,
+      paymentsVerified: false,
+      publicListingVerified: true,
+      verificationStatus: AcademyVerificationStatus.VERIFIED,
+    };
+
+    assert.equal(isPublicAcademyBookingVerified(academy), true);
+    assert.equal(isPublicAcademyPaymentsVerified(academy), false);
   });
 
   it("hides warnings when a trusted academy course was created by an academy admin", () => {

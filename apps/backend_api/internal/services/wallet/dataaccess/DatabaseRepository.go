@@ -33,6 +33,10 @@ func mapDatabaseError(err error) error {
 		return err
 	}
 	switch {
+	case pqErr.Code == "23505" && pqErr.Constraint == "wallet_wallets_owner_type_currency_key":
+		return domain.ErrDuplicateWallet
+	case strings.Contains(pqErr.Message, domain.ErrDuplicateWallet.Error()):
+		return domain.ErrDuplicateWallet
 	case strings.Contains(pqErr.Message, domain.ErrWalletNotFound.Error()):
 		return domain.ErrWalletNotFound
 	case strings.Contains(pqErr.Message, domain.ErrWalletReadOnly.Error()):

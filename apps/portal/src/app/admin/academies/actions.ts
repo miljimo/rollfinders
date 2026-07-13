@@ -71,6 +71,9 @@ function baseAcademyData(data: ReturnType<typeof academySchema.parse>, socialLin
     nogiAvailable: data.nogiAvailable,
     beginnerFriendly: data.beginnerFriendly,
     competitionFocused: data.competitionFocused,
+    publicListingVerified: data.publicListingVerified,
+    bookingVerified: data.bookingVerified,
+    paymentsVerified: data.paymentsVerified,
     verificationStatus: data.verificationStatus,
     featured: data.featured,
     borough: toNullable(data.borough),
@@ -182,7 +185,7 @@ export async function createAcademy(_state: AcademyFormState, formData: FormData
   try {
     academy = await createAcademyInAcademyService({
       ...baseAcademyData(data, socialLinks),
-      verified: data.verificationStatus === AcademyVerificationStatus.VERIFIED,
+      verified: data.publicListingVerified,
       createdById: actor.id,
     }, actor);
     if (actor) {
@@ -261,7 +264,10 @@ export async function updateAcademy(
       ...baseAcademyData(data, socialLinks),
       verificationStatus: nextVerificationStatus,
       featured: existingAcademy?.featured ?? data.featured,
-      verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
+      publicListingVerified: existingAcademy?.publicListingVerified ?? data.publicListingVerified,
+      bookingVerified: existingAcademy?.bookingVerified ?? data.bookingVerified,
+      paymentsVerified: existingAcademy?.paymentsVerified ?? data.paymentsVerified,
+      verified: existingAcademy?.publicListingVerified ?? data.publicListingVerified,
     }, actor ?? undefined);
     if (actor) {
       await writeAdminAuditLog({
