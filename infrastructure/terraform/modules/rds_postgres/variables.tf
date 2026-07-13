@@ -27,6 +27,16 @@ variable "db_instance_class" {
   type = string
 }
 
+variable "backup_retention_period" {
+  type        = number
+  description = "Automated backup retention period in days."
+}
+
+variable "multi_az" {
+  type        = bool
+  description = "Whether to run the database as a Multi-AZ deployment."
+}
+
 variable "is_production" {
   type = bool
 }

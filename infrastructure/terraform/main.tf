@@ -202,15 +202,17 @@ resource "random_password" "payment_service_api_key" {
 }
 
 module "database" {
-  source             = "./modules/rds_postgres"
-  name_prefix        = local.name_prefix
-  subnet_ids         = module.networking.database_subnet_ids
-  security_group_ids = [module.database_security_group.id]
-  db_name            = var.db_name
-  db_username        = var.db_username
-  db_password        = random_password.db.result
-  db_instance_class  = var.db_instance_class
-  is_production      = local.is_production
+  source                  = "./modules/rds_postgres"
+  name_prefix             = local.name_prefix
+  subnet_ids              = module.networking.database_subnet_ids
+  security_group_ids      = [module.database_security_group.id]
+  db_name                 = var.db_name
+  db_username             = var.db_username
+  db_password             = random_password.db.result
+  db_instance_class       = var.db_instance_class
+  backup_retention_period = var.db_backup_retention_period
+  multi_az                = var.db_multi_az
+  is_production           = local.is_production
 }
 
 module "email" {

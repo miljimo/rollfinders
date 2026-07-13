@@ -187,6 +187,18 @@ variable "db_instance_class" {
   default     = "db.t4g.micro"
 }
 
+variable "db_backup_retention_period" {
+  type        = number
+  description = "RDS automated backup retention period in days."
+  default     = 7
+}
+
+variable "db_multi_az" {
+  type        = bool
+  description = "Whether to run the RDS database as a Multi-AZ deployment."
+  default     = false
+}
+
 variable "nextauth_secret" {
   type        = string
   description = "NextAuth signing secret. If empty, Terraform generates one."
