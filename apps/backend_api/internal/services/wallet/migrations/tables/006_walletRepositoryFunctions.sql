@@ -202,7 +202,7 @@ BEGIN
             p_created_at,
             p_updated_at
         )
-        ON CONFLICT (provider, provider_account_id) DO UPDATE
+        ON CONFLICT ON CONSTRAINT wallet_provider_accounts_provider_account_key DO UPDATE
         SET status = CASE
                 WHEN EXCLUDED.status = 'DISABLED' AND EXISTS (
                     SELECT 1
@@ -217,7 +217,7 @@ BEGIN
             external_reference = COALESCE(EXCLUDED.external_reference, wallet.provider_accounts.external_reference),
             currency = EXCLUDED.currency,
             updated_at = EXCLUDED.updated_at
-        RETURNING id INTO v_provider_account_ref_id;
+        RETURNING wallet.provider_accounts.id INTO v_provider_account_ref_id;
     END IF;
 
     IF EXISTS (

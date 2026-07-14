@@ -1,4 +1,9 @@
-import { AcademyVerificationStatus, ClaimStatus, type Academy, type AcademySocialLink } from "@prisma/client";
+import {
+  AcademyVerificationStatus,
+  ClaimStatus,
+  type Academy,
+  type AcademySocialLink,
+} from "@prisma/client";
 import { normalizeBaseUrl } from "@rollfinders/api-client";
 import { apiGatewayUrl } from "./apiGateway";
 import { getEnvVariable } from "./environments";
@@ -75,7 +80,10 @@ export type AcademyServiceRecord = Academy & {
   paymentsVerified: boolean;
   publicListingVerified: boolean;
   claims: { status: ClaimStatus }[];
-  socialLinks: Pick<AcademySocialLink, "id" | "academyId" | "platform" | "url" | "createdAt" | "updatedAt">[];
+  socialLinks: Pick<
+    AcademySocialLink,
+    "id" | "academyId" | "platform" | "url" | "createdAt" | "updatedAt"
+  >[];
 };
 
 export type AcademyWriteInput = {
@@ -120,7 +128,10 @@ const academyServiceUrl = apiGatewayUrl;
 function directAcademyServiceUrl() {
   const value = getEnvVariable("ACADEMY_PUBLIC_BASE_URL", "");
   if (!value.trim()) {
-    throw new AcademyServiceError("Academy service URL is not configured.", 503);
+    throw new AcademyServiceError(
+      "Academy service URL is not configured.",
+      503,
+    );
   }
   return normalizeBaseUrl(value);
 }
@@ -136,27 +147,39 @@ type ServiceActor = {
 function serviceHeaders(actor?: ServiceActor) {
   return {
     "Content-Type": "application/json",
-    ...(actor?.accessToken ? { Authorization: `Bearer ${actor.accessToken}` } : {}),
-    ...(actor?.id ? { "X-Actor-User-ID": actor.id, "X-Actor": JSON.stringify(actor) } : {}),
+    ...(actor?.accessToken
+      ? { Authorization: `Bearer ${actor.accessToken}` }
+      : {}),
+    ...(actor?.id
+      ? { "X-Actor-User-ID": actor.id, "X-Actor": JSON.stringify(actor) }
+      : {}),
   };
 }
 
 async function parseResponse(response: Response) {
   if (response.status === 204) return {};
-  const body = await response.json().catch(() => ({})) as AcademyServiceErrorBody | Record<string, unknown>;
+  const body = (await response.json().catch(() => ({}))) as
+    AcademyServiceErrorBody | Record<string, unknown>;
   if (!response.ok) {
     const errorBody = body as AcademyServiceErrorBody;
     const bodyRecord = body as Record<string, unknown>;
-    const fallbackMessage = typeof bodyRecord.message === "string" ? bodyRecord.message : undefined;
-    const message = typeof errorBody.error?.message === "string"
-      ? errorBody.error.message
-      : fallbackMessage ?? `Academy service request failed with status ${response.status}.`;
+    const fallbackMessage =
+      typeof bodyRecord.message === "string" ? bodyRecord.message : undefined;
+    const message =
+      typeof errorBody.error?.message === "string"
+        ? errorBody.error.message
+        : (fallbackMessage ??
+          `Academy service request failed with status ${response.status}.`);
     throw new AcademyServiceError(message, response.status);
   }
   return body;
 }
 
-async function request(path: string, init: RequestInit = {}, actor?: ServiceActor) {
+async function request(
+  path: string,
+  init: RequestInit = {},
+  actor?: ServiceActor,
+) {
   const response = await fetch(`${academyServiceUrl()}${path}`, {
     ...init,
     cache: "no-store",
@@ -180,25 +203,59 @@ async function directRequest(path: string, init: RequestInit = {}) {
   return parseResponse(response);
 }
 
-function stringSetting(settings: Record<string, unknown>, key: string, fallback = "") {
+function stringSetting(
+  settings: Record<string, unknown>,
+  key: string,
+  fallback = "",
+) {
   const legacy = settings.legacy;
-  const legacyValue = legacy && typeof legacy === "object" ? (legacy as Record<string, unknown>)[key] : undefined;
+  const legacyValue =
+    legacy && typeof legacy === "object"
+      ? (legacy as Record<string, unknown>)[key]
+      : undefined;
   const value = settings[key] ?? legacyValue;
   return typeof value === "string" ? value : fallback;
 }
 
-function numberSetting(settings: Record<string, unknown>, key: string, fallback: number | null = null) {
+function numberSetting(
+  settings: Record<string, unknown>,
+  key: string,
+  fallback: number | null = null,
+) {
   const legacy = settings.legacy;
-  const legacyValue = legacy && typeof legacy === "object" ? (legacy as Record<string, unknown>)[key] : undefined;
+  const legacyValue =
+    legacy && typeof legacy === "object"
+      ? (legacy as Record<string, unknown>)[key]
+      : undefined;
   const value = settings[key] ?? legacyValue;
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
-function booleanSetting(settings: Record<string, unknown>, key: string, fallback: boolean) {
+function booleanSetting(
+  settings: Record<string, unknown>,
+  key: string,
+  fallback: boolean,
+) {
   const legacy = settings.legacy;
-  const legacyValue = legacy && typeof legacy === "object" ? (legacy as Record<string, unknown>)[key] : undefined;
+  const legacyValue =
+    legacy && typeof legacy === "object"
+      ? (legacy as Record<string, unknown>)[key]
+      : undefined;
   const value = settings[key] ?? legacyValue;
   return typeof value === "boolean" ? value : fallback;
+}
+
+function optionalBooleanSetting(
+  settings: Record<string, unknown>,
+  key: string,
+) {
+  const legacy = settings.legacy;
+  const legacyValue =
+    legacy && typeof legacy === "object"
+      ? (legacy as Record<string, unknown>)[key]
+      : undefined;
+  const value = settings[key] ?? legacyValue;
+  return typeof value === "boolean" ? value : undefined;
 }
 
 function dateValue(value?: string) {
@@ -207,20 +264,28 @@ function dateValue(value?: string) {
   return Number.isNaN(date.getTime()) ? new Date(0) : date;
 }
 
-function verificationStatusFromService(value?: string): AcademyVerificationStatus {
+function verificationStatusFromService(
+  value?: string,
+): AcademyVerificationStatus {
   if (value === "verified") return AcademyVerificationStatus.VERIFIED;
   if (value === "rejected") return AcademyVerificationStatus.REJECTED;
   return AcademyVerificationStatus.PENDING;
 }
 
-function verificationStatusToService(value?: AcademyVerificationStatus | string | null) {
-  if (value === AcademyVerificationStatus.VERIFIED || value === "verified") return "verified";
-  if (value === AcademyVerificationStatus.REJECTED || value === "rejected") return "rejected";
+function verificationStatusToService(
+  value?: AcademyVerificationStatus | string | null,
+) {
+  if (value === AcademyVerificationStatus.VERIFIED || value === "verified")
+    return "verified";
+  if (value === AcademyVerificationStatus.REJECTED || value === "rejected")
+    return "rejected";
   return "submitted";
 }
 
 function legacySettings(input: AcademyWriteInput) {
-  const publicListingVerified = input.publicListingVerified ?? input.verificationStatus === AcademyVerificationStatus.VERIFIED;
+  const publicListingVerified =
+    input.publicListingVerified ??
+    input.verificationStatus === AcademyVerificationStatus.VERIFIED;
   return {
     legacy: {
       affiliation: input.affiliation ?? null,
@@ -245,18 +310,26 @@ function legacySettings(input: AcademyWriteInput) {
   };
 }
 
-function socialLinksFromSettings(settings: Record<string, unknown>, academyId: string, updatedAt: Date) {
+function socialLinksFromSettings(
+  settings: Record<string, unknown>,
+  academyId: string,
+  updatedAt: Date,
+) {
   const legacy = settings.legacy;
-  const legacyRecord = legacy && typeof legacy === "object" ? legacy as Record<string, unknown> : {};
+  const legacyRecord =
+    legacy && typeof legacy === "object"
+      ? (legacy as Record<string, unknown>)
+      : {};
   const value = settings.socialLinks ?? legacyRecord.socialLinks;
   if (!Array.isArray(value)) return [];
 
   return value
-    .filter((item): item is { platform: string; url: string } =>
-      typeof item === "object"
-      && item !== null
-      && typeof (item as { platform?: unknown }).platform === "string"
-      && typeof (item as { url?: unknown }).url === "string",
+    .filter(
+      (item): item is { platform: string; url: string } =>
+        typeof item === "object" &&
+        item !== null &&
+        typeof (item as { platform?: unknown }).platform === "string" &&
+        typeof (item as { url?: unknown }).url === "string",
     )
     .map((link, index) => ({
       id: `${academyId}-social-${index}`,
@@ -268,12 +341,25 @@ function socialLinksFromSettings(settings: Record<string, unknown>, academyId: s
     }));
 }
 
-function academyFromService(item: AcademyServiceAcademy, members: AcademyMembershipRecord[] = []): AcademyServiceRecord {
+function academyFromService(
+  item: AcademyServiceAcademy,
+  members: AcademyMembershipRecord[] = [],
+): AcademyServiceRecord {
   const settings = item.settings ?? {};
-  const verificationStatus = verificationStatusFromService(item.verification_status);
-  const publicListingVerified = booleanSetting(settings, "publicListingVerified", verificationStatus === AcademyVerificationStatus.VERIFIED);
-  const bookingVerified = booleanSetting(settings, "bookingVerified", false);
-  const paymentsVerified = booleanSetting(settings, "paymentsVerified", false);
+  const verificationStatus = verificationStatusFromService(
+    item.verification_status,
+  );
+  const publicListingVerified = booleanSetting(
+    settings,
+    "publicListingVerified",
+    verificationStatus === AcademyVerificationStatus.VERIFIED,
+  );
+  const bookingVerified =
+    optionalBooleanSetting(settings, "bookingVerified") ??
+    publicListingVerified;
+  const paymentsVerified =
+    optionalBooleanSetting(settings, "paymentsVerified") ??
+    publicListingVerified;
   const verified = booleanSetting(settings, "verified", publicListingVerified);
   const createdAt = dateValue(item.created_at);
   const updatedAt = dateValue(item.updated_at);
@@ -286,7 +372,9 @@ function academyFromService(item: AcademyServiceAcademy, members: AcademyMembers
     website: item.website_url || null,
     email: item.contact_email || null,
     phone: item.contact_phone || null,
-    address: [item.address_line1, item.address_line2].filter(Boolean).join(", "),
+    address: [item.address_line1, item.address_line2]
+      .filter(Boolean)
+      .join(", "),
     city: item.city ?? "",
     postcode: item.postcode ?? "",
     borough: item.region || stringSetting(settings, "borough") || null,
@@ -313,7 +401,11 @@ function academyFromService(item: AcademyServiceAcademy, members: AcademyMembers
     createdAt,
     updatedAt,
     createdById: stringSetting(settings, "createdById") || null,
-    members: members.map((member) => ({ id: member.id, academyId: member.academyId, userId: member.userId })),
+    members: members.map((member) => ({
+      id: member.id,
+      academyId: member.academyId,
+      userId: member.userId,
+    })),
     claims: [],
     socialLinks: socialLinksFromSettings(settings, item.id, updatedAt),
   };
@@ -344,7 +436,9 @@ function academyPayload(input: AcademyWriteInput) {
   };
 }
 
-function membershipFromService(item: AcademyServiceMember): AcademyMembershipRecord {
+function membershipFromService(
+  item: AcademyServiceMember,
+): AcademyMembershipRecord {
   return {
     id: item.id,
     academyId: item.academy_id,
@@ -354,18 +448,41 @@ function membershipFromService(item: AcademyServiceMember): AcademyMembershipRec
   };
 }
 
-export async function listAcademiesFromAcademyService({ q, limit = 100, offset = 0, actor }: { q?: string; limit?: number; offset?: number; actor?: ServiceActor } = {}) {
-  const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+export async function listAcademiesFromAcademyService({
+  q,
+  limit = 100,
+  offset = 0,
+  actor,
+}: { q?: string; limit?: number; offset?: number; actor?: ServiceActor } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit),
+    offset: String(offset),
+  });
   if (q?.trim()) params.set("q", q.trim());
-  const response = await request(`/v1/academies?${params.toString()}`, {}, actor) as { academies?: AcademyServiceAcademy[] };
-  return (response.academies ?? []).map((academy) => academyFromService(academy));
+  const response = (await request(
+    `/v1/academies?${params.toString()}`,
+    {},
+    actor,
+  )) as { academies?: AcademyServiceAcademy[] };
+  return (response.academies ?? []).map((academy) =>
+    academyFromService(academy),
+  );
 }
 
-export async function listAllAcademiesFromAcademyService({ q, batchSize = 100, actor }: { q?: string; batchSize?: number; actor?: ServiceActor } = {}) {
+export async function listAllAcademiesFromAcademyService({
+  q,
+  batchSize = 100,
+  actor,
+}: { q?: string; batchSize?: number; actor?: ServiceActor } = {}) {
   const academies: AcademyServiceRecord[] = [];
   let offset = 0;
   while (true) {
-    const batch = await listAcademiesFromAcademyService({ q, limit: batchSize, offset, actor });
+    const batch = await listAcademiesFromAcademyService({
+      q,
+      limit: batchSize,
+      offset,
+      actor,
+    });
     academies.push(...batch);
     if (batch.length < batchSize) break;
     offset += batchSize;
@@ -373,7 +490,10 @@ export async function listAllAcademiesFromAcademyService({ q, batchSize = 100, a
   return academies;
 }
 
-export function academyMatchesSearch(academy: AcademyServiceRecord, search: string) {
+export function academyMatchesSearch(
+  academy: AcademyServiceRecord,
+  search: string,
+) {
   const value = search.trim().toLowerCase();
   if (!value) return true;
   return [
@@ -391,100 +511,216 @@ export function academyClaimPlaceholder(status: ClaimStatus) {
   return { status };
 }
 
-export async function getAcademyFromAcademyService(id: string, actor?: ServiceActor) {
+export async function getAcademyFromAcademyService(
+  id: string,
+  actor?: ServiceActor,
+) {
   try {
-    const academy = await request(`/v1/academies/${encodeURIComponent(id)}`, {}, actor) as AcademyServiceAcademy;
+    const academy = (await request(
+      `/v1/academies/${encodeURIComponent(id)}`,
+      {},
+      actor,
+    )) as AcademyServiceAcademy;
     const members = await listAcademyMembersFromAcademyService(id, actor);
     return academyFromService(academy, members);
   } catch (error) {
-    if (error instanceof AcademyServiceError && error.status === 404) return null;
+    if (error instanceof AcademyServiceError && error.status === 404)
+      return null;
     throw error;
   }
 }
 
 export async function findAcademyBySlugFromAcademyService(slug: string) {
-  const academies = await listAcademiesFromAcademyService({ q: slug, limit: 100 });
+  const academies = await listAcademiesFromAcademyService({
+    q: slug,
+    limit: 100,
+  });
   const academy = academies.find((item) => item.slug === slug);
   return academy ?? null;
 }
 
-export async function createAcademyInAcademyService(input: AcademyWriteInput, actor?: ServiceActor) {
-  const academy = await request("/v1/academies", {
-    method: "POST",
-    body: JSON.stringify(academyPayload(input)),
-  }, actor) as AcademyServiceAcademy;
+export async function createAcademyInAcademyService(
+  input: AcademyWriteInput,
+  actor?: ServiceActor,
+) {
+  const academy = (await request(
+    "/v1/academies",
+    {
+      method: "POST",
+      body: JSON.stringify(academyPayload(input)),
+    },
+    actor,
+  )) as AcademyServiceAcademy;
   return academyFromService(academy);
 }
 
-export async function updateAcademyInAcademyService(id: string, input: AcademyWriteInput, actor?: ServiceActor) {
-  const academy = await request(`/v1/academies/${encodeURIComponent(id)}`, {
-    method: "PATCH",
-    body: JSON.stringify(academyPayload(input)),
-  }, actor) as AcademyServiceAcademy;
+export async function updateAcademyInAcademyService(
+  id: string,
+  input: AcademyWriteInput,
+  actor?: ServiceActor,
+) {
+  const academy = (await request(
+    `/v1/academies/${encodeURIComponent(id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(academyPayload(input)),
+    },
+    actor,
+  )) as AcademyServiceAcademy;
   return academyFromService(academy);
 }
 
-export async function deleteAcademyInAcademyService(id: string, actor?: ServiceActor) {
-  const academy = await request(`/v1/academies/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  }, actor) as AcademyServiceAcademy;
+export async function deleteAcademyInAcademyService(
+  id: string,
+  actor?: ServiceActor,
+) {
+  const academy = (await request(
+    `/v1/academies/${encodeURIComponent(id)}`,
+    {
+      method: "DELETE",
+    },
+    actor,
+  )) as AcademyServiceAcademy;
   return academyFromService(academy);
 }
 
-export async function listAcademyMembersFromAcademyService(academyId: string, actor?: ServiceActor) {
+export async function listAcademyMembersFromAcademyService(
+  academyId: string,
+  actor?: ServiceActor,
+) {
   let response: { members?: AcademyServiceMember[] };
   try {
-    response = await request(`/v1/academies/${encodeURIComponent(academyId)}/members`, {}, actor) as { members?: AcademyServiceMember[] };
+    response = (await request(
+      `/v1/academies/${encodeURIComponent(academyId)}/members`,
+      {},
+      actor,
+    )) as { members?: AcademyServiceMember[] };
   } catch (error) {
     if (error instanceof AcademyServiceError && error.status === 404) return [];
-    if (!actor && error instanceof AcademyServiceError && (error.status === 401 || error.status === 403)) return [];
+    if (
+      !actor &&
+      error instanceof AcademyServiceError &&
+      (error.status === 401 || error.status === 403)
+    )
+      try {
+        const directResponse = (await directRequest(
+          `/v1/academies/${encodeURIComponent(academyId)}/members`,
+        )) as { members?: AcademyServiceMember[] };
+        return (directResponse.members ?? []).map(membershipFromService);
+      } catch (directError) {
+        if (
+          directError instanceof AcademyServiceError &&
+          (directError.status === 401 ||
+            directError.status === 403 ||
+            directError.status === 404 ||
+            directError.status === 503)
+        )
+          return [];
+        throw directError;
+      }
     throw error;
   }
   return (response.members ?? []).map(membershipFromService);
 }
 
-export async function listAcademyMembershipsForUserFromAcademyService(userId: string, actor?: ServiceActor) {
-  const response = await request(`/v1/memberships?user_id=${encodeURIComponent(userId)}`, {}, actor) as { memberships?: AcademyServiceMember[] };
+export async function listAcademyMembershipsForUserFromAcademyService(
+  userId: string,
+  actor?: ServiceActor,
+) {
+  const response = (await request(
+    `/v1/memberships?user_id=${encodeURIComponent(userId)}`,
+    {},
+    actor,
+  )) as { memberships?: AcademyServiceMember[] };
   return (response.memberships ?? []).map(membershipFromService);
 }
 
-export async function listAcademiesForActorFromAcademyService(actor: { id: string; role?: string; academyId?: string | null }) {
-  if (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN" || actor.role === "PLATFORM_ADMIN") {
+export async function listAcademiesForActorFromAcademyService(actor: {
+  id: string;
+  role?: string;
+  academyId?: string | null;
+}) {
+  if (
+    actor.role === "SUPER_ADMIN" ||
+    actor.role === "ADMIN" ||
+    actor.role === "PLATFORM_ADMIN"
+  ) {
     return listAllAcademiesFromAcademyService({ actor });
   }
-  if ((actor.role === "ACADEMY_ADMIN" || actor.role === "ACADEMY_OWNER") && actor.academyId) {
+  if (
+    (actor.role === "ACADEMY_ADMIN" || actor.role === "ACADEMY_OWNER") &&
+    actor.academyId
+  ) {
     const academy = await getAcademyFromAcademyService(actor.academyId, actor);
     return academy ? [academy] : [];
   }
-  const memberships = await listAcademyMembershipsForUserFromAcademyService(actor.id, actor);
-  const academies = await Promise.all(memberships.map((membership) => getAcademyFromAcademyService(membership.academyId, actor)));
-  return academies.filter((academy): academy is AcademyServiceRecord => Boolean(academy));
+  const memberships = await listAcademyMembershipsForUserFromAcademyService(
+    actor.id,
+    actor,
+  );
+  const academies = await Promise.all(
+    memberships.map((membership) =>
+      getAcademyFromAcademyService(membership.academyId, actor),
+    ),
+  );
+  return academies.filter((academy): academy is AcademyServiceRecord =>
+    Boolean(academy),
+  );
 }
 
-export async function addAcademyMemberInAcademyService(academyId: string, userId: string, actor?: ServiceActor) {
-  const member = await request("/v1/memberships", {
-    method: "POST",
-    body: JSON.stringify({ academy_id: academyId, user_id: userId }),
-  }, actor) as AcademyServiceMember;
+export async function addAcademyMemberInAcademyService(
+  academyId: string,
+  userId: string,
+  actor?: ServiceActor,
+) {
+  const member = (await request(
+    "/v1/memberships",
+    {
+      method: "POST",
+      body: JSON.stringify({ academy_id: academyId, user_id: userId }),
+    },
+    actor,
+  )) as AcademyServiceMember;
   return membershipFromService(member);
 }
 
-export async function addPublicRegistrationAcademyMember(academyId: string, userId: string) {
-  const member = await directRequest(`/v1/academies/${encodeURIComponent(academyId)}/members`, {
-    method: "POST",
-    body: JSON.stringify({ user_id: userId }),
-  }) as AcademyServiceMember;
+export async function addPublicRegistrationAcademyMember(
+  academyId: string,
+  userId: string,
+) {
+  const member = (await directRequest(
+    `/v1/academies/${encodeURIComponent(academyId)}/members`,
+    {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    },
+  )) as AcademyServiceMember;
   return membershipFromService(member);
 }
 
-export async function removeAcademyMemberInAcademyService(academyId: string, userId: string, actor?: ServiceActor) {
-  await request(`/v1/academies/${encodeURIComponent(academyId)}/members/${encodeURIComponent(userId)}`, {
-    method: "DELETE",
-  }, actor);
+export async function removeAcademyMemberInAcademyService(
+  academyId: string,
+  userId: string,
+  actor?: ServiceActor,
+) {
+  await request(
+    `/v1/academies/${encodeURIComponent(academyId)}/members/${encodeURIComponent(userId)}`,
+    {
+      method: "DELETE",
+    },
+    actor,
+  );
 }
 
-export async function removeAcademyMembershipInAcademyService(membershipId: string, actor?: ServiceActor) {
-  await request(`/v1/memberships/${encodeURIComponent(membershipId)}`, {
-    method: "DELETE",
-  }, actor);
+export async function removeAcademyMembershipInAcademyService(
+  membershipId: string,
+  actor?: ServiceActor,
+) {
+  await request(
+    `/v1/memberships/${encodeURIComponent(membershipId)}`,
+    {
+      method: "DELETE",
+    },
+    actor,
+  );
 }

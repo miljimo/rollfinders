@@ -460,11 +460,7 @@ function isPlatformOnlyPanel(panel: string) {
 }
 
 function isSuperOnlyPanel(panel: string) {
-  return (
-    panel === "platform-admin-academies" ||
-    panel === "analytics" ||
-    panel === "wallet"
-  );
+  return panel === "platform-admin-academies" || panel === "analytics";
 }
 
 async function resolvePaymentMetricVisibility(
@@ -914,6 +910,7 @@ async function getDashboardWallets(
   page: number,
   actorUserId: string,
   accessToken?: string,
+  ownerId?: string,
 ): Promise<DashboardWalletsResult> {
   const offset = (Math.max(1, page) - 1) * walletPageSize;
   try {
@@ -922,6 +919,7 @@ async function getDashboardWallets(
       actorUserId,
       limit: walletPageSize,
       offset,
+      ownerId,
     });
     const [balanceResults, linkedAccountGroups, transactions] =
       await Promise.all([
@@ -943,9 +941,20 @@ async function getDashboardWallets(
               : Promise.resolve([]),
           ),
         ),
-        listWalletTransfers({ accessToken, actorUserId, limit: 100 }).catch(
-          () => [],
-        ),
+        ownerId
+          ? Promise.all(
+              result.wallets.map((wallet) =>
+                listWalletTransfers({
+                  accessToken,
+                  actorUserId,
+                  limit: 100,
+                  walletId: wallet.id,
+                }).catch(() => []),
+              ),
+            ).then((groups) => groups.flat())
+          : listWalletTransfers({ accessToken, actorUserId, limit: 100 }).catch(
+              () => [],
+            ),
       ]);
     return {
       balances: balanceResults.filter((balance): balance is WalletBalance =>
@@ -1019,6 +1028,15 @@ export default async function AdminDashboardWorkspace({
   if (academyAdmin && isPlatformOnlyPanel(requestedPanel))
     redirect("/dashboard");
   const superAdmin = isSuperAdminRole(currentUser.role);
+  const canAccessWalletPanel =
+    superAdmin ||
+    (await authorize(currentUser, "wallet.read", {
+      applicationId:
+        process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+      organisationId: currentUser.academyId ?? undefined,
+    }));
+  if (requestedPanel === "wallet" && !canAccessWalletPanel)
+    redirect("/dashboard");
   if (!superAdmin && isSuperOnlyPanel(requestedPanel)) redirect("/dashboard");
   const panel = requestedPanel;
   const dialog = firstParam(params.dialog);
@@ -1200,6 +1218,7 @@ export default async function AdminDashboardWorkspace({
       currentManagedUser?.email ??
       currentUser.email,
   };
+  const walletOwnerPickerUsers = academyAdmin ? [] : managedUsersPage.users;
 
   const [
     academyCount,
@@ -1458,7 +1477,12 @@ export default async function AdminDashboardWorkspace({
           pagination: emptyServicePagination(bookingsPageSize),
         }),
     panel === "wallet"
-      ? getDashboardWallets(walletPage, currentUser.id, currentUser.accessToken)
+      ? getDashboardWallets(
+          walletPage,
+          currentUser.id,
+          currentUser.accessToken,
+          academyAdmin ? currentUser.id : undefined,
+        )
       : Promise.resolve<DashboardWalletsResult>({
           balances: [],
           linkedAccounts: [],
@@ -1693,6 +1717,10 @@ export default async function AdminDashboardWorkspace({
             icon: "payments",
             label: "Subscriptions",
           } satisfies SidePanelItem,
+        ]
+      : []),
+    ...(canAccessWalletPanel
+      ? [
           {
             active: panel === "wallet",
             href: "/dashboard/wallet",
@@ -2738,7 +2766,7 @@ export default async function AdminDashboardWorkspace({
         <CreateWalletDialog
           currentUser={currentUserWalletOwner}
           params={params}
-          users={managedUsersPage.users}
+          users={walletOwnerPickerUsers}
           wallets={walletResult.wallets}
         />
       ) : null}
@@ -2748,7 +2776,7 @@ export default async function AdminDashboardWorkspace({
         <WalletOwnerPickerDialog
           currentUser={currentUserWalletOwner}
           params={params}
-          users={managedUsersPage.users}
+          users={walletOwnerPickerUsers}
         />
       ) : null}
       {panel === "wallet" &&

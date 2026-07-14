@@ -50,7 +50,8 @@ services:
       - app_database
       - service_database
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      test:
+        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -131,12 +132,15 @@ services:
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
       API_PUBLIC_BASE_URL: http://api:8080
+      ACADEMY_PUBLIC_BASE_URL: http://academy:8080
+      PAYMENT_PUBLIC_BASE_URL: http://payments:8080
       WALLET_INTERNAL_BASE_URL: http://wallet:8080
       PRICING_INTERNAL_BASE_URL: http://pricing:8080
       NOTIFICATION_SERVICE_BASE_URL: http://notification:8080
       NOTIFICATION_API_KEY: ${NOTIFICATION_API_KEY:-local-notification-api-key}
       ANALYTICS_SERVICE_BASE_URL: http://analytics:8080
       ANALYTICS_API_KEY: ${ANALYTICS_API_KEY:-local-analytics-api-key}
+      AUTHORISATION_PUBLIC_BASE_URL: http://authorisation-api:8080
       AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
@@ -155,6 +159,7 @@ services:
         condition: service_healthy
     networks:
       - frontend
+      - backend
       - app_database
 
 volumes:

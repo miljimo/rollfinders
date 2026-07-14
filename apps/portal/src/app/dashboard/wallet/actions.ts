@@ -3,10 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import {
+  getCurrentUser,
+  isAcademyAdminRole,
+  isPlatformAdminRole,
+} from "@/lib/admin";
 import { authorize } from "@/lib/authorisation-service";
 import { disconnectStripePaymentAccountSetting } from "@/lib/payments";
-import { createLinkedWalletAccount, createWallet, createWalletTransfer, type LinkedAccountConnectionType, type LinkedAccountProvider, type WalletCurrency, type WalletType } from "@/lib/wallet-service";
+import {
+  createLinkedWalletAccount,
+  createWallet,
+  createWalletTransfer,
+  type LinkedAccountConnectionType,
+  type LinkedAccountProvider,
+  type WalletCurrency,
+  type WalletType,
+} from "@/lib/wallet-service";
 
 const walletTypes = new Set<WalletType>(["internal", "external"]);
 const walletCurrencies = new Set<WalletCurrency>(["GBP", "Points"]);
@@ -14,24 +26,59 @@ const walletCurrencies = new Set<WalletCurrency>(["GBP", "Points"]);
 export async function createDashboardWallet(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const walletType = String(formData.get("walletType") ?? "external").toLowerCase() as WalletType;
+  const walletType = String(
+    formData.get("walletType") ?? "external",
+  ).toLowerCase() as WalletType;
   const ownerId = String(formData.get("ownerId") ?? "").trim();
   const currencyValue = String(formData.get("currency") ?? "GBP").trim();
-  const currency = (currencyValue.toLowerCase() === "points" ? "Points" : currencyValue.toUpperCase()) as WalletCurrency;
-  const returnTo = safeWalletReturnPath(String(formData.get("returnTo") ?? "/dashboard/wallet"));
+  const currency = (
+    currencyValue.toLowerCase() === "points"
+      ? "Points"
+      : currencyValue.toUpperCase()
+  ) as WalletCurrency;
+  const returnTo = safeWalletReturnPath(
+    String(formData.get("returnTo") ?? "/dashboard/wallet"),
+  );
 
   const redirectUrl = new URL(returnTo, "http://localhost");
   const params = redirectUrl.searchParams;
   params.delete("walletDialog");
   params.delete("walletError");
   params.delete("walletResult");
-  if (!walletTypes.has(walletType) || !ownerId || !walletCurrencies.has(currency)) {
+  const allowed = await authorize(user, "wallet.create", {
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    organisationId: user.academyId ?? undefined,
+  });
+  if (!allowed) {
+    params.set("walletResult", "unauthorized");
+    params.set("walletError", "You do not have permission to create wallets.");
+    redirect(`${redirectUrl.pathname}?${params.toString()}`);
+  }
+  if (isAcademyAdminRole(user.role) && ownerId !== user.id) {
+    params.set("walletResult", "unauthorized");
+    params.set(
+      "walletError",
+      "Academy users can only create wallets for their own account.",
+    );
+    redirect(`${redirectUrl.pathname}?${params.toString()}`);
+  }
+  if (
+    !walletTypes.has(walletType) ||
+    !ownerId ||
+    !walletCurrencies.has(currency)
+  ) {
     params.set("walletResult", "invalid");
     redirect(`${redirectUrl.pathname}?${params.toString()}`);
   }
 
   try {
-    await createWallet({ accessToken: user.accessToken, actorUserId: user.id, walletType, ownerId, currency });
+    await createWallet({
+      accessToken: user.accessToken,
+      actorUserId: user.id,
+      walletType,
+      ownerId,
+      currency,
+    });
     params.set("walletResult", "created");
   } catch (error) {
     params.set("walletResult", "failed");
@@ -46,7 +93,11 @@ export async function createDashboardWalletTransfer(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const returnTo = safeWalletReturnPath(String(formData.get("returnTo") ?? "/dashboard/wallet?walletView=transactions"));
+  const returnTo = safeWalletReturnPath(
+    String(
+      formData.get("returnTo") ?? "/dashboard/wallet?walletView=transactions",
+    ),
+  );
   const redirectUrl = new URL(returnTo, "http://localhost");
   const params = redirectUrl.searchParams;
   params.set("walletView", "transactions");
@@ -54,23 +105,48 @@ export async function createDashboardWalletTransfer(formData: FormData) {
   params.delete("walletError");
   params.delete("walletResult");
 
-  const allowed = await authorize(user, "wallet.transfer", { applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders" });
+  const allowed = await authorize(user, "wallet.transfer", {
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+  });
   if (!allowed) {
     params.set("walletResult", "transfer-unauthorized");
-    params.set("walletError", "You do not have permission to create wallet transfers.");
+    params.set(
+      "walletError",
+      "You do not have permission to create wallet transfers.",
+    );
     redirect(`${redirectUrl.pathname}?${params.toString()}`);
   }
 
   const sourceWalletId = String(formData.get("sourceWalletId") ?? "").trim();
-  const destinationWalletId = String(formData.get("destinationWalletId") ?? "").trim();
+  const destinationWalletId = String(
+    formData.get("destinationWalletId") ?? "",
+  ).trim();
   const currencyValue = String(formData.get("currency") ?? "GBP").trim();
-  const currency = (currencyValue.toLowerCase() === "points" ? "Points" : currencyValue.toUpperCase()) as WalletCurrency;
+  const currency = (
+    currencyValue.toLowerCase() === "points"
+      ? "Points"
+      : currencyValue.toUpperCase()
+  ) as WalletCurrency;
   const referenceId = String(formData.get("reference") ?? "").trim();
-  const amountResult = parseTransferAmount(String(formData.get("amount") ?? ""), currency);
+  const amountResult = parseTransferAmount(
+    String(formData.get("amount") ?? ""),
+    currency,
+  );
 
-  if (!sourceWalletId || !destinationWalletId || sourceWalletId === destinationWalletId || !walletCurrencies.has(currency) || !amountResult.ok) {
+  if (
+    !sourceWalletId ||
+    !destinationWalletId ||
+    sourceWalletId === destinationWalletId ||
+    !walletCurrencies.has(currency) ||
+    !amountResult.ok
+  ) {
     params.set("walletResult", "transfer-invalid");
-    params.set("walletError", amountResult.ok ? "Choose two different wallets and enter a valid transfer amount." : amountResult.message);
+    params.set(
+      "walletError",
+      amountResult.ok
+        ? "Choose two different wallets and enter a valid transfer amount."
+        : amountResult.message,
+    );
     redirect(`${redirectUrl.pathname}?${params.toString()}`);
   }
 
@@ -83,7 +159,9 @@ export async function createDashboardWalletTransfer(formData: FormData) {
       amount: amountResult.amount,
       currency,
       referenceId,
-      description: referenceId ? `Dashboard transfer ${referenceId}` : "Dashboard wallet transfer",
+      description: referenceId
+        ? `Dashboard transfer ${referenceId}`
+        : "Dashboard wallet transfer",
       idempotencyKey: crypto.randomUUID(),
     });
     params.set("walletResult", "transfer-created");
@@ -96,11 +174,15 @@ export async function createDashboardWalletTransfer(formData: FormData) {
   redirect(`${redirectUrl.pathname}?${params.toString()}`);
 }
 
-export async function disconnectDashboardWalletLinkedAccount(formData: FormData) {
+export async function disconnectDashboardWalletLinkedAccount(
+  formData: FormData,
+) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const returnTo = safeWalletReturnPath(String(formData.get("returnTo") ?? "/dashboard/wallet"));
+  const returnTo = safeWalletReturnPath(
+    String(formData.get("returnTo") ?? "/dashboard/wallet"),
+  );
   const redirectUrl = new URL(returnTo, "http://localhost");
   const params = redirectUrl.searchParams;
   params.delete("walletDialog");
@@ -108,24 +190,50 @@ export async function disconnectDashboardWalletLinkedAccount(formData: FormData)
   params.delete("walletResult");
 
   const walletId = String(formData.get("walletId") ?? "").trim();
-  const provider = String(formData.get("provider") ?? "").trim().toUpperCase() as LinkedAccountProvider;
-  const providerAccountId = String(formData.get("providerAccountId") ?? "").trim();
-  const connectionType = String(formData.get("connectionType") ?? "").trim().toUpperCase() as LinkedAccountConnectionType;
+  const provider = String(formData.get("provider") ?? "")
+    .trim()
+    .toUpperCase() as LinkedAccountProvider;
+  const providerAccountId = String(
+    formData.get("providerAccountId") ?? "",
+  ).trim();
+  const connectionType = String(formData.get("connectionType") ?? "")
+    .trim()
+    .toUpperCase() as LinkedAccountConnectionType;
   const displayName = String(formData.get("displayName") ?? "").trim();
-  const externalReference = String(formData.get("externalReference") ?? "").trim();
-  const connectedWalletCount = Number.parseInt(String(formData.get("connectedWalletCount") ?? "0"), 10);
+  const externalReference = String(
+    formData.get("externalReference") ?? "",
+  ).trim();
+  const connectedWalletCount = Number.parseInt(
+    String(formData.get("connectedWalletCount") ?? "0"),
+    10,
+  );
   const currencyValue = String(formData.get("currency") ?? "GBP").trim();
-  const currency = (currencyValue.toLowerCase() === "points" ? "Points" : currencyValue.toUpperCase()) as WalletCurrency;
+  const currency = (
+    currencyValue.toLowerCase() === "points"
+      ? "Points"
+      : currencyValue.toUpperCase()
+  ) as WalletCurrency;
 
-  if (!walletId || !provider || !connectionType || !walletCurrencies.has(currency)) {
+  if (
+    !walletId ||
+    !provider ||
+    !connectionType ||
+    !walletCurrencies.has(currency)
+  ) {
     params.set("walletResult", "disconnect-invalid");
-    params.set("walletError", "Wallet linked account could not be disconnected.");
+    params.set(
+      "walletError",
+      "Wallet linked account could not be disconnected.",
+    );
     redirect(`${redirectUrl.pathname}?${params.toString()}`);
   }
 
   try {
     if (provider === "STRIPE" && connectedWalletCount <= 1) {
-      const ownerType = user.academyId && !isPlatformAdminRole(user.role) ? "academy" : "platform";
+      const ownerType =
+        user.academyId && !isPlatformAdminRole(user.role)
+          ? "academy"
+          : "platform";
       await disconnectStripePaymentAccountSetting({
         accessToken: user.accessToken,
         actorUserId: user.id,
@@ -161,20 +269,38 @@ function safeWalletReturnPath(value: string) {
   return value;
 }
 
-function parseTransferAmount(value: string, currency: WalletCurrency): { ok: true; amount: number } | { ok: false; message: string } {
+function parseTransferAmount(
+  value: string,
+  currency: WalletCurrency,
+): { ok: true; amount: number } | { ok: false; message: string } {
   const normalized = value.trim().replace(/,/g, "");
   if (!normalized) return { ok: false, message: "Enter a transfer amount." };
 
   if (currency === "Points") {
-    if (!/^\d+$/.test(normalized)) return { ok: false, message: "Points transfers must use a whole number amount." };
+    if (!/^\d+$/.test(normalized))
+      return {
+        ok: false,
+        message: "Points transfers must use a whole number amount.",
+      };
     const amount = Number.parseInt(normalized, 10);
-    if (!Number.isSafeInteger(amount) || amount <= 0) return { ok: false, message: "Enter a transfer amount greater than zero." };
+    if (!Number.isSafeInteger(amount) || amount <= 0)
+      return {
+        ok: false,
+        message: "Enter a transfer amount greater than zero.",
+      };
     return { ok: true, amount };
   }
 
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return { ok: false, message: "Money transfers must use up to two decimal places." };
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized))
+    return {
+      ok: false,
+      message: "Money transfers must use up to two decimal places.",
+    };
   const [pounds, pence = ""] = normalized.split(".");
-  const amount = Number.parseInt(pounds, 10) * 100 + Number.parseInt(pence.padEnd(2, "0") || "0", 10);
-  if (!Number.isSafeInteger(amount) || amount <= 0) return { ok: false, message: "Enter a transfer amount greater than zero." };
+  const amount =
+    Number.parseInt(pounds, 10) * 100 +
+    Number.parseInt(pence.padEnd(2, "0") || "0", 10);
+  if (!Number.isSafeInteger(amount) || amount <= 0)
+    return { ok: false, message: "Enter a transfer amount greater than zero." };
   return { ok: true, amount };
 }

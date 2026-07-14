@@ -590,7 +590,9 @@ BEGIN
         'user.search',
         'payment.read', 'payment.search', 'payment.report.revenue.read', 'payment.report.refund.read',
         'payment.refund.read', 'payment.payee.balance.read',
-        'payout.request.create', 'payout.request.read', 'payout.request.cancel'
+        'payout.request.create', 'payout.request.read', 'payout.request.cancel',
+        'wallet.create', 'wallet.search', 'wallet.read', 'wallet.transfer',
+        'wallet.reverse', 'wallet.adjustment', 'wallet.transaction.read'
     )
     WHERE r.key IN ('ACADEMY_OWNER', 'ACADEMY_ADMIN')
     ON CONFLICT DO NOTHING;

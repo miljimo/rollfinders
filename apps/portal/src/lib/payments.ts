@@ -1,6 +1,9 @@
 import "server-only";
 
+import { normalizeBaseUrl } from "@rollfinders/api-client";
+
 import { apiGatewayUrl } from "./apiGateway";
+import { getEnvVariable } from "./environments";
 
 if (typeof window !== "undefined") {
   throw new Error("Payment service calls are server-only.");
@@ -226,7 +229,11 @@ type StripeConnectResponse = {
   redirect_url: string;
 };
 
-const paymentServiceUrl = apiGatewayUrl;
+const paymentServiceUrl = () => {
+  const directBaseUrl = getEnvVariable("PAYMENT_PUBLIC_BASE_URL", "");
+  if (directBaseUrl) return normalizeBaseUrl(directBaseUrl);
+  return apiGatewayUrl();
+};
 
 export type ServicePaginationMeta = {
   limit: number;
@@ -273,7 +280,11 @@ export async function createCourseOccurrenceCheckout(
       client_id: input.clientId ?? "rollfinders",
       client_state: input.clientState,
       resource_type: "course_occurrence",
-      resource_id: [input.courseId, input.occurrenceDate, input.occurrenceStartTime].join(":"),
+      resource_id: [
+        input.courseId,
+        input.occurrenceDate,
+        input.occurrenceStartTime,
+      ].join(":"),
       resource_label: "Course occurrence",
       amount: input.amountMinor,
       currency: input.currency,
@@ -296,7 +307,12 @@ export async function createCourseOccurrenceCheckout(
 
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment service checkout creation failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment service checkout creation failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
 
   const checkout = (await response.json()) as CheckoutResponse;
@@ -308,28 +324,47 @@ export async function createCourseOccurrenceCheckout(
   };
 }
 
-export async function listCourseOccurrencePayments({ accessToken, limit = 100 }: { accessToken?: string; limit?: number } = {}): Promise<PaymentRecord[]> {
+export async function listCourseOccurrencePayments({
+  accessToken,
+  limit = 100,
+}: { accessToken?: string; limit?: number } = {}): Promise<PaymentRecord[]> {
   const result = await listCourseOccurrencePaymentsPage({ accessToken, limit });
   return result.payments;
 }
 
-export async function listCourseOccurrencePaymentsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+export async function listCourseOccurrencePaymentsPage({
+  accessToken,
+  limit = 10,
+  offset = 0,
+}: {
+  accessToken?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PaginatedPayments> {
   const params = new URLSearchParams({
     client_id: "rollfinders",
     offset: String(offset),
     resource_type: "course_occurrence",
     limit: String(limit),
   });
-  const response = await fetch(`${paymentServiceUrl()}/v1/payments?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: paymentServiceHeaders({ accessToken }),
-  });
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payments?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      headers: paymentServiceHeaders({ accessToken }),
+    },
+  );
   if (!response.ok) {
-    throw new PaymentServiceError(`Payment service history request failed with status ${response.status}.`, response.status);
+    throw new PaymentServiceError(
+      `Payment service history request failed with status ${response.status}.`,
+      response.status,
+    );
   }
   const history = (await response.json()) as PaymentHistoryResponse;
-  const payments = history.payments.map(mapPaymentRecord).filter(isProviderBackedPaymentRecord);
+  const payments = history.payments
+    .map(mapPaymentRecord)
+    .filter(isProviderBackedPaymentRecord);
   return {
     payments,
     pagination: history.pagination ?? {
@@ -342,22 +377,44 @@ export async function listCourseOccurrencePaymentsPage({ accessToken, limit = 10
   };
 }
 
-export async function listPaymentTransactionsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
-  const directPayments = await listRollFindersPaymentsPage({ accessToken, limit, offset });
-  if (directPayments.payments.length > 0 || directPayments.pagination.has_more) {
+export async function listPaymentTransactionsPage({
+  accessToken,
+  limit = 10,
+  offset = 0,
+}: {
+  accessToken?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PaginatedPayments> {
+  const directPayments = await listRollFindersPaymentsPage({
+    accessToken,
+    limit,
+    offset,
+  });
+  if (
+    directPayments.payments.length > 0 ||
+    directPayments.pagination.has_more
+  ) {
     return directPayments;
   }
 
   const requestedLimit = Math.min(100, Math.max(limit, offset + limit));
-  const billingSubscriptions = await listBillingSubscriptionPaymentsPage({ accessToken, limit: requestedLimit, offset: 0 });
-  const combined = billingSubscriptions.payments
-    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt));
+  const billingSubscriptions = await listBillingSubscriptionPaymentsPage({
+    accessToken,
+    limit: requestedLimit,
+    offset: 0,
+  });
+  const combined = billingSubscriptions.payments.sort(
+    (left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt),
+  );
   const page = combined.slice(offset, offset + limit);
   return {
     payments: page,
     pagination: {
       count: page.length,
-      has_more: combined.length > offset + limit || billingSubscriptions.pagination.has_more,
+      has_more:
+        combined.length > offset + limit ||
+        billingSubscriptions.pagination.has_more,
       limit,
       next_offset: offset + page.length,
       offset,
@@ -365,22 +422,38 @@ export async function listPaymentTransactionsPage({ accessToken, limit = 10, off
   };
 }
 
-async function listRollFindersPaymentsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+async function listRollFindersPaymentsPage({
+  accessToken,
+  limit = 10,
+  offset = 0,
+}: {
+  accessToken?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PaginatedPayments> {
   const params = new URLSearchParams({
     client_id: "rollfinders",
     offset: String(offset),
     limit: String(limit),
   });
-  const response = await fetch(`${paymentServiceUrl()}/v1/payments?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: paymentServiceHeaders({ accessToken }),
-  });
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payments?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      headers: paymentServiceHeaders({ accessToken }),
+    },
+  );
   if (!response.ok) {
-    throw new PaymentServiceError(`Payment service history request failed with status ${response.status}.`, response.status);
+    throw new PaymentServiceError(
+      `Payment service history request failed with status ${response.status}.`,
+      response.status,
+    );
   }
   const history = (await response.json()) as PaymentHistoryResponse;
-  const payments = history.payments.map(mapPaymentRecord).filter(isProviderBackedPaymentRecord);
+  const payments = history.payments
+    .map(mapPaymentRecord)
+    .filter(isProviderBackedPaymentRecord);
   return {
     payments,
     pagination: history.pagination ?? {
@@ -393,23 +466,41 @@ async function listRollFindersPaymentsPage({ accessToken, limit = 10, offset = 0
   };
 }
 
-async function listBillingSubscriptionPaymentsPage({ accessToken, limit = 10, offset = 0 }: { accessToken?: string; limit?: number; offset?: number } = {}): Promise<PaginatedPayments> {
+async function listBillingSubscriptionPaymentsPage({
+  accessToken,
+  limit = 10,
+  offset = 0,
+}: {
+  accessToken?: string;
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PaginatedPayments> {
   const params = new URLSearchParams({
     client_id: "rollfinders",
     offset: String(offset),
     limit: String(limit),
   });
-  const response = await fetch(`${paymentServiceUrl()}/v1/billing/subscriptions?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: paymentServiceHeaders({ accessToken }),
-  });
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/billing/subscriptions?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      headers: paymentServiceHeaders({ accessToken }),
+    },
+  );
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment service subscription billing request failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment service subscription billing request failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
   const body = (await response.json()) as BillingSubscriptionListResponse;
-  const payments = (body.subscriptions ?? []).map(mapBillingSubscriptionPayment);
+  const payments = (body.subscriptions ?? []).map(
+    mapBillingSubscriptionPayment,
+  );
   return {
     payments,
     pagination: body.pagination ?? {
@@ -437,18 +528,24 @@ function mapPaymentRecord(payment: PaymentRecordResponse): PaymentRecord {
     providerStatus: payment.provider_status,
     createdAt: payment.created_at,
     updatedAt: payment.updated_at,
-    checkoutSessionId: payment.checkout_session_id || metadata.provider_checkout_id || metadata.checkout_session_id,
+    checkoutSessionId:
+      payment.checkout_session_id ||
+      metadata.provider_checkout_id ||
+      metadata.checkout_session_id,
     clientId: payment.client_id || metadata.client_id,
     clientState: payment.client_state || metadata.client_state,
     resourceType: payment.resource_type || metadata.resource_type,
     resourceId: payment.resource_id || metadata.resource_id,
-    resourceLabel: payment.resource_label || metadata.resource_label || metadata.plan_name,
+    resourceLabel:
+      payment.resource_label || metadata.resource_label || metadata.plan_name,
     payerUserId: payment.payer_user_id || metadata.payer_user_id,
     payerEmail: payment.payer_email || metadata.payer_email,
   };
 }
 
-function mapBillingSubscriptionPayment(subscription: BillingSubscriptionResponse): PaymentRecord {
+function mapBillingSubscriptionPayment(
+  subscription: BillingSubscriptionResponse,
+): PaymentRecord {
   const metadata = subscription.metadata ?? {};
   const optionalMetadata = compactMetadata({
     payment_mode: subscription.payment_mode,
@@ -476,11 +573,13 @@ function mapBillingSubscriptionPayment(subscription: BillingSubscriptionResponse
       plan_id: subscription.plan_id,
       plan_name: subscription.plan_name,
     },
-    providerPaymentId: subscription.provider_payment_id || subscription.provider_subscription_id,
+    providerPaymentId:
+      subscription.provider_payment_id || subscription.provider_subscription_id,
     providerStatus: subscription.status,
     createdAt: subscription.created_at,
     updatedAt: subscription.updated_at,
-    checkoutSessionId: subscription.provider_checkout_id || subscription.subscription_id,
+    checkoutSessionId:
+      subscription.provider_checkout_id || subscription.subscription_id,
     clientId: subscription.client_id,
     resourceType: "subscription",
     resourceId: subscription.plan_id,
@@ -489,56 +588,88 @@ function mapBillingSubscriptionPayment(subscription: BillingSubscriptionResponse
 }
 
 function compactMetadata(input: Record<string, string | undefined>) {
-  return Object.fromEntries(Object.entries(input).filter((entry): entry is [string, string] => Boolean(entry[1])));
+  return Object.fromEntries(
+    Object.entries(input).filter((entry): entry is [string, string] =>
+      Boolean(entry[1]),
+    ),
+  );
 }
 
 export async function getPayment(paymentId: string): Promise<PaymentRecord> {
-  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(paymentId)}`, {
-    method: "GET",
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payments/${encodeURIComponent(paymentId)}`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+  );
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment service request failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment service request failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
   return mapPaymentRecord((await response.json()) as PaymentRecordResponse);
 }
 
-export async function cancelPayment(input: CancelPaymentInput): Promise<PaymentRecord> {
-  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/cancel`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": input.idempotencyKey,
+export async function cancelPayment(
+  input: CancelPaymentInput,
+): Promise<PaymentRecord> {
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/cancel`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": input.idempotencyKey,
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment service cancellation failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment service cancellation failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
 
   return mapPaymentRecord((await response.json()) as PaymentRecordResponse);
 }
 
-export async function createPaymentRefund(input: CreatePaymentRefundInput): Promise<PaymentRefundRecord> {
-  const response = await fetch(`${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": input.idempotencyKey,
+export async function createPaymentRefund(
+  input: CreatePaymentRefundInput,
+): Promise<PaymentRefundRecord> {
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payments/${encodeURIComponent(input.paymentId)}/refunds`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": input.idempotencyKey,
+      },
+      body: JSON.stringify({
+        amount: input.amount ?? 0,
+        reason: input.reason ?? "booking_cancelled_by_academy",
+      }),
     },
-    body: JSON.stringify({
-      amount: input.amount ?? 0,
-      reason: input.reason ?? "booking_cancelled_by_academy",
-    }),
-  });
+  );
 
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment service refund request failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment service refund request failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
 
   const refund = (await response.json()) as PaymentRefundRecordResponse;
@@ -563,46 +694,73 @@ type PaymentServiceActor = {
   ownerType?: "academy" | "platform";
 };
 
-export async function getStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting | null> {
+export async function getStripePaymentAccountSetting(
+  owner: {
+    ownerType: "academy" | "platform";
+    ownerId: string;
+  } & PaymentServiceActor,
+): Promise<PaymentAccountSetting | null> {
   const params = new URLSearchParams({
     owner_type: owner.ownerType,
     owner_id: owner.ownerId,
   });
-  const response = await fetch(`${paymentServiceUrl()}/v1/payment-accounts/stripe?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: paymentServiceHeaders(owner),
-  });
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payment-accounts/stripe?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      headers: paymentServiceHeaders(owner),
+    },
+  );
   if (response.status === 404) return null;
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment account request failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment account request failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
-  return mapPaymentAccountSetting((await response.json()) as PaymentAccountSettingResponse);
+  return mapPaymentAccountSetting(
+    (await response.json()) as PaymentAccountSettingResponse,
+  );
 }
 
-export async function createStripeConnectAccountLink(input: {
-  ownerType: "academy" | "platform";
-  ownerId: string;
-  email: string;
-  refreshUrl: string;
-  returnUrl: string;
-} & PaymentServiceActor): Promise<{ account: PaymentAccountSetting; redirectUrl: string }> {
-  const response = await fetch(`${paymentServiceUrl()}/v1/payment-accounts/stripe/connect`, {
-    method: "POST",
-    cache: "no-store",
-    headers: paymentServiceHeaders(input, { "Content-Type": "application/json" }),
-    body: JSON.stringify({
-      owner_type: input.ownerType,
-      owner_id: input.ownerId,
-      email: input.email,
-      refresh_url: input.refreshUrl,
-      return_url: input.returnUrl,
-    }),
-  });
+export async function createStripeConnectAccountLink(
+  input: {
+    ownerType: "academy" | "platform";
+    ownerId: string;
+    email: string;
+    refreshUrl: string;
+    returnUrl: string;
+  } & PaymentServiceActor,
+): Promise<{ account: PaymentAccountSetting; redirectUrl: string }> {
+  const response = await fetch(
+    `${paymentServiceUrl()}/v1/payment-accounts/stripe/connect`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: paymentServiceHeaders(input, {
+        "Content-Type": "application/json",
+      }),
+      body: JSON.stringify({
+        owner_type: input.ownerType,
+        owner_id: input.ownerId,
+        email: input.email,
+        refresh_url: input.refreshUrl,
+        return_url: input.returnUrl,
+      }),
+    },
+  );
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Stripe Connect request failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Stripe Connect request failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
   const payload = (await response.json()) as StripeConnectResponse;
   return {
@@ -611,19 +769,43 @@ export async function createStripeConnectAccountLink(input: {
   };
 }
 
-export async function refreshStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting> {
-  return postStripePaymentAccountMutation("/v1/payment-accounts/stripe/refresh", owner);
+export async function refreshStripePaymentAccountSetting(
+  owner: {
+    ownerType: "academy" | "platform";
+    ownerId: string;
+  } & PaymentServiceActor,
+): Promise<PaymentAccountSetting> {
+  return postStripePaymentAccountMutation(
+    "/v1/payment-accounts/stripe/refresh",
+    owner,
+  );
 }
 
-export async function disconnectStripePaymentAccountSetting(owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting> {
-  return postStripePaymentAccountMutation("/v1/payment-accounts/stripe/disconnect", owner);
+export async function disconnectStripePaymentAccountSetting(
+  owner: {
+    ownerType: "academy" | "platform";
+    ownerId: string;
+  } & PaymentServiceActor,
+): Promise<PaymentAccountSetting> {
+  return postStripePaymentAccountMutation(
+    "/v1/payment-accounts/stripe/disconnect",
+    owner,
+  );
 }
 
-async function postStripePaymentAccountMutation(path: string, owner: { ownerType: "academy" | "platform"; ownerId: string } & PaymentServiceActor): Promise<PaymentAccountSetting> {
+async function postStripePaymentAccountMutation(
+  path: string,
+  owner: {
+    ownerType: "academy" | "platform";
+    ownerId: string;
+  } & PaymentServiceActor,
+): Promise<PaymentAccountSetting> {
   const response = await fetch(`${paymentServiceUrl()}${path}`, {
     method: "POST",
     cache: "no-store",
-    headers: paymentServiceHeaders(owner, { "Content-Type": "application/json" }),
+    headers: paymentServiceHeaders(owner, {
+      "Content-Type": "application/json",
+    }),
     body: JSON.stringify({
       owner_type: owner.ownerType,
       owner_id: owner.ownerId,
@@ -631,12 +813,21 @@ async function postStripePaymentAccountMutation(path: string, owner: { ownerType
   });
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment account update failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment account update failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
-  return mapPaymentAccountSetting((await response.json()) as PaymentAccountSettingResponse);
+  return mapPaymentAccountSetting(
+    (await response.json()) as PaymentAccountSettingResponse,
+  );
 }
 
-async function readPaymentServiceError(response: Response): Promise<{ code?: string; message?: string }> {
+async function readPaymentServiceError(
+  response: Response,
+): Promise<{ code?: string; message?: string }> {
   try {
     const body = (await response.json()) as ErrorResponse;
     return {
@@ -650,7 +841,9 @@ async function readPaymentServiceError(response: Response): Promise<{ code?: str
 
 function isProviderBackedPaymentRecord(payment: PaymentRecord) {
   if (payment.provider !== "stripe") return true;
-  return Boolean(payment.providerPaymentId || payment.checkoutSessionId || payment.id);
+  return Boolean(
+    payment.providerPaymentId || payment.checkoutSessionId || payment.id,
+  );
 }
 
 export async function listPaymentOutboxEvents({
@@ -660,14 +853,25 @@ export async function listPaymentOutboxEvents({
   eventType?: string;
   limit?: number;
 } = {}): Promise<PaymentOutboxEvent[]> {
-  const params = new URLSearchParams({ event_type: eventType, limit: String(limit) });
-  const response = await fetch(`${paymentServiceUrl()}/internal/outbox/events?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
+  const params = new URLSearchParams({
+    event_type: eventType,
+    limit: String(limit),
   });
+  const response = await fetch(
+    `${paymentServiceUrl()}/internal/outbox/events?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+  );
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment outbox request failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment outbox request failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
   const body = (await response.json()) as PaymentOutboxEventsResponse;
   return (body.events ?? []).map((event) => ({
@@ -683,18 +887,30 @@ export async function listPaymentOutboxEvents({
   }));
 }
 
-export async function markPaymentOutboxEventDelivered(eventId: string): Promise<void> {
-  const response = await fetch(`${paymentServiceUrl()}/internal/outbox/events/${encodeURIComponent(eventId)}/delivered`, {
-    method: "POST",
-    cache: "no-store",
-  });
+export async function markPaymentOutboxEventDelivered(
+  eventId: string,
+): Promise<void> {
+  const response = await fetch(
+    `${paymentServiceUrl()}/internal/outbox/events/${encodeURIComponent(eventId)}/delivered`,
+    {
+      method: "POST",
+      cache: "no-store",
+    },
+  );
   if (!response.ok) {
     const error = await readPaymentServiceError(response);
-    throw new PaymentServiceError(error.message ?? `Payment outbox acknowledgement failed with status ${response.status}.`, response.status, error.code);
+    throw new PaymentServiceError(
+      error.message ??
+        `Payment outbox acknowledgement failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
   }
 }
 
-function mapPaymentAccountSetting(setting: PaymentAccountSettingResponse): PaymentAccountSetting {
+function mapPaymentAccountSetting(
+  setting: PaymentAccountSettingResponse,
+): PaymentAccountSetting {
   return {
     id: setting.id,
     ownerType: setting.owner_type,
@@ -710,7 +926,10 @@ function mapPaymentAccountSetting(setting: PaymentAccountSettingResponse): Payme
   };
 }
 
-function paymentServiceHeaders(actor: PaymentServiceActor, base: Record<string, string> = {}) {
+function paymentServiceHeaders(
+  actor: PaymentServiceActor,
+  base: Record<string, string> = {},
+) {
   const headers = { ...base };
   if (actor.accessToken) headers.Authorization = `Bearer ${actor.accessToken}`;
   if (actor.actorUserId) headers["X-Actor-User-ID"] = actor.actorUserId;

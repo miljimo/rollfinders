@@ -48,7 +48,7 @@ BEGIN
         WHERE a.provider_account_id IS NOT NULL
           AND a.provider_account_id <> ''
         ORDER BY a.provider, a.provider_account_id, a.updated_at DESC
-        ON CONFLICT (provider, provider_account_id) DO UPDATE
+        ON CONFLICT ON CONSTRAINT wallet_provider_accounts_provider_account_key DO UPDATE
         SET status = EXCLUDED.status,
             display_name = COALESCE(EXCLUDED.display_name, wallet.provider_accounts.display_name),
             external_reference = COALESCE(EXCLUDED.external_reference, wallet.provider_accounts.external_reference),
