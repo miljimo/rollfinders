@@ -133,6 +133,7 @@ services:
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
       API_PUBLIC_BASE_URL: http://api:8080
       ACADEMY_PUBLIC_BASE_URL: http://academy:8080
+      BOOKING_PUBLIC_BASE_URL: http://booking:8080
       PAYMENT_PUBLIC_BASE_URL: http://payments:8080
       WALLET_INTERNAL_BASE_URL: http://wallet:8080
       PRICING_INTERNAL_BASE_URL: http://pricing:8080

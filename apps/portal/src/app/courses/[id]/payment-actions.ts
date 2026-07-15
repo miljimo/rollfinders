@@ -3,12 +3,25 @@
 import { createHash, randomUUID } from "crypto";
 import { getServerSession } from "next-auth";
 import { EventPricingType } from "@prisma/client";
-import { isPublicAcademyBookingVerified, isPublicAcademyPaymentsVerified, isPublicAcademyTrusted } from "@/components/PublicListingWarning";
+import {
+  isPublicAcademyBookingVerified,
+  isPublicAcademyPaymentsVerified,
+  isPublicAcademyTrusted,
+} from "@/components/PublicListingWarning";
 import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { authOptions } from "@/lib/auth";
-import { BookingRecord, BookingServiceError, createBooking, linkBookingPayment, listBookings } from "@/lib/bookings";
+import {
+  BookingRecord,
+  BookingServiceError,
+  createBooking,
+  linkBookingPayment,
+  listBookings,
+} from "@/lib/bookings";
 import { getCourseOccurrence } from "@/lib/courses";
-import { createCourseOccurrenceCheckout, PaymentServiceError } from "@/lib/payments";
+import {
+  createCourseOccurrenceCheckout,
+  PaymentServiceError,
+} from "@/lib/payments";
 
 export type CourseCheckoutState = {
   bookingReference?: string;
@@ -33,14 +46,22 @@ function checkoutAttemptId(value: FormDataEntryValue | null) {
 }
 
 function checkoutIdempotencyKey(parts: string[]) {
-  const digest = createHash("sha256").update(parts.join("\u001f")).digest("hex").slice(0, 32);
+  const digest = createHash("sha256")
+    .update(parts.join("\u001f"))
+    .digest("hex")
+    .slice(0, 32);
   return `course-checkout-${digest}`;
 }
 
 function isPaymentServiceUnavailable(error: unknown) {
   if (!(error instanceof TypeError)) return false;
   const cause = (error as { cause?: { code?: string } }).cause;
-  return error.message === "fetch failed" || ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT"].includes(cause?.code ?? "");
+  return (
+    error.message === "fetch failed" ||
+    ["ECONNREFUSED", "ENOTFOUND", "EAI_AGAIN", "ETIMEDOUT"].includes(
+      cause?.code ?? "",
+    )
+  );
 }
 
 type BookingOwner = {
@@ -71,8 +92,13 @@ async function findActiveBookingForOwner({
     limit: 50,
   });
   return bookings.find((booking) => {
-    const sameOwner = owner.guestReference ? booking.guestReference === owner.guestReference : booking.customerId === owner.customerId;
-    return sameOwner && ["pending", "payment_pending", "confirmed"].includes(booking.status);
+    const sameOwner = owner.guestReference
+      ? booking.guestReference === owner.guestReference
+      : booking.customerId === owner.customerId;
+    return (
+      sameOwner &&
+      ["pending", "payment_pending", "confirmed"].includes(booking.status)
+    );
   });
 }
 
@@ -83,36 +109,86 @@ function duplicateBookingMessage(booking?: BookingRecord) {
   return "You already have an active booking for this event.";
 }
 
-export async function startCourseCheckout(_state: CourseCheckoutState, formData: FormData): Promise<CourseCheckoutState> {
+function academyWalletOwnerIds(event: {
+  academy: { members: { id: string }[] };
+}) {
+  return event.academy.members
+    .map((member) => (member as { userId?: string }).userId)
+    .filter((userId): userId is string => Boolean(userId));
+}
+
+export async function startCourseCheckout(
+  _state: CourseCheckoutState,
+  formData: FormData,
+): Promise<CourseCheckoutState> {
   const courseId = String(formData.get("courseId") ?? "");
   const occurrenceDate = String(formData.get("occurrenceDate") ?? "");
-  const payerEmail = String(formData.get("payerEmail") ?? "").trim().toLowerCase();
+  const payerEmail = String(formData.get("payerEmail") ?? "")
+    .trim()
+    .toLowerCase();
   const donationAmount = String(formData.get("donationAmount") ?? "").trim();
   const attemptId = checkoutAttemptId(formData.get("checkoutAttemptId"));
-  if (!courseId) return checkoutError("This event could not be found. Refresh the page and try again.");
+  if (!courseId)
+    return checkoutError(
+      "This event could not be found. Refresh the page and try again.",
+    );
 
-  const event = await getCourseOccurrence(courseId, occurrenceDate || undefined);
-  if (!event) return checkoutError("This event is no longer available for payment.");
-  if (!isPublicAcademyTrusted(event.academy)) return checkoutError("This academy is not verified for online payments.");
-  if (!isPublicAcademyBookingVerified(event.academy)) return checkoutError("This academy is not verified for online bookings.");
-  if (!isPublicAcademyPaymentsVerified(event.academy)) return checkoutError("This academy is not verified to accept online payments.");
-  const paymentAccount = await academyPaymentAccountReadiness(event.academyId);
-  if (!paymentAccount.ready) return checkoutError("This academy has not finished Stripe Connect setup for online payments.");
-  if (event.pricingType !== EventPricingType.FIXED && event.pricingType !== EventPricingType.DONATION) {
+  const event = await getCourseOccurrence(
+    courseId,
+    occurrenceDate || undefined,
+  );
+  if (!event)
+    return checkoutError("This event is no longer available for payment.");
+  if (!isPublicAcademyTrusted(event.academy))
+    return checkoutError("This academy is not verified for online payments.");
+  if (!isPublicAcademyBookingVerified(event.academy))
+    return checkoutError("This academy is not verified for online bookings.");
+  if (!isPublicAcademyPaymentsVerified(event.academy))
+    return checkoutError(
+      "This academy is not verified to accept online payments.",
+    );
+  const paymentAccount = await academyPaymentAccountReadiness(
+    event.academyId,
+    academyWalletOwnerIds(event),
+  );
+  if (!paymentAccount.ready)
+    return checkoutError(
+      "This academy has not finished Stripe Connect setup for online payments.",
+    );
+  if (
+    event.pricingType !== EventPricingType.FIXED &&
+    event.pricingType !== EventPricingType.DONATION
+  ) {
     return checkoutError("This event is not configured for online payment.");
   }
 
-  const amount = event.pricingType === EventPricingType.DONATION ? amountMinor(donationAmount) : amountMinor(event.price);
+  const amount =
+    event.pricingType === EventPricingType.DONATION
+      ? amountMinor(donationAmount)
+      : amountMinor(event.price);
   if (amount <= 0) {
-    return checkoutError(event.pricingType === EventPricingType.DONATION ? "Enter a donation amount greater than zero." : "This event is not configured for online payment.");
+    return checkoutError(
+      event.pricingType === EventPricingType.DONATION
+        ? "Enter a donation amount greater than zero."
+        : "This event is not configured for online payment.",
+    );
   }
-  if (payerEmail && !payerEmail.includes("@")) return checkoutError("Enter a valid receipt email address.");
+  if (payerEmail && !payerEmail.includes("@"))
+    return checkoutError("Enter a valid receipt email address.");
 
   const session = await getServerSession(authOptions);
-  const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
+  const sessionUser = session?.user as
+    { id?: string; email?: string | null } | undefined;
   const receiptEmail = payerEmail || sessionUser?.email || undefined;
-  if (!sessionUser?.id && !receiptEmail) return checkoutError("Enter an email address so the academy knows who is attending.");
-  const bookableInstanceId = [courseId, event.occurrenceDateParam, event.startTime].join(":");
+  if (!sessionUser?.id && !receiptEmail)
+    return checkoutError(
+      "Enter an email address so the academy knows who is attending.",
+    );
+  const bookableInstanceId = [
+    courseId,
+    event.occurrenceDateParam,
+    event.startTime,
+  ].join(":");
 
   try {
     let booking: BookingRecord;
@@ -126,7 +202,13 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
         organisationId: event.academyId,
         participantCount: 1,
         paymentRequired: true,
-        idempotencyKey: checkoutIdempotencyKey(["booking", courseId, event.occurrenceDateParam, receiptEmail ?? "", attemptId]),
+        idempotencyKey: checkoutIdempotencyKey([
+          "booking",
+          courseId,
+          event.occurrenceDateParam,
+          receiptEmail ?? "",
+          attemptId,
+        ]),
         metadata: {
           academy_id: event.academyId,
           academy_name: event.academy.name,
@@ -140,15 +222,22 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
         },
       });
     } catch (error) {
-      if (!(error instanceof BookingServiceError) || error.status !== 409) throw error;
+      if (!(error instanceof BookingServiceError) || error.status !== 409)
+        throw error;
       const existingBooking = await findActiveBookingForOwner({
         bookableType: "course_occurrence",
         bookableId: courseId,
         bookableInstanceId,
         organisationId: event.academyId,
-        owner: { customerId: sessionUser?.id, guestReference: receiptEmail || attemptId },
+        owner: {
+          customerId: sessionUser?.id,
+          guestReference: receiptEmail || attemptId,
+        },
       });
-      if (existingBooking?.status !== "payment_pending" || existingBooking.paymentId) {
+      if (
+        existingBooking?.status !== "payment_pending" ||
+        existingBooking.paymentId
+      ) {
         return checkoutError(duplicateBookingMessage(existingBooking));
       }
       booking = existingBooking;
@@ -183,53 +272,98 @@ export async function startCourseCheckout(_state: CourseCheckoutState, formData:
         academy_name: event.academy.name,
         pricing_type: event.pricingType,
         stripe_destination_account: paymentAccount.providerAccountId ?? "",
-        ...(event.pricingType === EventPricingType.DONATION ? { donation_amount: String(amount) } : {}),
+        ...(event.pricingType === EventPricingType.DONATION
+          ? { donation_amount: String(amount) }
+          : {}),
       },
     });
     await linkBookingPayment({
       bookingId: booking.id,
       paymentId: checkout.paymentId,
-      idempotencyKey: checkoutIdempotencyKey(["booking-payment-link", booking.id, checkout.paymentId]),
+      idempotencyKey: checkoutIdempotencyKey([
+        "booking-payment-link",
+        booking.id,
+        checkout.paymentId,
+      ]),
     });
     return { checkoutUrl: checkout.checkoutUrl };
   } catch (error) {
     if (isPaymentServiceUnavailable(error)) {
-      return checkoutError("Payment service is not available. Your card has not been charged. Please try again later.");
+      return checkoutError(
+        "Payment service is not available. Your card has not been charged. Please try again later.",
+      );
     }
     if (error instanceof PaymentServiceError) {
       if (error.code === "stripe_destination_account_missing") {
-        return checkoutError("This academy Stripe account must be reconnected before it can accept payments. Your card has not been charged.");
+        return checkoutError(
+          "This academy Stripe account must be reconnected before it can accept payments. Your card has not been charged.",
+        );
       }
-      return checkoutError(`Could not start payment. Payment service returned status ${error.status}. Your card has not been charged.`);
+      return checkoutError(
+        `Could not start payment. Payment service returned status ${error.status}. Your card has not been charged.`,
+      );
     }
     if (error instanceof BookingServiceError) {
-      if (error.status === 409) return checkoutError("You already have an active booking for this event. Your card has not been charged.");
-      return checkoutError(`Could not create booking. Booking service returned status ${error.status}. Your card has not been charged.`);
+      if (error.status === 409)
+        return checkoutError(
+          "You already have an active booking for this event. Your card has not been charged.",
+        );
+      return checkoutError(
+        `Could not create booking. Booking service returned status ${error.status}. Your card has not been charged.`,
+      );
     }
-    return checkoutError("Could not start payment. Your card has not been charged. Please try again.");
+    return checkoutError(
+      "Could not start payment. Your card has not been charged. Please try again.",
+    );
   }
 }
 
-export async function bookFreeCourseOccurrence(_state: CourseCheckoutState, formData: FormData): Promise<CourseCheckoutState> {
+export async function bookFreeCourseOccurrence(
+  _state: CourseCheckoutState,
+  formData: FormData,
+): Promise<CourseCheckoutState> {
   const courseId = String(formData.get("courseId") ?? "");
   const occurrenceDate = String(formData.get("occurrenceDate") ?? "");
-  const payerEmail = String(formData.get("payerEmail") ?? "").trim().toLowerCase();
+  const payerEmail = String(formData.get("payerEmail") ?? "")
+    .trim()
+    .toLowerCase();
   const attemptId = checkoutAttemptId(formData.get("checkoutAttemptId"));
-  if (!courseId) return checkoutError("This event could not be found. Refresh the page and try again.");
+  if (!courseId)
+    return checkoutError(
+      "This event could not be found. Refresh the page and try again.",
+    );
 
-  const event = await getCourseOccurrence(courseId, occurrenceDate || undefined);
-  if (!event) return checkoutError("This event is no longer available for booking.");
+  const event = await getCourseOccurrence(
+    courseId,
+    occurrenceDate || undefined,
+  );
+  if (!event)
+    return checkoutError("This event is no longer available for booking.");
   if (!event.active) return checkoutError("Booking is closed for this event.");
-  if (!isPublicAcademyTrusted(event.academy) || !isPublicAcademyBookingVerified(event.academy)) return checkoutError("This academy is not verified for online bookings.");
-  if (event.pricingType !== EventPricingType.FREE) return checkoutError("This event is not configured as a free booking.");
-  if (payerEmail && !payerEmail.includes("@")) return checkoutError("Enter a valid booking email address.");
+  if (
+    !isPublicAcademyTrusted(event.academy) ||
+    !isPublicAcademyBookingVerified(event.academy)
+  )
+    return checkoutError("This academy is not verified for online bookings.");
+  if (event.pricingType !== EventPricingType.FREE)
+    return checkoutError("This event is not configured as a free booking.");
+  if (payerEmail && !payerEmail.includes("@"))
+    return checkoutError("Enter a valid booking email address.");
 
   const session = await getServerSession(authOptions);
-  const sessionUser = session?.user as { id?: string; email?: string | null } | undefined;
+  const sessionUser = session?.user as
+    { id?: string; email?: string | null } | undefined;
   const attendeeEmail = payerEmail || sessionUser?.email || undefined;
-  if (!sessionUser?.id && !attendeeEmail) return checkoutError("Enter an email address so the academy knows who is attending.");
+  if (!sessionUser?.id && !attendeeEmail)
+    return checkoutError(
+      "Enter an email address so the academy knows who is attending.",
+    );
 
-  const bookableInstanceId = [courseId, event.occurrenceDateParam, event.startTime].join(":");
+  const bookableInstanceId = [
+    courseId,
+    event.occurrenceDateParam,
+    event.startTime,
+  ].join(":");
 
   try {
     let booking: BookingRecord;
@@ -243,7 +377,13 @@ export async function bookFreeCourseOccurrence(_state: CourseCheckoutState, form
         organisationId: event.academyId,
         participantCount: 1,
         paymentRequired: false,
-        idempotencyKey: checkoutIdempotencyKey(["free-booking", courseId, event.occurrenceDateParam, attendeeEmail ?? "", attemptId]),
+        idempotencyKey: checkoutIdempotencyKey([
+          "free-booking",
+          courseId,
+          event.occurrenceDateParam,
+          attendeeEmail ?? "",
+          attemptId,
+        ]),
         metadata: {
           academy_id: event.academyId,
           academy_name: event.academy.name,
@@ -257,7 +397,8 @@ export async function bookFreeCourseOccurrence(_state: CourseCheckoutState, form
         },
       });
     } catch (error) {
-      if (!(error instanceof BookingServiceError) || error.status !== 409) throw error;
+      if (!(error instanceof BookingServiceError) || error.status !== 409)
+        throw error;
       const existingBooking = await findActiveBookingForOwner({
         bookableType: "course_occurrence",
         bookableId: courseId,
@@ -272,8 +413,13 @@ export async function bookFreeCourseOccurrence(_state: CourseCheckoutState, form
     return { bookingReference: booking.reference };
   } catch (error) {
     if (error instanceof BookingServiceError) {
-      if (error.status === 409) return checkoutError("You already have an active booking for this event.");
-      return checkoutError(`Could not create booking. Booking service returned status ${error.status}.`);
+      if (error.status === 409)
+        return checkoutError(
+          "You already have an active booking for this event.",
+        );
+      return checkoutError(
+        `Could not create booking. Booking service returned status ${error.status}.`,
+      );
     }
     return checkoutError("Could not create booking. Please try again.");
   }

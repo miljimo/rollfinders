@@ -3,18 +3,33 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { EventPricingType } from "@prisma/client";
 import { PublicEventDetailPage } from "@/components/PublicEventDetailPage";
-import { isPublicAcademyBookingVerified, isPublicAcademyPaymentsVerified, isPublicAcademyTrusted } from "@/components/PublicListingWarning";
+import {
+  isPublicAcademyBookingVerified,
+  isPublicAcademyPaymentsVerified,
+  isPublicAcademyTrusted,
+} from "@/components/PublicListingWarning";
 import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { coursePriceLabel } from "@/lib/courses";
 import { getOpenMatOccurrence } from "@/lib/data";
 import { eventPermanentPath, eventQrCodePath } from "@/lib/event-share-links";
-import { publicDetailDashboardDialogPath, publicDetailReturnPath } from "@/lib/public-detail-return-path";
+import {
+  publicDetailDashboardDialogPath,
+  publicDetailReturnPath,
+} from "@/lib/public-detail-return-path";
 import { CourseCheckoutForm } from "../../courses/[id]/CourseCheckoutForm";
 import { bookFreeCourseOccurrence } from "../../courses/[id]/payment-actions";
 
 export const dynamic = "force-dynamic";
+
+function academyWalletOwnerIds(event: {
+  academy: { members: { id: string }[] };
+}) {
+  return event.academy.members
+    .map((member) => (member as { userId?: string }).userId)
+    .filter((userId): userId is string => Boolean(userId));
+}
 
 export async function generateMetadata({
   params,
@@ -37,7 +52,9 @@ export async function generateMetadata({
       description,
       type: "website",
       url: eventPermanentPath(event.id),
-      images: event.academy.coverImageUrl ? [{ url: event.academy.coverImageUrl }] : undefined,
+      images: event.academy.coverImageUrl
+        ? [{ url: event.academy.coverImageUrl }]
+        : undefined,
     },
   };
 }
@@ -53,7 +70,10 @@ export default async function EventPage({
   const { date, returnTo } = await searchParams;
   const event = await getOpenMatOccurrence(id, date);
   if (!event) notFound();
-  const dashboardDialogHref = publicDetailDashboardDialogPath(returnTo, event.id);
+  const dashboardDialogHref = publicDetailDashboardDialogPath(
+    returnTo,
+    event.id,
+  );
   if (dashboardDialogHref) redirect(dashboardDialogHref);
   const closeHref = publicDetailReturnPath(returnTo, "/open-mats");
 
@@ -61,12 +81,34 @@ export default async function EventPage({
   const payableAmount = Number(event.price);
   const academyTrusted = isPublicAcademyTrusted(event.academy);
   const academyBookingVerified = isPublicAcademyBookingVerified(event.academy);
-  const academyPaymentsVerified = isPublicAcademyPaymentsVerified(event.academy);
-  const paymentAccount = await academyPaymentAccountReadiness(event.academyId);
-  const canCheckout = event.active && academyTrusted && academyBookingVerified && academyPaymentsVerified && paymentAccount.ready && ((event.pricingType === EventPricingType.FIXED && Number.isFinite(payableAmount) && payableAmount > 0) || event.pricingType === EventPricingType.DONATION);
-  const canBookFree = event.active && academyTrusted && academyBookingVerified && event.pricingType === EventPricingType.FREE;
-  const checkoutMode = event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
-  const suggestedDonationAmount = Number.isFinite(payableAmount) && payableAmount > 0 ? payableAmount : undefined;
+  const academyPaymentsVerified = isPublicAcademyPaymentsVerified(
+    event.academy,
+  );
+  const paymentAccount = await academyPaymentAccountReadiness(
+    event.academyId,
+    academyWalletOwnerIds(event),
+  );
+  const canCheckout =
+    event.active &&
+    academyTrusted &&
+    academyBookingVerified &&
+    academyPaymentsVerified &&
+    paymentAccount.ready &&
+    ((event.pricingType === EventPricingType.FIXED &&
+      Number.isFinite(payableAmount) &&
+      payableAmount > 0) ||
+      event.pricingType === EventPricingType.DONATION);
+  const canBookFree =
+    event.active &&
+    academyTrusted &&
+    academyBookingVerified &&
+    event.pricingType === EventPricingType.FREE;
+  const checkoutMode =
+    event.pricingType === EventPricingType.DONATION ? "donation" : "fixed";
+  const suggestedDonationAmount =
+    Number.isFinite(payableAmount) && payableAmount > 0
+      ? payableAmount
+      : undefined;
   const permanentHref = eventPermanentPath(event.id);
   const qrCodeHref = eventQrCodePath(event.id);
 
@@ -90,10 +132,24 @@ export default async function EventPage({
 
   return (
     <PublicEventDetailPage
-      analyticsMetadata={{ academyId: event.academyId, openMatId: event.id, sourcePage: "open_mat_profile" }}
+      analyticsMetadata={{
+        academyId: event.academyId,
+        openMatId: event.id,
+        sourcePage: "open_mat_profile",
+      }}
       backHref={closeHref}
       backLabel="Back to sessions"
-      checkoutForm={canCheckout && !canBookFree ? <CourseCheckoutForm courseId={event.id} occurrenceDate={event.occurrenceDateParam} mode={checkoutMode} priceLabel={coursePriceLabel(event)} suggestedAmount={suggestedDonationAmount} /> : undefined}
+      checkoutForm={
+        canCheckout && !canBookFree ? (
+          <CourseCheckoutForm
+            courseId={event.id}
+            occurrenceDate={event.occurrenceDateParam}
+            mode={checkoutMode}
+            priceLabel={coursePriceLabel(event)}
+            suggestedAmount={suggestedDonationAmount}
+          />
+        ) : undefined
+      }
       event={event}
       freeBookingAction={canBookFree ? bookFreeCourseOccurrence : undefined}
       permanentHref={permanentHref}

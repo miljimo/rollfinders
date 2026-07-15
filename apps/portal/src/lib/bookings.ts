@@ -1,6 +1,8 @@
 // import "server-only";
 
+import { normalizeBaseUrl } from "@rollfinders/api-client";
 import { apiGatewayUrl } from "./apiGateway";
+import { getEnvVariable } from "./environments";
 
 if (typeof window !== "undefined") {
   throw new Error("Booking service calls are server-only.");
@@ -59,7 +61,11 @@ type BookingListResponse = {
   pagination?: ServicePaginationMeta;
 };
 
-const bookingServiceUrl = apiGatewayUrl;
+const bookingServiceUrl = () => {
+  const directBaseUrl = getEnvVariable("BOOKING_PUBLIC_BASE_URL", "");
+  if (directBaseUrl) return normalizeBaseUrl(directBaseUrl);
+  return apiGatewayUrl();
+};
 
 type BookingServiceActor = {
   accessToken?: string;
@@ -152,23 +158,33 @@ export async function listBookingsPage({
   organisationId?: string | null;
   status?: string | null;
 } = {}): Promise<PaginatedBookings> {
-  const params = new URLSearchParams({ offset: String(offset), page_size: String(limit) });
+  const params = new URLSearchParams({
+    offset: String(offset),
+    page_size: String(limit),
+  });
   if (bookableId) params.set("bookable_id", bookableId);
-  if (bookableInstanceId) params.set("bookable_instance_id", bookableInstanceId);
+  if (bookableInstanceId)
+    params.set("bookable_instance_id", bookableInstanceId);
   if (bookableType) params.set("bookable_type", bookableType);
   if (customerId) params.set("customer_id", customerId);
   if (guestReference) params.set("guest_reference", guestReference);
   if (organisationId) params.set("organisation_id", organisationId);
   if (status) params.set("status", status);
 
-  const response = await fetch(`${bookingServiceUrl()}/v1/bookings?${params.toString()}`, {
-    method: "GET",
-    cache: "no-store",
-    headers: bookingServiceHeaders({ accessToken, actorUserId }),
-  });
+  const response = await fetch(
+    `${bookingServiceUrl()}/v1/bookings?${params.toString()}`,
+    {
+      method: "GET",
+      cache: "no-store",
+      headers: bookingServiceHeaders({ accessToken, actorUserId }),
+    },
+  );
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service history request failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service history request failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   const history = (await response.json()) as BookingListResponse;
@@ -187,12 +203,15 @@ export async function listBookingsPage({
 
 function bookingServiceHeaders(actor: BookingServiceActor): HeadersInit {
   const headers = new Headers();
-  if (actor.accessToken) headers.set("Authorization", `Bearer ${actor.accessToken}`);
+  if (actor.accessToken)
+    headers.set("Authorization", `Bearer ${actor.accessToken}`);
   if (actor.actorUserId) headers.set("X-Actor-User-ID", actor.actorUserId);
   return headers;
 }
 
-export async function createBooking(input: CreateBookingInput): Promise<BookingRecord> {
+export async function createBooking(
+  input: CreateBookingInput,
+): Promise<BookingRecord> {
   const response = await fetch(`${bookingServiceUrl()}/v1/bookings`, {
     method: "POST",
     cache: "no-store",
@@ -214,20 +233,29 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingR
   });
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service creation failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service creation failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   return bookingFromResponse((await response.json()) as BookingRecordResponse);
 }
 
 export async function getBooking(bookingId: string): Promise<BookingRecord> {
-  const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}`, {
-    method: "GET",
-    cache: "no-store",
-  });
+  const response = await fetch(
+    `${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}`,
+    {
+      method: "GET",
+      cache: "no-store",
+    },
+  );
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service get request failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service get request failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   return bookingFromResponse((await response.json()) as BookingRecordResponse);
@@ -242,18 +270,24 @@ export async function linkBookingPayment({
   idempotencyKey: string;
   paymentId: string;
 }): Promise<BookingRecord> {
-  const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-link`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
+  const response = await fetch(
+    `${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-link`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ payment_id: paymentId }),
     },
-    body: JSON.stringify({ payment_id: paymentId }),
-  });
+  );
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service payment link failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service payment link failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   return bookingFromResponse((await response.json()) as BookingRecordResponse);
@@ -268,18 +302,24 @@ export async function confirmBooking({
   idempotencyKey: string;
   reason?: string;
 }): Promise<BookingRecord> {
-  const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/confirm`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
+  const response = await fetch(
+    `${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/confirm`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ reason: reason ?? "payment_succeeded" }),
     },
-    body: JSON.stringify({ reason: reason ?? "payment_succeeded" }),
-  });
+  );
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service confirmation failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service confirmation failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   return bookingFromResponse((await response.json()) as BookingRecordResponse);
@@ -294,18 +334,24 @@ export async function cancelBooking({
   idempotencyKey: string;
   reason?: string;
 }): Promise<BookingRecord> {
-  const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/cancel`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
+  const response = await fetch(
+    `${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/cancel`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ reason: reason ?? "booking_cancelled" }),
     },
-    body: JSON.stringify({ reason: reason ?? "booking_cancelled" }),
-  });
+  );
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service cancellation failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service cancellation failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   return bookingFromResponse((await response.json()) as BookingRecordResponse);
@@ -320,18 +366,24 @@ export async function markBookingPaymentReceived({
   idempotencyKey: string;
   reason?: string;
 }): Promise<BookingRecord> {
-  const response = await fetch(`${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-received`, {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": idempotencyKey,
+  const response = await fetch(
+    `${bookingServiceUrl()}/v1/bookings/${encodeURIComponent(bookingId)}/payment-received`,
+    {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      body: JSON.stringify({ reason: reason ?? "payment_received" }),
     },
-    body: JSON.stringify({ reason: reason ?? "payment_received" }),
-  });
+  );
 
   if (!response.ok) {
-    throw new BookingServiceError(`Booking service payment received update failed with status ${response.status}.`, response.status);
+    throw new BookingServiceError(
+      `Booking service payment received update failed with status ${response.status}.`,
+      response.status,
+    );
   }
 
   return bookingFromResponse((await response.json()) as BookingRecordResponse);

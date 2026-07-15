@@ -280,6 +280,11 @@ describe("course payment service integration", () => {
     );
 
     assert.match(helperSource, /import\s+["']server-only["']/);
+    assert.match(helperSource, /WALLET_INTERNAL_BASE_URL/);
+    assert.match(helperSource, /wallet_type:\s*"external"/);
+    assert.match(helperSource, /owner_id:\s*academyId/);
+    assert.match(helperSource, /provider === "STRIPE"/);
+    assert.match(helperSource, /status === "CONNECTED"/);
     assert.match(helperSource, /getStripePaymentAccountSetting/);
     assert.match(helperSource, /PaymentServiceError/);
     assert.match(
