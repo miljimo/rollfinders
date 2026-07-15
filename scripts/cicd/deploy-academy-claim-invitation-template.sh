@@ -6,7 +6,7 @@ PROJECT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 TEMPLATE_NAME="academy-claim-invitation"
-TEMPLATE_SOURCE="${PROJECT_DIR}/src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html"
+TEMPLATE_SOURCE="${PROJECT_DIR}/apps/portal/src/lib/email/templates/academy-claim-invitation/v1/academy-claim-invitation.html"
 S3_BUCKET="${ACADEMY_CLAIM_INVITATION_TEMPLATE_BUCKET:-rollfinders}"
 S3_KEY="${ACADEMY_CLAIM_INVITATION_TEMPLATE_KEY:-mails/invitations/academy-claim-invitation.html}"
 CONTENT_TYPE="text/html; charset=utf-8"
