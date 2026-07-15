@@ -9,7 +9,7 @@ import (
 )
 
 func TestOpenApiContractUsesGenericBookingTerms(t *testing.T) {
-	data, err := os.ReadFile(repoPath(t, "docs", "services", "booking", "api", "openApi.yaml"))
+	data, err := os.ReadFile(repoPath(t, "apps", "backend_api", "internal", "services", "booking", "docs", "api", "openApi.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}

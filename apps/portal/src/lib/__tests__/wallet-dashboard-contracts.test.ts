@@ -38,9 +38,16 @@ test("wallet service client uses API gateway wallet endpoints", () => {
 
 test("wallet dashboard route renders through the app dashboard shell", () => {
   const page = readSource("apps/portal/src/app/dashboard/wallet/page.tsx");
-  const dashboard = readSource(
-    "apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx",
-  );
+  const dashboard = [
+    readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/CreateWalletDialog.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/CreateWalletForm.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletDetailsDialog.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletOwnerPickerDialog.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletTransactionDetailsDialog.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletTransferDialog.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/walletDialogTypes.ts"),
+  ].join("\n");
 
   assert.match(page, /AdminDashboardWorkspace/);
   assert.match(page, /panel:\s*"wallet"/);
@@ -52,20 +59,20 @@ test("wallet dashboard route renders through the app dashboard shell", () => {
   assert.match(dashboard, /panel === "wallet"[\s\S]*\? getDashboardWallets/);
   assert.match(
     dashboard,
-    /getDashboardWallets\(walletPage, currentUser\.id, currentUser\.accessToken\)/,
+    /getDashboardWallets\([\s\S]*walletPage[\s\S]*currentUser\.id[\s\S]*currentUser\.accessToken/,
   );
-  assert.match(dashboard, /listWalletsPage\(\{ accessToken, actorUserId/);
+  assert.match(dashboard, /listWalletsPage\(\{[\s\S]*accessToken[\s\S]*actorUserId/);
   assert.match(dashboard, /getWalletBalance/);
   assert.match(
     dashboard,
-    /<WalletDashboard balances=\{walletResult\.balances\} error=\{walletActionError \?\? walletResult\.error\}/,
+    /<WalletDashboard[\s\S]*balances=\{walletResult\.balances\}[\s\S]*error=\{walletActionError \?\? walletResult\.error\}/,
   );
   assert.match(dashboard, /linkedAccounts=\{walletResult\.linkedAccounts\}/);
   assert.match(dashboard, /transactions=\{walletResult\.transactions\}/);
   assert.match(dashboard, /view=\{walletView\}/);
   assert.match(
     dashboard,
-    /title=\{walletView === "transactions" \? "Transactions" : "Wallets"\}/,
+    /title=\{[\s\S]*walletView === "transactions" \? "Transactions" : "Wallets"[\s\S]*\}/,
   );
   assert.match(dashboard, /walletDialog === "create-transaction"/);
   assert.match(dashboard, /walletDialog === "transaction-details"/);
@@ -75,11 +82,11 @@ test("wallet dashboard route renders through the app dashboard shell", () => {
   assert.match(dashboard, /currentUserWalletOwner/);
   assert.match(
     dashboard,
-    /<CreateWalletDialog currentUser=\{currentUserWalletOwner\} params=\{params\} users=\{managedUsersPage\.users\}/,
+    /<CreateWalletDialog[\s\S]*currentUser=\{currentUserWalletOwner\}[\s\S]*params=\{params\}[\s\S]*users=\{walletOwnerPickerUsers\}/,
   );
   assert.match(
     dashboard,
-    /<WalletOwnerPickerDialog currentUser=\{currentUserWalletOwner\} params=\{params\} users=\{managedUsersPage\.users\}/,
+    /<WalletOwnerPickerDialog[\s\S]*currentUser=\{currentUserWalletOwner\}[\s\S]*params=\{params\}[\s\S]*users=\{walletOwnerPickerUsers\}/,
   );
   assert.match(dashboard, /function selectedWalletOwnerId/);
   assert.match(dashboard, /return currentUserId/);
@@ -92,7 +99,7 @@ test("wallet dashboard route renders through the app dashboard shell", () => {
   assert.match(dashboard, /selectedWalletLinkedAccount/);
   assert.match(
     dashboard,
-    /<WalletDetailsDialog closeHref=\{walletDetailsCloseHref\(params\)\} linkedAccount=\{selectedWalletLinkedAccount\} wallet=\{selectedWalletForDialog\}/,
+    /<WalletDetailsDialog[\s\S]*closeHref=\{walletDetailsCloseHref\(params\)\}[\s\S]*linkedAccount=\{selectedWalletLinkedAccount\}[\s\S]*wallet=\{selectedWalletForDialog\}/,
   );
   assert.match(dashboard, /title="Wallet Details"/);
   assert.match(dashboard, /Link Account/);
@@ -138,22 +145,23 @@ test("wallet dashboard route renders through the app dashboard shell", () => {
   );
   assert.match(
     dashboard,
-    /<WalletTransactionDetailsDialog closeHref=\{transactionDetailsCloseHref\(params\)\} transaction=\{selectedWalletTransactionForDialog\}/,
+    /<WalletTransactionDetailsDialog[\s\S]*closeHref=\{transactionDetailsCloseHref\(params\)\}[\s\S]*transaction=\{selectedWalletTransactionForDialog\}/,
   );
   assert.match(dashboard, /title="Transaction Details"/);
   assert.match(dashboard, /authorize\(currentUser,\s*"wallet\.transfer"/);
   assert.match(
     dashboard,
-    /<WalletTransferDialog balances=\{walletResult\.balances\} canCreateTransfer=\{canCreateWalletTransfer\} wallets=\{walletResult\.wallets\}/,
+    /<WalletTransferDialog[\s\S]*balances=\{walletResult\.balances\}[\s\S]*canCreateTransfer=\{canCreateWalletTransfer\}[\s\S]*wallets=\{walletResult\.wallets\}/,
   );
   assert.match(dashboard, /createDashboardWalletTransfer/);
   assert.match(dashboard, /walletActionError \?\? walletResult\.error/);
   assert.match(dashboard, /WalletTransfer/);
   assert.match(dashboard, /Wallet Transfer/);
   assert.match(dashboard, /wallet\.transfer privilege/);
-  const form = readSource(
-    "apps/portal/src/app/dashboard/wallet/WalletTransfer.tsx",
-  );
+  const form = [
+    readSource("apps/portal/src/app/dashboard/wallet/WalletTransfer.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/SourceWalletBalance.tsx"),
+  ].join("\n");
   assert.match(form, /export function WalletTransfer/);
   assert.match(form, /AutoCompleteTextField/);
   assert.match(
@@ -192,7 +200,7 @@ test("wallet transfer permission is used for authorisation", () => {
 
 test("wallet dashboard side panel exposes transaction command only", () => {
   const dashboard = readSource(
-    "apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx",
+    "apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx",
   );
   const walletDashboard = readSource(
     "apps/portal/src/app/dashboard/wallet/WalletDashboard.tsx",
@@ -201,11 +209,11 @@ test("wallet dashboard side panel exposes transaction command only", () => {
   assert.match(dashboard, /const walletNavigationSections = \[/);
   assert.match(
     dashboard,
-    /href:\s*"\/dashboard\/wallet", icon:\s*"dashboard", label:\s*"Dashboard"/,
+    /href:\s*"\/dashboard\/wallet"[\s\S]*icon:\s*"dashboard"[\s\S]*label:\s*"Dashboard"/,
   );
   assert.match(
     dashboard,
-    /href:\s*"\/dashboard\/wallet\?walletView=transactions", icon:\s*"transactions", label:\s*"Transactions"/,
+    /href:\s*"\/dashboard\/wallet\?walletView=transactions"[\s\S]*icon:\s*"transactions"[\s\S]*label:\s*"Transactions"/,
   );
   assert.match(
     dashboard,
@@ -240,9 +248,14 @@ test("wallet dashboard side panel exposes transaction command only", () => {
 });
 
 test("wallet dashboard shows wallets and transaction panel without aggregate balance cards or extra action UI", () => {
-  const source = readSource(
-    "apps/portal/src/app/dashboard/wallet/WalletDashboard.tsx",
-  );
+  const source = [
+    readSource("apps/portal/src/app/dashboard/wallet/WalletDashboard.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletActionMenus.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletDashboardColumns.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletsDashboard.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/WalletTransactionsDashboard.tsx"),
+    readSource("apps/portal/src/app/dashboard/wallet/walletDashboardUrls.ts"),
+  ].join("\n");
 
   assert.doesNotMatch(source, /icon:\s*Icon/);
   assert.doesNotMatch(source, /Funds available to use/);
@@ -266,7 +279,7 @@ test("wallet dashboard shows wallets and transaction panel without aggregate bal
   assert.match(source, /WalletTransactionsDashboard/);
   assert.match(
     source,
-    /<h2 className="text-2xl font-black text-stone-950">Transactions<\/h2>/,
+    /<h2 className="text-2xl font-black text-stone-950">Wallet Ledger Transactions<\/h2>/,
   );
   assert.match(
     source,

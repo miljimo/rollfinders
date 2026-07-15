@@ -8,9 +8,9 @@
 - Branch: `master`
 - Developer owner: Developer agent
 - Test owner: Tester agent
-- Dependencies: Production approval, clean release commit, production image build, service migration approval, Terraform plan review, smoke-test access
+- Dependencies: Production approval, production image build, service migration approval, Terraform plan review, smoke-test access
 - Source PRD: `docs/features/Deployment/Delivery/Reviewing/WalletBookingReadinessProductionReleaseTicket-20260714.md`
-- Ticket status: Reviewing, created on 2026-07-14
+- Ticket status: Ready for production approval, updated on 2026-07-15
 
 ## Goal
 
@@ -18,34 +18,22 @@ Release the current wallet, booking readiness, payment integration, authorisatio
 
 ## Status
 
-Blocked for production deployment until the release source is made clean and explicit.
+Ready for production approval once the final release-prep commit is pushed and production deployment approval names that commit.
 
-Current `master` state at ticket creation:
+Release-prep state on 2026-07-15:
 
-- `master` is ahead of `origin/master` by one commit.
-- Current committed release candidate: `3fb2c22 Fix wallet Stripe linking and booking readiness`.
-- Additional uncommitted files exist and must be committed into a new release candidate or explicitly excluded before production approval.
-
-Uncommitted files at ticket creation:
-
-```text
-apps/backend_api/containers/payments/compose.yml
-apps/portal/src/app/courses/[id]/page.tsx
-apps/portal/src/app/courses/[id]/payment-actions.ts
-apps/portal/src/app/open-mats/[id]/page.tsx
-apps/portal/src/lib/__tests__/course-payment-integration-contracts.test.ts
-apps/portal/src/lib/academy-payment-account.ts
-apps/portal/src/lib/bookings.ts
-compose.yml
-```
+- Runtime release candidate on `origin/master`: `6a34d55 Route booking payments through academy Stripe wallet`.
+- Previous dirty-worktree blocker is resolved; the booking/payment readiness edits were committed before this ticket update.
+- Test contracts were updated to the current service-local docs path and dashboard module extraction.
+- The final release-prep commit contains ticket and contract-check updates only; no runtime application behavior changes were added after `6a34d55`.
+- No production deployment has been run from this ticket update.
 
 ## Scope
 
 The release agent must:
 
 - Confirm the final source commit before deployment.
-- Include committed wallet Stripe linking and booking readiness changes from `3fb2c22` if approved.
-- Decide whether the uncommitted booking/payment readiness edits are included in this release; if included, commit them before production approval.
+- Include committed wallet Stripe linking and booking readiness changes through `6a34d55` if approved.
 - Run service migrations for authorisation and wallet if the committed migration files have not been applied in production.
 - Preserve the RDS cost-optimized Terraform settings from `bcec54c Persist RDS cost reduction settings`.
 - Verify public event detail pages still calculate booking and checkout readiness correctly.
@@ -65,7 +53,7 @@ The release agent must not:
 ## Implementation Notes
 
 - Source branch: `master`
-- Current committed release candidate at ticket creation: `3fb2c22 Fix wallet Stripe linking and booking readiness`
+- Current runtime release candidate before this ticket/test update: `6a34d55 Route booking payments through academy Stripe wallet`
 - Required RDS Terraform commit already on `master`: `bcec54c Persist RDS cost reduction settings`
 - Prior wallet uniqueness commit on `master`: `fc1e6d2 Enforce wallet uniqueness and academy capability checks`
 - RDS retained recovery snapshot: `rollfinder-production-postgres-cost-reduction-20260713141416`
@@ -79,7 +67,7 @@ The release agent must not:
   - Wallet uniqueness migration from prior commit may be required: `apps/backend_api/internal/services/wallet/migrations/tables/012_walletOwnerTypeCurrencyUniqueness.sql`
 - Config impact:
   - Existing runtime must provide booking, payment, and wallet service base URLs expected by the deployed portal code.
-  - If the uncommitted direct-service readiness edits are included, verify `BOOKING_PUBLIC_BASE_URL` and `WALLET_INTERNAL_BASE_URL` are available in the production web container.
+  - Verify `BOOKING_PUBLIC_BASE_URL`, `PAYMENT_PUBLIC_BASE_URL` if used, and `WALLET_INTERNAL_BASE_URL` are available in the production web container or that API gateway routing is configured for those service calls.
 - Infrastructure impact:
   - No new infrastructure is approved in this release.
   - Terraform is source of truth for RDS cost settings only.
@@ -98,11 +86,11 @@ The release agent must not:
 ### Source
 
 - Branch: `master`
-- Commit/Tag: `3fb2c22 Fix wallet Stripe linking and booking readiness`
+- Commit/Tag: `6a34d55 Route booking payments through academy Stripe wallet`
 - Ticket: `RELEASE-20260714`
 - PR: Not assigned in this ticket
 
-If the uncommitted booking/payment readiness edits are included, update this section with the new commit hash before approval.
+Before deployment, update this section with the final post-ticket-update `master` commit if it differs from `6a34d55`.
 
 ### Required Config
 
@@ -148,7 +136,7 @@ Required migration review:
 
 ### Deployment Steps
 
-1. Confirm final source commit and update this ticket if it differs from `3fb2c22`.
+1. Confirm final source commit and update this ticket if it differs from `6a34d55`.
 2. Ensure the worktree is clean:
 
    ```bash
@@ -228,7 +216,6 @@ Steps:
 
 ### Risks
 
-- The current worktree is dirty; deploying before committing or excluding those changes risks releasing an unreviewed artifact.
 - Wallet service may not be present in the current production ECS task definition unless explicitly included in the deployment plan.
 - Direct service calls from portal server code require correct internal service URLs in the production web container.
 - Broad Terraform apply currently has unrelated security group drift/replacement risk.
@@ -246,13 +233,40 @@ Steps:
 
 ## Release Readiness Checklist
 
-- [ ] Decide whether uncommitted files listed in this ticket are included.
-- [ ] Commit included files or revert/exclude them from the release.
-- [ ] Push final `master` release commit.
-- [ ] Update `### Source` with final commit hash.
-- [ ] Run pre-release checks.
-- [ ] Confirm production approval names the final commit, migration plan, config changes, and rollback plan.
+- [x] Resolve prior uncommitted booking/payment readiness blocker.
+- [x] Confirm `origin/master` contains runtime release candidate `6a34d55`.
+- [x] Update stale service-doc and dashboard-refactor contract tests.
+- [x] Run pre-release checks listed in this ticket.
+- [x] Prepare final ticket/test update commit for `master`.
+- [ ] Confirm production approval names the pushed final commit, migration plan, config changes, and rollback plan.
 - [ ] Build immutable images.
 - [ ] Run service migrations.
 - [ ] Deploy production.
 - [ ] Record smoke-test and rollback evidence.
+
+## Release Evidence
+
+Collected on 2026-07-15 before production deployment:
+
+- `git ls-remote origin refs/heads/master`: `6a34d5541f4738704d4177ebc2489013eaf7972a`.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- `terraform -chdir=infrastructure/terraform validate`: passed.
+- Targeted Go service tests passed:
+
+  ```bash
+  cd apps/backend_api
+  GOCACHE=/tmp/rollfinder-go-build-cache go test ./internal/services/authorisation/... ./internal/services/wallet/... ./internal/services/booking/... ./internal/services/payments/...
+  ```
+
+- Targeted portal contract tests passed:
+
+  ```bash
+  node --import tsx --test apps/portal/src/lib/__tests__/course-payment-integration-contracts.test.ts apps/portal/src/lib/__tests__/wallet-dashboard-contracts.test.ts apps/portal/src/lib/__tests__/authorisation-service-contracts.test.ts
+  ```
+
+Release notes:
+
+- The booking OpenAPI static contract now reads the service-local docs path: `apps/backend_api/internal/services/booking/docs/api/openApi.yaml`.
+- Dashboard wallet/payment/booking contracts now read the extracted dashboard shell and wallet modules after the dashboard workspace refactor.
+- Terraform validation passed, but broad Terraform apply remains out of scope until unrelated security group drift is reviewed.
