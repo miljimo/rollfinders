@@ -1,5 +1,6 @@
 import { Role, UserStatus } from "@prisma/client";
 import {
+  AcademyServiceError,
   addAcademyMemberInAcademyService,
   getAcademyFromAcademyService,
   listAcademyMembersFromAcademyService,
@@ -38,6 +39,28 @@ type AcademyMemberProfileUser = {
   name: string | null;
   role?: string | null;
 };
+
+function isAcademyReadForbidden(error: unknown) {
+  return error instanceof AcademyServiceError && (error.status === 401 || error.status === 403);
+}
+
+async function readableAcademyMembershipsForUser(userId: string, actor?: ServiceActor) {
+  try {
+    return await listAcademyMembershipsForUserFromAcademyService(userId, actor);
+  } catch (error) {
+    if (isAcademyReadForbidden(error)) return [];
+    throw error;
+  }
+}
+
+async function readableAcademy(academyId: string, actor?: ServiceActor) {
+  try {
+    return await getAcademyFromAcademyService(academyId, actor);
+  } catch (error) {
+    if (isAcademyReadForbidden(error)) return null;
+    throw error;
+  }
+}
 
 function normalizeRole(value?: string | null) {
   if (value === Role.SUPER_ADMIN) return Role.SUPER_ADMIN;
@@ -81,12 +104,12 @@ async function validAcademyId(academyId: string | null | undefined, actor?: Serv
 }
 
 export async function localUserAcademyId(userId: string, actor?: ServiceActor) {
-  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId, actor))[0];
+  const membership = (await readableAcademyMembershipsForUser(userId, actor))[0];
   return membership?.academyId ?? null;
 }
 
 async function localUserAcademyProfile(userId: string, actor?: ServiceActor) {
-  const membership = (await listAcademyMembershipsForUserFromAcademyService(userId, actor))[0];
+  const membership = (await readableAcademyMembershipsForUser(userId, actor))[0];
   return membership ?? null;
 }
 
@@ -124,7 +147,7 @@ export async function enrichManagedUserWithRollfinderProfile<T extends Rollfinde
 export async function enrichManagedUsersWithRollfinderProfiles<T extends RollfinderUserInput>(users: T[], actor?: ServiceActor) {
   if (!users.length) return [] as Array<T & { academyId: string | null }>;
   const ids = users.map((user) => user.id);
-  const memberships = (await Promise.all(ids.map((id) => listAcademyMembershipsForUserFromAcademyService(id, actor)))).flat();
+  const memberships = (await Promise.all(ids.map((id) => readableAcademyMembershipsForUser(id, actor)))).flat();
   const membershipByUserId = new Map<string, { academyId: string }>();
   for (const membership of memberships) {
     if (!membershipByUserId.has(membership.userId)) membershipByUserId.set(membership.userId, { academyId: membership.academyId });
@@ -169,7 +192,7 @@ export async function enrichUsersWithAcademyNames<T extends { academyId: string 
   const academyIds = [...new Set(users.map((user) => user.academyId).filter((academyId): academyId is string => Boolean(academyId)))];
   if (!academyIds.length) return users.map((user) => ({ ...user, academy: null }));
 
-  const academies = (await Promise.all(academyIds.map((academyId) => getAcademyFromAcademyService(academyId, actor))))
+  const academies = (await Promise.all(academyIds.map((academyId) => readableAcademy(academyId, actor))))
     .filter((academy): academy is NonNullable<typeof academy> => Boolean(academy));
   const academyById = new Map(academies.map((academy) => [academy.id, { name: academy.name }]));
 
