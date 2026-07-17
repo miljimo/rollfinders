@@ -2,13 +2,40 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import type { Academy, AcademySocialLink, AcademySocialPlatform } from "@prisma/client";
+import type {
+  Academy,
+  AcademySocialLink,
+  AcademySocialPlatform,
+} from "@prisma/client";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { type FormEvent, useActionState, useEffect, useMemo, useRef, useState } from "react";
-import { academySocialPlatformLabels, academySocialPlatformOptions, isAcademySocialPlatform, isSafeSocialUrl, legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy } from "@/lib/academy-social-links";
+import {
+  type FormEvent,
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  academySocialPlatformLabels,
+  academySocialPlatformOptions,
+  isAcademySocialPlatform,
+  isSafeSocialUrl,
+  legacySocialUrlsFromLinks,
+  parseAcademySocialLinksJson,
+  socialLinksFromLegacy,
+} from "@/lib/academy-social-links";
 import type { AcademyFormState } from "./actions";
 
-type AcademyAction = (state: AcademyFormState, formData: FormData) => Promise<AcademyFormState>;
+type AcademyAction = (
+  state: AcademyFormState,
+  formData: FormData,
+) => Promise<AcademyFormState>;
+type EmailVerificationOptions = {
+  description?: string;
+  label?: string;
+  required?: boolean;
+};
 type AcademyWithSocialLinks = Academy & {
   bookingVerified?: boolean | null;
   paymentsVerified?: boolean | null;
@@ -31,7 +58,7 @@ const steps = [
   { id: "review", label: "Review" },
 ] as const;
 
-type StepId = typeof steps[number]["id"];
+type StepId = (typeof steps)[number]["id"];
 
 type AcademyValues = Record<string, string>;
 type CoordinateSource = "default" | "auto" | "manual" | "existing";
@@ -73,15 +100,45 @@ const defaultValues: AcademyValues = {
 };
 
 const fieldsByStep: Record<StepId, string[]> = {
-  basics: ["name", "slug", "description", "affiliation", "website", "email", "phone"],
-  location: ["address", "city", "postcode", "borough", "country", "latitude", "longitude"],
+  basics: [
+    "name",
+    "slug",
+    "description",
+    "affiliation",
+    "website",
+    "email",
+    "phone",
+  ],
+  location: [
+    "address",
+    "city",
+    "postcode",
+    "borough",
+    "country",
+    "latitude",
+    "longitude",
+  ],
   media: ["logoUrl", "coverImageUrl", "categories", "socialLinksJson"],
-  settings: ["dropInPrice", "giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "verificationStatus", "publicListingVerified", "bookingVerified", "paymentsVerified", "sendClaimInvitation"],
+  settings: [
+    "dropInPrice",
+    "giAvailable",
+    "nogiAvailable",
+    "beginnerFriendly",
+    "competitionFocused",
+    "featured",
+    "verificationStatus",
+    "publicListingVerified",
+    "bookingVerified",
+    "paymentsVerified",
+    "sendClaimInvitation",
+  ],
   review: [],
 };
 
 const fieldStep = Object.fromEntries(
-  Object.entries(fieldsByStep).flatMap(([step, fields]) => fields.map((field) => [field, step])),
+  Object.entries(fieldsByStep).flatMap(([step, fields]) =>
+    fields.map((field) => [field, step]),
+  ),
 ) as Record<string, StepId>;
 
 function checkboxValue(value?: boolean) {
@@ -92,10 +149,22 @@ function nullableValue(value?: string | null) {
   return value ?? "";
 }
 
-function initialSocialLinks(academy?: AcademyWithSocialLinks, values?: Record<string, string>) {
+function initialSocialLinks(
+  academy?: AcademyWithSocialLinks,
+  values?: Record<string, string>,
+) {
   const parsed = parseAcademySocialLinksJson(values?.socialLinksJson);
-  if (!parsed.error && values && Object.prototype.hasOwnProperty.call(values, "socialLinksJson")) return parsed.links;
-  if (academy?.socialLinks?.length) return academy.socialLinks.map((link) => ({ platform: link.platform, url: link.url }));
+  if (
+    !parsed.error &&
+    values &&
+    Object.prototype.hasOwnProperty.call(values, "socialLinksJson")
+  )
+    return parsed.links;
+  if (academy?.socialLinks?.length)
+    return academy.socialLinks.map((link) => ({
+      platform: link.platform,
+      url: link.url,
+    }));
   return socialLinksFromLegacy({
     facebookUrl: values?.facebookUrl ?? academy?.facebookUrl,
     instagramUrl: values?.instagramUrl ?? academy?.instagramUrl,
@@ -134,7 +203,9 @@ function academyValues(academy?: AcademyWithSocialLinks): AcademyValues {
     beginnerFriendly: checkboxValue(academy.beginnerFriendly),
     competitionFocused: checkboxValue(academy.competitionFocused),
     featured: checkboxValue(academy.featured),
-    publicListingVerified: checkboxValue(academy.publicListingVerified ?? academy.verified),
+    publicListingVerified: checkboxValue(
+      academy.publicListingVerified ?? academy.verified,
+    ),
     bookingVerified: checkboxValue(academy.bookingVerified ?? false),
     paymentsVerified: checkboxValue(academy.paymentsVerified ?? false),
     verificationStatus: academy.verificationStatus,
@@ -142,39 +213,107 @@ function academyValues(academy?: AcademyWithSocialLinks): AcademyValues {
   };
 }
 
-export function AcademyForm({ action, academy, canManagePlatformFields = true, cancelHref, returnTo }: { action: AcademyAction; academy?: AcademyWithSocialLinks; canManagePlatformFields?: boolean; cancelHref?: string; returnTo?: string }) {
-  return <MultiStepAcademyForm academy={academy} action={action} canManagePlatformFields={canManagePlatformFields} cancelHref={cancelHref} returnTo={returnTo} />;
+export function AcademyForm({
+  action,
+  academy,
+  canManagePlatformFields = true,
+  cancelHref,
+  emailVerification,
+  geocodeEndpoint = "/api/admin/geocode",
+  returnTo,
+}: {
+  action: AcademyAction;
+  academy?: AcademyWithSocialLinks;
+  canManagePlatformFields?: boolean;
+  cancelHref?: string;
+  emailVerification?: EmailVerificationOptions;
+  geocodeEndpoint?: string;
+  returnTo?: string;
+}) {
+  return (
+    <MultiStepAcademyForm
+      academy={academy}
+      action={action}
+      canManagePlatformFields={canManagePlatformFields}
+      cancelHref={cancelHref}
+      emailVerification={emailVerification}
+      geocodeEndpoint={geocodeEndpoint}
+      returnTo={returnTo}
+    />
+  );
 }
 
-function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancelHref = "/admin?panel=academies", returnTo }: { action: AcademyAction; academy?: AcademyWithSocialLinks; canManagePlatformFields: boolean; cancelHref?: string; returnTo?: string }) {
-  const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
+function MultiStepAcademyForm({
+  action,
+  academy,
+  canManagePlatformFields,
+  cancelHref = "/admin?panel=academies",
+  emailVerification,
+  geocodeEndpoint,
+  returnTo,
+}: {
+  action: AcademyAction;
+  academy?: AcademyWithSocialLinks;
+  canManagePlatformFields: boolean;
+  cancelHref?: string;
+  emailVerification?: EmailVerificationOptions;
+  geocodeEndpoint: string;
+  returnTo?: string;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    action,
+    initialAcademyFormState,
+  );
   const mode = academy ? "edit" : "create";
-  const [values, setValues] = useState<AcademyValues>(() => ({ ...defaultValues, ...academyValues(academy), ...state.values }));
-  const [socialLinks, setSocialLinks] = useState<SocialLinkDraft[]>(() => initialSocialLinks(academy, state.values));
-  const [coordinateSource, setCoordinateSource] = useState<CoordinateSource>(academy ? "existing" : "default");
-  const [coordinateStatus, setCoordinateStatus] = useState<CoordinateLookupStatus>("idle");
+  const [values, setValues] = useState<AcademyValues>(() => ({
+    ...defaultValues,
+    ...academyValues(academy),
+    ...state.values,
+  }));
+  const [socialLinks, setSocialLinks] = useState<SocialLinkDraft[]>(() =>
+    initialSocialLinks(academy, state.values),
+  );
+  const [coordinateSource, setCoordinateSource] = useState<CoordinateSource>(
+    academy ? "existing" : "default",
+  );
+  const [coordinateStatus, setCoordinateStatus] =
+    useState<CoordinateLookupStatus>("idle");
   const [coordinateMessage, setCoordinateMessage] = useState("");
   const [stepIndex, setStepIndex] = useState(0);
   const lookupKeyRef = useRef("");
   const lookupRequestRef = useRef(0);
   const currentStep = steps[stepIndex].id;
+  const serverErrors = useMemo(
+    () => activeServerErrors(state.fieldErrors, state.values, values),
+    [state.fieldErrors, state.values, values],
+  );
+  const stateHasFieldErrors = Object.values(serverErrors).some(
+    (errors) => errors?.length,
+  );
 
   useEffect(() => {
     if (!state.values || !Object.keys(state.values).length) return;
-    const firstErrorField = Object.keys(state.fieldErrors).find((field) => state.fieldErrors[field]?.length);
+    const firstErrorField = Object.keys(state.fieldErrors).find(
+      (field) => state.fieldErrors[field]?.length,
+    );
     const timeout = window.setTimeout(() => {
       setValues((current) => ({ ...current, ...state.values }));
       const nextSocialLinks = initialSocialLinks(academy, state.values);
       setSocialLinks(nextSocialLinks);
       if (firstErrorField && fieldStep[firstErrorField]) {
-        setStepIndex(steps.findIndex((step) => step.id === fieldStep[firstErrorField]));
+        setStepIndex(
+          steps.findIndex((step) => step.id === fieldStep[firstErrorField]),
+        );
       }
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [state.fieldErrors, state.values]);
 
   const clientErrors = useMemo(() => validateValues(values), [values]);
-  const completedSteps = useMemo(() => new Set(steps.slice(0, stepIndex).map((step) => step.id)), [stepIndex]);
+  const completedSteps = useMemo(
+    () => new Set(steps.slice(0, stepIndex).map((step) => step.id)),
+    [stepIndex],
+  );
 
   function updateField(name: string, value: string) {
     if (name === "latitude" || name === "longitude") {
@@ -199,20 +338,32 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
   useEffect(() => {
     if (coordinateSource === "manual") return;
     const lookupKey = coordinateLookupKey(values);
-    if (!canAttemptCoordinateLookup(values) || lookupKey === lookupKeyRef.current) return;
+    if (
+      !canAttemptCoordinateLookup(values) ||
+      lookupKey === lookupKeyRef.current
+    )
+      return;
     const timeout = window.setTimeout(() => {
       void lookupCoordinates(false);
     }, 900);
     return () => window.clearTimeout(timeout);
     // lookupCoordinates intentionally reads the latest values and coordinate state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.address, values.city, values.postcode, values.country, coordinateSource]);
+  }, [
+    values.address,
+    values.city,
+    values.postcode,
+    values.country,
+    coordinateSource,
+  ]);
 
   async function lookupCoordinates(force: boolean) {
     if (!force && coordinateSource === "manual") return;
     if (!canAttemptCoordinateLookup(values)) {
       setCoordinateStatus("failed");
-      setCoordinateMessage("Enter a postcode or address before looking up coordinates.");
+      setCoordinateMessage(
+        "Enter a postcode or address before looking up coordinates.",
+      );
       return;
     }
 
@@ -221,7 +372,9 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
     lookupRequestRef.current = requestId;
     lookupKeyRef.current = lookupKey;
     setCoordinateStatus("looking");
-    setCoordinateMessage(force ? "Looking up coordinates..." : "Auto-filling coordinates...");
+    setCoordinateMessage(
+      force ? "Looking up coordinates..." : "Auto-filling coordinates...",
+    );
 
     const params = new URLSearchParams({
       address: values.address,
@@ -231,12 +384,24 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
     });
 
     try {
-      const response = await fetch(`/api/admin/geocode?${params.toString()}`);
-      const data = await response.json().catch(() => null) as { latitude?: number; longitude?: number; label?: string; error?: string } | null;
+      const response = await fetch(`${geocodeEndpoint}?${params.toString()}`);
+      const data = (await response.json().catch(() => null)) as {
+        latitude?: number;
+        longitude?: number;
+        label?: string;
+        error?: string;
+      } | null;
       if (requestId !== lookupRequestRef.current) return;
-      if (!response.ok || typeof data?.latitude !== "number" || typeof data.longitude !== "number") {
+      if (
+        !response.ok ||
+        typeof data?.latitude !== "number" ||
+        typeof data.longitude !== "number"
+      ) {
         setCoordinateStatus("failed");
-        setCoordinateMessage(data?.error ?? "No coordinates found. Enter latitude and longitude manually.");
+        setCoordinateMessage(
+          data?.error ??
+            "No coordinates found. Enter latitude and longitude manually.",
+        );
         return;
       }
 
@@ -247,11 +412,15 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
       }));
       setCoordinateSource("auto");
       setCoordinateStatus("found");
-      setCoordinateMessage(`Coordinates auto-filled${data.label ? ` from ${data.label}` : ""}.`);
+      setCoordinateMessage(
+        `Coordinates auto-filled${data.label ? ` from ${data.label}` : ""}.`,
+      );
     } catch {
       if (requestId !== lookupRequestRef.current) return;
       setCoordinateStatus("failed");
-      setCoordinateMessage("Coordinate lookup failed. Enter latitude and longitude manually.");
+      setCoordinateMessage(
+        "Coordinate lookup failed. Enter latitude and longitude manually.",
+      );
     }
   }
 
@@ -269,7 +438,9 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
   }
 
   function stepHasErrors(step: StepId) {
-    return visibleFieldsByStep(step, canManagePlatformFields).some((field) => clientErrors[field] || state.fieldErrors[field]?.length);
+    return visibleFieldsByStep(step, canManagePlatformFields).some(
+      (field) => clientErrors[field] || serverErrors[field]?.length,
+    );
   }
 
   function goToStep(nextIndex: number) {
@@ -289,17 +460,33 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
   }
 
   return (
-    <form action={currentStep === "review" ? formAction : undefined} onSubmit={handleSubmit} className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-      {Object.entries(values).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
+    <form
+      action={currentStep === "review" ? formAction : undefined}
+      onSubmit={handleSubmit}
+      className="mt-6 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm"
+    >
+      {returnTo ? (
+        <input type="hidden" name="returnTo" value={returnTo} />
+      ) : null}
+      {Object.entries(values).map(([name, value]) => (
+        <input key={name} type="hidden" name={name} value={value} />
+      ))}
 
       <div className="border-b border-stone-100 p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-sm font-bold uppercase text-teal-800">{mode === "edit" ? "Edit Academy" : "New Academy"}</p>
-            <h3 className="mt-1 text-2xl font-black text-stone-950">{mode === "edit" ? "Guided academy update" : "Guided academy setup"}</h3>
+            <p className="text-sm font-bold uppercase text-teal-800">
+              {mode === "edit" ? "Edit Academy" : "New Academy"}
+            </p>
+            <h3 className="mt-1 text-2xl font-black text-stone-950">
+              {mode === "edit"
+                ? "Guided academy update"
+                : "Guided academy setup"}
+            </h3>
           </div>
-          <p className="text-sm font-bold text-stone-600">Step {stepIndex + 1} of {steps.length}</p>
+          <p className="text-sm font-bold text-stone-600">
+            Step {stepIndex + 1} of {steps.length}
+          </p>
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-5">
           {steps.map((step, index) => (
@@ -317,23 +504,62 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
 
       <div className="grid gap-6 p-4 lg:grid-cols-[1fr_360px] lg:p-6">
         <section className="min-w-0">
-          {state.message ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{state.message}</p> : null}
-          {currentStep === "basics" ? <BasicsStep autoGenerateSlug={autoGenerateSlug} errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
+          {state.message ? (
+            <p
+              className={`mb-4 rounded-md border p-3 text-sm font-semibold ${stateHasFieldErrors ? "border-red-200 bg-red-50 text-red-800" : "border-teal-200 bg-teal-50 text-teal-900"}`}
+            >
+              {state.message}
+            </p>
+          ) : null}
+          {currentStep === "basics" ? (
+            <BasicsStep
+              autoGenerateSlug={autoGenerateSlug}
+              errors={mergeErrors(clientErrors, serverErrors)}
+              updateField={updateField}
+              values={values}
+            />
+          ) : null}
           {currentStep === "location" ? (
             <LocationStep
               coordinateMessage={coordinateMessage}
               coordinateSource={coordinateSource}
               coordinateStatus={coordinateStatus}
-              errors={mergeErrors(clientErrors, state.fieldErrors)}
+              errors={mergeErrors(clientErrors, serverErrors)}
               lookupCoordinates={() => lookupCoordinates(true)}
               resetCoordinateOverride={resetCoordinateOverride}
               updateField={updateField}
               values={values}
             />
           ) : null}
-          {currentStep === "media" ? <MediaStep errors={mergeErrors(clientErrors, state.fieldErrors)} socialLinks={socialLinks} updateField={updateField} updateSocialLinks={updateSocialLinks} values={values} /> : null}
-          {currentStep === "settings" ? <SettingsStep canManagePlatformFields={canManagePlatformFields} errors={mergeErrors(clientErrors, state.fieldErrors)} updateField={updateField} values={values} /> : null}
-          {currentStep === "review" ? <ReviewStep canManagePlatformFields={canManagePlatformFields} coordinateSource={coordinateSource} errors={clientErrors} mode={mode} setStepIndex={setStepIndex} socialLinks={socialLinks} values={values} /> : null}
+          {currentStep === "media" ? (
+            <MediaStep
+              errors={mergeErrors(clientErrors, serverErrors)}
+              socialLinks={socialLinks}
+              updateField={updateField}
+              updateSocialLinks={updateSocialLinks}
+              values={values}
+            />
+          ) : null}
+          {currentStep === "settings" ? (
+            <SettingsStep
+              canManagePlatformFields={canManagePlatformFields}
+              errors={mergeErrors(clientErrors, serverErrors)}
+              updateField={updateField}
+              values={values}
+            />
+          ) : null}
+          {currentStep === "review" ? (
+            <ReviewStep
+              canManagePlatformFields={canManagePlatformFields}
+              coordinateSource={coordinateSource}
+              emailVerification={emailVerification}
+              errors={clientErrors}
+              mode={mode}
+              setStepIndex={setStepIndex}
+              socialLinks={socialLinks}
+              values={values}
+            />
+          ) : null}
         </section>
 
         <aside className="grid gap-4 lg:sticky lg:top-4 lg:self-start">
@@ -341,26 +567,70 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
           <section className="rounded-lg border border-stone-200 bg-stone-50 p-4">
             <h4 className="font-black text-stone-950">Next-step checklist</h4>
             <div className="mt-3 grid gap-2 text-sm">
-              {steps.filter((step) => step.id !== "review").map((step) => (
-                <p key={step.id} className={stepHasErrors(step.id) ? "font-semibold text-red-700" : "font-semibold text-teal-800"}>
-                  {stepHasErrors(step.id) ? "Needs attention" : "Ready"} · {step.label}
-                </p>
-              ))}
+              {steps
+                .filter((step) => step.id !== "review")
+                .map((step) => (
+                  <p
+                    key={step.id}
+                    className={
+                      stepHasErrors(step.id)
+                        ? "font-semibold text-red-700"
+                        : "font-semibold text-teal-800"
+                    }
+                  >
+                    {stepHasErrors(step.id) ? "Needs attention" : "Ready"} ·{" "}
+                    {step.label}
+                  </p>
+                ))}
             </div>
           </section>
         </aside>
       </div>
 
       <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 bg-white/95 p-4 backdrop-blur">
-        <Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link>
+        <Link
+          href={cancelHref}
+          className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800"
+        >
+          Cancel
+        </Link>
         <div className="flex flex-wrap gap-3">
-          <button type="button" onClick={(event) => { event.preventDefault(); setStepIndex((index) => Math.max(index - 1, 0)); }} disabled={stepIndex === 0} className="min-h-11 rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800 disabled:text-stone-400">Back</button>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              setStepIndex((index) => Math.max(index - 1, 0));
+            }}
+            disabled={stepIndex === 0}
+            className="min-h-11 rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800 disabled:text-stone-400"
+          >
+            Back
+          </button>
           {currentStep === "review" ? (
-            <button type="submit" disabled={isPending || Object.keys(clientErrors).length > 0} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
-              {isPending ? (mode === "edit" ? "Saving..." : "Creating...") : mode === "edit" ? "Save Academy" : "Create Academy"}
+            <button
+              type="submit"
+              disabled={isPending || Object.keys(clientErrors).length > 0}
+              className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400"
+            >
+              {isPending
+                ? mode === "edit"
+                  ? "Saving..."
+                  : "Creating..."
+                : mode === "edit"
+                  ? "Save Academy"
+                  : "Create Academy"}
             </button>
           ) : (
-            <button type="button" onClick={(event) => { event.preventDefault(); nextStep(); }} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">Next</button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                nextStep();
+              }}
+              className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white"
+            >
+              Next
+            </button>
           )}
         </div>
       </div>
@@ -368,25 +638,88 @@ function MultiStepAcademyForm({ action, academy, canManagePlatformFields, cancel
   );
 }
 
-function BasicsStep({ autoGenerateSlug, errors, updateField, values }: StepProps & { autoGenerateSlug: () => void }) {
+function BasicsStep({
+  autoGenerateSlug,
+  errors,
+  updateField,
+  values,
+}: StepProps & { autoGenerateSlug: () => void }) {
   return (
-    <StepSection title="Basics" description="Start with the public identity and contact details.">
-      <Field name="name" label="Name" required value={values.name} errors={errors.name} onChange={updateField} />
+    <StepSection
+      title="Basics"
+      description="Start with the public identity and contact details."
+    >
+      <Field
+        name="name"
+        label="Name"
+        required
+        value={values.name}
+        errors={errors.name}
+        onChange={updateField}
+      />
       <div className="grid gap-2">
-        <Field name="slug" label="Slug" required value={values.slug} errors={errors.slug} onChange={updateField} />
-        <button type="button" onClick={autoGenerateSlug} className="w-fit rounded-md border border-teal-200 px-3 py-2 text-sm font-bold text-teal-800">Auto-generate slug</button>
+        <Field
+          name="slug"
+          label="Slug"
+          required
+          value={values.slug}
+          errors={errors.slug}
+          onChange={updateField}
+        />
+        <button
+          type="button"
+          onClick={autoGenerateSlug}
+          className="w-fit rounded-md border border-teal-200 px-3 py-2 text-sm font-bold text-teal-800"
+        >
+          Auto-generate slug
+        </button>
       </div>
       <label className="grid gap-1 text-sm font-semibold text-stone-800">
-        Description <span className="text-xs font-bold text-red-700">Required</span>
-        <textarea value={values.description} onChange={(event) => updateField("description", event.target.value)} className="min-h-32 rounded-md border border-stone-300 px-3 py-2 text-base font-normal" />
-        <span className={`text-xs font-semibold ${values.description.length < 10 ? "text-red-700" : "text-stone-500"}`}>{values.description.length} characters · minimum 10</span>
-        <FieldError errors={errors.description ? [errors.description] : undefined} />
+        Description{" "}
+        <span className="text-xs font-bold text-red-700">Required</span>
+        <textarea
+          value={values.description}
+          onChange={(event) => updateField("description", event.target.value)}
+          className="min-h-32 rounded-md border border-stone-300 px-3 py-2 text-base font-normal"
+        />
+        <span
+          className={`text-xs font-semibold ${values.description.length < 10 ? "text-red-700" : "text-stone-500"}`}
+        >
+          {values.description.length} characters · minimum 10
+        </span>
+        <FieldError
+          errors={errors.description ? [errors.description] : undefined}
+        />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field name="affiliation" label="Affiliation" value={values.affiliation} errors={errors.affiliation} onChange={updateField} />
-        <Field name="website" label="Website" value={values.website} errors={errors.website} onChange={updateField} />
-        <Field name="email" label="Email" value={values.email} errors={errors.email} onChange={updateField} />
-        <Field name="phone" label="Phone" value={values.phone} errors={errors.phone} onChange={updateField} />
+        <Field
+          name="affiliation"
+          label="Affiliation"
+          value={values.affiliation}
+          errors={errors.affiliation}
+          onChange={updateField}
+        />
+        <Field
+          name="website"
+          label="Website"
+          value={values.website}
+          errors={errors.website}
+          onChange={updateField}
+        />
+        <Field
+          name="email"
+          label="Email"
+          value={values.email}
+          errors={errors.email}
+          onChange={updateField}
+        />
+        <Field
+          name="phone"
+          label="Phone"
+          value={values.phone}
+          errors={errors.phone}
+          onChange={updateField}
+        />
       </div>
     </StepSection>
   );
@@ -408,32 +741,110 @@ function LocationStep({
   lookupCoordinates: () => void;
   resetCoordinateOverride: () => void;
 }) {
-  const sourceLabel = coordinateSource === "auto" ? "Auto-filled" : coordinateSource === "manual" ? "Manual" : coordinateSource === "existing" ? "Existing" : "Default";
-  const messageTone = coordinateStatus === "failed" ? "border-red-100 bg-red-50 text-red-800" : coordinateStatus === "found" ? "border-teal-100 bg-teal-50 text-teal-900" : "border-stone-200 bg-stone-50 text-stone-700";
+  const sourceLabel =
+    coordinateSource === "auto"
+      ? "Auto-filled"
+      : coordinateSource === "manual"
+        ? "Manual"
+        : coordinateSource === "existing"
+          ? "Existing"
+          : "Default";
+  const messageTone =
+    coordinateStatus === "failed"
+      ? "border-red-100 bg-red-50 text-red-800"
+      : coordinateStatus === "found"
+        ? "border-teal-100 bg-teal-50 text-teal-900"
+        : "border-stone-200 bg-stone-50 text-stone-700";
 
   return (
-    <StepSection title="Location" description="Add the address and coordinates used in public listings.">
-      <Field name="address" label="Address" required value={values.address} errors={errors.address} onChange={updateField} />
+    <StepSection
+      title="Location"
+      description="Add the address and coordinates used in public listings."
+    >
+      <Field
+        name="address"
+        label="Address"
+        required
+        value={values.address}
+        errors={errors.address}
+        onChange={updateField}
+      />
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field name="city" label="City" required value={values.city} errors={errors.city} onChange={updateField} />
-        <Field name="postcode" label="Postcode" required value={values.postcode} errors={errors.postcode} onChange={updateField} />
-        <Field name="borough" label="Borough" value={values.borough} errors={errors.borough} onChange={updateField} />
-        <Field name="country" label="Country" required value={values.country} errors={errors.country} onChange={updateField} />
-        <Field name="latitude" label="Latitude" required value={values.latitude} errors={errors.latitude} onChange={updateField} />
-        <Field name="longitude" label="Longitude" required value={values.longitude} errors={errors.longitude} onChange={updateField} />
+        <Field
+          name="city"
+          label="City"
+          required
+          value={values.city}
+          errors={errors.city}
+          onChange={updateField}
+        />
+        <Field
+          name="postcode"
+          label="Postcode"
+          required
+          value={values.postcode}
+          errors={errors.postcode}
+          onChange={updateField}
+        />
+        <Field
+          name="borough"
+          label="Borough"
+          value={values.borough}
+          errors={errors.borough}
+          onChange={updateField}
+        />
+        <Field
+          name="country"
+          label="Country"
+          required
+          value={values.country}
+          errors={errors.country}
+          onChange={updateField}
+        />
+        <Field
+          name="latitude"
+          label="Latitude"
+          required
+          value={values.latitude}
+          errors={errors.latitude}
+          onChange={updateField}
+        />
+        <Field
+          name="longitude"
+          label="Longitude"
+          required
+          value={values.longitude}
+          errors={errors.longitude}
+          onChange={updateField}
+        />
       </div>
-      <div className={`rounded-md border p-3 text-sm font-semibold ${messageTone}`}>
+      <div
+        className={`rounded-md border p-3 text-sm font-semibold ${messageTone}`}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p>
             Coordinates: {sourceLabel}
-            {coordinateMessage ? <span className="block font-medium">{coordinateMessage}</span> : null}
+            {coordinateMessage ? (
+              <span className="block font-medium">{coordinateMessage}</span>
+            ) : null}
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={lookupCoordinates} disabled={coordinateStatus === "looking"} className="min-h-10 rounded-md border border-teal-200 bg-white px-3 text-sm font-bold text-teal-800 disabled:cursor-not-allowed disabled:text-stone-400">
-              {coordinateStatus === "looking" ? "Finding..." : "Find coordinates"}
+            <button
+              type="button"
+              onClick={lookupCoordinates}
+              disabled={coordinateStatus === "looking"}
+              className="min-h-10 rounded-md border border-teal-200 bg-white px-3 text-sm font-bold text-teal-800 disabled:cursor-not-allowed disabled:text-stone-400"
+            >
+              {coordinateStatus === "looking"
+                ? "Finding..."
+                : "Find coordinates"}
             </button>
             {coordinateSource === "manual" ? (
-              <button type="button" onClick={resetCoordinateOverride} className="min-h-10 rounded-md border border-stone-300 bg-white px-3 text-sm font-bold text-stone-800">
+              <button
+                type="button"
+                onClick={resetCoordinateOverride}
+                className="min-h-10 rounded-md border border-stone-300 bg-white px-3 text-sm font-bold text-stone-800"
+              >
                 Use lookup
               </button>
             ) : null}
@@ -444,7 +855,16 @@ function LocationStep({
   );
 }
 
-function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values }: StepProps & { socialLinks: SocialLinkDraft[]; updateSocialLinks: (links: SocialLinkDraft[]) => void }) {
+function MediaStep({
+  errors,
+  socialLinks,
+  updateField,
+  updateSocialLinks,
+  values,
+}: StepProps & {
+  socialLinks: SocialLinkDraft[];
+  updateSocialLinks: (links: SocialLinkDraft[]) => void;
+}) {
   const [platform, setPlatform] = useState("");
   const [url, setUrl] = useState("");
   const [localError, setLocalError] = useState("");
@@ -452,7 +872,10 @@ function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values
   const pageSize = 3;
   const totalPages = Math.max(1, Math.ceil(socialLinks.length / pageSize));
   const currentPage = Math.min(page, totalPages);
-  const visibleLinks = socialLinks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const visibleLinks = socialLinks.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   function resetDraft() {
     setPlatform("");
@@ -474,7 +897,11 @@ function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values
     const nextLinks = [
       ...socialLinks.filter((link) => link.platform !== platform),
       { platform, url: trimmedUrl },
-    ].sort((first, second) => academySocialPlatformLabels[first.platform].localeCompare(academySocialPlatformLabels[second.platform]));
+    ].sort((first, second) =>
+      academySocialPlatformLabels[first.platform].localeCompare(
+        academySocialPlatformLabels[second.platform],
+      ),
+    );
     updateSocialLinks(nextLinks);
     setPage(Math.max(1, Math.ceil(nextLinks.length / pageSize)));
     resetDraft();
@@ -487,34 +914,89 @@ function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values
   }
 
   function removeLink(link: SocialLinkDraft) {
-    const nextLinks = socialLinks.filter((item) => item.platform !== link.platform);
+    const nextLinks = socialLinks.filter(
+      (item) => item.platform !== link.platform,
+    );
     updateSocialLinks(nextLinks);
-    setPage(Math.min(currentPage, Math.max(1, Math.ceil(nextLinks.length / pageSize))));
+    setPage(
+      Math.min(
+        currentPage,
+        Math.max(1, Math.ceil(nextLinks.length / pageSize)),
+      ),
+    );
   }
 
   return (
-    <StepSection title="Media And Social" description="Optional images, category text, and social links.">
-      <Field name="logoUrl" label="Logo URL" value={values.logoUrl} errors={errors.logoUrl} onChange={updateField} />
-      <Field name="coverImageUrl" label="Cover Image URL" value={values.coverImageUrl} errors={errors.coverImageUrl} onChange={updateField} />
-      <Field name="categories" label="Categories" value={values.categories} errors={errors.categories} onChange={updateField} />
+    <StepSection
+      title="Media And Social"
+      description="Optional images, category text, and social links."
+    >
+      <Field
+        name="logoUrl"
+        label="Logo URL"
+        value={values.logoUrl}
+        errors={errors.logoUrl}
+        onChange={updateField}
+      />
+      <Field
+        name="coverImageUrl"
+        label="Cover Image URL"
+        value={values.coverImageUrl}
+        errors={errors.coverImageUrl}
+        onChange={updateField}
+      />
+      <Field
+        name="categories"
+        label="Categories"
+        value={values.categories}
+        errors={errors.categories}
+        onChange={updateField}
+      />
       <section className="grid gap-3 rounded-md border border-stone-200 p-3">
         <div className="grid gap-4 lg:grid-cols-[220px_1fr_auto] lg:items-end">
           <label className="grid gap-1 text-sm font-semibold text-stone-800">
             Social Media
-            <select value={platform} onChange={(event) => setPlatform(event.target.value)} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+            <select
+              value={platform}
+              onChange={(event) => setPlatform(event.target.value)}
+              className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal"
+            >
               <option value="">Select platform</option>
-              {academySocialPlatformOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              {academySocialPlatformOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="grid gap-1 text-sm font-semibold text-stone-800">
             URI
-            <input value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://..." className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal" />
+            <input
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              placeholder="https://..."
+              className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal"
+            />
           </label>
-          <button type="button" onClick={addLink} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white">
-            {socialLinks.some((link) => link.platform === platform) ? "Update" : "Add"}
+          <button
+            type="button"
+            onClick={addLink}
+            className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white"
+          >
+            {socialLinks.some((link) => link.platform === platform)
+              ? "Update"
+              : "Add"}
           </button>
         </div>
-        <FieldError errors={localError ? [localError] : errors.socialLinksJson ? [errors.socialLinksJson] : undefined} />
+        <FieldError
+          errors={
+            localError
+              ? [localError]
+              : errors.socialLinksJson
+                ? [errors.socialLinksJson]
+                : undefined
+          }
+        />
         <div className="overflow-x-auto rounded-md border border-stone-200">
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead className="bg-stone-50 text-xs uppercase text-stone-500">
@@ -527,80 +1009,192 @@ function MediaStep({ errors, socialLinks, updateField, updateSocialLinks, values
             <tbody className="divide-y divide-stone-100">
               {visibleLinks.map((link) => (
                 <tr key={link.platform}>
-                  <td className="px-3 py-3 font-semibold text-stone-950">{academySocialPlatformLabels[link.platform]}</td>
-                  <td className="max-w-[280px] break-all px-3 py-3 text-stone-700">{link.url}</td>
+                  <td className="px-3 py-3 font-semibold text-stone-950">
+                    {academySocialPlatformLabels[link.platform]}
+                  </td>
+                  <td className="max-w-[280px] break-all px-3 py-3 text-stone-700">
+                    {link.url}
+                  </td>
                   <td className="px-3 py-3">
                     <div className="flex justify-end gap-2">
-                      <button type="button" onClick={() => editLink(link)} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800">Edit</button>
-                      <button type="button" onClick={() => removeLink(link)} className="rounded-md border border-red-200 px-3 py-2 text-xs font-bold text-red-700">Remove</button>
+                      <button
+                        type="button"
+                        onClick={() => editLink(link)}
+                        className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeLink(link)}
+                        className="rounded-md border border-red-200 px-3 py-2 text-xs font-bold text-red-700"
+                      >
+                        Remove
+                      </button>
                     </div>
                   </td>
                 </tr>
               ))}
               {!visibleLinks.length ? (
                 <tr>
-                  <td colSpan={3} className="px-3 py-6 text-center font-semibold text-stone-500">No social links added.</td>
+                  <td
+                    colSpan={3}
+                    className="px-3 py-6 text-center font-semibold text-stone-500"
+                  >
+                    No social links added.
+                  </td>
                 </tr>
               ) : null}
             </tbody>
           </table>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-semibold text-stone-600">
-          <span>Page {currentPage} of {totalPages} · 3 items per page</span>
+          <span>
+            Page {currentPage} of {totalPages} · 3 items per page
+          </span>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={currentPage === 1} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800 disabled:text-stone-400">Previous</button>
-            <button type="button" onClick={() => setPage((value) => Math.min(totalPages, value + 1))} disabled={currentPage === totalPages} className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800 disabled:text-stone-400">Next</button>
+            <button
+              type="button"
+              onClick={() => setPage((value) => Math.max(1, value - 1))}
+              disabled={currentPage === 1}
+              className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800 disabled:text-stone-400"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                setPage((value) => Math.min(totalPages, value + 1))
+              }
+              disabled={currentPage === totalPages}
+              className="rounded-md border border-stone-300 px-3 py-2 text-xs font-bold text-stone-800 disabled:text-stone-400"
+            >
+              Next
+            </button>
           </div>
         </div>
       </section>
       <div className="hidden">
-        <Field name="facebookUrl" label="Facebook URL" value={values.facebookUrl} errors={errors.facebookUrl} onChange={updateField} />
-        <Field name="instagramUrl" label="Instagram URL" value={values.instagramUrl} errors={errors.instagramUrl} onChange={updateField} />
-        <Field name="xUrl" label="X URL" value={values.xUrl} errors={errors.xUrl} onChange={updateField} />
+        <Field
+          name="facebookUrl"
+          label="Facebook URL"
+          value={values.facebookUrl}
+          errors={errors.facebookUrl}
+          onChange={updateField}
+        />
+        <Field
+          name="instagramUrl"
+          label="Instagram URL"
+          value={values.instagramUrl}
+          errors={errors.instagramUrl}
+          onChange={updateField}
+        />
+        <Field
+          name="xUrl"
+          label="X URL"
+          value={values.xUrl}
+          errors={errors.xUrl}
+          onChange={updateField}
+        />
       </div>
     </StepSection>
   );
 }
 
-function CapabilityToggle({ description, label, name, updateField, values }: { description: string; label: string; name: string; updateField: (name: string, value: string) => void; values: AcademyValues }) {
+function CapabilityToggle({
+  description,
+  label,
+  name,
+  updateField,
+  values,
+}: {
+  description: string;
+  label: string;
+  name: string;
+  updateField: (name: string, value: string) => void;
+  values: AcademyValues;
+}) {
   return (
     <label className="flex min-h-16 items-start gap-3 rounded-md border border-stone-200 bg-white p-3 text-sm font-semibold text-stone-800">
       <input
         type="checkbox"
         checked={values[name] === "on"}
-        onChange={(event) => updateField(name, event.target.checked ? "on" : "off")}
+        onChange={(event) =>
+          updateField(name, event.target.checked ? "on" : "off")
+        }
         className="mt-1 size-4 accent-teal-700"
       />
       <span>
         <span className="block font-black text-stone-950">{label}</span>
-        <span className="mt-1 block text-xs font-semibold leading-5 text-stone-600">{description}</span>
+        <span className="mt-1 block text-xs font-semibold leading-5 text-stone-600">
+          {description}
+        </span>
       </span>
     </label>
   );
 }
 
-function SettingsStep({ canManagePlatformFields, errors, updateField, values }: StepProps & { canManagePlatformFields: boolean }) {
+function SettingsStep({
+  canManagePlatformFields,
+  errors,
+  updateField,
+  values,
+}: StepProps & { canManagePlatformFields: boolean }) {
   return (
-    <StepSection title="Settings" description={canManagePlatformFields ? "Training availability, commercial information, and verification state." : "Training availability and commercial information."}>
+    <StepSection
+      title="Settings"
+      description={
+        canManagePlatformFields
+          ? "Training availability, commercial information, and verification state."
+          : "Training availability and commercial information."
+      }
+    >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field name="dropInPrice" label="Drop-in Price" value={values.dropInPrice} errors={errors.dropInPrice} onChange={updateField} />
+        <Field
+          name="dropInPrice"
+          label="Drop-in Price"
+          value={values.dropInPrice}
+          errors={errors.dropInPrice}
+          onChange={updateField}
+        />
         {canManagePlatformFields ? (
           <label className="grid gap-1 text-sm font-semibold text-stone-800">
             Verification Status
-            <select value={values.verificationStatus} onChange={(event) => updateField("verificationStatus", event.target.value)} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+            <select
+              value={values.verificationStatus}
+              onChange={(event) =>
+                updateField("verificationStatus", event.target.value)
+              }
+              className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal"
+            >
               <option value={AcademyVerificationStatus.PENDING}>Pending</option>
-              <option value={AcademyVerificationStatus.VERIFIED}>Verified</option>
-              <option value={AcademyVerificationStatus.REJECTED}>Rejected</option>
+              <option value={AcademyVerificationStatus.VERIFIED}>
+                Verified
+              </option>
+              <option value={AcademyVerificationStatus.REJECTED}>
+                Rejected
+              </option>
             </select>
-            <FieldError errors={errors.verificationStatus ? [errors.verificationStatus] : undefined} />
+            <FieldError
+              errors={
+                errors.verificationStatus
+                  ? [errors.verificationStatus]
+                  : undefined
+              }
+            />
           </label>
         ) : null}
       </div>
       {canManagePlatformFields ? (
         <section className="grid gap-3 rounded-md border border-stone-200 bg-stone-50 p-3">
           <div>
-            <h5 className="font-black text-stone-950">Capability verification</h5>
-            <p className="mt-1 text-sm font-semibold text-stone-600">Approve each public capability separately. A verified listing does not automatically allow online booking or payments.</p>
+            <h5 className="font-black text-stone-950">
+              Capability verification
+            </h5>
+            <p className="mt-1 text-sm font-semibold text-stone-600">
+              Approve each public capability separately. A verified listing does
+              not automatically allow online booking or payments.
+            </p>
           </div>
           <div className="grid gap-3 md:grid-cols-3">
             <CapabilityToggle
@@ -628,52 +1222,170 @@ function SettingsStep({ canManagePlatformFields, errors, updateField, values }: 
         </section>
       ) : null}
       <div className="grid gap-3 rounded-md border border-stone-200 p-3 sm:grid-cols-2">
-        <Toggle name="giAvailable" label="Gi available" updateField={updateField} values={values} />
-        <Toggle name="nogiAvailable" label="No-Gi available" updateField={updateField} values={values} />
-        <Toggle name="beginnerFriendly" label="Beginner friendly" updateField={updateField} values={values} />
-        <Toggle name="competitionFocused" label="Competition focused" updateField={updateField} values={values} />
-        {canManagePlatformFields ? <Toggle name="featured" label="Featured academy" updateField={updateField} values={values} /> : null}
+        <Toggle
+          name="giAvailable"
+          label="Gi available"
+          updateField={updateField}
+          values={values}
+        />
+        <Toggle
+          name="nogiAvailable"
+          label="No-Gi available"
+          updateField={updateField}
+          values={values}
+        />
+        <Toggle
+          name="beginnerFriendly"
+          label="Beginner friendly"
+          updateField={updateField}
+          values={values}
+        />
+        <Toggle
+          name="competitionFocused"
+          label="Competition focused"
+          updateField={updateField}
+          values={values}
+        />
+        {canManagePlatformFields ? (
+          <Toggle
+            name="featured"
+            label="Featured academy"
+            updateField={updateField}
+            values={values}
+          />
+        ) : null}
       </div>
       {canManagePlatformFields ? (
         <>
           <div className="rounded-md border border-teal-100 bg-teal-50 p-3">
-            <Toggle name="sendClaimInvitation" label="Send claim invitation" updateField={updateField} values={values} />
-            <p className="mt-2 text-sm font-semibold text-teal-900">Queues an email to the academy contact when the saved email is valid, usable, unclaimed, and outside reminder cooldown.</p>
+            <Toggle
+              name="sendClaimInvitation"
+              label="Send claim invitation"
+              updateField={updateField}
+              values={values}
+            />
+            <p className="mt-2 text-sm font-semibold text-teal-900">
+              Queues an email to the academy contact when the saved email is
+              valid, usable, unclaimed, and outside reminder cooldown.
+            </p>
           </div>
-          <p className="text-sm font-semibold text-stone-600">Public listing, booking, and payment verification are approved separately.</p>
+          <p className="text-sm font-semibold text-stone-600">
+            Public listing, booking, and payment verification are approved
+            separately.
+          </p>
         </>
       ) : null}
     </StepSection>
   );
 }
 
-function ReviewStep({ canManagePlatformFields, coordinateSource, errors, mode, setStepIndex, socialLinks, values }: { canManagePlatformFields: boolean; coordinateSource: CoordinateSource; errors: Record<string, string>; mode: "create" | "edit"; setStepIndex: (index: number) => void; socialLinks: SocialLinkDraft[]; values: AcademyValues }) {
+function ReviewStep({
+  canManagePlatformFields,
+  coordinateSource,
+  emailVerification,
+  errors,
+  mode,
+  setStepIndex,
+  socialLinks,
+  values,
+}: {
+  canManagePlatformFields: boolean;
+  coordinateSource: CoordinateSource;
+  emailVerification?: EmailVerificationOptions;
+  errors: Record<string, string>;
+  mode: "create" | "edit";
+  setStepIndex: (index: number) => void;
+  socialLinks: SocialLinkDraft[];
+  values: AcademyValues;
+}) {
   const errorEntries = Object.entries(errors);
   const actionLabel = mode === "edit" ? "saving" : "creating";
   return (
-    <StepSection title="Review" description={`Confirm the academy information before ${actionLabel} the record.`}>
+    <StepSection
+      title="Review"
+      description={`Confirm the academy information before ${actionLabel} the record.`}
+    >
       {errorEntries.length ? (
         <div className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">
-          <p className="font-black">Resolve these items before {actionLabel}:</p>
+          <p className="font-black">
+            Resolve these items before {actionLabel}:
+          </p>
           <ul className="mt-2 list-disc pl-5">
-            {errorEntries.map(([field, error]) => <li key={field}>{field}: {error}</li>)}
+            {errorEntries.map(([field, error]) => (
+              <li key={field}>
+                {field}: {error}
+              </li>
+            ))}
           </ul>
         </div>
       ) : null}
-      {steps.filter((step) => step.id !== "review").map((step) => (
-        <section key={step.id} className="rounded-md border border-stone-200 p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h4 className="font-black text-stone-950">{step.label}</h4>
-            <button type="button" onClick={() => setStepIndex(steps.findIndex((item) => item.id === step.id))} className="text-sm font-bold text-teal-800">Edit</button>
-          </div>
-          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-            {visibleFieldsByStep(step.id, canManagePlatformFields).filter((field) => field !== "socialLinksJson").map((field) => (
-              <ReviewValue key={field} label={field} value={displayValue(field, values[field], coordinateSource)} />
-            ))}
-            {step.id === "media" ? <ReviewValue label="social links" value={socialLinks.map((link) => `${academySocialPlatformLabels[link.platform]}: ${link.url}`).join("; ")} /> : null}
-          </div>
+      {steps
+        .filter((step) => step.id !== "review")
+        .map((step) => (
+          <section
+            key={step.id}
+            className="rounded-md border border-stone-200 p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="font-black text-stone-950">{step.label}</h4>
+              <button
+                type="button"
+                onClick={() =>
+                  setStepIndex(steps.findIndex((item) => item.id === step.id))
+                }
+                className="text-sm font-bold text-teal-800"
+              >
+                Edit
+              </button>
+            </div>
+            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+              {visibleFieldsByStep(step.id, canManagePlatformFields)
+                .filter((field) => field !== "socialLinksJson")
+                .map((field) => (
+                  <ReviewValue
+                    key={field}
+                    label={field}
+                    value={displayValue(field, values[field], coordinateSource)}
+                  />
+                ))}
+              {step.id === "media" ? (
+                <ReviewValue
+                  label="social links"
+                  value={socialLinks
+                    .map(
+                      (link) =>
+                        `${academySocialPlatformLabels[link.platform]}: ${link.url}`,
+                    )
+                    .join("; ")}
+                />
+              ) : null}
+            </div>
+          </section>
+        ))}
+      {emailVerification ? (
+        <section className="rounded-md border border-teal-200 bg-teal-50/60 p-4">
+          <h4 className="font-black text-stone-950">
+            {emailVerification.label ?? "Email verification"}
+          </h4>
+          <p className="mt-1 text-sm font-semibold leading-6 text-teal-950">
+            {emailVerification.description ??
+              "Enter the verification code sent to the academy contact email before creating the public listing."}
+          </p>
+          <label className="mt-3 grid gap-1 text-sm font-semibold text-stone-800">
+            Verification code{" "}
+            {emailVerification.required ? (
+              <span className="text-xs font-bold text-red-700">Required</span>
+            ) : null}
+            <input
+              name="emailVerificationCode"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="6-digit code"
+              className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-base font-normal"
+            />
+          </label>
         </section>
-      ))}
+      ) : null}
     </StepSection>
   );
 }
@@ -683,20 +1395,55 @@ function LivePreview({ values }: { values: AcademyValues }) {
   return (
     <section className="overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
       <div className="h-28 bg-stone-100">
-        {isLikelyUrl(values.coverImageUrl) ? <Image src={values.coverImageUrl} alt="" width={640} height={180} unoptimized className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-sm font-bold text-stone-500">Cover preview</div>}
+        {isLikelyUrl(values.coverImageUrl) ? (
+          <Image
+            src={values.coverImageUrl}
+            alt=""
+            width={640}
+            height={180}
+            unoptimized
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm font-bold text-stone-500">
+            Cover preview
+          </div>
+        )}
       </div>
       <div className="p-4">
         <div className="flex items-start gap-3">
           <div className="grid size-14 shrink-0 place-items-center rounded-full bg-teal-50 text-lg font-black text-teal-800 ring-1 ring-teal-100">
-            {isLikelyUrl(values.logoUrl) ? <Image src={values.logoUrl} alt="" width={56} height={56} unoptimized className="size-14 rounded-full object-cover" /> : initials(values.name || "Academy")}
+            {isLikelyUrl(values.logoUrl) ? (
+              <Image
+                src={values.logoUrl}
+                alt=""
+                width={56}
+                height={56}
+                unoptimized
+                className="size-14 rounded-full object-cover"
+              />
+            ) : (
+              initials(values.name || "Academy")
+            )}
           </div>
           <div className="min-w-0">
-            <h4 className="break-words text-lg font-black text-stone-950">{values.name || "Academy name"}</h4>
-            <p className="mt-1 text-sm text-stone-600">{values.city || "City"}, {values.country || "Country"}</p>
-            <p className={`mt-2 inline-flex rounded-md px-2 py-1 text-xs font-bold ${verified ? "bg-teal-50 text-teal-800" : "bg-stone-100 text-stone-600"}`}>{verified ? "Public listing verified" : values.verificationStatus}</p>
+            <h4 className="break-words text-lg font-black text-stone-950">
+              {values.name || "Academy name"}
+            </h4>
+            <p className="mt-1 text-sm text-stone-600">
+              {values.city || "City"}, {values.country || "Country"}
+            </p>
+            <p
+              className={`mt-2 inline-flex rounded-md px-2 py-1 text-xs font-bold ${verified ? "bg-teal-50 text-teal-800" : "bg-stone-100 text-stone-600"}`}
+            >
+              {verified ? "Public listing verified" : values.verificationStatus}
+            </p>
           </div>
         </div>
-        <p className="mt-4 line-clamp-4 text-sm leading-6 text-stone-700">{values.description || "Public academy summary will appear here as you complete the form."}</p>
+        <p className="mt-4 line-clamp-4 text-sm leading-6 text-stone-700">
+          {values.description ||
+            "Public academy summary will appear here as you complete the form."}
+        </p>
       </div>
     </section>
   );
@@ -708,7 +1455,15 @@ type StepProps = {
   values: AcademyValues;
 };
 
-function StepSection({ children, description, title }: { children: React.ReactNode; description: string; title: string }) {
+function StepSection({
+  children,
+  description,
+  title,
+}: {
+  children: React.ReactNode;
+  description: string;
+  title: string;
+}) {
   return (
     <section className="grid gap-5">
       <div>
@@ -720,20 +1475,61 @@ function StepSection({ children, description, title }: { children: React.ReactNo
   );
 }
 
-function Field({ errors, label, name, onChange, required, value }: { errors?: string; label: string; name: string; onChange: (name: string, value: string) => void; required?: boolean; value: string }) {
+function Field({
+  errors,
+  label,
+  name,
+  onChange,
+  required,
+  value,
+}: {
+  errors?: string;
+  label: string;
+  name: string;
+  onChange: (name: string, value: string) => void;
+  required?: boolean;
+  value: string;
+}) {
   return (
     <label className="grid gap-1 text-sm font-semibold text-stone-800">
-      <span>{label} {required ? <span className="text-xs font-bold text-red-700">Required</span> : null}</span>
-      <input value={value} onChange={(event) => onChange(name, event.target.value)} aria-invalid={errors ? "true" : undefined} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal aria-invalid:border-red-500" />
+      <span>
+        {label}{" "}
+        {required ? (
+          <span className="text-xs font-bold text-red-700">Required</span>
+        ) : null}
+      </span>
+      <input
+        value={value}
+        onChange={(event) => onChange(name, event.target.value)}
+        aria-invalid={errors ? "true" : undefined}
+        className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal aria-invalid:border-red-500"
+      />
       <FieldError errors={errors ? [errors] : undefined} />
     </label>
   );
 }
 
-function Toggle({ label, name, updateField, values }: { label: string; name: string; updateField: (name: string, value: string) => void; values: AcademyValues }) {
+function Toggle({
+  label,
+  name,
+  updateField,
+  values,
+}: {
+  label: string;
+  name: string;
+  updateField: (name: string, value: string) => void;
+  values: AcademyValues;
+}) {
   return (
     <label className="flex items-center gap-3 rounded-md border border-stone-200 p-3 text-sm font-semibold text-stone-800">
-      <input type="checkbox" checked={values[name] === "on"} onChange={(event) => updateField(name, event.target.checked ? "on" : "off")} className="size-4 accent-teal-700" />
+      <input
+        type="checkbox"
+        checked={values[name] === "on"}
+        onChange={(event) =>
+          updateField(name, event.target.checked ? "on" : "off")
+        }
+        className="size-4 accent-teal-700"
+      />
       {label}
     </label>
   );
@@ -743,47 +1539,202 @@ function ReviewValue({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs font-bold uppercase text-stone-500">{label}</p>
-      <p className="mt-1 break-words font-semibold text-stone-950">{value || "Not provided"}</p>
+      <p className="mt-1 break-words font-semibold text-stone-950">
+        {value || "Not provided"}
+      </p>
     </div>
   );
 }
 
-function ClassicAcademyForm({ action, academy, cancelHref, returnTo }: { action: AcademyAction; academy?: AcademyWithSocialLinks; cancelHref?: string; returnTo?: string }) {
-  const [state, formAction, isPending] = useActionState(action, initialAcademyFormState);
+function ClassicAcademyForm({
+  action,
+  academy,
+  cancelHref,
+  returnTo,
+}: {
+  action: AcademyAction;
+  academy?: AcademyWithSocialLinks;
+  cancelHref?: string;
+  returnTo?: string;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    action,
+    initialAcademyFormState,
+  );
 
   return (
-    <form action={formAction} className="mt-6 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-      {state.message ? <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">{state.message}</p> : null}
-      <ClassicField name="name" label="Name" value={state.values.name ?? academy?.name} errors={state.fieldErrors.name} />
-      <ClassicField name="slug" label="Slug" value={state.values.slug ?? academy?.slug} errors={state.fieldErrors.slug} />
+    <form
+      action={formAction}
+      className="mt-6 grid gap-4 rounded-lg border border-stone-200 bg-white p-4 shadow-sm"
+    >
+      {returnTo ? (
+        <input type="hidden" name="returnTo" value={returnTo} />
+      ) : null}
+      {state.message ? (
+        <p className="rounded-md bg-red-50 p-3 text-sm font-semibold text-red-800">
+          {state.message}
+        </p>
+      ) : null}
+      <ClassicField
+        name="name"
+        label="Name"
+        value={state.values.name ?? academy?.name}
+        errors={state.fieldErrors.name}
+      />
+      <ClassicField
+        name="slug"
+        label="Slug"
+        value={state.values.slug ?? academy?.slug}
+        errors={state.fieldErrors.slug}
+      />
       <label className="grid gap-1 text-sm font-semibold text-stone-800">
         Description
-        <textarea name="description" required defaultValue={state.values.description ?? academy?.description} className="min-h-28 rounded-md border border-stone-300 px-3 py-2 text-base font-normal" />
+        <textarea
+          name="description"
+          required
+          defaultValue={state.values.description ?? academy?.description}
+          className="min-h-28 rounded-md border border-stone-300 px-3 py-2 text-base font-normal"
+        />
         <FieldError errors={state.fieldErrors.description} />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
-        <ClassicField name="affiliation" label="Affiliation" value={state.values.affiliation ?? academy?.affiliation ?? ""} required={false} errors={state.fieldErrors.affiliation} />
-        <ClassicField name="website" label="Website" value={state.values.website ?? academy?.website ?? ""} required={false} errors={state.fieldErrors.website} />
-        <ClassicField name="email" label="Email" value={state.values.email ?? academy?.email ?? ""} required={false} errors={state.fieldErrors.email} />
-        <ClassicField name="phone" label="Phone" value={state.values.phone ?? academy?.phone ?? ""} required={false} errors={state.fieldErrors.phone} />
-        <ClassicField name="address" label="Address" value={state.values.address ?? academy?.address} errors={state.fieldErrors.address} />
-        <ClassicField name="city" label="City" value={state.values.city ?? academy?.city ?? "London"} errors={state.fieldErrors.city} />
-        <ClassicField name="postcode" label="Postcode" value={state.values.postcode ?? academy?.postcode} errors={state.fieldErrors.postcode} />
-        <ClassicField name="borough" label="Borough" value={state.values.borough ?? academy?.borough ?? ""} required={false} errors={state.fieldErrors.borough} />
-        <ClassicField name="country" label="Country" value={state.values.country ?? academy?.country ?? "United Kingdom"} errors={state.fieldErrors.country} />
-        <ClassicField name="latitude" label="Latitude" value={state.values.latitude ?? academy?.latitude.toString() ?? "51.5072"} errors={state.fieldErrors.latitude} />
-        <ClassicField name="longitude" label="Longitude" value={state.values.longitude ?? academy?.longitude.toString() ?? "-0.1276"} errors={state.fieldErrors.longitude} />
-        <ClassicField name="dropInPrice" label="Drop-in Price" value={state.values.dropInPrice ?? academy?.dropInPrice?.toString() ?? ""} required={false} errors={state.fieldErrors.dropInPrice} />
-        <ClassicField name="logoUrl" label="Logo URL" value={state.values.logoUrl ?? academy?.logoUrl ?? ""} required={false} errors={state.fieldErrors.logoUrl} />
-        <ClassicField name="coverImageUrl" label="Cover Image URL" value={state.values.coverImageUrl ?? academy?.coverImageUrl ?? ""} required={false} errors={state.fieldErrors.coverImageUrl} />
-        <ClassicField name="categories" label="Categories" value={state.values.categories ?? academy?.categories ?? ""} required={false} errors={state.fieldErrors.categories} />
-        <ClassicField name="facebookUrl" label="Facebook URL" value={state.values.facebookUrl ?? academy?.facebookUrl ?? ""} required={false} errors={state.fieldErrors.facebookUrl} />
-        <ClassicField name="instagramUrl" label="Instagram URL" value={state.values.instagramUrl ?? academy?.instagramUrl ?? ""} required={false} errors={state.fieldErrors.instagramUrl} />
-        <ClassicField name="xUrl" label="X URL" value={state.values.xUrl ?? academy?.xUrl ?? ""} required={false} errors={state.fieldErrors.xUrl} />
+        <ClassicField
+          name="affiliation"
+          label="Affiliation"
+          value={state.values.affiliation ?? academy?.affiliation ?? ""}
+          required={false}
+          errors={state.fieldErrors.affiliation}
+        />
+        <ClassicField
+          name="website"
+          label="Website"
+          value={state.values.website ?? academy?.website ?? ""}
+          required={false}
+          errors={state.fieldErrors.website}
+        />
+        <ClassicField
+          name="email"
+          label="Email"
+          value={state.values.email ?? academy?.email ?? ""}
+          required={false}
+          errors={state.fieldErrors.email}
+        />
+        <ClassicField
+          name="phone"
+          label="Phone"
+          value={state.values.phone ?? academy?.phone ?? ""}
+          required={false}
+          errors={state.fieldErrors.phone}
+        />
+        <ClassicField
+          name="address"
+          label="Address"
+          value={state.values.address ?? academy?.address}
+          errors={state.fieldErrors.address}
+        />
+        <ClassicField
+          name="city"
+          label="City"
+          value={state.values.city ?? academy?.city ?? "London"}
+          errors={state.fieldErrors.city}
+        />
+        <ClassicField
+          name="postcode"
+          label="Postcode"
+          value={state.values.postcode ?? academy?.postcode}
+          errors={state.fieldErrors.postcode}
+        />
+        <ClassicField
+          name="borough"
+          label="Borough"
+          value={state.values.borough ?? academy?.borough ?? ""}
+          required={false}
+          errors={state.fieldErrors.borough}
+        />
+        <ClassicField
+          name="country"
+          label="Country"
+          value={state.values.country ?? academy?.country ?? "United Kingdom"}
+          errors={state.fieldErrors.country}
+        />
+        <ClassicField
+          name="latitude"
+          label="Latitude"
+          value={
+            state.values.latitude ?? academy?.latitude.toString() ?? "51.5072"
+          }
+          errors={state.fieldErrors.latitude}
+        />
+        <ClassicField
+          name="longitude"
+          label="Longitude"
+          value={
+            state.values.longitude ?? academy?.longitude.toString() ?? "-0.1276"
+          }
+          errors={state.fieldErrors.longitude}
+        />
+        <ClassicField
+          name="dropInPrice"
+          label="Drop-in Price"
+          value={
+            state.values.dropInPrice ?? academy?.dropInPrice?.toString() ?? ""
+          }
+          required={false}
+          errors={state.fieldErrors.dropInPrice}
+        />
+        <ClassicField
+          name="logoUrl"
+          label="Logo URL"
+          value={state.values.logoUrl ?? academy?.logoUrl ?? ""}
+          required={false}
+          errors={state.fieldErrors.logoUrl}
+        />
+        <ClassicField
+          name="coverImageUrl"
+          label="Cover Image URL"
+          value={state.values.coverImageUrl ?? academy?.coverImageUrl ?? ""}
+          required={false}
+          errors={state.fieldErrors.coverImageUrl}
+        />
+        <ClassicField
+          name="categories"
+          label="Categories"
+          value={state.values.categories ?? academy?.categories ?? ""}
+          required={false}
+          errors={state.fieldErrors.categories}
+        />
+        <ClassicField
+          name="facebookUrl"
+          label="Facebook URL"
+          value={state.values.facebookUrl ?? academy?.facebookUrl ?? ""}
+          required={false}
+          errors={state.fieldErrors.facebookUrl}
+        />
+        <ClassicField
+          name="instagramUrl"
+          label="Instagram URL"
+          value={state.values.instagramUrl ?? academy?.instagramUrl ?? ""}
+          required={false}
+          errors={state.fieldErrors.instagramUrl}
+        />
+        <ClassicField
+          name="xUrl"
+          label="X URL"
+          value={state.values.xUrl ?? academy?.xUrl ?? ""}
+          required={false}
+          errors={state.fieldErrors.xUrl}
+        />
         <label className="grid gap-1 text-sm font-semibold text-stone-800">
           Verification Status
-          <select name="verificationStatus" defaultValue={state.values.verificationStatus ?? academy?.verificationStatus ?? AcademyVerificationStatus.PENDING} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal">
+          <select
+            name="verificationStatus"
+            defaultValue={
+              state.values.verificationStatus ??
+              academy?.verificationStatus ??
+              AcademyVerificationStatus.PENDING
+            }
+            className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal"
+          >
             <option value={AcademyVerificationStatus.PENDING}>Pending</option>
             <option value={AcademyVerificationStatus.VERIFIED}>Verified</option>
             <option value={AcademyVerificationStatus.REJECTED}>Rejected</option>
@@ -792,20 +1743,94 @@ function ClassicAcademyForm({ action, academy, cancelHref, returnTo }: { action:
         </label>
       </div>
       <div className="grid gap-3 rounded-md border border-stone-200 p-3 sm:grid-cols-2">
-        <ClassicCheckbox name="giAvailable" label="Gi available" checked={state.values.giAvailable ? state.values.giAvailable === "on" : academy?.giAvailable ?? true} />
-        <ClassicCheckbox name="nogiAvailable" label="No-Gi available" checked={state.values.nogiAvailable ? state.values.nogiAvailable === "on" : academy?.nogiAvailable ?? true} />
-        <ClassicCheckbox name="beginnerFriendly" label="Beginner friendly" checked={state.values.beginnerFriendly ? state.values.beginnerFriendly === "on" : academy?.beginnerFriendly ?? true} />
-        <ClassicCheckbox name="competitionFocused" label="Competition focused" checked={state.values.competitionFocused ? state.values.competitionFocused === "on" : academy?.competitionFocused ?? false} />
-        <ClassicCheckbox name="featured" label="Featured academy" checked={state.values.featured ? state.values.featured === "on" : academy?.featured ?? false} />
-        <ClassicCheckbox name="publicListingVerified" label="Public listing verified" checked={state.values.publicListingVerified ? state.values.publicListingVerified === "on" : academy?.publicListingVerified ?? academy?.verified ?? false} />
-        <ClassicCheckbox name="bookingVerified" label="Online booking verified" checked={state.values.bookingVerified ? state.values.bookingVerified === "on" : academy?.bookingVerified ?? false} />
-        <ClassicCheckbox name="paymentsVerified" label="Online payments verified" checked={state.values.paymentsVerified ? state.values.paymentsVerified === "on" : academy?.paymentsVerified ?? false} />
+        <ClassicCheckbox
+          name="giAvailable"
+          label="Gi available"
+          checked={
+            state.values.giAvailable
+              ? state.values.giAvailable === "on"
+              : (academy?.giAvailable ?? true)
+          }
+        />
+        <ClassicCheckbox
+          name="nogiAvailable"
+          label="No-Gi available"
+          checked={
+            state.values.nogiAvailable
+              ? state.values.nogiAvailable === "on"
+              : (academy?.nogiAvailable ?? true)
+          }
+        />
+        <ClassicCheckbox
+          name="beginnerFriendly"
+          label="Beginner friendly"
+          checked={
+            state.values.beginnerFriendly
+              ? state.values.beginnerFriendly === "on"
+              : (academy?.beginnerFriendly ?? true)
+          }
+        />
+        <ClassicCheckbox
+          name="competitionFocused"
+          label="Competition focused"
+          checked={
+            state.values.competitionFocused
+              ? state.values.competitionFocused === "on"
+              : (academy?.competitionFocused ?? false)
+          }
+        />
+        <ClassicCheckbox
+          name="featured"
+          label="Featured academy"
+          checked={
+            state.values.featured
+              ? state.values.featured === "on"
+              : (academy?.featured ?? false)
+          }
+        />
+        <ClassicCheckbox
+          name="publicListingVerified"
+          label="Public listing verified"
+          checked={
+            state.values.publicListingVerified
+              ? state.values.publicListingVerified === "on"
+              : (academy?.publicListingVerified ?? academy?.verified ?? false)
+          }
+        />
+        <ClassicCheckbox
+          name="bookingVerified"
+          label="Online booking verified"
+          checked={
+            state.values.bookingVerified
+              ? state.values.bookingVerified === "on"
+              : (academy?.bookingVerified ?? false)
+          }
+        />
+        <ClassicCheckbox
+          name="paymentsVerified"
+          label="Online payments verified"
+          checked={
+            state.values.paymentsVerified
+              ? state.values.paymentsVerified === "on"
+              : (academy?.paymentsVerified ?? false)
+          }
+        />
       </div>
       <div className="flex flex-wrap gap-3">
-        <button disabled={isPending} className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400">
+        <button
+          disabled={isPending}
+          className="min-h-11 rounded-md bg-teal-700 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-stone-400"
+        >
           {isPending ? "Saving..." : "Save Academy"}
         </button>
-        {cancelHref ? <Link href={cancelHref} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800">Cancel</Link> : null}
+        {cancelHref ? (
+          <Link
+            href={cancelHref}
+            className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-4 text-sm font-bold text-stone-800"
+          >
+            Cancel
+          </Link>
+        ) : null}
       </div>
     </form>
   );
@@ -813,34 +1838,73 @@ function ClassicAcademyForm({ action, academy, cancelHref, returnTo }: { action:
 
 function validateValues(values: AcademyValues) {
   const errors: Record<string, string> = {};
-  if (values.name.trim().length < 2) errors.name = "Name must be at least 2 characters.";
-  if (!/^[a-z0-9-]{2,}$/.test(values.slug.trim())) errors.slug = "Use lowercase letters, numbers, and hyphens.";
-  if (values.description.trim().length < 10) errors.description = "Description must be at least 10 characters.";
-  if (values.address.trim().length < 4) errors.address = "Address must be at least 4 characters.";
+  if (values.name.trim().length < 2)
+    errors.name = "Name must be at least 2 characters.";
+  if (!/^[a-z0-9-]{2,}$/.test(values.slug.trim()))
+    errors.slug = "Use lowercase letters, numbers, and hyphens.";
+  if (values.description.trim().length < 10)
+    errors.description = "Description must be at least 10 characters.";
+  if (values.address.trim().length < 4)
+    errors.address = "Address must be at least 4 characters.";
   if (values.city.trim().length < 2) errors.city = "City is required.";
-  if (values.postcode.trim().length < 3) errors.postcode = "Postcode is required.";
+  if (values.postcode.trim().length < 3)
+    errors.postcode = "Postcode is required.";
   if (values.country.trim().length < 2) errors.country = "Country is required.";
-  if (!Number.isFinite(Number(values.latitude))) errors.latitude = "Latitude must be a valid number.";
-  if (!Number.isFinite(Number(values.longitude))) errors.longitude = "Longitude must be a valid number.";
-  if (Number.isFinite(Number(values.latitude)) && (Number(values.latitude) < -90 || Number(values.latitude) > 90)) errors.latitude = "Latitude must be between -90 and 90.";
-  if (Number.isFinite(Number(values.longitude)) && (Number(values.longitude) < -180 || Number(values.longitude) > 180)) errors.longitude = "Longitude must be between -180 and 180.";
-  ["website", "logoUrl", "coverImageUrl", "facebookUrl", "instagramUrl", "xUrl"].forEach((field) => {
-    if (values[field] && !isLikelyUrl(values[field])) errors[field] = "Enter a valid URL or leave blank.";
+  if (!Number.isFinite(Number(values.latitude)))
+    errors.latitude = "Latitude must be a valid number.";
+  if (!Number.isFinite(Number(values.longitude)))
+    errors.longitude = "Longitude must be a valid number.";
+  if (
+    Number.isFinite(Number(values.latitude)) &&
+    (Number(values.latitude) < -90 || Number(values.latitude) > 90)
+  )
+    errors.latitude = "Latitude must be between -90 and 90.";
+  if (
+    Number.isFinite(Number(values.longitude)) &&
+    (Number(values.longitude) < -180 || Number(values.longitude) > 180)
+  )
+    errors.longitude = "Longitude must be between -180 and 180.";
+  [
+    "website",
+    "logoUrl",
+    "coverImageUrl",
+    "facebookUrl",
+    "instagramUrl",
+    "xUrl",
+  ].forEach((field) => {
+    if (values[field] && !isLikelyUrl(values[field]))
+      errors[field] = "Enter a valid URL or leave blank.";
   });
   const socialLinks = parseAcademySocialLinksJson(values.socialLinksJson);
   if (socialLinks.error) errors.socialLinksJson = socialLinks.error;
-  if (values.email && !values.email.includes("@")) errors.email = "Enter a valid email or leave blank.";
-  if (values.dropInPrice && !Number.isFinite(Number(values.dropInPrice))) errors.dropInPrice = "Drop-in price must be a valid number.";
-  if (values.dropInPrice && Number(values.dropInPrice) < 0) errors.dropInPrice = "Drop-in price cannot be negative.";
+  if (values.email && !values.email.includes("@"))
+    errors.email = "Enter a valid email or leave blank.";
+  if (values.dropInPrice && !Number.isFinite(Number(values.dropInPrice)))
+    errors.dropInPrice = "Drop-in price must be a valid number.";
+  if (values.dropInPrice && Number(values.dropInPrice) < 0)
+    errors.dropInPrice = "Drop-in price cannot be negative.";
   return errors;
 }
 
 function visibleFieldsByStep(step: StepId, canManagePlatformFields: boolean) {
   if (canManagePlatformFields) return fieldsByStep[step];
-  return fieldsByStep[step].filter((field) => !["verificationStatus", "featured", "publicListingVerified", "bookingVerified", "paymentsVerified", "sendClaimInvitation"].includes(field));
+  return fieldsByStep[step].filter(
+    (field) =>
+      ![
+        "verificationStatus",
+        "featured",
+        "publicListingVerified",
+        "bookingVerified",
+        "paymentsVerified",
+        "sendClaimInvitation",
+      ].includes(field),
+  );
 }
 
-function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<string, string[] | undefined>) {
+function mergeErrors(
+  clientErrors: Record<string, string>,
+  serverErrors: Record<string, string[] | undefined>,
+) {
   const merged: Record<string, string | undefined> = { ...clientErrors };
   Object.entries(serverErrors).forEach(([field, errors]) => {
     if (errors?.[0]) merged[field] = errors[0];
@@ -848,22 +1912,72 @@ function mergeErrors(clientErrors: Record<string, string>, serverErrors: Record<
   return merged;
 }
 
-function displayValue(field: string, value: string, coordinateSource?: CoordinateSource) {
-  if (["giAvailable", "nogiAvailable", "beginnerFriendly", "competitionFocused", "featured", "publicListingVerified", "bookingVerified", "paymentsVerified", "sendClaimInvitation"].includes(field)) return value === "on" ? "Yes" : "No";
+function activeServerErrors(
+  serverErrors: Record<string, string[] | undefined>,
+  submittedValues: Record<string, string>,
+  currentValues: AcademyValues,
+) {
+  const active: Record<string, string[] | undefined> = {};
+  Object.entries(serverErrors).forEach(([field, errors]) => {
+    if (!errors?.length) return;
+    if (
+      Object.prototype.hasOwnProperty.call(submittedValues, field) &&
+      submittedValues[field] !== currentValues[field]
+    ) {
+      return;
+    }
+    active[field] = errors;
+  });
+  return active;
+}
+
+function displayValue(
+  field: string,
+  value: string,
+  coordinateSource?: CoordinateSource,
+) {
+  if (
+    [
+      "giAvailable",
+      "nogiAvailable",
+      "beginnerFriendly",
+      "competitionFocused",
+      "featured",
+      "publicListingVerified",
+      "bookingVerified",
+      "paymentsVerified",
+      "sendClaimInvitation",
+    ].includes(field)
+  )
+    return value === "on" ? "Yes" : "No";
   if (field === "verificationStatus") return value;
   if ((field === "latitude" || field === "longitude") && value) {
-    const source = coordinateSource === "auto" ? "Auto-filled" : coordinateSource === "manual" ? "Manual" : coordinateSource === "existing" ? "Existing" : "Default";
+    const source =
+      coordinateSource === "auto"
+        ? "Auto-filled"
+        : coordinateSource === "manual"
+          ? "Manual"
+          : coordinateSource === "existing"
+            ? "Existing"
+            : "Default";
     return `${value} (${source})`;
   }
   return value || "Not provided";
 }
 
 function coordinateLookupKey(values: AcademyValues) {
-  return [values.address, values.city, values.postcode, values.country].map((value) => value.trim().toLowerCase()).join("|");
+  return [values.address, values.city, values.postcode, values.country]
+    .map((value) => value.trim().toLowerCase())
+    .join("|");
 }
 
 function canAttemptCoordinateLookup(values: AcademyValues) {
-  return values.postcode.trim().length >= 3 || [values.address, values.city, values.country].filter((value) => value.trim()).join(", ").length >= 8;
+  return (
+    values.postcode.trim().length >= 3 ||
+    [values.address, values.city, values.country]
+      .filter((value) => value.trim())
+      .join(", ").length >= 8
+  );
 }
 
 function isLikelyUrl(value: string) {
@@ -877,14 +1991,40 @@ function isLikelyUrl(value: string) {
 }
 
 function initials(value: string) {
-  return value.split(/\s|-/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "A";
+  return (
+    value
+      .split(/\s|-/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase() || "A"
+  );
 }
 
-function ClassicField({ name, label, value, required = true, errors }: { name: string; label: string; value?: string; required?: boolean; errors?: string[] }) {
+function ClassicField({
+  name,
+  label,
+  value,
+  required = true,
+  errors,
+}: {
+  name: string;
+  label: string;
+  value?: string;
+  required?: boolean;
+  errors?: string[];
+}) {
   return (
     <label className="grid gap-1 text-sm font-semibold text-stone-800">
       {label}
-      <input name={name} required={required} defaultValue={value} aria-invalid={errors ? "true" : undefined} className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal aria-invalid:border-red-500" />
+      <input
+        name={name}
+        required={required}
+        defaultValue={value}
+        aria-invalid={errors ? "true" : undefined}
+        className="min-h-11 rounded-md border border-stone-300 px-3 text-base font-normal aria-invalid:border-red-500"
+      />
       <FieldError errors={errors} />
     </label>
   );
@@ -892,14 +2032,29 @@ function ClassicField({ name, label, value, required = true, errors }: { name: s
 
 function FieldError({ errors }: { errors?: string[] }) {
   if (!errors?.length) return null;
-  return <span className="text-xs font-semibold text-red-700">{errors[0]}</span>;
+  return (
+    <span className="text-xs font-semibold text-red-700">{errors[0]}</span>
+  );
 }
 
-function ClassicCheckbox({ name, label, checked }: { name: string; label: string; checked: boolean }) {
+function ClassicCheckbox({
+  name,
+  label,
+  checked,
+}: {
+  name: string;
+  label: string;
+  checked: boolean;
+}) {
   return (
     <label className="flex items-center gap-2 text-sm font-semibold text-stone-800">
       <input name={name} type="hidden" value="off" />
-      <input name={name} type="checkbox" defaultChecked={checked} className="size-4 accent-teal-700" />
+      <input
+        name={name}
+        type="checkbox"
+        defaultChecked={checked}
+        className="size-4 accent-teal-700"
+      />
       {label}
     </label>
   );

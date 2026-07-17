@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { PageShell } from "@/components/Page";
 import { LoginForm } from "./LoginForm";
 
@@ -36,20 +35,7 @@ export default async function LoginPage({
   return (
     <PageShell>
       <section className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 md:py-12 lg:py-16">
-        <div className="text-center">
-          <Image
-            src="/logo.png"
-            alt="RollFinders"
-            width={260}
-            height={86}
-            className="mx-auto h-auto w-64 max-w-full"
-            priority
-          />
-          <p className="mt-2 text-xl font-medium text-stone-950">
-            Find. Roll. Connect.
-          </p>
-        </div>
-        <div className="mt-8 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-8">
+        <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-8">
           <div className="text-center">
             <h1 className="text-3xl font-black text-stone-950 md:text-4xl">
               Welcome back

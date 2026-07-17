@@ -554,6 +554,16 @@ export async function createAcademyInAcademyService(
   return academyFromService(academy);
 }
 
+export async function createPublicAcademyInAcademyService(
+  input: AcademyWriteInput,
+) {
+  const academy = (await directRequest("/v1/academies", {
+    method: "POST",
+    body: JSON.stringify(academyPayload(input)),
+  })) as AcademyServiceAcademy;
+  return academyFromService(academy);
+}
+
 export async function updateAcademyInAcademyService(
   id: string,
   input: AcademyWriteInput,

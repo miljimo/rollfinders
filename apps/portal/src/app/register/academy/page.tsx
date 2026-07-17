@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import { Building2, Search, UserPlus } from "lucide-react";
-import { Button } from "@/components/Button";
+import { AcademyForm } from "@/app/admin/academies/AcademyForm";
 import { PageShell } from "@/components/Page";
-import { LocationSearchForm } from "@/components/LocationSearchForm";
+import { createPublicAcademy } from "./actions";
 
 export const metadata: Metadata = {
   title: "RollFinders | Register Your Academy",
@@ -14,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default function RegisterAcademyPage() {
   return (
     <PageShell>
-      <section className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 md:py-12">
+      <section className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 md:py-12">
         <p className="text-sm font-bold uppercase tracking-wide text-teal-800">
           Academy registration
         </p>
@@ -22,75 +21,28 @@ export default function RegisterAcademyPage() {
           Register your academy or dojo
         </h1>
         <p className="mt-3 max-w-3xl text-base leading-7 text-stone-700">
-          Start by checking whether your academy is already listed. Existing
-          listings can be claimed for review, and new academies can contact
-          RollFinders to create a public profile.
+          Create a public academy profile with a contact email we can verify
+          after the listing is submitted. Creating this listing does not grant
+          ownership; the academy owner still needs to complete the claim review
+          afterwards.
         </p>
 
         <div className="mt-6 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="flex gap-3">
-              <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-md bg-teal-50 text-teal-800">
-                <Search aria-hidden size={24} />
-              </span>
-              <div>
-                <h2 className="text-xl font-black text-stone-950">
-                  Find your academy first
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-stone-700">
-                  Search by academy name, town, postcode, or training style.
-                  Open the academy profile and choose `Claim this academy` if it
-                  is already listed.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="mt-5">
-            <LocationSearchForm
-              action="/academies"
-              analyticsIntent="academy_search"
-              autoLocate={false}
-              placeholder="Search academy name, city, or postcode"
-            />
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <section className="rounded-lg border border-teal-200 bg-teal-50/50 p-5">
-            <span className="inline-flex size-12 items-center justify-center rounded-md bg-white text-teal-800">
-              <Building2 aria-hidden size={24} />
-            </span>
-            <h2 className="mt-4 text-xl font-black text-stone-950">
-              Already listed?
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-stone-700">
-              Open your academy profile and submit a claim. RollFinders reviews
-              claims before granting management access.
-            </p>
-            <Button
-              href="/academies"
-              variant="secondary"
-              className="mt-4 w-full"
-            >
-              Browse Academies
-            </Button>
-          </section>
-
-          <section className="rounded-lg border border-stone-200 bg-white p-5">
-            <span className="inline-flex size-12 items-center justify-center rounded-md bg-stone-50 text-stone-800">
-              <UserPlus aria-hidden size={24} />
-            </span>
-            <h2 className="mt-4 text-xl font-black text-stone-950">
-              Not listed yet?
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-stone-700">
-              Send your academy details to RollFinders so a new profile can be
-              reviewed and created.
-            </p>
-            <Button href="/contact" variant="primary" className="mt-4 w-full">
-              Contact RollFinders
-            </Button>
-          </section>
+          <h2 className="text-2xl font-black text-stone-950">
+            Create a public academy listing
+          </h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-stone-700">
+            Use this form only when the academy is not already listed. After the
+            profile is created, we send a verification code to the academy
+            contact email.
+          </p>
+          <AcademyForm
+            action={createPublicAcademy}
+            canManagePlatformFields={false}
+            cancelHref="/login"
+            geocodeEndpoint="/api/public/geocode"
+            returnTo="/register/academy"
+          />
         </div>
 
         <p className="mt-6 text-center text-sm font-semibold text-stone-700">
