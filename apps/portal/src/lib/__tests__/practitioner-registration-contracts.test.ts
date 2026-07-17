@@ -73,6 +73,23 @@ describe("practitioner academy registration contracts", () => {
     assert.doesNotMatch(actionSource, /warning: "academy-link"/);
   });
 
+  it("keeps created accounts out of the registration form when verification email delivery fails", () => {
+    const actionSource = readSource("apps/portal/src/app/register/actions.ts");
+    const loginPageSource = readSource("apps/portal/src/app/login/page.tsx");
+
+    assert.match(actionSource, /warning:\s*"verification-email"/);
+    assert.match(
+      actionSource,
+      /redirect\(`\/login\?\$\{loginParams\.toString\(\)\}`\)/,
+    );
+    assert.doesNotMatch(
+      actionSource,
+      /could not send the verification email[\s\S]*failureRedirect/,
+    );
+    assert.match(loginPageSource, /warning === "verification-email"/);
+    assert.match(loginPageSource, /Contact support to verify your account/);
+  });
+
   it("exposes a public register page with academy selection and locked academy entry points", () => {
     const registerPageSource = readSource(
       "apps/portal/src/app/register/page.tsx",

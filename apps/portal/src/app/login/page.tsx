@@ -48,7 +48,9 @@ export default async function LoginPage({
             <p className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm font-semibold leading-6 text-teal-900">
               Account created{email ? ` for ${email}` : ""}.{" "}
               {verifyEmail === "1"
-                ? "Check your inbox and verify your email before signing in."
+                ? warning === "verification-email"
+                  ? "Your account was created, but the verification email could not be sent. Contact support to verify your account before signing in."
+                  : "Check your inbox and verify your email before signing in."
                 : warning === "academy-link"
                   ? "Sign in and ask your academy admin to connect your account."
                   : "Sign in to continue."}

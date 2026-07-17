@@ -1,5 +1,12 @@
-import { OutboundEmailStatus, queueEmail, sendQueuedEmail } from "@/lib/reliable-email";
-import { confirmEmailVerificationToken, requestEmailVerificationToken } from "@/lib/users-service";
+import {
+  OutboundEmailStatus,
+  queueEmail,
+  sendQueuedEmail,
+} from "@/lib/reliable-email";
+import {
+  confirmEmailVerificationToken,
+  requestEmailVerificationToken,
+} from "@/lib/users-service";
 
 function verificationUrl(token: string) {
   const baseUrl = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
@@ -15,7 +22,15 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-function verificationEmailHtml({ name, url, year }: { name: string; url: string; year: number }) {
+function verificationEmailHtml({
+  name,
+  url,
+  year,
+}: {
+  name: string;
+  url: string;
+  year: number;
+}) {
   const escapedName = escapeHtml(name);
   const escapedUrl = escapeHtml(url);
   return `<!DOCTYPE html>
@@ -57,15 +72,32 @@ export async function sendAccountVerificationEmail(email: string) {
     to: result.user.email,
     subject: "Verify your RollFinders email",
     text: `Hi ${recipientName},\n\nConfirm your email address to activate your RollFinders account. This link expires in 24 hours.\n\n${url}`,
-    html: verificationEmailHtml({ name: recipientName, url, year: new Date().getFullYear() }),
+    html: verificationEmailHtml({
+      name: recipientName,
+      url,
+      year: new Date().getFullYear(),
+    }),
     metadata: { purpose: "email_verification" },
   });
-  const sentEmail = await sendQueuedEmail(outboundEmail.id);
-  if (sentEmail?.status !== OutboundEmailStatus.SENT) {
-    throw new Error(sentEmail?.failureReason ?? "Verification email was not sent.");
+  if (outboundEmail.status === OutboundEmailStatus.PENDING) {
+    return {
+      queued: true,
+      sent: false,
+      expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
+    };
   }
 
-  return { sent: true, expiresAt: result.expiresAt ? new Date(result.expiresAt) : null };
+  const sentEmail = await sendQueuedEmail(outboundEmail.id);
+  if (sentEmail?.status !== OutboundEmailStatus.SENT) {
+    throw new Error(
+      sentEmail?.failureReason ?? "Verification email was not sent.",
+    );
+  }
+
+  return {
+    sent: true,
+    expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
+  };
 }
 
 export async function verifyAccountEmail(token: string) {
