@@ -10,7 +10,7 @@
 - Test owner: Tester agent
 - Dependencies: Production approval, production image build, ECS smoke-test access
 - Source PRD: `docs/features/Deployment/Delivery/Reviewing/PublicRegistrationAndDashboardRecoveryReleaseTicket-20260717.md`
-- Ticket status: Ready for production approval, updated on 2026-07-19
+- Ticket status: Completed, production deployed on 2026-07-19
 
 ## Goal
 
@@ -189,9 +189,9 @@ Steps:
 - [x] `npm run typecheck` passed.
 - [x] `npm run build` passed for the final release candidate.
 - [x] Production approval names commit `88d534a04ab68f636eda64bc60689b26f11ecae8`, no migrations, no config changes, and rollback by previous ECS task definition.
-- [ ] Production image built.
-- [ ] ECS deployment completed.
-- [ ] Production smoke checks passed.
+- [x] Production image built.
+- [x] ECS deployment completed.
+- [x] Production smoke checks passed.
 - [ ] Dashboard edit-user route manually verified.
 
 ## Pre-Release Evidence
@@ -222,3 +222,43 @@ Collected on 2026-07-19 before production deployment:
   ```
 
   Build warning recorded: Next.js inferred `/home/leo62/projects/package-lock.json` as the workspace root because multiple lockfiles exist. The build still completed successfully. This warning should be handled separately by setting `turbopack.root` or removing the unrelated parent lockfile; it should not block this recovery release unless CI treats the warning as fatal.
+
+## Production Release Evidence
+
+Collected on 2026-07-19 after production deployment:
+
+- Deployed commit: `0b58870d4692e13399cd169195b4c532febd991c`.
+- Approved runtime release commit: `88d534a04ab68f636eda64bc60689b26f11ecae8`.
+- Difference between approved runtime commit and deployed commit: release-ticket documentation update only.
+- Production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:0b58870`.
+- Production image digest: `sha256:1138a66548671e9c43593b2bbfa08991247e4258a79743d2f627e7d6720310b0`.
+- Previous rollback task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:61`.
+- Released task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:62`.
+- ECS service state after deployment: desired `2`, running `2`, pending `0`, rollout `COMPLETED`.
+- No database migrations were run.
+- No Terraform apply was run.
+- Academy claim invitation template uploaded to `s3://rollfinders/mails/invitations/academy-claim-invitation.html`, SHA-256 `e2283eadb1265f74aa668063e32cf793086bb9452da2a62f6c0b542c7c8088ad`, version `n9i.aZQzMRqMeLjK3D1E2m4wy1fOh.uj`.
+- Existing smoke script passed public health checks:
+
+  ```bash
+  curl -fsS https://rollfinders.com/api/health
+  curl -fsS 'https://rollfinders.com/api/health?deep=1'
+  ```
+
+- Private sidecar smoke was skipped because this web-only deployment artifact did not include service image metadata in `image.env`.
+- Direct public route checks returned HTTP 200:
+
+  ```text
+  https://rollfinders.com/api/health
+  https://rollfinders.com/api/health?deep=1
+  https://rollfinders.com/
+  https://rollfinders.com/login
+  https://rollfinders.com/register
+  https://rollfinders.com/register/academy
+  https://rollfinders.com/register/academy/confirmation
+  https://rollfinders.com/about
+  ```
+
+Manual follow-up still required:
+
+- Verify authenticated admin route `/dashboard/users?dialog=edit-user&userId=<known-user>` in browser with a permitted admin session.
