@@ -10,7 +10,7 @@
 - Test owner: Tester agent
 - Dependencies: Production approval, clean committed release candidate, production dry-run review, wallet service availability
 - Source PRD: `docs/features/Deployment/Delivery/Reviewing/LegacyCoursePaymentRecoveryProductionReleaseTicket-20260719.md`
-- Ticket status: Approved for production release preparation on 2026-07-19
+- Ticket status: Completed, production deployed on 2026-07-19
 
 ## Goal
 
@@ -48,8 +48,13 @@ The release agent must not:
 
 ## Implementation Notes
 
-- Current base commit before local recovery edits: `ffc141fb837cb4e733c4c5b5213907259a1426d0`.
-- Final release commit must be recorded here after the recovery edits are committed to `master`.
+- Base commit before recovery edits: `ffc141fb837cb4e733c4c5b5213907259a1426d0`.
+- Recovery implementation commit: `570c3df Add legacy course payment recovery`.
+- Production dry-run hotfix commit: `3905360 Fix legacy payment recovery dry run`.
+- Final deployed release commit: `3905360`.
+- Deployed ECS task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:64`.
+- Deployed web image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:3905360`.
+- Rollback task definition: `arn:aws:ecs:eu-west-2:533235209034:task-definition/rollfinder-production:62`.
 - The Payments Dashboard already reads from the Payments Service via `/v1/payments?client_id=rollfinders`.
 - Legacy recovered records must be imported into the Payments Service rather than displayed from ad hoc booking SQL.
 - The recovery endpoint is:
@@ -148,6 +153,39 @@ Known broader suite issue:
   ```text
   /api/jobs/course-payment-wallet-posting?dryRun=1
   ```
+
+## Production Evidence
+
+Collected on 2026-07-19 after production deployment:
+
+- `npm run typecheck`: passed.
+- `node --import tsx --test apps/portal/src/lib/__tests__/course-payment-integration-contracts.test.ts`: passed.
+- `npm run build`: passed.
+- ECS service `web`: stable on task definition `rollfinder-production:64`, desired `2`, running `2`, pending `0`.
+- Deployed web image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:3905360`.
+- Public smoke:
+  - `https://rollfinders.com/api/health`: HTTP 200, `{"status":"ok"}`.
+  - `https://rollfinders.com/api/health?deep=1`: HTTP 200, `{"status":"ok","database":"ok"}`.
+  - `https://rollfinders.com/`: HTTP 200.
+  - `https://rollfinders.com/login`: HTTP 200.
+  - `https://rollfinders.com/register`: HTTP 200.
+- Legacy recovery dry-run:
+
+  ```json
+  {
+    "mode": "legacy-recovery",
+    "dryRun": true,
+    "scanned": 0,
+    "alreadyImported": 0,
+    "importable": 0,
+    "imported": 0,
+    "walletPosted": 0,
+    "skipped": 0,
+    "failed": 0
+  }
+  ```
+
+No production legacy recovery POST was run. No payment records were imported and no wallet credits were created during this deployment.
 
 ## Rollback Plan
 
