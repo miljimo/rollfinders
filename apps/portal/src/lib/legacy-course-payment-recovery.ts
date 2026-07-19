@@ -3,7 +3,6 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
-  listCourseOccurrencePaymentsPage,
   recordExternalPayment,
   type PaymentRecord,
 } from "@/lib/payments";
@@ -27,11 +26,6 @@ type LegacyPaymentCandidate = {
   provider_payment_id: string | null;
   provider_status: string | null;
   status: string | null;
-};
-
-type ExistingLegacyPayment = {
-  legacyPaymentId: string;
-  paymentId: string;
 };
 
 export type LegacyCoursePaymentRecoveryResult = {
@@ -138,19 +132,15 @@ async function publicPaymentsTableExists() {
 }
 
 async function existingImportedLegacyPayments(limit: number) {
-  const existing = new Map<string, string>();
-  for (let offset = 0; offset < limit; offset += 100) {
-    const page = await listCourseOccurrencePaymentsPage({
-      limit: Math.min(100, limit - offset),
-      offset,
-    });
-    for (const payment of page.payments) {
-      const legacyPaymentId = payment.metadata?.legacy_payment_id;
-      if (legacyPaymentId) existing.set(legacyPaymentId, payment.id);
-    }
-    if (!page.pagination.has_more) break;
-  }
-  return existing;
+  const rows = await prisma.$queryRaw<Array<{ legacy_payment_id: string; payment_id: string }>>`
+    SELECT metadata->>'legacy_payment_id' AS legacy_payment_id, id AS payment_id
+    FROM payments.payments
+    WHERE metadata ? 'legacy_payment_id'
+      AND COALESCE(metadata->>'resource_type', '') = 'course_occurrence'
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `;
+  return new Map(rows.map((row) => [row.legacy_payment_id, row.payment_id]));
 }
 
 async function missingBookingPaymentCandidates(limit: number) {
@@ -171,12 +161,10 @@ async function missingBookingPaymentCandidates(limit: number) {
       NULL::text AS provider,
       NULL::text AS provider_payment_id,
       NULL::text AS provider_status,
-      e.title AS event_title,
-      a.name AS academy_name
+      b.metadata->>'course_title' AS event_title,
+      b.metadata->>'academy_name' AS academy_name
     FROM booking.bookings b
     LEFT JOIN payments.payments p ON p.id = b.payment_id
-    LEFT JOIN events e ON e.id = b.bookable_id
-    LEFT JOIN academies a ON a.id = b.organisation_id
     WHERE b.bookable_type = 'course_occurrence'
       AND b.payment_id IS NOT NULL
       AND p.id IS NULL
@@ -204,13 +192,11 @@ async function legacyPublicPaymentCandidates(limit: number) {
       lp.provider,
       lp.provider_payment_id,
       lp.provider_raw_status AS provider_status,
-      e.title AS event_title,
-      a.name AS academy_name
+      COALESCE(lp.metadata->>'course_title', b.metadata->>'course_title') AS event_title,
+      COALESCE(lp.metadata->>'academy_name', b.metadata->>'academy_name') AS academy_name
     FROM booking.bookings b
     JOIN public.payments lp ON lp.id = b.payment_id
     LEFT JOIN payments.payments p ON p.id = b.payment_id OR p.metadata->>'legacy_payment_id' = b.payment_id
-    LEFT JOIN events e ON e.id = b.bookable_id
-    LEFT JOIN academies a ON a.id = b.organisation_id
     WHERE b.bookable_type = 'course_occurrence'
       AND b.payment_id IS NOT NULL
       AND p.id IS NULL
