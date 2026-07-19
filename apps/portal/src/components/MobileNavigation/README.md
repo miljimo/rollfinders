@@ -19,6 +19,7 @@ Bottom navigation for the RollFinders mobile web app.
 - Renders Home, Search, Map, E-Bookings, and Profile.
 - Highlights the active tab with the mobile teal treatment.
 - Links stay inside `/mobile` tab routes.
+- Uses fixed-height tab buttons so active states cannot resize the bottom bar.
 
 ## Accessibility
 

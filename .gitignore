@@ -49,3 +49,12 @@ next-env.d.ts
 *.tfstate.*
 *.tfplan
 image.env
+
+# mobile native build outputs
+apps/mobile/android/app/build/
+apps/mobile/android/.gradle/
+apps/mobile/android/local.properties
+apps/mobile/ios/App/build/
+apps/mobile/ios/App/Pods/
+apps/mobile/ios/App/xcuserdata/
+apps/mobile/ios/App/*.xcworkspace/xcuserdata/

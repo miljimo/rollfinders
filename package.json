@@ -34,7 +34,14 @@
     "db:dev": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "seed": "prisma db seed",
-    "ensure-super-admin": "tsx prisma/ensure-super-admin.ts"
+    "ensure-super-admin": "tsx prisma/ensure-super-admin.ts",
+    "mobile:sync": "npm --workspace @rollfinders/mobile run sync",
+    "mobile:doctor": "npm --workspace @rollfinders/mobile run doctor",
+    "mobile:android:open": "npm --workspace @rollfinders/mobile run android:open",
+    "mobile:android:apk": "npm --workspace @rollfinders/mobile run android:apk",
+    "mobile:android:aab": "npm --workspace @rollfinders/mobile run android:aab",
+    "mobile:ios:open": "npm --workspace @rollfinders/mobile run ios:open",
+    "mobile:ios:sync": "npm --workspace @rollfinders/mobile run ios:sync"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

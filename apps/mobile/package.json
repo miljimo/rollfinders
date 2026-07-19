@@ -1,0 +1,26 @@
+{
+  "name": "@rollfinders/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "cap": "cap",
+    "sync": "cap sync",
+    "android:open": "cap open android",
+    "android:apk": "cap sync android && cd android && ./gradlew assembleDebug",
+    "android:aab": "cap sync android && cd android && ./gradlew bundleRelease",
+    "ios:open": "cap open ios",
+    "ios:sync": "cap sync ios",
+    "doctor": "node scripts/doctor.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/browser": "^7.0.2",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/ios": "^7.4.4",
+    "@capacitor/splash-screen": "^7.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.4"
+  }
+}

@@ -25,7 +25,7 @@ export function isMobileNavigationTab(value?: string): value is MobileNavigation
 export function MobileNavigation({ activeTab }: { activeTab: MobileNavigationTab }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-8px_28px_rgba(15,23,42,0.08)]" aria-label="Mobile app navigation">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+      <div className="mx-auto grid h-16 max-w-md grid-cols-5 gap-1">
         {mobileNavigationItems.map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
@@ -35,10 +35,10 @@ export function MobileNavigation({ activeTab }: { activeTab: MobileNavigationTab
               key={item.id}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-black leading-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 ${active ? "bg-teal-700 text-white shadow-sm" : "text-stone-700 hover:bg-stone-100 hover:text-stone-950"}`}
+              className={`flex h-14 min-w-0 max-w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-md px-1 text-[11px] font-black leading-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 ${active ? "bg-teal-700 text-white shadow-sm" : "text-stone-700 hover:bg-stone-100 hover:text-stone-950"}`}
             >
-              <Icon size={19} aria-hidden />
-              <span>{item.label}</span>
+              <Icon size={19} className="shrink-0" aria-hidden />
+              <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );
         })}

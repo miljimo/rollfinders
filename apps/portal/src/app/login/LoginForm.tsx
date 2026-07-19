@@ -16,8 +16,12 @@ import { useState } from "react";
 
 export function LoginForm({
   callbackUrl = "/dashboard",
+  registerHref = "/register",
+  variant = "default",
 }: {
   callbackUrl?: string;
+  registerHref?: string;
+  variant?: "default" | "mobile";
 }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -67,10 +71,12 @@ export function LoginForm({
     }
   }
 
+  const mobile = variant === "mobile";
+
   return (
     <form
       action={handleSubmit}
-      className="mt-7 grid gap-5 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-6"
+      className={`${mobile ? "mt-4" : "mt-7"} grid gap-5 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-6`}
     >
       {error ? (
         <p
@@ -154,6 +160,12 @@ export function LoginForm({
         {isSubmitting ? "Signing in..." : "Sign In"}
       </Button>
 
+      {mobile ? (
+        <Button href={registerHref} variant="secondary" className="min-h-12 w-full">
+          Register Account
+        </Button>
+      ) : (
+        <>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-1 text-xs font-semibold uppercase tracking-wide text-stone-500">
         <span className="h-px bg-stone-200" />
         <span>or</span>
@@ -197,7 +209,7 @@ export function LoginForm({
             </p>
           </div>
           <Button
-            href="/register"
+            href={registerHref}
             variant="secondary"
             className="w-full border-blue-600 text-blue-700 hover:bg-blue-50"
           >
@@ -205,6 +217,8 @@ export function LoginForm({
           </Button>
         </section>
       </div>
+        </>
+      )}
     </form>
   );
 }

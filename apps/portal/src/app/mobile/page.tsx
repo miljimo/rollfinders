@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
+import type { Viewport } from "next";
 import type React from "react";
 import Link from "next/link";
-import { Bookmark, CalendarCheck, ChevronRight, CircleHelp, CreditCard, LogIn, Map, MapPin, Search, Settings, ShieldCheck, UserRound } from "lucide-react";
+import { Bookmark, CalendarCheck, ChevronRight, CircleHelp, ExternalLink, LogIn, Map, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
 import { AcademyVerificationStatus, ClaimStatus, CourseType } from "@prisma/client";
 import { Button } from "@/components/Button";
 import { LogoutButton } from "@/components/LogoutButton";
 import { isMobileNavigationTab, MobileNavigation, type MobileNavigationTab } from "@/components/MobileNavigation";
+import { RegisterAcademySelector } from "@/app/register/RegisterAcademySelector";
+import { registerPractitioner } from "@/app/register/actions";
+import { MobileSignInForm } from "./MobileSignInForm";
 import { getCurrentUser } from "@/lib/admin";
+import { getAcademyFromAcademyService, listAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
 import { courseHref, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
 import { getMapItems, getOpenMatRadar, searchAcademies } from "@/lib/data";
-import { loginUrl } from "@/lib/auth-urls";
 import { directionsUrl, formatDate, formatDistanceMiles } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -19,9 +23,23 @@ export const metadata: Metadata = {
   description: "A mobile-first RollFinders app surface for discovering academies, open mats, courses, bookings, and saved places.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+};
+
 type MobileSearchParams = {
+  academyId?: string;
+  auth?: string;
+  email?: string;
+  error?: string;
   tab?: string;
   q?: string;
+  registered?: string;
+  verifyEmail?: string;
+  warning?: string;
   when?: string;
   lat?: string;
   lng?: string;
@@ -37,12 +55,41 @@ function locationFromParams(params: MobileSearchParams) {
   return Number.isFinite(latitude) && Number.isFinite(longitude) ? { latitude, longitude } : undefined;
 }
 
-function mobileLoginHref() {
-  return loginUrl("/mobile");
+function mobileRegisterHref() {
+  return "/mobile?tab=profile&auth=register";
 }
 
-function mobileRegisterHref() {
-  return "/register?callbackUrl=%2Fmobile";
+function mobileSignInHref() {
+  return "/mobile?tab=profile&auth=sign-in";
+}
+
+function webDashboardHref(path = "/dashboard") {
+  return path;
+}
+
+async function mobileDataOrEmpty<T>(loader: () => Promise<T[]>): Promise<T[]> {
+  try {
+    return await loader();
+  } catch {
+    return [];
+  }
+}
+
+async function mobileDataOrNull<T>(loader: () => Promise<T | null>): Promise<T | null> {
+  try {
+    return await loader();
+  } catch {
+    return null;
+  }
+}
+
+function academySelectOptions(academies: AcademyServiceRecord[]) {
+  return academies.map((academy) => ({
+    id: academy.id,
+    label: academy.name,
+    description: [academy.city, academy.postcode].filter(Boolean).join(", "),
+    meta: [academy.slug, academy.city, academy.postcode].filter(Boolean).join(" "),
+  }));
 }
 
 function isVerified(academy: { verificationStatus?: AcademyVerificationStatus | null; verified?: boolean | null }) {
@@ -59,11 +106,14 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   const location = locationFromParams(params);
   const query = params.q?.trim() ?? "";
   const currentUser = await getCurrentUser();
+  const profileAuth = params.auth === "register" ? "register" : params.auth === "sign-in" ? "sign-in" : null;
 
-  const [events, academies, mapItems] = await Promise.all([
-    getOpenMatRadar({ q: query, when: params.when, latitude: location?.latitude, longitude: location?.longitude, courseType: CourseType.OPEN_MAT }),
-    searchAcademies(query, location),
-    activeTab === "map" ? getMapItems() : Promise.resolve([]),
+  const [events, academies, mapItems, mobileAcademyOptions, selectedMobileAcademy] = await Promise.all([
+    mobileDataOrEmpty(() => getOpenMatRadar({ q: query, when: params.when, latitude: location?.latitude, longitude: location?.longitude, courseType: CourseType.OPEN_MAT })),
+    mobileDataOrEmpty(() => searchAcademies(query, location)),
+    activeTab === "map" ? mobileDataOrEmpty(() => getMapItems()) : Promise.resolve([]),
+    activeTab === "profile" && profileAuth === "register" ? mobileDataOrEmpty(() => listAcademiesFromAcademyService({ limit: 100 })) : Promise.resolve([]),
+    activeTab === "profile" && profileAuth === "register" && params.academyId ? mobileDataOrNull(() => getAcademyFromAcademyService(params.academyId ?? "")) : Promise.resolve(null),
   ]);
 
   return (
@@ -73,7 +123,7 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
           <Link href="/mobile" className="min-h-11 min-w-0 rounded-md text-lg font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
             RollFinders
           </Link>
-          <Button href={currentUser ? "/mobile?tab=profile" : mobileLoginHref()} size="icon" variant="secondary" className="size-11" aria-label={currentUser ? "Profile" : "Sign in"}>
+          <Button href={currentUser ? "/mobile?tab=profile" : mobileSignInHref()} size="icon" variant="secondary" className="size-11" aria-label={currentUser ? "Profile" : "Sign in"}>
             {currentUser ? <UserRound size={19} aria-hidden /> : <LogIn size={19} aria-hidden />}
           </Button>
         </div>
@@ -86,7 +136,19 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
         {activeTab === "search" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : null}
         {activeTab === "map" ? <MapView academies={mapItems.slice(0, 20)} /> : null}
         {activeTab === "bookings" ? <BookingsView signedIn={Boolean(currentUser)} /> : null}
-        {activeTab === "profile" ? <ProfileView currentUser={currentUser} /> : null}
+        {activeTab === "profile" ? (
+          <ProfileView
+            academyOptions={academySelectOptions(mobileAcademyOptions)}
+            authMode={profileAuth}
+            currentUser={currentUser}
+            error={params.error}
+            registered={params.registered === "1"}
+            registeredEmail={params.email}
+            selectedAcademy={selectedMobileAcademy}
+            verifyEmail={params.verifyEmail === "1"}
+            warning={params.warning}
+          />
+        ) : null}
       </div>
 
       <MobileNavigation activeTab={activeTab} />
@@ -102,7 +164,7 @@ function MobileAuthHome() {
         <h1 className="mt-2 text-3xl font-black tracking-normal text-stone-950">Find your next roll</h1>
         <p className="mt-2 text-sm leading-6 text-stone-700">Sign in to search events, manage bookings, save places, and keep your profile connected to your academy.</p>
         <div className="mt-5 grid gap-2">
-          <Button href={mobileLoginHref()} variant="primary" className="min-h-12 w-full">
+          <Button href={mobileSignInHref()} variant="primary" className="min-h-12 w-full">
             Sign In
           </Button>
           <Button href={mobileRegisterHref()} variant="secondary" className="min-h-12 w-full">
@@ -116,7 +178,7 @@ function MobileAuthHome() {
         <div className="grid gap-2 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           <MobileLinkRow href="/mobile?tab=search" icon={Search} label="Search Open Mats" />
           <MobileLinkRow href="/mobile?tab=map" icon={Map} label="Browse Map" />
-          <MobileLinkRow href="/academies" icon={Bookmark} label="Academies" />
+          <MobileLinkRow href="/academies" icon={Bookmark} label="Academies" webPage />
         </div>
       </section>
     </div>
@@ -208,7 +270,7 @@ function BookingsView({ signedIn }: { signedIn: boolean }) {
       icon={<CalendarCheck size={26} aria-hidden />}
       title="Bookings"
       body={signedIn ? "Your booking history will appear here as mobile booking records become available." : "Sign in before booking so confirmations and payment status can stay attached to your account."}
-      primaryHref={signedIn ? "/mobile?tab=search" : mobileLoginHref()}
+      primaryHref={signedIn ? "/mobile?tab=search" : mobileSignInHref()}
       primaryLabel={signedIn ? "Find a Session" : "Sign In"}
       secondaryHref="/mobile?tab=search"
       secondaryLabel="Browse Events"
@@ -222,7 +284,7 @@ function AcademiesView({ signedIn }: { signedIn: boolean }) {
       icon={<Bookmark size={26} aria-hidden />}
       title="Saved"
       body={signedIn ? "Saved academies and courses will collect here once saving is enabled on mobile cards." : "Sign in to keep academies, courses, and open mats ready for later."}
-      primaryHref={signedIn ? "/academies" : mobileLoginHref()}
+      primaryHref={signedIn ? "/academies" : mobileSignInHref()}
       primaryLabel={signedIn ? "Browse Academies" : "Sign In"}
       secondaryHref="/open-mats"
       secondaryLabel="Browse Events"
@@ -230,19 +292,35 @@ function AcademiesView({ signedIn }: { signedIn: boolean }) {
   );
 }
 
-function ProfileView({ currentUser }: { currentUser: Awaited<ReturnType<typeof getCurrentUser>> }) {
+function ProfileView({
+  academyOptions,
+  authMode,
+  currentUser,
+  error,
+  registered,
+  registeredEmail,
+  selectedAcademy,
+  verifyEmail,
+  warning,
+}: {
+  academyOptions: ReturnType<typeof academySelectOptions>;
+  authMode: "register" | "sign-in" | null;
+  currentUser: Awaited<ReturnType<typeof getCurrentUser>>;
+  error?: string;
+  registered: boolean;
+  registeredEmail?: string;
+  selectedAcademy: AcademyServiceRecord | null;
+  verifyEmail: boolean;
+  warning?: string;
+}) {
   if (!currentUser) {
-    return (
-      <ActionView
-        icon={<UserRound size={26} aria-hidden />}
-        title="Profile"
-        body="Sign in or register before using profile, settings, bookings, and saved places on mobile."
-        primaryHref={mobileLoginHref()}
-        primaryLabel="Sign In"
-        secondaryHref={mobileRegisterHref()}
-        secondaryLabel="Register Account"
-      />
-    );
+    if (authMode === "sign-in") {
+      return <MobileSignInView registered={registered} registeredEmail={registeredEmail} verifyEmail={verifyEmail} warning={warning} />;
+    }
+    if (authMode === "register") {
+      return <MobileRegisterView academyOptions={academyOptions} error={error} selectedAcademy={selectedAcademy} />;
+    }
+    return <MobileAuthChoice />;
   }
 
   const accountName = currentUser.email || "RollFinders user";
@@ -281,18 +359,17 @@ function ProfileView({ currentUser }: { currentUser: Awaited<ReturnType<typeof g
         <div className="mt-3 grid gap-1 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
           <MobileLinkRow href="/mobile?tab=bookings" icon={CalendarCheck} label="My Bookings" />
           <MobileLinkRow href="/mobile?tab=search" icon={Bookmark} label="Saved Open Mats" />
-          <MobileLinkRow href="/dashboard/academies" icon={ShieldCheck} label="Claimed Academy" />
+          <MobileLinkRow href="/academies" icon={ShieldCheck} label="Browse Academies" webPage />
         </div>
       </section>
 
       <section>
         <MobileSectionHeader title="My Account" />
         <div className="mt-3 grid gap-1 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-          <MobileLinkRow href="/dashboard/payment" icon={CreditCard} label="Payment Methods" />
-          <MobileLinkRow href="/dashboard/settings" icon={Settings} label="Settings" />
-          <MobileLinkRow href="/contact" icon={CircleHelp} label="Help & Support" />
-          <MobileLinkRow href="/privacy-policy" label="Privacy Policy" />
-          <MobileLinkRow href="/terms" label="Terms of Service" />
+          <MobileLinkRow href={webDashboardHref()} icon={ExternalLink} label="Open Web Dashboard" webPage />
+          <MobileLinkRow href="/contact" icon={CircleHelp} label="Help & Support" webPage />
+          <MobileLinkRow href="/privacy-policy" label="Privacy Policy" webPage />
+          <MobileLinkRow href="/terms" label="Terms of Service" webPage />
         </div>
       </section>
 
@@ -302,6 +379,101 @@ function ProfileView({ currentUser }: { currentUser: Awaited<ReturnType<typeof g
         </LogoutButton>
       </section>
     </div>
+  );
+}
+
+function MobileAuthChoice() {
+  return (
+    <ActionView
+      icon={<UserRound size={26} aria-hidden />}
+      title="Profile"
+      body="Sign in or register before using profile, settings, bookings, and saved places on mobile."
+      primaryHref={mobileSignInHref()}
+      primaryLabel="Sign In"
+      secondaryHref={mobileRegisterHref()}
+      secondaryLabel="Register Account"
+    />
+  );
+}
+
+function MobileSignInView({
+  registered,
+  registeredEmail,
+  verifyEmail,
+  warning,
+}: {
+  registered: boolean;
+  registeredEmail?: string;
+  verifyEmail: boolean;
+  warning?: string;
+}) {
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <MobileSectionHeader title="Sign in" href={mobileRegisterHref()} action="Register" />
+      {registered ? (
+        <p className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm font-semibold leading-6 text-teal-900">
+          Account created{registeredEmail ? ` for ${registeredEmail}` : ""}.{" "}
+          {verifyEmail
+            ? warning === "verification-email"
+              ? "Your account was created, but the verification email could not be sent. Contact support before signing in."
+              : "Check your inbox and verify your email before signing in."
+            : "Sign in to continue."}
+        </p>
+      ) : null}
+      <MobileSignInForm />
+    </section>
+  );
+}
+
+function MobileRegisterView({
+  academyOptions,
+  error,
+  selectedAcademy,
+}: {
+  academyOptions: ReturnType<typeof academySelectOptions>;
+  error?: string;
+  selectedAcademy: AcademyServiceRecord | null;
+}) {
+  return (
+    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+      <MobileSectionHeader title="Register account" href={mobileSignInHref()} action="Sign in" />
+      <p className="mt-2 text-sm leading-6 text-stone-700">Choose your academy, then create your practitioner account.</p>
+      {error ? (
+        <p role="alert" className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold leading-6 break-words text-red-800">
+          {error}
+        </p>
+      ) : null}
+      <form action={registerPractitioner} className="mt-4 grid gap-4">
+        <RegisterAcademySelector academy={selectedAcademy} options={academyOptions} />
+        <input type="hidden" name="callbackUrl" value="/mobile" />
+        <input type="hidden" name="mobileAuth" value="1" />
+        <div className="grid gap-4">
+          <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+            First name
+            <input name="firstName" required className="min-h-12 rounded-md border border-stone-300 bg-stone-50 px-3 text-base font-normal text-stone-950 focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20" />
+          </label>
+          <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+            Last name
+            <input name="lastName" required className="min-h-12 rounded-md border border-stone-300 bg-stone-50 px-3 text-base font-normal text-stone-950 focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20" />
+          </label>
+        </div>
+        <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+          Email
+          <input name="email" type="email" required className="min-h-12 rounded-md border border-stone-300 bg-stone-50 px-3 text-base font-normal text-stone-950 focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20" />
+        </label>
+        <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+          Password
+          <input name="password" type="password" minLength={5} required className="min-h-12 rounded-md border border-stone-300 bg-stone-50 px-3 text-base font-normal text-stone-950 focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20" />
+        </label>
+        <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+          Confirm password
+          <input name="confirmPassword" type="password" minLength={5} required className="min-h-12 rounded-md border border-stone-300 bg-stone-50 px-3 text-base font-normal text-stone-950 focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20" />
+        </label>
+        <Button type="submit" variant="primary" className="min-h-12 w-full">
+          Create account
+        </Button>
+      </form>
+    </section>
   );
 }
 
@@ -423,9 +595,24 @@ function MobileAcademyCard({ academy }: { academy: Awaited<ReturnType<typeof sea
   );
 }
 
-function MobileLinkRow({ href, icon: Icon, label }: { href: string; icon?: React.ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>; label: string }) {
+function MobileLinkRow({
+  href,
+  icon: Icon,
+  label,
+  webPage = false,
+}: {
+  href: string;
+  icon?: React.ComponentType<{ size?: number; className?: string; "aria-hidden"?: boolean }>;
+  label: string;
+  webPage?: boolean;
+}) {
   return (
-    <Link href={href} className="flex min-h-12 items-center justify-between rounded-md px-3 text-sm font-black text-stone-800 transition hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700">
+    <Link
+      href={href}
+      target={webPage ? "_blank" : undefined}
+      rel={webPage ? "noreferrer" : undefined}
+      className="flex min-h-12 items-center justify-between rounded-md px-3 text-sm font-black text-stone-800 transition hover:bg-stone-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
+    >
       <span className="flex min-w-0 items-center gap-3">
         {Icon ? <Icon size={18} className="shrink-0 text-teal-800" aria-hidden /> : null}
         <span className="truncate">{label}</span>
