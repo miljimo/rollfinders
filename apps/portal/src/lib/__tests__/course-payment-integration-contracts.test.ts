@@ -643,6 +643,7 @@ describe("course payment service integration", () => {
     assert.match(jobRouteSource, /isPlatformAdminRole/);
     assert.match(jobRouteSource, /backfillCoursePaymentWalletEffects/);
     assert.match(jobRouteSource, /processCoursePaymentWalletOutbox/);
+    assert.match(jobRouteSource, /recoverLegacyCoursePayments/);
     assert.match(jobRouteSource, /dryRun/);
     assert.match(
       walletEffectsSource,
@@ -652,6 +653,29 @@ describe("course payment service integration", () => {
       walletEffectsSource,
       /course-payment-platform-fee:\$\{payment\.id\}/,
     );
+  });
+
+  it("recovers legacy course payments through a dry-run-first import and wallet posting path", () => {
+    const recoverySource = readSource(
+      "apps/portal/src/lib/legacy-course-payment-recovery.ts",
+    );
+    const paymentSource = readSource("apps/portal/src/lib/payments.ts");
+    const jobRouteSource = readSource(
+      "apps/portal/src/app/api/jobs/course-payment-wallet-posting/route.ts",
+    );
+
+    assert.match(paymentSource, /export async function recordExternalPayment/);
+    assert.match(paymentSource, /\/internal\/payments\/record-external/);
+    assert.match(recoverySource, /export async function recoverLegacyCoursePayments/);
+    assert.match(recoverySource, /dryRun = true/);
+    assert.match(recoverySource, /to_regclass\('public\.payments'\)/);
+    assert.match(recoverySource, /legacy_payment_id/);
+    assert.match(recoverySource, /client_id:\s*"rollfinders"/);
+    assert.match(recoverySource, /No actual settled payment amount was found/);
+    assert.match(recoverySource, /legacy-course-payment-import:\$\{candidate\.payment_id\}/);
+    assert.match(recoverySource, /recordCoursePaymentWalletEffects/);
+    assert.match(jobRouteSource, /legacy/);
+    assert.match(jobRouteSource, /request\.method === "GET"/);
   });
 
   it("cancels pending booking payments and requests refunds for received payments through the payment service", () => {

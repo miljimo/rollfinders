@@ -62,6 +62,19 @@ export type PaymentRecord = {
   payerEmail?: string;
 };
 
+export type RecordExternalPaymentInput = {
+  amount: number;
+  currency: string;
+  provider: PaymentProvider;
+  paymentMethodType: PaymentMethodType;
+  externalReference: string;
+  providerPaymentId?: string;
+  providerStatus?: string;
+  status?: string;
+  metadata?: Record<string, string>;
+  idempotencyKey: string;
+};
+
 export type CancelPaymentInput = {
   paymentId: string;
   idempotencyKey: string;
@@ -464,6 +477,42 @@ async function listRollFindersPaymentsPage({
       offset,
     },
   };
+}
+
+export async function recordExternalPayment(
+  input: RecordExternalPaymentInput,
+): Promise<PaymentRecord> {
+  const response = await fetch(`${paymentServiceUrl()}/internal/payments/record-external`, {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": input.idempotencyKey,
+    },
+    body: JSON.stringify({
+      amount: input.amount,
+      currency: input.currency,
+      provider: input.provider,
+      payment_method_type: input.paymentMethodType,
+      external_reference: input.externalReference,
+      provider_payment_id: input.providerPaymentId,
+      provider_status: input.providerStatus,
+      status: input.status ?? "succeeded",
+      metadata: input.metadata ?? {},
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await readPaymentServiceError(response);
+    throw new PaymentServiceError(
+      error.message ??
+        `External payment record failed with status ${response.status}.`,
+      response.status,
+      error.code,
+    );
+  }
+
+  return mapPaymentRecord((await response.json()) as PaymentRecordResponse);
 }
 
 async function listBillingSubscriptionPaymentsPage({

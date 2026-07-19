@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
+import { recoverLegacyCoursePayments } from "@/lib/legacy-course-payment-recovery";
 import { backfillCoursePaymentWalletEffects, processCoursePaymentWalletOutbox } from "@/lib/payment-wallet-posting";
 
 export const dynamic = "force-dynamic";
@@ -32,7 +33,10 @@ export async function GET(request: Request) {
   const dryRun = searchParams.get("dryRun") === "1" || searchParams.get("dry_run") === "1";
   const limit = numberParam(searchParams.get("limit"), 50);
   const backfill = searchParams.get("backfill") === "1";
-  const result = backfill
+  const legacy = searchParams.get("legacy") === "1";
+  const result = legacy
+    ? await recoverLegacyCoursePayments({ dryRun: dryRun || request.method === "GET", limit })
+    : backfill
     ? await backfillCoursePaymentWalletEffects({
         academyId: searchParams.get("academyId") ?? searchParams.get("academy_id") ?? undefined,
         dryRun,
@@ -42,8 +46,8 @@ export async function GET(request: Request) {
     : await processCoursePaymentWalletOutbox({ dryRun, limit });
 
   return NextResponse.json({
-    mode: backfill ? "backfill" : "outbox",
-    dryRun,
+    mode: legacy ? "legacy-recovery" : backfill ? "backfill" : "outbox",
+    dryRun: legacy ? dryRun || request.method === "GET" : dryRun,
     ...result,
   }, { status: result.failed.length > 0 ? 207 : 200 });
 }
