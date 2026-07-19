@@ -26,7 +26,7 @@ This is a recovery/hardening release, not a broad product relaunch.
 
 The release agent must:
 
-- Deploy `master` commit `405686849a7fb5ffa6e4387e57a6aae763ba8d47`.
+- Deploy `master` commit `88d534a04ab68f636eda64bc60689b26f11ecae8`.
 - Include `4c20bd8 Prevent user dashboard academy read crash`.
 - Include `6894f95 Add public academy registration selector`.
 - Include `4056868 Handle registration verification email failures`.
@@ -47,7 +47,7 @@ The release agent must not:
 ## Implementation Notes
 
 - Source branch: `master`
-- Release candidate: `405686849a7fb5ffa6e4387e57a6aae763ba8d47`
+- Release candidate: `88d534a04ab68f636eda64bc60689b26f11ecae8`
 - Current production task definition before this release should be recorded before deployment.
 - Expected deployment type: application-only ECS task definition update using existing deployment scripts and health checks.
 - Database impact: none.
@@ -69,7 +69,7 @@ The release agent must not:
 ### Source
 
 - Branch: `master`
-- Commit/Tag: `405686849a7fb5ffa6e4387e57a6aae763ba8d47`
+- Commit/Tag: `88d534a04ab68f636eda64bc60689b26f11ecae8`
 - Ticket: `RELEASE-20260717`
 - PR: Not assigned in this ticket
 
@@ -129,7 +129,7 @@ No new runtime environment variables are required.
    npm run build
    ```
 
-4. Build immutable production images for commit `4056868`.
+4. Build immutable production images for commit `88d534a`.
 5. Capture the current production ECS task definition ARN for rollback.
 6. Deploy through the locked application-only ECS deployment path.
 7. Run the existing production smoke script.
@@ -188,7 +188,7 @@ Steps:
 - [x] Dashboard academy-read crash contract passed.
 - [x] `npm run typecheck` passed.
 - [x] `npm run build` passed for the final release candidate.
-- [ ] Production approval names commit `405686849a7fb5ffa6e4387e57a6aae763ba8d47`, no migrations, no config changes, and rollback by previous ECS task definition.
+- [x] Production approval names commit `88d534a04ab68f636eda64bc60689b26f11ecae8`, no migrations, no config changes, and rollback by previous ECS task definition.
 - [ ] Production image built.
 - [ ] ECS deployment completed.
 - [ ] Production smoke checks passed.
@@ -198,8 +198,8 @@ Steps:
 
 Collected on 2026-07-19 before production deployment:
 
-- Release candidate: `405686849a7fb5ffa6e4387e57a6aae763ba8d47`.
-- Additional uncommitted release-support change at ticket update time: `package.json` and `package-lock.json` pin `typescript` to `^5.9.3`. Commit this with the release ticket before production image build if approved.
+- Release candidate: `88d534a04ab68f636eda64bc60689b26f11ecae8`.
+- Release-support dependency change: `package.json` and `package-lock.json` pin `typescript` to `^5.9.3`.
 - Focused portal tests passed:
 
   ```bash
