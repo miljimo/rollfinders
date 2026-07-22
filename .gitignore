@@ -18,7 +18,7 @@
 /.next/
 **/.next/
 /out/
-
+bin
 # production
 /build
 
