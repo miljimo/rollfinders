@@ -129,6 +129,18 @@ function dateOnly(value: string) {
   return date;
 }
 
+function nextVisibleSeedDate(value: string) {
+  const seedDate = dateOnly(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (seedDate >= today) return seedDate;
+
+  const daysUntilSeedWeekday = (seedDate.getDay() - today.getDay() + 7) % 7;
+  const next = new Date(today);
+  next.setDate(today.getDate() + daysUntilSeedWeekday);
+  return next;
+}
+
 function timeOnly(value: string, fallback: string) {
   if (!value) return fallback;
   const match = value.match(/(\d{2}:\d{2})/);
@@ -277,10 +289,10 @@ async function seedOpenMats() {
     if (!academy) continue;
 
     const title = mappedValue(row, mapping, "title");
-    const eventDate = dateOnly(mappedValue(row, mapping, "eventDate") || mappedValue(row, mapping, "startTime"));
+    const eventDate = nextVisibleSeedDate(mappedValue(row, mapping, "eventDate") || mappedValue(row, mapping, "startTime"));
     const startTime = timeOnly(mappedValue(row, mapping, "startTime"), "18:30");
     const existing = await prisma.event.findFirst({
-      where: { academyId: academy.id, title, eventDate, startTime },
+      where: { academyId: academy.id, title, startTime },
     });
     const data = {
       academyId: academy.id,

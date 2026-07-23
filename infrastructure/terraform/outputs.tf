@@ -3,6 +3,11 @@ output "alb_dns_name" {
   value       = module.alb.dns_name
 }
 
+output "target_group_arn" {
+  description = "Application Load Balancer target group ARN."
+  value       = module.alb.target_group_arn
+}
+
 output "rds_instance_identifier" {
   description = "RDS PostgreSQL instance identifier."
   value       = module.database.identifier
@@ -60,32 +65,42 @@ output "ecr_repository_url" {
 
 output "ecs_cluster_name" {
   description = "ECS cluster name."
-  value       = module.app_service.cluster_name
+  value       = try(module.app_service[0].cluster_name, "")
 }
 
 output "ecs_service_name" {
   description = "ECS service name."
-  value       = module.app_service.service_name
+  value       = try(module.app_service[0].service_name, "")
 }
 
 output "ecs_task_definition_arn" {
   description = "ECS task definition ARN."
-  value       = module.app_service.task_definition_arn
+  value       = try(module.app_service[0].task_definition_arn, "")
 }
 
 output "ecs_security_group_id" {
   description = "Security group used by ECS tasks."
-  value       = module.ecs_security_group.id
+  value       = try(module.ecs_security_group[0].id, "")
+}
+
+output "ec2_app_instance_id" {
+  description = "EC2 app host instance ID when enabled."
+  value       = try(module.ec2_app_host[0].instance_id, "")
+}
+
+output "ec2_app_private_ip" {
+  description = "EC2 app host private IP when enabled."
+  value       = try(module.ec2_app_host[0].private_ip, "")
 }
 
 output "api_ecs_security_group_id" {
   description = "Security group used by the API service ECS task."
-  value       = module.api_ecs_security_group.id
+  value       = try(module.api_ecs_security_group[0].id, "")
 }
 
 output "domain_service_security_group_id" {
   description = "Security group used by lower domain service ECS tasks."
-  value       = module.domain_service_security_group.id
+  value       = try(module.domain_service_security_group[0].id, "")
 }
 
 output "private_subnet_ids" {

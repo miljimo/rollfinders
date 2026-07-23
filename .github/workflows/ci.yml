@@ -1,12 +1,44 @@
-name: CI
+name: CI and Deploy
 
 on:
   push:
-    branches: [main]
+    branches:
+      - master
+      - main
+      - develop
+      - "feature/**"
   pull_request:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - dev
+          - production
+      deploy:
+        description: "Build and deploy the selected environment"
+        required: true
+        default: false
+        type: boolean
+      production_confirmation:
+        description: "Type production to deploy production"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-2' }}
+  ENVIRONMENT_NAME: ${{ inputs.environment || 'dev' }}
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
-  build:
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -14,7 +46,84 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: apps/backend_api/go.mod
+          cache-dependency-path: apps/backend_api/go.sum
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
       - run: npm ci
       - run: npm run db:generate
-      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run services:test
       - run: npm run build
+      - run: terraform fmt -check
+        working-directory: infrastructure/terraform
+      - run: terraform init -backend=false
+        working-directory: infrastructure/terraform
+      - run: terraform validate
+        working-directory: infrastructure/terraform
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: validate
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+      - run: chmod +x scripts/cicd/*.sh
+      - run: scripts/cicd/prepare-ecr.sh
+      - run: scripts/cicd/build.sh
+      - run: scripts/cicd/build-go-services.sh
+        env:
+          FORCE_SERVICE_REDEPLOY: ${{ inputs.environment == 'production' && 'true' || 'false' }}
+          SERVICE_REDEPLOY_TARGET: all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-env-${{ inputs.environment }}
+          path: image.env
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy && (inputs.environment != 'production' || inputs.production_confirmation == 'production') }}
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: image-env-${{ inputs.environment }}
+          path: .
+      - run: chmod +x scripts/cicd/*.sh
+      - run: scripts/cicd/deploy-environment.sh
+        env:
+          PRODUCTION_APPROVED: ${{ inputs.environment == 'production' && 'true' || '' }}
+          PRODUCTION_MIGRATION_APPROVED: ${{ inputs.environment == 'production' && 'true' || '' }}

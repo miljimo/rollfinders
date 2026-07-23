@@ -48,6 +48,7 @@ module "alb_security_group" {
 }
 
 module "ecs_security_group" {
+  count            = var.enable_ec2_app_host ? 0 : 1
   source           = "./modules/security_groups"
   environment_name = var.environment_name
   name             = "${var.project_name}-ecs"
@@ -73,7 +74,35 @@ module "ecs_security_group" {
   ]
 }
 
+module "ec2_app_security_group" {
+  count            = var.enable_ec2_app_host ? 1 : 0
+  source           = "./modules/security_groups"
+  environment_name = var.environment_name
+  name             = "${var.project_name}-ec2-app"
+  description      = "Allow ALB traffic to the RollFinders EC2 app host"
+  vpc_id           = module.networking.vpc_id
+  inbound_rules = [
+    {
+      from            = 3000
+      to              = 3000
+      protocol        = "tcp"
+      description     = "App traffic from ALB"
+      security_groups = [module.alb_security_group.id]
+    }
+  ]
+  outbound_rules = [
+    {
+      from        = 0
+      to          = 0
+      protocol    = "-1"
+      description = "Outbound traffic for image pulls, database, email, and public APIs"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  ]
+}
+
 module "api_ecs_security_group" {
+  count            = var.enable_ec2_app_host ? 0 : 1
   source           = "./modules/security_groups"
   environment_name = var.environment_name
   name             = "${var.project_name}-api-ecs"
@@ -85,7 +114,7 @@ module "api_ecs_security_group" {
       to              = 8080
       protocol        = "tcp"
       description     = "API traffic from RollFinders frontend"
-      security_groups = [module.ecs_security_group.id]
+      security_groups = [module.ecs_security_group[0].id]
     }
   ]
   outbound_rules = [
@@ -100,6 +129,7 @@ module "api_ecs_security_group" {
 }
 
 module "domain_service_security_group" {
+  count            = var.enable_ec2_app_host ? 0 : 1
   source           = "./modules/security_groups"
   environment_name = var.environment_name
   name             = "${var.project_name}-domain-services"
@@ -111,7 +141,7 @@ module "domain_service_security_group" {
       to              = 8080
       protocol        = "tcp"
       description     = "Domain service traffic from API service only"
-      security_groups = [module.api_ecs_security_group.id]
+      security_groups = [module.api_ecs_security_group[0].id]
     }
   ]
   outbound_rules = [
@@ -137,10 +167,10 @@ module "database_security_group" {
       to          = 5432
       protocol    = "tcp"
       description = "PostgreSQL from RollFinders ECS tiers"
-      security_groups = [
-        module.ecs_security_group.id,
-        module.api_ecs_security_group.id,
-        module.domain_service_security_group.id
+      security_groups = var.enable_ec2_app_host ? [module.ec2_app_security_group[0].id] : [
+        module.ecs_security_group[0].id,
+        module.api_ecs_security_group[0].id,
+        module.domain_service_security_group[0].id
       ]
     }
   ]
@@ -284,6 +314,7 @@ resource "aws_ssm_parameter" "super_admin" {
 }
 
 module "task_role" {
+  count       = var.enable_ec2_app_host ? 0 : 1
   source      = "./modules/roles"
   environment = var.environment_name
   name        = "${var.project_name}-task"
@@ -296,6 +327,7 @@ module "task_role" {
 }
 
 module "app_service" {
+  count                 = var.enable_ec2_app_host ? 0 : 1
   source                = "./modules/ecs"
   environment           = var.environment_name
   name                  = var.project_name
@@ -310,8 +342,8 @@ module "app_service" {
   desired_count         = var.desired_count
   assign_public_ip      = !var.enable_nat_gateway
   subnets               = var.enable_nat_gateway ? module.networking.private_subnet_ids : module.networking.public_subnet_ids
-  security_groups       = [module.ecs_security_group.id]
-  task_role_arn         = module.task_role.arn
+  security_groups       = [module.ecs_security_group[0].id]
+  task_role_arn         = module.task_role[0].arn
 
   execution_role_secret_arns = []
 
@@ -326,7 +358,7 @@ module "app_service" {
     container_port   = 3000
   }
 
-  task_definitions = [
+  task_definitions = var.enable_ec2_app_host ? [] : [for task in [
     {
       name       = "web"
       image      = var.image_uri
@@ -688,18 +720,39 @@ module "app_service" {
       ports       = [{ container_port = 8096, host_port = 8096, protocol = "tcp" }]
       healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8096/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
     }
-  ]
+  ] : task if var.enable_analytics_service || task.name != "analytics"]
 
   depends_on = [
     module.alb
   ]
 }
 
+module "ec2_app_host" {
+  count              = var.enable_ec2_app_host ? 1 : 0
+  source             = "./modules/ec2_app_host"
+  name_prefix        = local.name_prefix
+  subnet_id          = module.networking.public_subnet_ids[0]
+  security_group_ids = [module.ec2_app_security_group[0].id]
+  instance_type      = var.ec2_app_instance_type
+  root_volume_size   = var.ec2_app_root_volume_size
+  ssm_parameter_arns = concat(module.app_secrets.arns, [for parameter in aws_ssm_parameter.super_admin : parameter.arn])
+  tags               = local.common_tags
+  depends_on         = [module.app_secrets]
+}
+
+resource "aws_lb_target_group_attachment" "ec2_app_host" {
+  count            = var.enable_ec2_app_host ? 1 : 0
+  target_group_arn = module.alb.target_group_arn
+  target_id        = module.ec2_app_host[0].private_ip
+  port             = 3000
+}
+
 module "ecs_autoscaling" {
+  count        = var.enable_ec2_app_host ? 0 : 1
   source       = "./modules/ecs_autoscaling"
   name_prefix  = local.name_prefix
-  cluster_name = module.app_service.cluster_name
-  service_name = module.app_service.service_name
+  cluster_name = module.app_service[0].cluster_name
+  service_name = module.app_service[0].service_name
   min_capacity = var.desired_count
   max_capacity = local.is_production ? 6 : 2
   depends_on   = [module.app_service]

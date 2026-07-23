@@ -1,19 +1,21 @@
 # Deployment Flow
 
-This artifact shows how code moves from Bitbucket into AWS.
+This artifact shows how code moves from GitHub into AWS.
 
 ## CI/CD Overview
 
 ```mermaid
 flowchart LR
   commit[Git Commit or Branch Event]
-  validate[Validate<br/>npm ci, Prisma generate,<br/>lint, typecheck, test, build,<br/>terraform fmt and validate]
+  validate[Validate<br/>npm ci, Prisma generate,<br/>typecheck, Go service tests, build,<br/>terraform fmt and validate]
   build[Build Docker Image<br/>scripts/cicd/build.sh]
   ecr[ECR<br/>rollfinder/env/app]
   artifact[image.env<br/>IMAGE_URI tag]
   lock[S3 Deployment Lock<br/>deployment-lock/global.lock]
   deploy_env[Deploy Production<br/>deployment lock and approval checks]
   tf[Terraform Plan and Apply]
+  runtime{Production EC2 host enabled?}
+  ec2[SSM Deploy to EC2<br/>docker compose pull and up]
   ecs[ECS Force New Deployment<br/>wait services-stable]
   migrate[ECS One-Off Migration Task<br/>npx prisma migrate deploy]
   seed[Dev Seed Data<br/>scripts/cicd/seed.sh]
@@ -27,10 +29,13 @@ flowchart LR
   lock --> deploy_env
   artifact --> deploy_env
   deploy_env --> tf
-  tf --> ecs
-  ecs --> migrate
+  tf --> migrate
+  migrate --> runtime
+  runtime -->|yes| ec2
+  runtime -->|no| ecs
   migrate --> seed
-  migrate --> smoke
+  ec2 --> smoke
+  ecs --> smoke
   seed --> smoke
   smoke --> marker
 ```
@@ -39,39 +44,43 @@ flowchart LR
 
 | Source | Pipeline Behavior | Environment |
 | --- | --- | --- |
-| Any branch/default pipeline | Static validation only | None |
+| Any branch/default workflow | Static validation only | None |
 | `feature/*` | Static validation only | None |
 | `develop` | Static validation only | None |
-| `main` | Validate, build production images, manual production deploy | production |
+| `master` or `main` push | Static validation only | None |
+| Manual GitHub Actions dispatch | Validate, build images, manual environment deploy | selected `dev` or `production` |
 
 ## Promotion Controls
 
 ```mermaid
 flowchart TD
-  ready[Validated Main Build]
+  ready[Validated GitHub Build]
   prod_check{Deploy production?}
   prod[Production Deploy Success]
 
   ready --> prod_check
-  prod_check -->|requires manual step<br/>PRODUCTION_APPROVED=true<br/>PRODUCTION_MIGRATION_APPROVED=true| prod
+  prod_check -->|requires GitHub environment approval<br/>production confirmation<br/>PRODUCTION_APPROVED=true<br/>PRODUCTION_MIGRATION_APPROVED=true| prod
 ```
 
 Controls implemented by the deployment scripts:
 
 - `scripts/cicd/deploy-environment.sh` validates environment names.
-- Production deploys require `PRODUCTION_APPROVED=true`.
+- Production deploys require the GitHub `production` environment approval, `production_confirmation=production`, and `PRODUCTION_APPROVED=true`.
 - Production migrations require `PRODUCTION_MIGRATION_APPROVED=true`.
 - Deployments must hold the global deployment lock before `scripts/cicd/deploy.sh` runs.
 - The deployment lock is an S3 object at `deployment-lock/global.lock` by default.
+- Production now runs on a single Terraform-managed EC2 app host when `enable_ec2_app_host=true`.
+- ECS production resources remain in Terraform for rollback, but production `desired_count=0` stops the Fargate tasks while EC2 is primary.
 - Production deploys use the built `image.env` artifact directly; dev promotion markers are not required while the dev environment is destroyed for cost control.
 - Promotion markers are S3 objects under `deployment-promotions/<env>.json` by default and are retained only as deployment evidence.
 
 ## Production Availability Rules
 
-Production deployments must keep `rollfinders.com` reachable.
+Production deployments should keep `rollfinders.com` reachable, but the low-cost EC2 runtime is single-node and has lower availability than the previous two-task ECS/Fargate runtime.
 
-- The active healthy production task definition must continue serving traffic until the replacement task definition is healthy and smoke checks pass.
-- ECS production rollout settings must preserve healthy capacity during deployment; do not use a normal production deploy path that lowers desired healthy tasks to zero.
+- The EC2 production deploy path uses SSM to run `docker compose pull` and `docker compose up -d --remove-orphans` on the app host.
+- The ALB routes to the EC2 host private IP on port 3000.
+- ECS production resources are kept for rollback, but the active production cost profile intentionally sets ECS desired count to zero.
 - Migrations must be backward compatible with the currently running production app until the new app is serving successfully.
 - DNS records, ALB listeners, target groups, and public certificates must not be removed or disabled before the replacement production route is validated.
 - A production deploy must run a public health check before deployment and after deployment.
@@ -83,11 +92,12 @@ If an approved operation cannot guarantee uninterrupted service, users must see 
 
 ```mermaid
 sequenceDiagram
-  participant Pipeline as Bitbucket Pipeline
+  participant Pipeline as GitHub Actions
   participant AWS as AWS OIDC / STS
   participant ECR as ECR
   participant TF as Terraform
-  participant ECS as ECS
+  participant EC2 as EC2 App Host
+  participant ECS as ECS Rollback/Migration Task
   participant Mig as One-Off Fargate Task
   participant DB as RDS
   participant App as RollFinder App
@@ -102,18 +112,19 @@ sequenceDiagram
   Pipeline->>TF: terraform init with environment backend
   Pipeline->>TF: terraform plan with image_uri
   Pipeline->>TF: terraform apply
-  Pipeline->>ECS: force-new-deployment
-  Pipeline->>ECS: wait services-stable
   Pipeline->>ECS: run-task with migration command
   ECS->>Mig: Start task in private subnets with ECS SG
   Mig->>DB: npx prisma migrate deploy
+  Pipeline->>EC2: SSM Run Command writes env and compose file
+  EC2->>ECR: Pull app and service images
+  Pipeline->>EC2: docker compose up -d
   Pipeline->>App: Smoke test deployed URL
   Pipeline->>S3: Write success promotion marker and release lock
 ```
 
 ## Deployment Outputs
 
-After Terraform apply and ECS stabilization, the deployment script prints:
+After Terraform apply and runtime stabilization, the deployment script prints:
 
 - Environment name
 - Frontend URL
@@ -121,6 +132,7 @@ After Terraform apply and ECS stabilization, the deployment script prints:
 - API URL
 - ECS cluster name
 - ECS service name
+- EC2 app host instance ID, when enabled
 - Docker image URI
 - ACM certificate ARN
 
@@ -134,4 +146,5 @@ Each environment uses:
 - Separate ECR repository path: `rollfinder/<env>/app`
 - Separate Terraform-created resource names prefixed as `rollfinder-<env>`
 - Separate database instance and Secrets Manager secret
+- Production EC2 app host is enabled by `enable_ec2_app_host=true`; ECS remains in state with `desired_count=0` for rollback.
 - Shared deployment-control defaults in the dev Terraform state bucket unless `DEPLOYMENT_LOCK_BUCKET` or `PROMOTION_BUCKET` is overridden

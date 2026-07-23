@@ -15,6 +15,14 @@ source "${SCRIPT_DIR}/deployment-lock.sh"
 source "${SCRIPT_DIR}/promotion.sh"
 source "${SCRIPT_DIR}/super-admin-env.sh"
 
+if grep -Eq '^[[:space:]]*enable_analytics_service[[:space:]]*=[[:space:]]*false' "${TFVARS}"; then
+  export DISABLE_ANALYTICS_SERVICE=true
+fi
+
+if grep -Eq '^[[:space:]]*enable_ec2_app_host[[:space:]]*=[[:space:]]*true' "${TFVARS}"; then
+  export EC2_APP_HOST_ENABLED=true
+fi
+
 case "${ENVIRONMENT_NAME}" in
   dev|production) ;;
   *)
@@ -49,8 +57,8 @@ if [[ -z "${IMAGE_URI:-}" ]]; then
   exit 1
 fi
 
-if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${ACADEMY_SERVICE_IMAGE_URI:-}" || -z "${ORGANISATION_SERVICE_IMAGE_URI:-}" || -z "${COURSE_SERVICE_IMAGE_URI:-}" || -z "${BOOKING_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" || -z "${NOTIFICATION_SERVICE_IMAGE_URI:-}" || -z "${ANALYTICS_SERVICE_IMAGE_URI:-}" || -z "${ACCESS_KEY_SERVICE_IMAGE_URI:-}" || -z "${WALLET_SERVICE_IMAGE_URI:-}" || -z "${TRANSFER_SERVICE_IMAGE_URI:-}" || -z "${PRICING_SERVICE_IMAGE_URI:-}" ]]; then
-  echo "image.env must include image URIs for app, api, users, authorisation, academy, organisation, courses, booking, payments, subscriptions, notification, analytics, access-keys, wallet, transfer, and pricing."
+if [[ -z "${API_SERVICE_IMAGE_URI:-}" || -z "${USER_SERVICE_IMAGE_URI:-}" || -z "${AUTHORISATION_SERVICE_IMAGE_URI:-}" || -z "${ACADEMY_SERVICE_IMAGE_URI:-}" || -z "${ORGANISATION_SERVICE_IMAGE_URI:-}" || -z "${COURSE_SERVICE_IMAGE_URI:-}" || -z "${BOOKING_SERVICE_IMAGE_URI:-}" || -z "${PAYMENT_SERVICE_IMAGE_URI:-}" || -z "${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" || -z "${NOTIFICATION_SERVICE_IMAGE_URI:-}" || -z "${ACCESS_KEY_SERVICE_IMAGE_URI:-}" || -z "${WALLET_SERVICE_IMAGE_URI:-}" || -z "${TRANSFER_SERVICE_IMAGE_URI:-}" || -z "${PRICING_SERVICE_IMAGE_URI:-}" || -z "${USAGE_LIMITS_SERVICE_IMAGE_URI:-}" || ( "${DISABLE_ANALYTICS_SERVICE:-false}" != "true" && -z "${ANALYTICS_SERVICE_IMAGE_URI:-}" ) ]]; then
+  echo "image.env must include image URIs for app, api, users, authorisation, academy, organisation, courses, booking, payments, subscriptions, notification, access-keys, wallet, transfer, pricing, usage-limits, and analytics unless DISABLE_ANALYTICS_SERVICE=true."
   echo "Run scripts/cicd/build-go-services.sh after scripts/cicd/build.sh, or set FORCE_SERVICE_REDEPLOY=true SERVICE_REDEPLOY_TARGET=all."
   exit 1
 fi
@@ -95,6 +103,7 @@ terraform plan \
   -var="subscription_service_image_uri=${SUBSCRIPTION_SERVICE_IMAGE_URI:-}" \
   -var="notification_service_image_uri=${NOTIFICATION_SERVICE_IMAGE_URI:-}" \
   -var="analytics_service_image_uri=${ANALYTICS_SERVICE_IMAGE_URI:-}" \
+  -var="enable_analytics_service=$([[ "${DISABLE_ANALYTICS_SERVICE:-false}" == "true" ]] && echo false || echo true)" \
   -var="access_key_service_image_uri=${ACCESS_KEY_SERVICE_IMAGE_URI:-}" \
   -var="wallet_service_image_uri=${WALLET_SERVICE_IMAGE_URI:-}" \
   -var="transfer_service_image_uri=${TRANSFER_SERVICE_IMAGE_URI:-}" \
@@ -105,8 +114,13 @@ terraform apply \
   -auto-approve \
   deploy.tfplan
 
-"${SCRIPT_DIR}/migrate.sh"
-"${SCRIPT_DIR}/deploy.sh"
+if [[ "${EC2_APP_HOST_ENABLED:-false}" == "true" ]]; then
+  "${SCRIPT_DIR}/deploy-ec2-app.sh"
+  "${SCRIPT_DIR}/migrate.sh"
+else
+  "${SCRIPT_DIR}/migrate.sh"
+  "${SCRIPT_DIR}/deploy.sh"
+fi
 "${SCRIPT_DIR}/ensure-super-admin.sh"
 
 if [[ "${ENVIRONMENT_NAME}" == "dev" ]]; then

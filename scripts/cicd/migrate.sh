@@ -20,6 +20,13 @@ cd "${TERRAFORM_DIR}"
 terraform_backend_args "${ENVIRONMENT_NAME}" "${BACKEND_CONFIG}"
 terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 
+EC2_APP_INSTANCE_ID="$(terraform output -raw ec2_app_instance_id 2>/dev/null || true)"
+if [[ -n "${EC2_APP_INSTANCE_ID}" ]]; then
+  "${SCRIPT_DIR}/run-ec2-web-command.sh" "sh scripts/cicd/run-service-sql-migrations.sh && npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"
+  echo "EC2 migration command completed successfully."
+  exit 0
+fi
+
 CLUSTER="$(terraform output -raw ecs_cluster_name)"
 SERVICE="$(terraform output -raw ecs_service_name)"
 TASK_DEFINITION="$(aws ecs describe-services --region "${AWS_REGION}" --cluster "${CLUSTER}" --services "${SERVICE}" --query 'services[0].taskDefinition' --output text)"

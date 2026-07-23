@@ -34,7 +34,7 @@ for env_file in .env.local .env; do
   fi
 done
 
-IMAGE_TAG="${IMAGE_TAG:-${BITBUCKET_COMMIT:-$(git rev-parse --short HEAD)}}"
+IMAGE_TAG="${IMAGE_TAG:-${BITBUCKET_COMMIT:-${GITHUB_SHA:-$(git rev-parse --short HEAD)}}}"
 ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
@@ -80,9 +80,16 @@ docker push "${IMAGE_URI}:${IMAGE_TAG}"
 docker push "${IMAGE_URI}:latest"
 docker push "${IMAGE_URI}:${ENVIRONMENT_NAME}"
 
+release_tag=""
 if [[ -n "${BITBUCKET_TAG:-}" ]]; then
-  docker tag "${IMAGE_URI}:${IMAGE_TAG}" "${IMAGE_URI}:${BITBUCKET_TAG}"
-  docker push "${IMAGE_URI}:${BITBUCKET_TAG}"
+  release_tag="${BITBUCKET_TAG}"
+elif [[ "${GITHUB_REF_TYPE:-}" == "tag" && -n "${GITHUB_REF_NAME:-}" ]]; then
+  release_tag="${GITHUB_REF_NAME}"
+fi
+
+if [[ -n "${release_tag}" ]]; then
+  docker tag "${IMAGE_URI}:${IMAGE_TAG}" "${IMAGE_URI}:${release_tag}"
+  docker push "${IMAGE_URI}:${release_tag}"
 fi
 
 echo "IMAGE_URI=${IMAGE_URI}:${IMAGE_TAG}" > image.env

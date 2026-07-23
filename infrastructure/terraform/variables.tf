@@ -109,6 +109,30 @@ variable "analytics_service_image_uri" {
   default     = ""
 }
 
+variable "enable_analytics_service" {
+  type        = bool
+  description = "Whether to run the analytics sidecar container in the ECS task."
+  default     = true
+}
+
+variable "enable_ec2_app_host" {
+  type        = bool
+  description = "Whether to run the application stack on a single EC2 host behind the ALB."
+  default     = false
+}
+
+variable "ec2_app_instance_type" {
+  type        = string
+  description = "Instance type for the low-cost EC2 application host."
+  default     = "t3.medium"
+}
+
+variable "ec2_app_root_volume_size" {
+  type        = number
+  description = "Root volume size in GiB for the EC2 application host."
+  default     = 30
+}
+
 variable "access_key_service_image_uri" {
   type        = string
   description = "Access Keys service image URI."

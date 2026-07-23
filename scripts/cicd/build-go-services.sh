@@ -10,14 +10,19 @@ cd "${PROJECT_DIR}"
 ENVIRONMENT_NAME="${ENVIRONMENT_NAME:-dev}"
 AWS_REGION="${AWS_REGION:-eu-west-2}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-$(aws sts get-caller-identity --query Account --output text)}"
-IMAGE_TAG="${IMAGE_TAG:-${BITBUCKET_COMMIT:-$(git rev-parse --short HEAD)}}"
+IMAGE_TAG="${IMAGE_TAG:-${BITBUCKET_COMMIT:-${GITHUB_SHA:-$(git rev-parse --short HEAD)}}}"
 FORCE_SERVICE_REDEPLOY="${FORCE_SERVICE_REDEPLOY:-false}"
 SERVICE_REDEPLOY_TARGET="${SERVICE_REDEPLOY_TARGET:-all}"
 IMAGE_ENV_FILE="${IMAGE_ENV_FILE:-image.env}"
+TFVARS="${PROJECT_DIR}/infrastructure/terraform/environments/${ENVIRONMENT_NAME}/common.tfvars"
+
+if [[ -f "${TFVARS}" ]] && grep -Eq '^[[:space:]]*enable_analytics_service[[:space:]]*=[[:space:]]*false' "${TFVARS}"; then
+  export DISABLE_ANALYTICS_SERVICE=true
+fi
 
 touch "${IMAGE_ENV_FILE}"
 TMP_IMAGE_ENV="$(mktemp)"
-grep -v -E '^(API_SERVICE_IMAGE_URI|USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI|ACADEMY_SERVICE_IMAGE_URI|ORGANISATION_SERVICE_IMAGE_URI|COURSE_SERVICE_IMAGE_URI|BOOKING_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|SUBSCRIPTION_SERVICE_IMAGE_URI|NOTIFICATION_SERVICE_IMAGE_URI|ANALYTICS_SERVICE_IMAGE_URI|ACCESS_KEY_SERVICE_IMAGE_URI|WALLET_SERVICE_IMAGE_URI|TRANSFER_SERVICE_IMAGE_URI|PRICING_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
+grep -v -E '^(API_SERVICE_IMAGE_URI|USER_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|AUTHORISATION_SERVICE_IMAGE_URI|ACADEMY_SERVICE_IMAGE_URI|ORGANISATION_SERVICE_IMAGE_URI|COURSE_SERVICE_IMAGE_URI|BOOKING_SERVICE_IMAGE_URI|PAYMENT_SERVICE_IMAGE_URI|SUBSCRIPTION_SERVICE_IMAGE_URI|NOTIFICATION_SERVICE_IMAGE_URI|ANALYTICS_SERVICE_IMAGE_URI|ACCESS_KEY_SERVICE_IMAGE_URI|WALLET_SERVICE_IMAGE_URI|TRANSFER_SERVICE_IMAGE_URI|PRICING_SERVICE_IMAGE_URI|USAGE_LIMITS_SERVICE_IMAGE_URI)=' "${IMAGE_ENV_FILE}" >"${TMP_IMAGE_ENV}" || true
 mv "${TMP_IMAGE_ENV}" "${IMAGE_ENV_FILE}"
 
 service_changed() {
@@ -28,9 +33,10 @@ service_changed() {
   fi
 
   for path in "$@"; do
-    if [[ -n "${BITBUCKET_COMMIT:-}" ]]; then
-      if git rev-parse "${BITBUCKET_COMMIT}^" >/dev/null 2>&1; then
-        git diff --quiet "${BITBUCKET_COMMIT}^" "${BITBUCKET_COMMIT}" -- "${path}" || return 0
+    local commit="${BITBUCKET_COMMIT:-${GITHUB_SHA:-}}"
+    if [[ -n "${commit}" ]]; then
+      if git rev-parse "${commit}^" >/dev/null 2>&1; then
+        git diff --quiet "${commit}^" "${commit}" -- "${path}" || return 0
         continue
       fi
     fi
@@ -157,7 +163,9 @@ else
   emit_existing_service_image "notification" "NOTIFICATION_SERVICE_IMAGE_URI"
 fi
 
-if target_matches "analytics" && service_changed "apps/backend_api/containers/analytics" "apps/backend_api/cmd/services/analytics" "apps/backend_api/internal/services/analytics" "apps/backend_api/internal/services/analytics/migrations"; then
+if [[ "${DISABLE_ANALYTICS_SERVICE:-false}" == "true" ]]; then
+  echo "Skipping analytics image because DISABLE_ANALYTICS_SERVICE=true."
+elif target_matches "analytics" && service_changed "apps/backend_api/containers/analytics" "apps/backend_api/cmd/services/analytics" "apps/backend_api/internal/services/analytics" "apps/backend_api/internal/services/analytics/migrations"; then
   build_service "analytics" "apps/backend_api/containers/analytics/Dockerfile" "ANALYTICS_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "analytics" "ANALYTICS_SERVICE_IMAGE_URI"
@@ -185,4 +193,10 @@ if target_matches "pricing" && service_changed "apps/backend_api/containers/pric
   build_service "pricing" "apps/backend_api/containers/pricing/Dockerfile" "PRICING_SERVICE_IMAGE_URI"
 else
   emit_existing_service_image "pricing" "PRICING_SERVICE_IMAGE_URI"
+fi
+
+if target_matches "usage-limits" && service_changed "apps/backend_api/containers/usage_limits" "apps/backend_api/cmd/services/usage_limits" "apps/backend_api/internal/services/usage_limits" "apps/backend_api/internal/services/usage_limits/migrations"; then
+  build_service "usage-limits" "apps/backend_api/containers/usage_limits/Dockerfile" "USAGE_LIMITS_SERVICE_IMAGE_URI"
+else
+  emit_existing_service_image "usage-limits" "USAGE_LIMITS_SERVICE_IMAGE_URI"
 fi
