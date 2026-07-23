@@ -217,4 +217,33 @@ describe("deployment safety contracts", () => {
     assert.match(pool, /sslMode === "require" \? \(\{ rejectUnauthorized: false \}/);
     assert.match(dockerfile, /COPY --chown=nextjs:nodejs apps\/portal\/src\/lib\/prisma-pg-pool\.ts \.\/apps\/portal\/src\/lib\/prisma-pg-pool\.ts/);
   });
+
+  it("keeps EC2 web runtime wired to internal service URLs instead of localhost gateway fallbacks", () => {
+    const deploy = readSource("scripts/cicd/deploy-ec2-app.sh");
+
+    const webBlock = deploy.slice(
+      deploy.indexOf("  web:"),
+      deploy.indexOf("  api:"),
+    );
+
+    for (const [name, url] of [
+      ["API_PUBLIC_BASE_URL", "http://api:8080"],
+      ["USER_PUBLIC_BASE_URL", "http://users:8080"],
+      ["ACADEMY_PUBLIC_BASE_URL", "http://academy:8080"],
+      ["ORGANISATION_PUBLIC_BASE_URL", "http://organisation:8080"],
+      ["COURSE_PUBLIC_BASE_URL", "http://courses:8080"],
+      ["BOOKING_PUBLIC_BASE_URL", "http://booking:8080"],
+      ["PAYMENT_PUBLIC_BASE_URL", "http://payments:8080"],
+      ["SUBSCRIPTION_PUBLIC_BASE_URL", "http://subscriptions:8080"],
+      ["WALLET_PUBLIC_BASE_URL", "http://wallet:8080"],
+      ["TRANSFER_PUBLIC_BASE_URL", "http://transfer:8080"],
+      ["PRICING_PUBLIC_BASE_URL", "http://pricing:8080"],
+      ["USAGE_LIMITS_PUBLIC_BASE_URL", "http://usage-limits:8080"],
+      ["AUTHORISATION_PUBLIC_BASE_URL", "http://authorisation:8080"],
+    ]) {
+      assert.match(webBlock, new RegExp(`${name}: ${url}`));
+    }
+
+    assert.doesNotMatch(webBlock, /127\.0\.0\.1:3017|localhost:3017/);
+  });
 });

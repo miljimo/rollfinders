@@ -81,6 +81,8 @@ Production deployments should keep `rollfinders.com` reachable, but the low-cost
 - The EC2 production deploy path uses SSM to run `docker compose pull` and `docker compose up -d --remove-orphans` on the app host.
 - The ALB routes to the EC2 host private IP on port 3000.
 - ECS production resources are kept for rollback, but the active production cost profile intentionally sets ECS desired count to zero.
+- The web container must receive explicit internal service URLs such as `PAYMENT_PUBLIC_BASE_URL=http://payments:8080` from deployment configuration. Do not rely on localhost API gateway fallbacks in production or provider-migrated runtimes.
+- When migrating from AWS EC2 to another provider, preserve the same service-discovery contract by mapping each `*_PUBLIC_BASE_URL` to the provider's private service DNS name or container-network hostname. This keeps portal code provider-neutral and avoids hardcoded cloud-provider SDKs in business logic.
 - Migrations must be backward compatible with the currently running production app until the new app is serving successfully.
 - DNS records, ALB listeners, target groups, and public certificates must not be removed or disabled before the replacement production route is validated.
 - A production deploy must run a public health check before deployment and after deployment.
