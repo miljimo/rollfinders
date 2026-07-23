@@ -44,7 +44,7 @@ describe("GridDashboard", () => {
     assert.doesNotMatch(markup, /minmax\(min\(100%,22rem\),1fr\)/);
   });
 
-  it("lets larger dashboard cards take more row space based on their content", () => {
+  it("keeps default dashboard cards on the same desktop grid span", () => {
     const markup = renderToStaticMarkup(
       <GridDashboard
         items={[
@@ -58,8 +58,8 @@ describe("GridDashboard", () => {
       />,
     );
 
-    assert.match(markup, /lg:col-span-4/);
-    assert.match(markup, /lg:col-span-6/);
+    assert.equal(markup.match(/xl:col-span-4/g)?.length, 2);
+    assert.doesNotMatch(markup, /lg:col-span-6/);
     assert.doesNotMatch(markup, /sm:w-fit/);
   });
 
