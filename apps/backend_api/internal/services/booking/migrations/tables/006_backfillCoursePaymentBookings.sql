@@ -149,4 +149,99 @@ BEGIN
           WHERE existing.booking_id = b.id
       )
     ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO booking.booking_status_history (
+        id,
+        booking_id,
+        from_status,
+        to_status,
+        reason,
+        changed_by,
+        metadata,
+        created_at
+    )
+    SELECT
+        'hist_' || substr(md5('course-payment-created:' || b.id), 1, 24),
+        b.id,
+        NULL,
+        b.status,
+        'payment_service_backfill_created',
+        'system',
+        jsonb_build_object('source', 'payment_service_backfill', 'payment_id', b.payment_id),
+        b.created_at
+    FROM booking.bookings b
+    WHERE b.bookable_type = 'course_occurrence'
+      AND b.payment_id IS NOT NULL
+      AND b.metadata->>'source' = 'payment_service_backfill'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM booking.booking_status_history existing
+          WHERE existing.id = 'hist_' || substr(md5('course-payment-created:' || b.id), 1, 24)
+      )
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO booking.booking_status_history (
+        id,
+        booking_id,
+        from_status,
+        to_status,
+        reason,
+        changed_by,
+        metadata,
+        created_at
+    )
+    SELECT
+        'hist_' || substr(md5('course-payment-received:' || b.id), 1, 24),
+        b.id,
+        'payment_pending',
+        b.status,
+        'payment_service_backfill_payment_received',
+        'system',
+        jsonb_build_object(
+            'source', 'payment_service_backfill',
+            'payment_id', b.payment_id,
+            'payment_status', b.metadata->>'payment_status'
+        ),
+        b.created_at
+    FROM booking.bookings b
+    WHERE b.bookable_type = 'course_occurrence'
+      AND b.payment_id IS NOT NULL
+      AND b.status IN ('payment_received', 'confirmed')
+      AND b.metadata->>'source' = 'payment_service_backfill'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM booking.booking_status_history existing
+          WHERE existing.id = 'hist_' || substr(md5('course-payment-received:' || b.id), 1, 24)
+      )
+    ON CONFLICT (id) DO NOTHING;
+
+    INSERT INTO booking.outbox_events (
+        id,
+        aggregate_type,
+        aggregate_id,
+        event_type,
+        payload,
+        status,
+        created_at,
+        updated_at
+    )
+    SELECT
+        'outbox_' || substr(md5('course-payment-booking-created:' || b.id), 1, 24),
+        'booking',
+        b.id,
+        'booking.created',
+        jsonb_build_object(
+            'booking_id', b.id,
+            'payment_id', b.payment_id,
+            'status', b.status::text,
+            'source', 'payment_service_backfill'
+        ),
+        'published',
+        b.created_at,
+        b.updated_at
+    FROM booking.bookings b
+    WHERE b.bookable_type = 'course_occurrence'
+      AND b.payment_id IS NOT NULL
+      AND b.metadata->>'source' = 'payment_service_backfill'
+    ON CONFLICT (id) DO NOTHING;
 END $$;
