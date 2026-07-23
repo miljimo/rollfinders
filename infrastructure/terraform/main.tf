@@ -52,7 +52,7 @@ module "ecs_security_group" {
   source           = "./modules/security_groups"
   environment_name = var.environment_name
   name             = "${var.project_name}-ecs"
-  description      = "Allow ALB traffic to the RollFinders frontend ECS task"
+  description      = "Allow ALB traffic to RollFinders ECS tasks"
   vpc_id           = module.networking.vpc_id
   inbound_rules = [
     {
@@ -720,7 +720,7 @@ module "app_service" {
       ports       = [{ container_port = 8096, host_port = 8096, protocol = "tcp" }]
       healthCheck = { command = ["CMD-SHELL", "wget -qO- http://localhost:8096/healthz || exit 1"], interval = 30, timeout = 5, retries = 3, startPeriod = 30 }
     }
-  ] : task if var.enable_analytics_service || task.name != "analytics"]
+  ] : task if(var.enable_analytics_service || task.name != "analytics") && (!local.is_production || contains(local.production_ecs_task_names, task.name))]
 
   depends_on = [
     module.alb

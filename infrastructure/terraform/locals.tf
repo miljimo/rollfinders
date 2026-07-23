@@ -6,6 +6,18 @@ locals {
   api_domain       = local.is_production ? "api.${var.hosted_zone_name}" : "api.${var.domain_name}"
   app_base_url     = var.enable_custom_domain ? "https://${local.canonical_domain}" : "http://${module.alb.dns_name}"
   api_base_url     = var.enable_custom_domain ? "https://${local.api_domain}" : "http://${module.alb.dns_name}"
+  production_ecs_task_names = toset([
+    "web",
+    "api",
+    "users",
+    "authorisation",
+    "academy",
+    "organisation",
+    "courses",
+    "booking",
+    "payments",
+    "wallet"
+  ])
 
   common_tags = {
     Project     = var.project_name

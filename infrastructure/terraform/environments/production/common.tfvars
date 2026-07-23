@@ -1,10 +1,11 @@
 environment_name            = "production"
-desired_count               = 2
+desired_count               = 0
 db_instance_class           = "db.t4g.small"
 db_backup_retention_period  = 3
 db_multi_az                 = false
 enable_analytics_service    = false
-enable_ec2_app_host         = false
+enable_nat_gateway          = false
+enable_ec2_app_host         = true
 ec2_app_instance_type       = "t3.medium"
 ec2_app_root_volume_size    = 30
 domain_name                 = "rollfinders.com"

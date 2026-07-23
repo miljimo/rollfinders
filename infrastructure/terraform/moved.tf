@@ -4,6 +4,36 @@ moved {
 }
 
 moved {
+  from = module.app_service
+  to   = module.app_service[0]
+}
+
+moved {
+  from = module.ecs_security_group
+  to   = module.ecs_security_group[0]
+}
+
+moved {
+  from = module.api_ecs_security_group
+  to   = module.api_ecs_security_group[0]
+}
+
+moved {
+  from = module.domain_service_security_group
+  to   = module.domain_service_security_group[0]
+}
+
+moved {
+  from = module.task_role
+  to   = module.task_role[0]
+}
+
+moved {
+  from = module.ecs_autoscaling
+  to   = module.ecs_autoscaling[0]
+}
+
+moved {
   from = aws_ecs_cluster.app
   to   = module.app_service.aws_ecs_cluster.cluster
 }
