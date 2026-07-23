@@ -323,6 +323,12 @@ services:
     healthcheck: *service_health
 COMPOSE
 cd /opt/rollfinder
+if ! docker compose version >/dev/null 2>&1; then
+  mkdir -p /usr/local/lib/docker/cli-plugins
+  compose_arch="\$(uname -m)"
+  curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-\${compose_arch}" -o /usr/local/lib/docker/cli-plugins/docker-compose
+  chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+fi
 docker compose pull
 docker compose up -d --remove-orphans
 docker image prune -af --filter "until=168h"
