@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.rollfinders.app",
+  appId: "oepe.rollfinders",
   appName: "RollFinders",
   webDir: "www",
   server: {

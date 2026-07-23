@@ -30,7 +30,7 @@ BEGIN
       AND p.currency IN ('GBP', 'Points')
       AND COALESCE(NULLIF(p.metadata->>'academy_owner_id', ''), NULLIF(p.metadata->>'academy_id', '')) IS NOT NULL
     GROUP BY COALESCE(NULLIF(p.metadata->>'academy_owner_id', ''), NULLIF(p.metadata->>'academy_id', '')), p.currency
-    ON CONFLICT (owner_id, wallet_type, currency) DO UPDATE
+    ON CONFLICT (id) DO UPDATE
     SET status = CASE
             WHEN wallet.wallets.status = 'closed' THEN wallet.wallets.status
             ELSE 'active'
@@ -61,7 +61,7 @@ BEGIN
       AND p.amount_minor > 0
       AND p.currency IN ('GBP', 'Points')
     GROUP BY p.currency
-    ON CONFLICT (owner_id, wallet_type, currency) DO UPDATE
+    ON CONFLICT (id) DO UPDATE
     SET status = CASE
             WHEN wallet.wallets.status = 'closed' THEN wallet.wallets.status
             ELSE 'active'

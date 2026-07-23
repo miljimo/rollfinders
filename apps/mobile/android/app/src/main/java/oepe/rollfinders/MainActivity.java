@@ -1,4 +1,4 @@
-package com.rollfinders.app;
+package oepe.rollfinders;
 
 import com.getcapacitor.BridgeActivity;
 

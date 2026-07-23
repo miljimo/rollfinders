@@ -48,6 +48,7 @@ export function FreeEventBookingButton({
           <input name="payerEmail" type="email" placeholder="you@example.com" className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-sm font-normal" />
         </label>
       )}
+      <p className="text-center text-sm font-semibold text-stone-700">{booked ? "No payment needed" : priceLabel}</p>
       <BookEventButton
         type="submit"
         disabled={booked}
@@ -55,7 +56,6 @@ export function FreeEventBookingButton({
         label={booked ? "Booked" : "Book"}
         loading={pending}
         loadingLabel="Booking..."
-        priceLabel={booked ? "No payment needed" : priceLabel}
         className={className}
       />
     </form>

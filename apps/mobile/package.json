@@ -8,6 +8,9 @@
     "android:open": "cap open android",
     "android:apk": "cap sync android && cd android && ./gradlew assembleDebug",
     "android:aab": "cap sync android && cd android && ./gradlew bundleRelease",
+    "android:release:doctor": "node scripts/android-release-doctor.mjs",
+    "android:release:build": "node scripts/build-android-release.mjs",
+    "android:release:publish": "node scripts/publish-google-play.mjs",
     "ios:open": "cap open ios",
     "ios:sync": "cap sync ios",
     "doctor": "node scripts/doctor.mjs"

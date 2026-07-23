@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarCheck, Compass, Map, Search, UserRound, type LucideIcon } from "lucide-react";
+import { House, UserRound, type LucideIcon } from "lucide-react";
 
 export type MobileNavigationTab = "home" | "search" | "map" | "bookings" | "profile";
 
@@ -11,10 +11,7 @@ type MobileNavigationItem = {
 };
 
 export const mobileNavigationItems: readonly MobileNavigationItem[] = [
-  { href: "/mobile", icon: Compass, id: "home", label: "Home" },
-  { href: "/mobile?tab=search", icon: Search, id: "search", label: "Search" },
-  { href: "/mobile?tab=map", icon: Map, id: "map", label: "Map" },
-  { href: "/mobile?tab=bookings", icon: CalendarCheck, id: "bookings", label: "E-Bookings" },
+  { href: "/mobile", icon: House, id: "home", label: "Home" },
   { href: "/mobile?tab=profile", icon: UserRound, id: "profile", label: "Profile" },
 ] as const;
 
@@ -24,8 +21,8 @@ export function isMobileNavigationTab(value?: string): value is MobileNavigation
 
 export function MobileNavigation({ activeTab }: { activeTab: MobileNavigationTab }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2 shadow-[0_-8px_28px_rgba(15,23,42,0.08)]" aria-label="Mobile app navigation">
-      <div className="mx-auto grid h-16 max-w-md grid-cols-5 gap-1">
+    <nav className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]" aria-label="Mobile app navigation">
+      <div className="mx-auto grid h-20 max-w-md grid-cols-2 gap-2 rounded-3xl bg-white/95 p-2 shadow-[0_-8px_38px_rgba(15,23,42,0.14)] backdrop-blur">
         {mobileNavigationItems.map((item) => {
           const Icon = item.icon;
           const active = activeTab === item.id;
@@ -35,9 +32,9 @@ export function MobileNavigation({ activeTab }: { activeTab: MobileNavigationTab
               key={item.id}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`flex h-14 min-w-0 max-w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-md px-1 text-[11px] font-black leading-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 ${active ? "bg-teal-700 text-white shadow-sm" : "text-stone-700 hover:bg-stone-100 hover:text-stone-950"}`}
+              className={`flex h-16 min-w-0 max-w-full flex-col items-center justify-center gap-1 overflow-hidden rounded-2xl px-1 text-xs font-black leading-tight transition focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 ${active ? "bg-teal-50 text-teal-800" : "text-slate-800 hover:bg-stone-100 hover:text-slate-950"}`}
             >
-              <Icon size={19} className="shrink-0" aria-hidden />
+              <Icon size={24} className="shrink-0" aria-hidden />
               <span className="max-w-full truncate">{item.label}</span>
             </Link>
           );

@@ -120,6 +120,6 @@ When implementing code, follow the ticket and relevant guides exactly.
 
  # Running the servers
  ```bash
-   docker compose --profile app up --build -d --remove-orphans
+  docker compose --profile app up --build -d --remove-orphans
    
  ```

@@ -113,6 +113,12 @@ BEGIN
         FROM booking.bookings existing
         WHERE existing.payment_id = importable.payment_id
            OR existing.id = importable.booking_id
+           OR (
+               existing.bookable_type = 'course_occurrence'
+               AND existing.bookable_instance_id = importable.resource_id
+               AND COALESCE(existing.guest_reference, existing.customer_id) = COALESCE(importable.guest_reference, importable.payer_user_id)
+               AND existing.status IN ('pending', 'payment_pending', 'payment_received', 'confirmed')
+           )
     )
     ON CONFLICT (id) DO NOTHING;
 

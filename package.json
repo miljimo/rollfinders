@@ -40,6 +40,9 @@
     "mobile:android:open": "npm --workspace @rollfinders/mobile run android:open",
     "mobile:android:apk": "npm --workspace @rollfinders/mobile run android:apk",
     "mobile:android:aab": "npm --workspace @rollfinders/mobile run android:aab",
+    "mobile:android:release:doctor": "npm --workspace @rollfinders/mobile run android:release:doctor",
+    "mobile:android:release:build": "npm --workspace @rollfinders/mobile run android:release:build --",
+    "mobile:android:release:publish": "npm --workspace @rollfinders/mobile run android:release:publish --",
     "mobile:ios:open": "npm --workspace @rollfinders/mobile run ios:open",
     "mobile:ios:sync": "npm --workspace @rollfinders/mobile run ios:sync"
   },

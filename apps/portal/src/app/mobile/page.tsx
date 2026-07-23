@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import type { Viewport } from "next";
 import type React from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Bookmark, CalendarCheck, ChevronRight, CircleHelp, ExternalLink, LogIn, Map, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
-import { AcademyVerificationStatus, ClaimStatus, CourseType } from "@prisma/client";
+import { Bell, Bookmark, CalendarCheck, ChevronRight, CircleHelp, Clock, ExternalLink, HandHeart, LogIn, MapPin, Search, ShieldCheck, UsersRound, UserRound } from "lucide-react";
+import { CourseType } from "@prisma/client";
 import { Button } from "@/app/_components/Button";
 import { LogoutButton } from "@/app/_components/LogoutButton";
 import { isMobileNavigationTab, MobileNavigation, type MobileNavigationTab } from "@/app/_components/MobileNavigation";
@@ -12,9 +13,10 @@ import { registerPractitioner } from "@/app/register/actions";
 import { MobileSignInForm } from "./MobileSignInForm";
 import { getCurrentUser } from "@/lib/admin";
 import { getAcademyFromAcademyService, listAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
-import { courseHref, coursePriceLabel, courseTypeLabel } from "@/lib/courses";
-import { getMapItems, getOpenMatRadar, searchAcademies } from "@/lib/data";
-import { directionsUrl, formatDate, formatDistanceMiles } from "@/lib/utils";
+import { coursePriceLabel, courseTypeLabel } from "@/lib/courses";
+import { getOpenMatRadar, searchAcademies } from "@/lib/data";
+import { formatDate, formatDistanceMiles } from "@/lib/utils";
+import { MobileDiscoverySearch, type MobileSearchSuggestion } from "./MobileDiscoverySearch";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +48,7 @@ type MobileSearchParams = {
 };
 
 function selectedTab(value?: string): MobileNavigationTab {
+  if (value === "search" || value === "map" || value === "bookings") return "home";
   return isMobileNavigationTab(value) ? value : "home";
 }
 
@@ -65,6 +68,10 @@ function mobileSignInHref() {
 
 function webDashboardHref(path = "/dashboard") {
   return path;
+}
+
+function navActiveTab(tab: MobileNavigationTab) {
+  return tab === "profile" ? "profile" : "home";
 }
 
 async function mobileDataOrEmpty<T>(loader: () => Promise<T[]>): Promise<T[]> {
@@ -92,14 +99,6 @@ function academySelectOptions(academies: AcademyServiceRecord[]) {
   }));
 }
 
-function isVerified(academy: { verificationStatus?: AcademyVerificationStatus | null; verified?: boolean | null }) {
-  return academy.verified === true || academy.verificationStatus === AcademyVerificationStatus.VERIFIED;
-}
-
-function isClaimed(academy: { claims?: { status: ClaimStatus }[]; members?: unknown[] }) {
-  return Boolean(academy.members?.length) || Boolean(academy.claims?.some((claim) => claim.status === ClaimStatus.APPROVED));
-}
-
 export default async function MobilePage({ searchParams }: { searchParams: Promise<MobileSearchParams> }) {
   const params = await searchParams;
   const activeTab = selectedTab(params.tab);
@@ -108,34 +107,35 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   const currentUser = await getCurrentUser();
   const profileAuth = params.auth === "register" ? "register" : params.auth === "sign-in" ? "sign-in" : null;
 
-  const [events, academies, mapItems, mobileAcademyOptions, selectedMobileAcademy] = await Promise.all([
+  const [events, academies, mobileAcademyOptions, selectedMobileAcademy] = await Promise.all([
     mobileDataOrEmpty(() => getOpenMatRadar({ q: query, when: params.when, latitude: location?.latitude, longitude: location?.longitude, courseType: CourseType.OPEN_MAT })),
     mobileDataOrEmpty(() => searchAcademies(query, location)),
-    activeTab === "map" ? mobileDataOrEmpty(() => getMapItems()) : Promise.resolve([]),
     activeTab === "profile" && profileAuth === "register" ? mobileDataOrEmpty(() => listAcademiesFromAcademyService({ limit: 100 })) : Promise.resolve([]),
     activeTab === "profile" && profileAuth === "register" && params.academyId ? mobileDataOrNull(() => getAcademyFromAcademyService(params.academyId ?? "")) : Promise.resolve(null),
   ]);
 
   return (
-    <main className="min-h-dvh bg-[#f8faf7] pb-24 text-stone-950">
-      <header className="sticky top-0 z-20 border-b border-stone-200 bg-[#f8faf7]/95 px-4 py-3 backdrop-blur">
+    <main className="min-h-dvh bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-28 text-stone-950">
+      <header className="px-5 pb-4 pt-7">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3">
-          <Link href="/mobile" className="min-h-11 min-w-0 rounded-md text-lg font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
-            RollFinders
+          <Link href="/mobile" className="flex min-h-12 min-w-0 items-center gap-3 rounded-md text-3xl font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
+            <Image src="/logo.png" alt="" width={48} height={48} className="size-12 shrink-0 object-contain" priority />
+            <span>RollFinders</span>
           </Link>
-          <Button href={currentUser ? "/mobile?tab=profile" : mobileSignInHref()} size="icon" variant="secondary" className="size-11" aria-label={currentUser ? "Profile" : "Sign in"}>
-            {currentUser ? <UserRound size={19} aria-hidden /> : <LogIn size={19} aria-hidden />}
-          </Button>
+          <div className="flex items-center gap-3">
+            <span className="relative inline-flex size-12 items-center justify-center rounded-full text-slate-950">
+              <Bell size={29} aria-hidden />
+              <span className="absolute right-1 top-1 size-3 rounded-full bg-teal-700" />
+            </span>
+            <Button href={currentUser ? "/mobile?tab=profile" : mobileSignInHref()} size="icon" variant="secondary" className="size-16 rounded-full border-0 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)]" aria-label={currentUser ? "Profile" : "Sign in"}>
+              {currentUser ? <UserRound size={25} aria-hidden /> : <UserRound size={25} aria-hidden />}
+            </Button>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-md px-4 py-4">
-        {activeTab === "home" ? (
-          currentUser ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : <MobileAuthHome />
-        ) : null}
-        {activeTab === "search" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} /> : null}
-        {activeTab === "map" ? <MapView academies={mapItems.slice(0, 20)} /> : null}
-        {activeTab === "bookings" ? <BookingsView signedIn={Boolean(currentUser)} /> : null}
+      <div className="mx-auto max-w-md px-5 py-3">
+        {activeTab === "home" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} when={params.when} /> : null}
         {activeTab === "profile" ? (
           <ProfileView
             academyOptions={academySelectOptions(mobileAcademyOptions)}
@@ -151,7 +151,7 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
         ) : null}
       </div>
 
-      <MobileNavigation activeTab={activeTab} />
+      <MobileNavigation activeTab={navActiveTab(activeTab)} />
     </main>
   );
 }
@@ -177,7 +177,6 @@ function MobileAuthHome() {
         <MobileSectionHeader title="Explore as guest" href="/mobile?tab=search" action="Search events" />
         <div className="grid gap-2 rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
           <MobileLinkRow href="/mobile?tab=search" icon={Search} label="Search Open Mats" />
-          <MobileLinkRow href="/mobile?tab=map" icon={Map} label="Browse Map" />
           <MobileLinkRow href="/academies" icon={Bookmark} label="Academies" webPage />
         </div>
       </section>
@@ -189,76 +188,40 @@ function DiscoverView({
   academies,
   events,
   query,
+  when,
 }: {
   academies: Awaited<ReturnType<typeof searchAcademies>>;
   events: Awaited<ReturnType<typeof getOpenMatRadar>>;
   query: string;
+  when?: string;
 }) {
+  const searchSuggestions: MobileSearchSuggestion[] = [
+    ...events.map((event) => ({
+      label: event.title,
+      description: [event.academy.name, event.giType.replace("_", "-"), courseTypeLabel(event.courseType)].filter(Boolean).join(" · "),
+    })),
+    ...academies.map((academy) => ({
+      label: academy.name,
+      description: [academy.borough ?? academy.city, academy.postcode].filter(Boolean).join(", "),
+    })),
+  ];
+
   return (
-    <div className="grid gap-5">
-      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-wide text-teal-700">Mobile discovery</p>
-        <h1 className="mt-2 text-3xl font-black tracking-normal text-stone-950">Find your next round</h1>
-        <form action="/mobile" className="mt-4 flex min-h-12 overflow-hidden rounded-md border border-stone-200 bg-stone-50 focus-within:border-teal-700">
-          <input type="hidden" name="tab" value="search" />
-          <input
-            name="q"
-            defaultValue={query}
-            placeholder="Academy, postcode, gi, no-gi"
-            className="min-w-0 flex-1 bg-transparent px-3 text-base text-stone-950 outline-none placeholder:text-stone-500"
-          />
-          <button type="submit" className="inline-flex w-12 items-center justify-center bg-teal-700 text-white" aria-label="Search">
-            <Search size={18} aria-hidden />
-          </button>
-        </form>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <MobileChip href="/mobile?when=today" label="Today" />
-          <MobileChip href="/mobile?when=tomorrow" label="Tomorrow" />
-          <MobileChip href="/mobile?when=weekend" label="Weekend" />
+    <div className="grid gap-7">
+      <section className="py-4">
+        <p className="text-base font-black uppercase tracking-[0.22em] text-teal-700">Mobile discovery</p>
+        <h1 className="mt-4 text-6xl font-black leading-[0.95] tracking-normal text-slate-950">Find your next round</h1>
+        <MobileDiscoverySearch initialQuery={query} suggestions={searchSuggestions} />
+        <div className="mt-5 grid grid-cols-3 gap-3">
+          <MobileChip active={!when || when === "today"} href="/mobile?when=today" label="Today" />
+          <MobileChip active={when === "tomorrow"} href="/mobile?when=tomorrow" label="Tomorrow" />
+          <MobileChip active={when === "weekend"} href="/mobile?when=weekend" label="Weekend" />
         </div>
       </section>
 
-      <MobileSection title="Upcoming">
+      <MobileSectionHeader title="Upcoming" href="/mobile?tab=search" action="See all" />
+      <div className="grid gap-5">
         {events.length ? events.map((event) => <MobileEventCard key={event.occurrenceId ?? event.id} event={event} />) : <EmptyPanel text="No upcoming sessions match that search." />}
-      </MobileSection>
-
-      <MobileSection title="Academies">
-        {academies.length ? academies.map((academy) => <MobileAcademyCard key={academy.id} academy={academy} />) : <EmptyPanel text="No academies match that search." />}
-      </MobileSection>
-    </div>
-  );
-}
-
-function MapView({ academies }: { academies: Awaited<ReturnType<typeof getMapItems>> }) {
-  return (
-    <div className="grid gap-4">
-      <section>
-        <p className="text-xs font-black uppercase tracking-wide text-teal-700">Map</p>
-        <h1 className="mt-1 text-3xl font-black tracking-normal text-stone-950">Nearby training spots</h1>
-      </section>
-      <div className="grid gap-3">
-        {academies.map((academy) => {
-          const address = `${academy.address}, ${academy.city} ${academy.postcode}`;
-          return (
-            <article key={academy.id} className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-base font-black text-stone-950">{academy.name}</h2>
-                  <p className="mt-1 flex items-center gap-1 text-sm text-stone-600"><MapPin size={14} aria-hidden />{academy.borough ?? academy.city}, {academy.postcode}</p>
-                  {academy.distanceMiles != null ? <p className="mt-1 text-sm font-bold text-teal-800">{formatDistanceMiles(academy.distanceMiles)}</p> : null}
-                </div>
-                <Link href={`/academies/${academy.slug}`} className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-stone-700" aria-label={`Open ${academy.name}`}>
-                  <ChevronRight size={18} aria-hidden />
-                </Link>
-              </div>
-              {academy.events[0] ? <p className="mt-3 rounded-md bg-teal-50 px-3 py-2 text-xs font-bold leading-5 text-teal-900">{academy.events[0].title} · {formatDate(academy.events[0].eventDate)}</p> : null}
-              <div className="mt-3 flex gap-2">
-                <Button href={`/academies/${academy.slug}`} size="sm" variant="neutral" className="min-h-10 flex-1">Details</Button>
-                <Button href={directionsUrl(address)} target="_blank" rel="noreferrer" size="sm" variant="secondary" className="min-h-10 flex-1">Directions</Button>
-              </div>
-            </article>
-          );
-        })}
       </div>
     </div>
   );
@@ -519,8 +482,8 @@ function MobileSection({ children, title }: { children: React.ReactNode; title: 
 function MobileSectionHeader({ action, href, title }: { action?: string; href?: string; title: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-lg font-black tracking-normal text-stone-950">{title}</h2>
-      {href && action ? <Link href={href} className="text-sm font-black text-teal-800">{action}</Link> : null}
+      <h2 className="text-2xl font-black tracking-normal text-slate-950">{title}</h2>
+      {href && action ? <Link href={href} className="inline-flex items-center gap-1 text-sm font-black text-teal-800">{action}<ChevronRight size={16} aria-hidden /></Link> : null}
     </div>
   );
 }
@@ -535,64 +498,48 @@ function MobileStatCard({ icon, label, value }: { icon: React.ReactNode; label: 
   );
 }
 
-function MobileChip({ href, label }: { href: string; label: string }) {
+function MobileChip({ active = false, href, label }: { active?: boolean; href: string; label: string }) {
   return (
-    <Link href={href} className="inline-flex min-h-10 items-center justify-center rounded-md bg-stone-100 px-2 text-center text-xs font-black text-stone-800">
+    <Link href={href} className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-full px-2 text-center text-sm font-black shadow-[0_10px_24px_rgba(15,23,42,0.08)] ${active ? "bg-teal-700 text-white" : "border border-stone-200 bg-white text-slate-950"}`}>
+      <CalendarCheck size={18} aria-hidden />
       {label}
     </Link>
   );
 }
 
 function MobileEventCard({ event }: { event: Awaited<ReturnType<typeof getOpenMatRadar>>[number] }) {
-  const detailHref = courseHref(event);
+  const detailHref = mobileEventHref(event);
   return (
-    <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+    <article className="rounded-3xl border border-stone-100 bg-white p-5 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-wide text-teal-700">{courseTypeLabel(event.courseType)}</p>
-          <h3 className="mt-1 text-lg font-black leading-tight text-stone-950">{event.title}</h3>
-          <p className="mt-1 text-sm font-semibold text-stone-700">{event.academy.name}</p>
+          <p className="inline-flex rounded-lg bg-teal-50 px-3 py-1 text-sm font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
+          <h3 className="mt-3 text-3xl font-black leading-tight text-slate-950">{event.title}</h3>
+          <p className="mt-3 flex items-start gap-2 text-base font-semibold leading-6 text-stone-600"><MapPin size={18} className="mt-0.5 shrink-0 text-teal-700" aria-hidden />{event.academy.name}</p>
         </div>
-        <Link href={detailHref} className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-stone-700" aria-label={`Open ${event.title}`}>
-          <ChevronRight size={18} aria-hidden />
+        <Link href={detailHref} className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-800" aria-label={`Open ${event.title}`}>
+          <ChevronRight size={25} aria-hidden />
         </Link>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-sm font-semibold text-stone-700">
-        <span>{formatDate(event.eventDate)}</span>
-        <span>{event.startTime}-{event.endTime}</span>
-        <span>{event.giType.replace("_", "-")}</span>
-        <span>{coursePriceLabel(event)}</span>
+      <div className="mt-5 grid grid-cols-3 divide-x divide-stone-200 border-y border-stone-200 py-4 text-center text-base font-semibold text-slate-950">
+        <span className="grid gap-1 px-2"><CalendarCheck className="mx-auto text-teal-700" size={21} aria-hidden />{formatDate(event.eventDate)}</span>
+        <span className="grid gap-1 px-2"><Clock className="mx-auto text-teal-700" size={21} aria-hidden />{event.startTime}-{event.endTime}</span>
+        <span className="grid gap-1 px-2"><UsersRound className="mx-auto text-teal-700" size={21} aria-hidden />{event.giType.replace("_", "-")}</span>
       </div>
-      {event.distanceMiles != null ? <p className="mt-2 text-sm font-bold text-teal-800">{formatDistanceMiles(event.distanceMiles)}</p> : null}
-      <Button href={detailHref} size="sm" variant="neutral" className="mt-3 min-h-10 w-full">View Details</Button>
+      <div className="mt-5 flex items-start gap-4">
+        <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-800"><HandHeart size={28} aria-hidden /></span>
+        <p className="text-base font-medium leading-7 text-slate-800">{coursePriceLabel(event)}</p>
+      </div>
+      {event.distanceMiles != null ? <p className="mt-5 flex items-center gap-2 text-base font-bold text-teal-800"><MapPin size={18} aria-hidden />{formatDistanceMiles(event.distanceMiles)}</p> : null}
+      <Button href={detailHref} size="sm" variant="primary" className="mt-5 min-h-14 w-full rounded-xl text-base">View Details</Button>
     </article>
   );
 }
 
-function MobileAcademyCard({ academy }: { academy: Awaited<ReturnType<typeof searchAcademies>>[number] }) {
-  const trusted = isVerified(academy) && isClaimed(academy);
-  return (
-    <article className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="text-lg font-black leading-tight text-stone-950">{academy.name}</h3>
-          <p className="mt-1 text-sm text-stone-600">{academy.borough ?? academy.city}, {academy.postcode}</p>
-          {academy.distanceMiles != null ? <p className="mt-1 text-sm font-bold text-teal-800">{formatDistanceMiles(academy.distanceMiles)}</p> : null}
-        </div>
-        <Link href={`/academies/${academy.slug}`} className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-stone-200 text-stone-700" aria-label={`Open ${academy.name}`}>
-          <ChevronRight size={18} aria-hidden />
-        </Link>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-stone-700">
-        {academy.giAvailable ? <span className="rounded-md bg-stone-100 px-2 py-1">Gi</span> : null}
-        {academy.nogiAvailable ? <span className="rounded-md bg-stone-100 px-2 py-1">No-Gi</span> : null}
-        {academy.beginnerFriendly ? <span className="rounded-md bg-stone-100 px-2 py-1">Beginner</span> : null}
-        {trusted ? <span className="rounded-md bg-teal-50 px-2 py-1 text-teal-900">Verified</span> : null}
-      </div>
-      {academy.events[0] ? <p className="mt-3 rounded-md bg-stone-50 px-3 py-2 text-xs font-bold leading-5 text-stone-700">{academy.events[0].title} · {formatDate(academy.events[0].eventDate)}</p> : null}
-      <Button href={`/academies/${academy.slug}`} size="sm" variant="neutral" className="mt-3 min-h-10 w-full">Academy Details</Button>
-    </article>
-  );
+function mobileEventHref(event: { id: string; isRecurringOccurrence?: boolean; occurrenceDateParam?: string }) {
+  const params = new URLSearchParams({ returnTo: "/mobile" });
+  if (event.isRecurringOccurrence && event.occurrenceDateParam) params.set("date", event.occurrenceDateParam);
+  return `/mobile/events/${event.id}?${params.toString()}`;
 }
 
 function MobileLinkRow({

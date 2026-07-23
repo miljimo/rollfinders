@@ -15,7 +15,7 @@ The native shell must stay thin. Product UI, auth, registration, discovery, book
 Install:
 
 ```bash
-brew install node@22 openjdk@17
+brew install node@22 openjdk@21
 brew install --cask android-studio
 brew install cocoapods
 ```
@@ -30,7 +30,7 @@ Then open Android Studio once and install:
 Set environment variables in your shell profile:
 
 ```bash
-export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+export JAVA_HOME=$(/usr/libexec/java_home -v 21)
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
 ```
@@ -44,7 +44,7 @@ sudo xcodebuild -license accept
 
 ### Linux / WSL
 
-Install JDK 17 and Android command-line tools or use Android Studio on Windows/macOS. This current workspace is WSL and does not have Java installed, so APK builds cannot run here until those prerequisites exist.
+Install JDK 21 and Android command-line tools or use Android Studio on Windows/macOS.
 
 ## First-Time Setup
 
@@ -80,6 +80,48 @@ apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
 ```
 
 Release signing is intentionally not hard-coded. Add signing configuration through Android Studio or CI secrets before Play Store submission.
+
+## Google Play Testing Release
+
+The automated release scripts target the Google Play internal testing track by default. They require explicit version arguments and environment-provided secrets.
+
+Required release signing environment:
+
+```bash
+export ANDROID_KEYSTORE_PATH="/absolute/path/to/release.keystore"
+export ANDROID_KEYSTORE_PASSWORD="..."
+export ANDROID_KEY_ALIAS="..."
+export ANDROID_KEY_PASSWORD="..."
+```
+
+Required Google Play upload environment:
+
+```bash
+export GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="/absolute/path/to/google-play-service-account.json"
+export GOOGLE_PLAY_PACKAGE_NAME="oepe.rollfinders"
+export GOOGLE_PLAY_TRACK="internal"
+export GOOGLE_PLAY_UPLOAD_APPROVED="true"
+```
+
+Build a signed bundle without uploading:
+
+```bash
+npm run mobile:android:release:build -- --versionCode 2 --versionName 1.0.1
+```
+
+Expected output:
+
+```text
+bin/android/rollfinders-1.0.1-2.aab
+```
+
+Upload to Google Play internal testing:
+
+```bash
+npm run mobile:android:release:publish -- --versionCode 2 --versionName 1.0.1
+```
+
+The upload script refuses non-internal tracks unless `GOOGLE_PLAY_NON_INTERNAL_APPROVED=true` is also set.
 
 ## Open Native Projects
 

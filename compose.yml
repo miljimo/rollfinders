@@ -60,6 +60,8 @@ services:
     build:
       context: .
       target: migrator
+      secrets:
+        - github_package_token
     env_file:
       - .env
     profiles:
@@ -91,6 +93,8 @@ services:
     build:
       context: .
       target: migrator
+      secrets:
+        - github_package_token
     env_file:
       - .env
     profiles:
@@ -112,6 +116,8 @@ services:
     build:
       context: .
       target: runner
+      secrets:
+        - github_package_token
       args:
         NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
         NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
@@ -165,6 +171,10 @@ services:
 
 volumes:
   postgres_data:
+
+secrets:
+  github_package_token:
+    environment: GITHUB_PACKAGE_TOKEN
 
 networks:
   frontend:

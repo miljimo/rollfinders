@@ -70,12 +70,12 @@ export function CourseCheckoutForm({
         <input name="payerEmail" type="email" placeholder="you@example.com" className="min-h-11 rounded-md border border-stone-300 bg-white px-3 text-sm font-normal" />
       </label>
       <div>
+        {priceLabel ? <p className="mb-2 text-center text-sm font-semibold text-stone-700">{priceLabel}</p> : null}
         <BookEventButton
           type="submit"
           eventKind={mode === "donation" ? "donation" : "paid"}
           loading={pending || Boolean(state.checkoutUrl)}
           loadingLabel="Creating checkout..."
-          priceLabel={priceLabel}
           className="w-full"
         />
       </div>

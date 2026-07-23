@@ -148,13 +148,15 @@ function BookingAction({
           <FreeEventBookingButton action={freeBookingAction} courseId={event.id} occurrenceDate={event.occurrenceDateParam} priceLabel={priceLabel} className="w-full" />
         </div>
       ) : (
-        <BookEventButton
-          disabled
-          eventKind={eventKind}
-          label={unavailableLabel}
-          priceLabel={closed ? undefined : priceLabel}
-          className="w-full max-w-[300px]"
-        />
+        <div className="grid max-w-[300px] gap-2">
+          {unavailableLabel ? <p className="text-center text-sm font-semibold text-stone-700">{unavailableLabel}</p> : null}
+          {!closed ? <p className="text-center text-sm font-semibold text-stone-700">{priceLabel}</p> : null}
+          <BookEventButton
+            disabled
+            eventKind={eventKind}
+            className="w-full"
+          />
+        </div>
       )}
     </section>
   );

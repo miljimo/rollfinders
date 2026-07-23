@@ -1,8 +1,17 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:22-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
+COPY .npmrc ./
 COPY packages ./packages
-RUN npm ci --no-audit --no-fund --prefer-offline
+RUN --mount=type=secret,id=github_package_token \
+  set -eu; \
+  token="$(cat /run/secrets/github_package_token 2>/dev/null || true)"; \
+  if [ -n "$token" ]; then \
+    export GITHUB_PACKAGE_TOKEN="$token"; \
+  fi; \
+  npm ci --no-audit --no-fund --prefer-offline
 
 FROM node:22-alpine AS builder
 WORKDIR /app

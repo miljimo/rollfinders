@@ -7,7 +7,6 @@ type BookEventButtonProps = Omit<ButtonProps, "children"> & {
   label?: string;
   loading?: boolean;
   loadingLabel?: string;
-  priceLabel?: string;
 };
 
 function defaultBookEventLabel(eventKind: BookEventKind) {
@@ -20,7 +19,6 @@ export function BookEventButton({
   label,
   loading = false,
   loadingLabel = "Loading...",
-  priceLabel,
   disabled,
   className,
   ...buttonProps
@@ -31,12 +29,7 @@ export function BookEventButton({
     disabled: disabled || loading,
     variant: buttonProps.variant ?? "primary",
     className,
-    children: (
-      <span className="grid gap-1 leading-tight">
-        <span className="text-lg font-black">{buttonLabel}</span>
-        {priceLabel ? <span className="text-sm font-normal opacity-90">{priceLabel}</span> : null}
-      </span>
-    ),
+    children: <span className="text-lg font-black">{buttonLabel}</span>,
   } as ButtonProps;
 
   return <Button {...composedProps} />;
