@@ -112,6 +112,17 @@ services:
       PORT: "3000"
       HOSTNAME: 0.0.0.0
       API_PUBLIC_BASE_URL: http://api:8080
+      USER_PUBLIC_BASE_URL: http://users:8080
+      ACADEMY_PUBLIC_BASE_URL: http://academy:8080
+      ORGANISATION_PUBLIC_BASE_URL: http://organisation:8080
+      COURSE_PUBLIC_BASE_URL: http://courses:8080
+      BOOKING_PUBLIC_BASE_URL: http://booking:8080
+      PAYMENT_PUBLIC_BASE_URL: http://payments:8080
+      SUBSCRIPTION_PUBLIC_BASE_URL: http://subscriptions:8080
+      WALLET_PUBLIC_BASE_URL: http://wallet:8080
+      TRANSFER_PUBLIC_BASE_URL: http://transfer:8080
+      PRICING_PUBLIC_BASE_URL: http://pricing:8080
+      USAGE_LIMITS_PUBLIC_BASE_URL: http://usage-limits:8080
       NOTIFICATION_SERVICE_BASE_URL: http://notification:8080
       WALLET_INTERNAL_BASE_URL: http://wallet:8080
       PRICING_INTERNAL_BASE_URL: http://pricing:8080
