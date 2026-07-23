@@ -1,54 +1,4 @@
 moved {
-  from = aws_cloudwatch_log_group.app
-  to   = module.app_service.aws_cloudwatch_log_group.log_group
-}
-
-moved {
-  from = module.app_service
-  to   = module.app_service[0]
-}
-
-moved {
-  from = module.ecs_security_group
-  to   = module.ecs_security_group[0]
-}
-
-moved {
-  from = module.api_ecs_security_group
-  to   = module.api_ecs_security_group[0]
-}
-
-moved {
-  from = module.domain_service_security_group
-  to   = module.domain_service_security_group[0]
-}
-
-moved {
-  from = module.task_role
-  to   = module.task_role[0]
-}
-
-moved {
-  from = module.ecs_autoscaling
-  to   = module.ecs_autoscaling[0]
-}
-
-moved {
-  from = aws_ecs_cluster.app
-  to   = module.app_service.aws_ecs_cluster.cluster
-}
-
-moved {
-  from = aws_ecs_task_definition.app
-  to   = module.app_service.aws_ecs_task_definition.task[0]
-}
-
-moved {
-  from = aws_ecs_service.app
-  to   = module.app_service.aws_ecs_service.service[0]
-}
-
-moved {
   from = module.vpc.aws_vpc.vpc
   to   = module.networking.module.vpc.aws_vpc.vpc
 }
@@ -211,16 +161,6 @@ moved {
 moved {
   from = aws_db_instance.app
   to   = module.database.aws_db_instance.app
-}
-
-moved {
-  from = aws_appautoscaling_target.ecs
-  to   = module.ecs_autoscaling.aws_appautoscaling_target.ecs
-}
-
-moved {
-  from = aws_appautoscaling_policy.cpu
-  to   = module.ecs_autoscaling.aws_appautoscaling_policy.cpu
 }
 
 moved {

@@ -63,26 +63,6 @@ output "ecr_repository_url" {
   value       = module.ecr.repository_url
 }
 
-output "ecs_cluster_name" {
-  description = "ECS cluster name."
-  value       = try(module.app_service[0].cluster_name, "")
-}
-
-output "ecs_service_name" {
-  description = "ECS service name."
-  value       = try(module.app_service[0].service_name, "")
-}
-
-output "ecs_task_definition_arn" {
-  description = "ECS task definition ARN."
-  value       = try(module.app_service[0].task_definition_arn, "")
-}
-
-output "ecs_security_group_id" {
-  description = "Security group used by ECS tasks."
-  value       = try(module.ecs_security_group[0].id, "")
-}
-
 output "ec2_app_instance_id" {
   description = "EC2 app host instance ID when enabled."
   value       = try(module.ec2_app_host[0].instance_id, "")
@@ -93,23 +73,13 @@ output "ec2_app_private_ip" {
   value       = try(module.ec2_app_host[0].private_ip, "")
 }
 
-output "api_ecs_security_group_id" {
-  description = "Security group used by the API service ECS task."
-  value       = try(module.api_ecs_security_group[0].id, "")
-}
-
-output "domain_service_security_group_id" {
-  description = "Security group used by lower domain service ECS tasks."
-  value       = try(module.domain_service_security_group[0].id, "")
-}
-
 output "private_subnet_ids" {
-  description = "Private subnet IDs used by ECS tasks."
+  description = "Private subnet IDs for the deployment VPC."
   value       = module.networking.private_subnet_ids
 }
 
 output "app_ssm_parameter_arns" {
-  description = "SSM parameter ARNs used by the ECS task."
+  description = "SSM parameter ARNs used by the application stack."
   value       = module.app_secrets.arns
 }
 
