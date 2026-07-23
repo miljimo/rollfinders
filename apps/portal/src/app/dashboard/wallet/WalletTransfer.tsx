@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import { AutoCompleteTextField } from "@/components/AutoCompleteTextField";
-import { Button } from "@/components/Button";
+import { AutoCompleteTextField } from "@/app/_components/AutoCompleteTextField";
+import { Button } from "@/app/_components/Button";
 import type { WalletBalance, WalletRecord } from "@/lib/wallet-service";
 import { SourceWalletBalance } from "./SourceWalletBalance";
 import { walletOption } from "./walletFormatting";

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
 import { findAcademyBySlugFromAcademyService } from "@/lib/academyService";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";

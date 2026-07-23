@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Academy, Event } from "@prisma/client";
 import { ArrowRight } from "lucide-react";
 
-import { EventCard } from "@/components/EventCard";
+import { EventCard } from "@/app/_components/EventCard";
 
 type HomeOpenMatEvent = Event & {
   academy: Academy;

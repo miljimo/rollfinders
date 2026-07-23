@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Role, UserStatus } from "@prisma/client";
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
 import { canSeeRole, roleLevel } from "@/lib/role-hierarchy";
 import type { AssignableUserFeature } from "@/lib/users-service";
 import { PermissionPanel } from "./PermissionPanel";

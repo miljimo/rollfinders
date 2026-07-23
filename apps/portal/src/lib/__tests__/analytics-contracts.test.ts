@@ -186,8 +186,8 @@ describe("analytics feature contracts", () => {
   it("records search demand only from explicit search form submissions", () => {
     const academyPageSource = readSource("apps/portal/src/app/academies/page.tsx");
     const openMatsPageSource = readSource("apps/portal/src/app/page.tsx");
-    const locationSearchSource = readSource("apps/portal/src/components/LocationSearchForm/LocationSearchForm.tsx");
-    const openMatFilterSource = readSource("apps/portal/src/components/OpenMatLocationFilterForm/OpenMatLocationFilterForm.tsx");
+    const locationSearchSource = readSource("apps/portal/src/app/_components/LocationSearchForm/LocationSearchForm.tsx");
+    const openMatFilterSource = readSource("apps/portal/src/app/_components/OpenMatLocationFilterForm/OpenMatLocationFilterForm.tsx");
 
     assert.match(locationSearchSource, /name="analyticsIntent"/);
     assert.match(openMatFilterSource, /name="analyticsIntent"\s+value="open_mat_search"/);

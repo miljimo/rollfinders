@@ -1,8 +1,8 @@
 import { clsx } from "clsx";
 import { Activity, CalendarDays, Clock, CreditCard, Info, Landmark, Link2, Tag, User, Wallet } from "lucide-react";
 
-import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
+import { Button } from "@/app/_components/Button";
+import { DialogShell } from "@/app/_components/DialogShell";
 import { formatDate } from "@/lib/utils";
 import type { LinkedWalletAccount, WalletRecord } from "@/lib/wallet-service";
 

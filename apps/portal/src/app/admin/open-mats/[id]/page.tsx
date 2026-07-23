@@ -1,8 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { CourseType } from "@prisma/client";
-import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
-import { PageShell } from "@/components/Page";
+import { Button } from "@/app/_components/Button";
+import { DialogShell } from "@/app/_components/DialogShell";
+import { PageShell } from "@/app/_components/Page";
 import { requireOpenMatAccess } from "@/lib/academy-access";
 import { listAcademiesForActorFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser } from "@/lib/admin";

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
+import { PlatformAdminActivitySummaryPanel } from "@/app/_components/PlatformAdminActivitySummaryPanel";
 import type { PlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 
 function summary(overrides: Partial<PlatformAdminActivitySummary> = {}): PlatformAdminActivitySummary {

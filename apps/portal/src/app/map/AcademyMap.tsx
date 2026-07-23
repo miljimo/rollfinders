@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { buildAcademyStaticMapUrl, getGoogleMapsApiKey } from "@/lib/google-maps";
 
 type AcademyMapItem = {

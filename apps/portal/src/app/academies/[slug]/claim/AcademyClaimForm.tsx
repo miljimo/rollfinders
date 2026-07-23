@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 
 type ClaimField =
   | "academyId"

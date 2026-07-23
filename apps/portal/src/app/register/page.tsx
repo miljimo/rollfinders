@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import type { AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
+import type { AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
 import {
   findAcademyBySlugFromAcademyService,
   getAcademyFromAcademyService,

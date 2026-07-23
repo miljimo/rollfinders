@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { CourseType, GiType, RecurrenceType, type Event, type Prisma } from "@prisma/client";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
-import { Pagination } from "@/components/pagination";
-import { StatIndicator } from "@/components/StatIndicator";
-import { TableRow } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
+import { Pagination } from "@/app/_components/Pagination";
+import { StatIndicator } from "@/app/_components/StatIndicator";
+import { TableRow } from "@/app/_components/Table";
 import { listAcademiesForActorFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isPlatformAdminRole } from "@/lib/admin";
 import { coursePriceLabel } from "@/lib/courses";

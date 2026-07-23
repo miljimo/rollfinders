@@ -1,7 +1,7 @@
 import { Ban } from "lucide-react";
 
-import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
+import { Button } from "@/app/_components/Button";
+import { DialogShell } from "@/app/_components/DialogShell";
 import type { LinkedWalletAccount, WalletRecord } from "@/lib/wallet-service";
 
 import { disconnectDashboardWalletLinkedAccount } from "./actions";

@@ -1,4 +1,4 @@
-import { DialogShell } from "@/components/DialogShell";
+import { DialogShell } from "@/app/_components/DialogShell";
 import type { ManagedUser } from "@/lib/users-service";
 import type { WalletRecord } from "@/lib/wallet-service";
 

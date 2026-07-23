@@ -2,12 +2,12 @@ import { notFound, redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { Metadata } from "next";
 import { EventPricingType } from "@prisma/client";
-import { PublicEventDetailPage } from "@/components/PublicEventDetailPage";
+import { PublicEventDetailPage } from "@/app/_components/PublicEventDetailPage";
 import {
   isPublicAcademyBookingVerified,
   isPublicAcademyPaymentsVerified,
   isPublicAcademyTrusted,
-} from "@/components/PublicListingWarning";
+} from "@/app/_components/PublicListingWarning";
 import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";

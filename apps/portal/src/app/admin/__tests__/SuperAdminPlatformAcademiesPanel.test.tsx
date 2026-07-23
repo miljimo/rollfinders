@@ -4,7 +4,7 @@ import { Building2, CalendarDays, ShieldCheck, Users } from "lucide-react";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SuperAdminPlatformAcademiesPanel } from "../../dashboard/SuperAdminPlatformAcademiesPanel";
-import type { StatsPanelItem } from "@/components/StatsPanel";
+import type { StatsPanelItem } from "@/app/_components/StatsPanel";
 
 const stats: StatsPanelItem[] = [
   {

@@ -1,9 +1,9 @@
 import { CourseType, type Prisma } from "@prisma/client";
-import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
-import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
-import { LinkedText } from "@/components/LinkedText";
-import { PublicListingWarning } from "@/components/PublicListingWarning";
+import { Button } from "@/app/_components/Button";
+import { DialogShell } from "@/app/_components/DialogShell";
+import { InlineDirectionsButton } from "@/app/_components/InlineDirectionsButton";
+import { LinkedText } from "@/app/_components/LinkedText";
+import { PublicListingWarning } from "@/app/_components/PublicListingWarning";
 import { courseActivityTypeLabels } from "@/lib/course-activities";
 import { courseAddress, courseLocationLabel, coursePriceLabel, courseTypeLabel, recurrenceLabel as courseRecurrenceLabel } from "@/lib/courses";
 import { eventPermanentPath, eventPermanentUrl, eventQrCodePath } from "@/lib/event-share-links";

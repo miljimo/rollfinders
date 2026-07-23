@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { getManagedUser, getUserPermissionPanelModel } from "@/lib/users-service";
 import { updateManagedUser } from "../actions";

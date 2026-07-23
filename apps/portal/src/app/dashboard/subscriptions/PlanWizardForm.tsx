@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ArrowRight, Check, Eye, FileText, Layers3, Percent, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { SubscriptionSubmitButton } from "./SubscriptionSubmitButton";
 import { PlanFeatureFields } from "./PlanFeatureFields";
 

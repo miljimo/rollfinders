@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   AutoCompleteTextField,
   type AutoCompleteTextFieldOption,
-} from "@/components/AutoCompleteTextField";
+} from "@/app/_components/AutoCompleteTextField";
 
 export type RegisterAcademySelection = {
   city?: string | null;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { CalendarDays, CheckCircle2, Clock3, CreditCard, Info, Lock, Package, Pencil, RefreshCw, ShieldCheck, ShoppingBag, Star, WalletCards } from "lucide-react";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { listApplicationSubscriptions, listSubscriptionPlansPage, quoteSubscriptionPlans, type SubscriptionPlan } from "@/lib/subscriptions-service";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { listWalletsPage, getWalletBalance } from "@/lib/wallet-service";

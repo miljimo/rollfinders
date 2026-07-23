@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 
 export const metadata: Metadata = {
   title: "About RollFinders | BJJ open mat discovery",

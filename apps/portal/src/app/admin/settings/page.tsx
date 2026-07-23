@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { BarChart3, KeyRound, Mail, RefreshCw, ShieldCheck } from "lucide-react";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
-import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
-import { QuickActionPanel, type QuickActionPanelItem } from "@/components/QuickActionPanel";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
+import { PlatformAdminActivitySummaryPanel } from "@/app/_components/PlatformAdminActivitySummaryPanel";
+import { QuickActionPanel, type QuickActionPanelItem } from "@/app/_components/QuickActionPanel";
 import { elevatedAdminPrivacyAuditLogWhere, isPlatformAdminRole, requireAdminPage } from "@/lib/admin";
 import { getPlatformAdminActivitySummary } from "@/lib/platform-admin-activity";
 import { prisma } from "@/lib/prisma";

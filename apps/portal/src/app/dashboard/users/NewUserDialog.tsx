@@ -1,4 +1,4 @@
-import { DialogShell } from "@/components/DialogShell";
+import { DialogShell } from "@/app/_components/DialogShell";
 
 import { createManagedUser } from "../../admin/users/actions";
 import { UserForm } from "../../admin/users/UserForm";

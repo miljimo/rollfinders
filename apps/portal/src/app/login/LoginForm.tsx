@@ -1,7 +1,7 @@
 "use client";
 
-import { Button } from "@/components/Button";
-import { trackAnalyticsEvent } from "@/components/Analytics/analyticsTracker";
+import { Button } from "@/app/_components/Button";
+import { trackAnalyticsEvent } from "@/app/_components/Analytics/analyticsTracker";
 import {
   Building2,
   Eye,

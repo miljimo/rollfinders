@@ -1,4 +1,4 @@
-import { Pagination as SharedPagination } from "@/components/pagination";
+import { Pagination as SharedPagination } from "@/app/_components/Pagination";
 
 export function DashboardPagination({
   currentPage,

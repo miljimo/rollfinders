@@ -1,4 +1,4 @@
-import { DialogShell } from "@/components/DialogShell";
+import { DialogShell } from "@/app/_components/DialogShell";
 
 import { createAcademy } from "../../admin/academies/actions";
 import { AcademyForm } from "../../admin/academies/AcademyForm";

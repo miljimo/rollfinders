@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search, Trash2 } from "lucide-react";
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
 
 type PermissionOption = {
   code: string;

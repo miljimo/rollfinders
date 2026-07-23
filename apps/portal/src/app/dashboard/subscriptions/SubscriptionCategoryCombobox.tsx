@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
 
 export function SubscriptionCategoryCombobox({
   categories,

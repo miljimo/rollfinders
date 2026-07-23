@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Pencil, Plus, Search, Trash2, Users, X } from "lucide-react";
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
 import type { AuthorisationPagination, AuthorisationPermission, AuthorisationPermissionAssignment, AuthorisationResource, AuthorisationRole } from "@/lib/authorisation-service";
 import { ActionMenu } from "../../admin/ActionMenu";
 import { createPermissionWithOptionalAssignments, loadAuthorisationPermissionsPage, removeCurrentUserPermissionAssignment, updatePermissionDescription } from "../DashboardActions";

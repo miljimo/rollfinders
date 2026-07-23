@@ -1,5 +1,5 @@
-import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
+import { Button } from "@/app/_components/Button";
+import { DialogShell } from "@/app/_components/DialogShell";
 import type { ManagedUser } from "@/lib/users-service";
 
 import { createWalletHref, selectedWalletOwnerId, type DashboardSearchParams, type WalletOwnerUser } from "./walletDialogTypes";

@@ -1,5 +1,5 @@
 import { Plus } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 
 export function NewAcademyPanelAction() {
   return (

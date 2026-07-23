@@ -13,8 +13,8 @@ import {
   type LinkedWalletAccount,
   type WalletRecord,
 } from "@/lib/wallet-service";
-import { Button } from "@/components/Button";
-import { TableStatusBadge } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { TableStatusBadge } from "@/app/_components/Table";
 import { ProviderSelectionForm } from "./ProviderSelectionForm";
 
 type LinkAccountParams = {

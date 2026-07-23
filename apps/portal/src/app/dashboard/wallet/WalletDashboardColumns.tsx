@@ -1,4 +1,4 @@
-import { TableStatusBadge, type TableColumn } from "@/components/Table";
+import { TableStatusBadge, type TableColumn } from "@/app/_components/Table";
 import type { WalletBalance, WalletTransaction } from "@/lib/wallet-service";
 import { WalletActionMenu, TransactionActionMenu } from "./WalletActionMenus";
 import type { WalletRow } from "./walletDashboardTypes";

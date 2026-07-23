@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AcademyVerificationStatus } from "@prisma/client";
-import { AnalyticsClickTracker } from "@/components/Analytics";
-import { AnalyticsViewTracker } from "@/components/Analytics";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
+import { AnalyticsClickTracker } from "@/app/_components/Analytics";
+import { AnalyticsViewTracker } from "@/app/_components/Analytics";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
 import { canDeleteAcademyRecord, canManageAcademyTeam, canViewAcademyTeam, requireAcademyEditor } from "@/lib/academy-access";
 import { academyClaimStatuses } from "@/lib/academy-domain-data";
 import { getAcademyFromAcademyService } from "@/lib/academyService";

@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
-import { Button } from "@/components/Button";
-import { Table } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { Table } from "@/app/_components/Table";
 import type { WalletPaginationMeta } from "@/lib/wallet-service";
 import { walletColumns } from "./WalletDashboardColumns";
 import type { WalletDashboardSearchParams, WalletRow } from "./walletDashboardTypes";

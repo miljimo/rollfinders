@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { useActionState } from "react";
 import { resetPassword, type ResetPasswordState } from "./actions";
 

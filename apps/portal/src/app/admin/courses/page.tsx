@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { CourseType, type Prisma } from "@prisma/client";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
-import { TableRow } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
+import { TableRow } from "@/app/_components/Table";
 import { listAcademiesForActorFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole } from "@/lib/admin";
 import { selectableCourseTypeOptions } from "@/lib/course-types";

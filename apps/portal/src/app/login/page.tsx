@@ -1,4 +1,4 @@
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { LoginForm } from "./LoginForm";
 
 function safeRedirectTarget(value: string | string[] | undefined) {

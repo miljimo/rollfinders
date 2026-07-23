@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { ThemeStyleProvider } from "@/components/ThemeStyleProvider";
+import { ThemeStyleProvider } from "@/app/_components/ThemeStyleProvider";
+import "@miljimo/react-components/styles.css";
 import "./globals.css";
 
 export const metadata: Metadata = {

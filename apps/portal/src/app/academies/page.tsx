@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { PageShell } from "@/components/Page";
-import { LocationSearchForm } from "@/components/LocationSearchForm";
-import { AcademyCard } from "@/components/AcademyCard";
-import { Pagination } from "@/components/pagination";
+import { PageShell } from "@/app/_components/Page";
+import { LocationSearchForm } from "@/app/_components/LocationSearchForm";
+import { AcademyCard } from "@/app/_components/AcademyCard";
+import { Pagination } from "@/app/_components/Pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { searchAcademies } from "@/lib/data";

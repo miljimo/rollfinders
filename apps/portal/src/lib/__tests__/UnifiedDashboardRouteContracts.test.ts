@@ -164,8 +164,8 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("public navigation exposes Dashboard instead of Login", () => {
-    const pageHeader = readSource("apps/portal/src/components/Page/PageHeader.tsx");
-    const staticHeader = readSource("apps/portal/src/components/Page/StaticSiteHeader.tsx");
+    const pageHeader = readSource("apps/portal/src/app/_components/Page/PageHeader.tsx");
+    const staticHeader = readSource("apps/portal/src/app/_components/Page/StaticSiteHeader.tsx");
 
     for (const source of [pageHeader, staticHeader]) {
       assert.match(source, /<NavLink href="\/dashboard">Dashboard<\/NavLink>/);
@@ -177,7 +177,7 @@ describe("unified dashboard route contracts", () => {
     const helper = readSource("apps/portal/src/lib/auth-urls.ts");
     const dashboard = readSource("apps/portal/src/lib/standard-dashboard.ts");
     const proxy = readSource("apps/portal/src/proxy.ts");
-    const logoutButton = readSource("apps/portal/src/components/LogoutButton/LogoutButton.tsx");
+    const logoutButton = readSource("apps/portal/src/app/_components/LogoutButton/LogoutButton.tsx");
     const prd = readSource("apps/portal/docs/features/Users/Standard/Pages/DashboardPage.md");
 
     assert.match(helper, /AUTH_PORTAL_ORIGIN/);

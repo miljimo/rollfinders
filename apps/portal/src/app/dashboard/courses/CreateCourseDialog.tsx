@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 
-import { DialogShell } from "@/components/DialogShell";
+import { DialogShell } from "@/app/_components/DialogShell";
 import { cloneEventForCourseForm } from "@/lib/course-cloning";
 import type { getInstructorUserOptions } from "@/lib/instructor-users";
 import type { AcademyServiceRecord } from "@/lib/academyService";

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
 import { markBookingPaymentReceived } from "@/lib/bookings";
 
 export const metadata: Metadata = {

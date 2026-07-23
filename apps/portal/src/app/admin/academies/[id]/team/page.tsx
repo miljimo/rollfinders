@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
 import { canManageAcademyTeam, canViewAcademyTeam, requireAcademyTeamViewer } from "@/lib/academy-access";
 import { listPendingAcademyInvitations } from "@/lib/academy-domain-data";
 import { getAcademyFromAcademyService } from "@/lib/academyService";

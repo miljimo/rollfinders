@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { CheckCircle2, Plus } from "lucide-react";
 
-import { GridDashboard, type GridDashboardItem } from "@/components/GridDashboard";
-import { Icon, type SidePanelIcon } from "@/components/Icons";
+import { GridDashboard, type GridDashboardItem } from "@/app/_components/GridDashboard";
+import { Icon, type SidePanelIcon } from "@/app/_components/Icons";
 
 export type SubscriptionMarketplaceGridItem = GridDashboardItem & {
   actionHref: string;

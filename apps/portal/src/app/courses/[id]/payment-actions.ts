@@ -7,7 +7,7 @@ import {
   isPublicAcademyBookingVerified,
   isPublicAcademyPaymentsVerified,
   isPublicAcademyTrusted,
-} from "@/components/PublicListingWarning";
+} from "@/app/_components/PublicListingWarning";
 import { academyPaymentAccountReadiness } from "@/lib/academy-payment-account";
 import { authOptions } from "@/lib/auth";
 import {

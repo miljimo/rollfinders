@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AcademyForm } from "@/app/admin/academies/AcademyForm";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { createPublicAcademy } from "./actions";
 
 export const metadata: Metadata = {

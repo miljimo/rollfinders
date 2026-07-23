@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { updateStandardUserProfile, type EditProfileState } from "../DashboardActions";
 
 type EditProfileFormProps = {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { listAcademiesForActorFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
 import { createManagedUser } from "../actions";

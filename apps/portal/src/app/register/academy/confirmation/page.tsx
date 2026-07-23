@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { CheckCircle2, MailWarning } from "lucide-react";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 
 export const metadata: Metadata = {
   title: "RollFinders | Academy Registration Sent",

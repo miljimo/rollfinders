@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { AlertTriangle, Clock3, Mail, RefreshCw, Send } from "lucide-react";
-import { Button } from "@/components/Button";
-import { StatIndicator, type StatIndicatorTone } from "@/components/StatIndicator";
-import { Table, type TableColumn } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { StatIndicator, type StatIndicatorTone } from "@/app/_components/StatIndicator";
+import { Table, type TableColumn } from "@/app/_components/Table";
 import type { getEmailQueueOperationsSummary } from "@/lib/reliable-email";
 import { formatDate } from "@/lib/utils";
 import { clsx } from "clsx";

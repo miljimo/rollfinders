@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Button } from "@/components/Button";
-import { PageShell } from "@/components/Page";
+import { Button } from "@/app/_components/Button";
+import { PageShell } from "@/app/_components/Page";
 import { verifyAccountEmail } from "@/lib/email-verification";
 
 function firstParam(value: string | string[] | undefined) {

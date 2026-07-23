@@ -1,6 +1,6 @@
 import type { EventAudience, EventPricingType } from "@prisma/client";
 
-import { OpenMatLocationFilterForm } from "@/components/OpenMatLocationFilterForm";
+import { OpenMatLocationFilterForm } from "@/app/_components/OpenMatLocationFilterForm";
 
 type HomeHeroEvent = {
   id: string;

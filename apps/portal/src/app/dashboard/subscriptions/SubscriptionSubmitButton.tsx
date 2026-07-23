@@ -2,7 +2,7 @@
 
 import { useFormStatus } from "react-dom";
 import { Loader2, Plus } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 
 export function SubscriptionSubmitButton({
   label,

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { getValidPasswordResetToken } from "@/lib/password-reset";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 

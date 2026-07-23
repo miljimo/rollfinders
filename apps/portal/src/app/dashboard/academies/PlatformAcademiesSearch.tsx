@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { platformAdminAcademiesHref } from "./platformAcademiesUtils";
 
 type AdminSearchParams = Record<string, string | string[] | undefined>;

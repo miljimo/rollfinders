@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Eye, Plus, Search, Trash2, X } from "lucide-react";
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
-import { TablePagination } from "@/components/Table";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
+import { TablePagination } from "@/app/_components/Table";
 import type { AuthorisationPagination, AuthorisationPermission, AuthorisationRole } from "@/lib/authorisation-service";
 import { ActionMenu } from "../../admin/ActionMenu";
 import { addPrivilegeToRole, createRoleWithPrivileges, loadAuthorisationRolesPage, removePrivilegeFromRole } from "../DashboardActions";

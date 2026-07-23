@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { clsx } from "clsx";
 import { useActionState } from "react";
 import { changeDashboardUserPassword, type ChangePasswordState } from "./PasswordActions";

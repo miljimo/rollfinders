@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { BookEventButton } from "@/components/BookEventButton";
+import { BookEventButton } from "@/app/_components/BookEventButton";
 import { startCourseCheckout, type CourseCheckoutState } from "./payment-actions";
 
 const courseCheckoutInitialState: CourseCheckoutState = {};

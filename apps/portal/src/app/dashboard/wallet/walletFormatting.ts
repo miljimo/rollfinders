@@ -1,4 +1,4 @@
-import type { AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import type { AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
 import type { WalletRecord } from "@/lib/wallet-service";
 
 export function walletOption(wallet: WalletRecord): AutoCompleteTextFieldOption {

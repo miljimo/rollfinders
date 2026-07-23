@@ -3,8 +3,8 @@
 import { CourseActivityType, EventAudience, EventPricingType, GiType, RecurrenceType, type Academy, type CourseActivity, type Event } from "@prisma/client";
 import { type ClipboardEvent, type ReactNode, useActionState, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/Button";
-import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/components/AutoCompleteTextField";
+import { Button } from "@/app/_components/Button";
+import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_components/AutoCompleteTextField";
 import { courseActivityTypeLabels, courseActivityTypeOptions } from "@/lib/course-activities";
 import { selectableCourseTypeOptions } from "@/lib/course-types";
 import type { InstructorUserOption } from "@/lib/instructor-users";

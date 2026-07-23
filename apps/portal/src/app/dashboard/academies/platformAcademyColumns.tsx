@@ -1,5 +1,5 @@
-import { Button } from "@/components/Button";
-import { TableStatusBadge, type TableColumn } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { TableStatusBadge, type TableColumn } from "@/app/_components/Table";
 import { formatDate } from "@/lib/utils";
 import type { PlatformAdminAcademyTableRow } from "./platformAcademyTypes";
 

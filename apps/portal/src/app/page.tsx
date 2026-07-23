@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { PageShell } from "@/components/Page";
-import { Pagination } from "@/components/pagination";
+import { PageShell } from "@/app/_components/Page";
+import { Pagination } from "@/app/_components/Pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { getFeaturedData, getOpenMatRadar } from "@/lib/data";

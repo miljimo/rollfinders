@@ -1,7 +1,7 @@
 "use client";
 
 import { signOut } from "next-auth/react";
-import { UserAccountDropDownMenu } from "@/components/UserAccountDropDownMenu";
+import { UserAccountDropDownMenu } from "@/app/_components/UserAccountDropDownMenu";
 import { logoutCallbackUrl } from "@/lib/auth-urls";
 
 type DashboardAccountDropDownMenuProps = {

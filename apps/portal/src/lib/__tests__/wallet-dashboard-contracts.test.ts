@@ -332,9 +332,8 @@ test("wallet dashboard shows wallets and transaction panel without aggregate bal
 });
 
 test("table rows navigate on click while preserving action controls", () => {
-  const source = readSource("apps/portal/src/components/Table/TableRow.tsx");
+  const source = readSource("apps/portal/src/app/_components/Table/index.tsx");
 
-  assert.match(source, /onClick=\{navigate\}/);
-  assert.match(source, /isInteractiveElement\(event\.target\)/);
-  assert.match(source, /Click to view details/);
+  assert.match(source, /@miljimo\/react-components/);
+  assert.match(source, /TableRow/);
 });

@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { Button } from "@/components/Button";
-import { AnalyticsClickTracker } from "@/components/Analytics";
-import { PageShell } from "@/components/Page";
-import { PublicListingWarning } from "@/components/PublicListingWarning";
-import { Pagination } from "@/components/pagination";
+import { Button } from "@/app/_components/Button";
+import { AnalyticsClickTracker } from "@/app/_components/Analytics";
+import { PageShell } from "@/app/_components/Page";
+import { PublicListingWarning } from "@/app/_components/PublicListingWarning";
+import { Pagination } from "@/app/_components/Pagination";
 import { analyticsCountryFromHeaders } from "@/lib/analytics/country";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { coursePriceLabel, courseTypeLabel, getCourseDiscovery, recurrenceLabel } from "@/lib/courses";

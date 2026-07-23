@@ -159,39 +159,39 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
-import { Button } from "@/components/Button";
-import { CopyButton } from "@/components/copy-button";
-import { DialogShell } from "@/components/DialogShell";
+import { Button } from "@/app/_components/Button";
+import { CopyButton } from "@/app/_components/copy-button";
+import { DialogShell } from "@/app/_components/DialogShell";
 import {
   GridDashboard,
   type GridDashboardItem,
-} from "@/components/GridDashboard";
-import { InlineDirectionsButton } from "@/components/InlineDirectionsButton";
-import { LineOverviewChart } from "@/components/LineOverviewChart";
-import { LinkedText } from "@/components/LinkedText";
+} from "@/app/_components/GridDashboard";
+import { InlineDirectionsButton } from "@/app/_components/InlineDirectionsButton";
+import { LineOverviewChart } from "@/app/_components/LineOverviewChart";
+import { LinkedText } from "@/app/_components/LinkedText";
 import {
   PaymentOverview,
   type PaymentOverviewMetric,
-} from "@/components/payments/PaymentOverview";
-import { Pagination as SharedPagination } from "@/components/pagination";
-import { PublicListingWarning } from "@/components/PublicListingWarning";
+} from "@/app/_components/payments/PaymentOverview";
+import { Pagination as SharedPagination } from "@/app/_components/Pagination";
+import { PublicListingWarning } from "@/app/_components/PublicListingWarning";
 import {
   QuickActionPanel,
   type QuickActionPanelItem,
-} from "@/components/QuickActionPanel";
-import { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
+} from "@/app/_components/QuickActionPanel";
+import { PlatformAdminActivitySummaryPanel } from "@/app/_components/PlatformAdminActivitySummaryPanel";
 import {
   SidePanelControl,
   type SidePanelItem,
-} from "@/components/SidePanelControl";
-import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
-import { SummaryTile } from "@/components/SummaryTile";
+} from "@/app/_components/SidePanelControl";
+import { StatsPanel, type StatsPanelItem } from "@/app/_components/StatsPanel";
+import { SummaryTile } from "@/app/_components/SummaryTile";
 import {
   Table,
   TableRow,
   TableStatusBadge,
   type TableColumn,
-} from "@/components/Table";
+} from "@/app/_components/Table";
 import {
   createAcademy,
   sendAcademyClaimReminder,
@@ -260,7 +260,7 @@ import { WalletOwnerPickerDialog } from "./wallet/WalletOwnerPickerDialog";
 import { WalletTransactionDetailsDialog } from "./wallet/WalletTransactionDetailsDialog";
 import { WalletTransferDialog } from "./wallet/WalletTransferDialog";
 
-export { PlatformAdminActivitySummaryPanel } from "@/components/PlatformAdminActivitySummaryPanel";
+export { PlatformAdminActivitySummaryPanel } from "@/app/_components/PlatformAdminActivitySummaryPanel";
 
 export const dynamic = "force-dynamic";
 

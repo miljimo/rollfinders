@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { requireOpenMatAccess } from "@/lib/academy-access";
 import { listAcademiesForActorFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser } from "@/lib/admin";

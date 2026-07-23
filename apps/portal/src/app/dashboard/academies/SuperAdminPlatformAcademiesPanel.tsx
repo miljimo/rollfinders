@@ -1,7 +1,7 @@
 import { Building2 } from "lucide-react";
-import { Button } from "@/components/Button";
-import { StatsPanel, type StatsPanelItem } from "@/components/StatsPanel";
-import { Table } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { StatsPanel, type StatsPanelItem } from "@/app/_components/StatsPanel";
+import { Table } from "@/app/_components/Table";
 import { PlatformAcademiesSearch } from "./PlatformAcademiesSearch";
 import { platformAdminAcademyColumns } from "./platformAcademyColumns";
 import { platformAdminAcademiesHref, platformAdminAcademyPageSize } from "./platformAcademiesUtils";

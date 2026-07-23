@@ -1,7 +1,7 @@
 import { ClaimStatus } from "@prisma/client";
 import { Send } from "lucide-react";
-import { Button } from "@/components/Button";
-import { TableRow } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { TableRow } from "@/app/_components/Table";
 import { AcademyActionMenu } from "./AcademyActionMenu";
 import { AcademyBadge, LinkedTableCell } from "./AcademyTableCells";
 import { academyClaimState, academyReminderState, adminAcademiesHref, claimReminderReasonLabel, firstParam } from "./academyTableUtils";

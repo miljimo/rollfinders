@@ -2,7 +2,7 @@
 
 import { CreditCard } from "lucide-react";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import type { WalletCurrency } from "@/lib/wallet-service";
 
 export function ProviderSelectionForm({

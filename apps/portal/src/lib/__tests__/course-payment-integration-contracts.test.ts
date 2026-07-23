@@ -143,10 +143,10 @@ describe("course payment service integration", () => {
 
   it("keeps verified free events bookable without starting checkout", () => {
     const publicDetailSource = readSource(
-      "apps/portal/src/components/PublicEventDetailPage/PublicEventDetailPage.tsx",
+      "apps/portal/src/app/_components/PublicEventDetailPage/PublicEventDetailPage.tsx",
     );
     const freeButtonSource = readSource(
-      "apps/portal/src/components/FreeEventBookingButton/FreeEventBookingButton.tsx",
+      "apps/portal/src/app/_components/FreeEventBookingButton/FreeEventBookingButton.tsx",
     );
     const openMatPageSource = readSource(
       "apps/portal/src/app/open-mats/[id]/page.tsx",

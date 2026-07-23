@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { PageShell } from "@/components/Page";
+import { PageShell } from "@/app/_components/Page";
 import { getMapItems } from "@/lib/data";
 import { formatDate } from "@/lib/utils";
 import { AcademyMap } from "./AcademyMap";

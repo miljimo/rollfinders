@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import type { ManagedUser } from "@/lib/users-service";
 
 import { createDashboardWallet } from "./actions";

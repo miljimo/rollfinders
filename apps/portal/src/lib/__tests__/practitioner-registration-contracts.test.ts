@@ -100,8 +100,8 @@ describe("practitioner academy registration contracts", () => {
     const academyPageSource = readSource(
       "apps/portal/src/app/academies/[slug]/page.tsx",
     );
-    const autocompleteSource = readSource(
-      "apps/portal/src/components/AutoCompleteTextField/AutoCompleteTextField.tsx",
+    const autocompleteIndexSource = readSource(
+      "apps/portal/src/app/_components/AutoCompleteTextField/index.tsx",
     );
     const loginFormSource = readSource(
       "apps/portal/src/app/login/LoginForm.tsx",
@@ -117,8 +117,8 @@ describe("practitioner academy registration contracts", () => {
     assert.match(registerAcademySelectorSource, /setChoosing\(true\)/);
     assert.doesNotMatch(registerPageSource, /type="radio"/);
     assert.doesNotMatch(registerAcademySelectorSource, /href="\/register"/);
-    assert.match(autocompleteSource, /function commitTypedMatch/);
-    assert.match(autocompleteSource, /onBlur=\{commitTypedMatch\}/);
+    assert.match(autocompleteIndexSource, /@miljimo\/react-components/);
+    assert.match(autocompleteIndexSource, /AutoCompleteTextField/);
     assert.match(registerPageSource, /registerPractitioner/);
     assert.match(academyPageSource, /\/register\?academy=/);
     assert.match(loginFormSource, /\/register/);

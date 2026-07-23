@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/components/Button";
+import { Button } from "@/app/_components/Button";
 import { Role } from "@prisma/client";
 import { useState } from "react";
 import { createManagedUser } from "./actions";

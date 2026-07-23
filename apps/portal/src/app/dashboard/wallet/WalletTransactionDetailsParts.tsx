@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { CopyButton } from "@/components/copy-button";
+import { CopyButton } from "@/app/_components/copy-button";
 
 export function TransactionDetailSection({ children, icon, title }: { children: ReactNode; icon: ReactNode; title: string }) {
   return (

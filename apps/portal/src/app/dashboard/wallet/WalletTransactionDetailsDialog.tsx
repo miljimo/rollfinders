@@ -1,9 +1,9 @@
 import { ArrowDownLeft, ArrowUpRight, CheckCircle2, CreditCard, FileText, Globe2, Link2, Repeat2, Wallet } from "lucide-react";
 
-import { Button } from "@/components/Button";
-import { DialogShell } from "@/components/DialogShell";
-import { SummaryTile } from "@/components/SummaryTile";
-import { TableStatusBadge } from "@/components/Table";
+import { Button } from "@/app/_components/Button";
+import { DialogShell } from "@/app/_components/DialogShell";
+import { SummaryTile } from "@/app/_components/SummaryTile";
+import { TableStatusBadge } from "@/app/_components/Table";
 import { formatDate } from "@/lib/utils";
 import type { WalletTransaction } from "@/lib/wallet-service";
 
