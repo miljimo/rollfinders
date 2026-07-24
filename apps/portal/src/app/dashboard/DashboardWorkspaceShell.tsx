@@ -233,6 +233,7 @@ import { NewAcademyDialog } from "./academies/NewAcademyDialog";
 import { NewAcademyPanelAction } from "./academies/NewAcademyPanelAction";
 import { SuperAdminPlatformAcademiesPanel } from "./academies/SuperAdminPlatformAcademiesPanel";
 import { CreateCourseDialog } from "./courses/CreateCourseDialog";
+import { EditCourseDialog } from "./courses/EditCourseDialog";
 import { ViewEventDialog, type DashboardEventDetail } from "./ViewEventDialog";
 import {
   cancelDashboardBooking,
@@ -1080,6 +1081,21 @@ export default async function AdminDashboardWorkspace({
   ).trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
+  const canCreateCourse =
+    panel === "open-mats"
+      ? await authorize(currentUser, "course.create", {
+          applicationId:
+            process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+          organisationId: currentUser.academyId ?? undefined,
+        })
+      : false;
+  if (
+    panel === "open-mats" &&
+    dialog === "create-course" &&
+    !canCreateCourse
+  ) {
+    redirect("/dashboard/courses");
+  }
   const effectiveSettingsAction = effectiveSettingsActionForRole(
     activeSettingsAction,
     elevatedAdmin,
@@ -1572,7 +1588,9 @@ export default async function AdminDashboardWorkspace({
           .catch(() => undefined)))
       : undefined;
   const selectedDialogEvent =
-    panel === "open-mats" && dialog === "view-event" && eventDialogId
+    panel === "open-mats" &&
+    (dialog === "view-event" || dialog === "edit-course") &&
+    eventDialogId
       ? await prisma.event
           .findFirst({
             where: {
@@ -2366,21 +2384,26 @@ export default async function AdminDashboardWorkspace({
                 {panel === "open-mats" ? (
                   <AdminPanel
                     action={
-                      <Button
-                        href="/dashboard/courses?dialog=create-course"
-                        variant="primary"
-                        className="min-h-12 shadow-sm"
-                      >
-                        <Plus size={18} aria-hidden />
-                        New Course
-                      </Button>
+                      canCreateCourse ? (
+                        <Button
+                          href="/dashboard/courses?dialog=create-course"
+                          variant="primary"
+                          className="min-h-12 shadow-sm"
+                        >
+                          <Plus size={18} aria-hidden />
+                          New Course
+                        </Button>
+                      ) : null
                     }
                     description="Active courses/events ordered by event date."
                     id="open-mats"
                     search={<PanelSearch panel={panel} search={search} />}
                     title="Courses/Events"
                   >
-                    <OpenMatsTable events={events} />
+                    <OpenMatsTable
+                      canCreateCourse={canCreateCourse}
+                      events={events}
+                    />
                     <Pagination
                       currentPage={currentEventPage}
                       totalItems={activeEventCount}
@@ -2743,6 +2766,15 @@ export default async function AdminDashboardWorkspace({
         <CreateCourseDialog
           academies={academyOptions}
           cloneSource={cloneSourceEvent}
+          instructorUsers={instructorUsers}
+        />
+      ) : null}
+      {panel === "open-mats" &&
+      dialog === "edit-course" &&
+      selectedDialogEvent ? (
+        <EditCourseDialog
+          academies={academyOptions}
+          course={selectedDialogEvent}
           instructorUsers={instructorUsers}
         />
       ) : null}
@@ -6794,7 +6826,13 @@ function StatusPill({ disabled }: { disabled: boolean }) {
   );
 }
 
-function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
+function OpenMatsTable({
+  canCreateCourse,
+  events,
+}: {
+  canCreateCourse: boolean;
+  events: OpenMatRow[];
+}) {
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-[960px] border-collapse text-left text-sm">
@@ -6813,10 +6851,8 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
         </thead>
         <tbody>
           {events.map((event) => {
-            const openMat = event.courseType === CourseType.OPEN_MAT;
             const detailHref = `/dashboard/courses?dialog=view-event&eventId=${event.id}`;
-            const adminReturnTo = "/dashboard/courses";
-            const adminHref = `${openMat ? `/admin/open-mats/${event.id}` : `/admin/courses/${event.id}`}?returnTo=${encodeURIComponent(adminReturnTo)}`;
+            const editHref = `/dashboard/courses?dialog=edit-course&eventId=${event.id}`;
             const cloneHref = `/dashboard/courses?dialog=create-course&cloneFrom=${event.id}`;
             const permanentHref = eventPermanentPath(event.id);
             const qrCodeHref = eventQrCodePath(event.id);
@@ -6856,14 +6892,16 @@ function OpenMatsTable({ events }: { events: OpenMatRow[] }) {
                       <Eye size={18} aria-hidden />
                       View Course
                     </Link>
-                    <Link href={adminHref} className={menuItemClass}>
+                    <Link href={editHref} className={menuItemClass}>
                       <Edit3 size={18} aria-hidden />
                       Edit Course
                     </Link>
-                    <Link href={cloneHref} className={menuItemClass}>
-                      <Copy size={18} aria-hidden />
-                      Clone Course
-                    </Link>
+                    {canCreateCourse ? (
+                      <Link href={cloneHref} className={menuItemClass}>
+                        <Copy size={18} aria-hidden />
+                        Clone Course
+                      </Link>
+                    ) : null}
                     <Link
                       href={permanentHref}
                       className={menuItemClass}

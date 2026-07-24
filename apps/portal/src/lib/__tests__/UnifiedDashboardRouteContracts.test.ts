@@ -423,13 +423,29 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
     assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
     assert.match(source, /detailHref\s*=\s*`\/dashboard\/courses\?dialog=view-event&eventId=\$\{event\.id\}`/);
+    assert.match(source, /editHref\s*=\s*`\/dashboard\/courses\?dialog=edit-course&eventId=\$\{event\.id\}`/);
     assert.match(source, /permanentHref\s*=\s*eventPermanentPath\(event\.id\)/);
-    assert.match(source, /adminReturnTo\s*=\s*"\/dashboard\/courses"/);
-    assert.match(source, /adminHref\s*=\s*`\$\{openMat \? `\/admin\/open-mats\/\$\{event\.id\}` : `\/admin\/courses\/\$\{event\.id\}`\}\?returnTo=\$\{encodeURIComponent\(adminReturnTo\)\}`/);
+    assert.doesNotMatch(source, /adminHref\s*=\s*`\$\{openMat/);
     assert.match(source, /<QuickActionPanel[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
     assert.match(source, /collapseStorageKey="rollfinders\.dashboardQuickActionsCollapsed"/);
     assert.doesNotMatch(source, /title:\s*"Founder Analytics"/);
     assert.doesNotMatch(source, /title:\s*"Platform Admin Academy Review"/);
+  });
+
+  it("keeps course creation and editing inside the permission-aware dashboard flow", () => {
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
+    const actions = readSource("apps/portal/src/app/admin/courses/actions.ts");
+    const editDialog = readSource("apps/portal/src/app/dashboard/courses/EditCourseDialog.tsx");
+
+    assert.match(source, /authorize\(currentUser,\s*"course\.create"/);
+    assert.match(source, /canCreateCourse\s*\?\s*\([\s\S]*href="\/dashboard\/courses\?dialog=create-course"/);
+    assert.match(source, /\{canCreateCourse\s*\?\s*\([\s\S]*href=\{cloneHref\}/);
+    assert.match(source, /dialog\s*===\s*"edit-course"/);
+    assert.match(source, /<EditCourseDialog/);
+    assert.match(actions, /authorize\(user,\s*"course\.create"/);
+    assert.match(actions, /You do not have permission to create courses/);
+    assert.match(editDialog, /<CourseForm[\s\S]*updateCourse\.bind\(null,\s*course\.id\)/);
+    assert.match(editDialog, /deleteCourse\.bind\(null,\s*course\.id\)/);
   });
 
   it("platform admin academy review links are serializable across the server/client table boundary", () => {

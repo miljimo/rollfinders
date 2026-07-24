@@ -9,6 +9,8 @@ import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
 import { parseCourseActivities, validateActivitiesWithinCourse } from "@/lib/course-activities";
 import { recordCourseActivityAnalytics, replaceCourseActivities } from "@/lib/course-activities-server";
 import { addDays, dateKey, defaultOccurrenceWindowEnd, expandEventOccurrences, startOfDay } from "@/lib/open-mat-occurrences";
+import { getCurrentUser } from "@/lib/admin";
+import { authorize } from "@/lib/authorisation-service";
 import { prisma } from "@/lib/prisma";
 import { courseSchema } from "@/lib/validators";
 
@@ -184,6 +186,12 @@ function courseManagementReturnPath(value: string) {
 export async function createCourse(_state: CourseFormState, formData: FormData): Promise<CourseFormState> {
   const parsed = await parseCourseData(formData);
   if (!parsed.ok) return formError(formData, parsed.errors);
+  const user = await getCurrentUser();
+  const canCreate = await authorize(user, "course.create", {
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    organisationId: parsed.data.academyId,
+  });
+  if (!canCreate) return formError(formData, {}, "You do not have permission to create courses.");
   const access = await requireAcademyOpenMatCreator(parsed.data.academyId);
   const data = courseData(parsed.data);
   if (await findDuplicateCourse(undefined, data)) return duplicateError(formData);
@@ -246,7 +254,8 @@ export async function deleteCourse(id: string, formData?: FormData) {
   const returnTo = courseManagementReturnPath(String(formData?.get("returnTo") ?? ""));
   if (!event) redirect(returnTo);
   await requireOpenMatAccess(event, "delete");
-  await prisma.event.delete({ where: { id } });
+  // events is a compatibility view whose INSTEAD OF trigger soft-deletes the owned course.
+  await prisma.event.deleteMany({ where: { id } });
   revalidatePath("/admin/courses");
   revalidatePath("/dashboard");
   revalidatePath("/courses");

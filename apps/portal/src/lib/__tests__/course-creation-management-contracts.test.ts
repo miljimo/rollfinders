@@ -44,7 +44,11 @@ describe("CourseCreationAndManagement rollout contracts", () => {
     assert.match(compatibilitySource, /CREATE OR REPLACE VIEW public\.events AS[\s\S]*FROM courses\.courses/);
     assert.match(compatibilitySource, /CREATE OR REPLACE VIEW public\.course_activities AS[\s\S]*FROM courses\.course_activities/);
     assert.match(compatibilitySource, /INSTEAD OF INSERT ON public\.events/);
+    assert.match(compatibilitySource, /INSTEAD OF DELETE ON public\.events/);
     assert.match(compatibilitySource, /CALL courses\."courseUpsert"/);
+    assert.match(courseActionsSource, /deleteCourse[\s\S]*prisma\.event\.deleteMany\(\{\s*where:\s*\{\s*id\s*\}\s*\}\)/);
+    assert.doesNotMatch(courseActionsSource, /prisma\.event\.delete\(/);
+    assert.match(courseActionsSource, /createCourse[\s\S]*authorize\(user,\s*"course\.create"/);
     assert.doesNotMatch(courseActionsSource, /syncRollfindersCourseToCourseService|deleteRollfindersCourseFromCourseService/);
   });
 
