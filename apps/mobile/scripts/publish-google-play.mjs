@@ -16,7 +16,12 @@ import {
 const args = parseReleaseArgs();
 const { versionCode, versionName } = requireVersionArgs(args);
 const track = args.track || defaultTrack;
+const releaseStatus = args.status || process.env.GOOGLE_PLAY_RELEASE_STATUS || "completed";
 const artifact = resolve(outputRoot, `rollfinders-${versionName}-${versionCode}.aab`);
+
+if (!["completed", "draft", "halted", "inProgress"].includes(releaseStatus)) {
+  throw new Error("Invalid release status. Use completed, draft, halted, or inProgress.");
+}
 
 if (process.env.GOOGLE_PLAY_UPLOAD_APPROVED !== "true") {
   throw new Error("Set GOOGLE_PLAY_UPLOAD_APPROVED=true before uploading to Google Play.");
@@ -116,7 +121,7 @@ await googlePlay(`/edits/${editId}/tracks/${track}`, {
     releases: [
       {
         name: versionName,
-        status: "completed",
+        status: releaseStatus,
         versionCodes: [String(bundle.versionCode ?? versionCode)],
       },
     ],
@@ -128,5 +133,5 @@ await googlePlay(`/edits/${editId}/tracks/${track}`, {
 
 const commit = await googlePlay(`/edits/${editId}:commit`, { method: "POST" });
 const resultPath = resolve(outputRoot, `rollfinders-${versionName}-${versionCode}-play-upload.json`);
-writeFileSync(resultPath, `${JSON.stringify({ bundle, commit, packageName, track, versionCode, versionName }, null, 2)}\n`);
+writeFileSync(resultPath, `${JSON.stringify({ bundle, commit, packageName, releaseStatus, track, versionCode, versionName }, null, 2)}\n`);
 console.log(`Google Play upload result: ${resultPath}`);

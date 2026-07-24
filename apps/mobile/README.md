@@ -123,6 +123,23 @@ npm run mobile:android:release:publish -- --versionCode 2 --versionName 1.0.1
 
 The upload script refuses non-internal tracks unless `GOOGLE_PLAY_NON_INTERNAL_APPROVED=true` is also set.
 
+For an app that is still in the Google Play draft-app state, create the first
+production-track release as a draft:
+
+```bash
+GOOGLE_PLAY_TRACK=production \
+GOOGLE_PLAY_NON_INTERNAL_APPROVED=true \
+npm run mobile:android:release:publish -- \
+  --versionCode 3 \
+  --versionName 1.0.2 \
+  --track production \
+  --status draft
+```
+
+After the Play Console store listing and app-content requirements are complete,
+promote the production release through Play Console review. A draft app cannot
+accept a completed release through the Android Publisher API.
+
 ## Open Native Projects
 
 ```bash
