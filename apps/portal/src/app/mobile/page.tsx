@@ -3,7 +3,7 @@ import type { Viewport } from "next";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Bell, Bookmark, CalendarCheck, ChevronRight, CircleHelp, Clock, ExternalLink, HandHeart, LogIn, MapPin, Search, ShieldCheck, UsersRound, UserRound } from "lucide-react";
+import { Bookmark, CalendarCheck, ChevronRight, CircleHelp, Clock, ExternalLink, HandHeart, LogIn, MapPin, Search, ShieldCheck, UsersRound, UserRound } from "lucide-react";
 import { CourseType } from "@prisma/client";
 import { Button } from "@/app/_components/Button";
 import { LogoutButton } from "@/app/_components/LogoutButton";
@@ -115,26 +115,17 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   ]);
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-28 text-stone-950">
-      <header className="px-5 pb-4 pt-7">
-        <div className="mx-auto flex max-w-md items-center justify-between gap-3">
-          <Link href="/mobile" className="flex min-h-12 min-w-0 items-center gap-3 rounded-md text-3xl font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
-            <Image src="/logo.png" alt="" width={48} height={48} className="size-12 shrink-0 object-contain" priority />
+    <main className="min-h-dvh overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-28 text-stone-950">
+      <header className="px-4 pb-3 pt-5">
+        <div className="mx-auto flex w-full max-w-sm items-center justify-start gap-3">
+          <Link href="/mobile" className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-2xl font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
+            <Image src="/logo.png" alt="" width={42} height={42} className="size-10 shrink-0 object-contain" priority />
             <span>RollFinders</span>
           </Link>
-          <div className="flex items-center gap-3">
-            <span className="relative inline-flex size-12 items-center justify-center rounded-full text-slate-950">
-              <Bell size={29} aria-hidden />
-              <span className="absolute right-1 top-1 size-3 rounded-full bg-teal-700" />
-            </span>
-            <Button href={currentUser ? "/mobile?tab=profile" : mobileSignInHref()} size="icon" variant="secondary" className="size-16 rounded-full border-0 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.12)]" aria-label={currentUser ? "Profile" : "Sign in"}>
-              {currentUser ? <UserRound size={25} aria-hidden /> : <UserRound size={25} aria-hidden />}
-            </Button>
-          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-md px-5 py-3">
+      <div className="mx-auto w-full max-w-sm px-4 py-3">
         {activeTab === "home" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} when={params.when} /> : null}
         {activeTab === "profile" ? (
           <ProfileView
@@ -208,11 +199,11 @@ function DiscoverView({
 
   return (
     <div className="grid gap-7">
-      <section className="py-4">
-        <p className="text-base font-black uppercase tracking-[0.22em] text-teal-700">Mobile discovery</p>
-        <h1 className="mt-4 text-6xl font-black leading-[0.95] tracking-normal text-slate-950">Find your next round</h1>
+      <section className="py-3">
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-700">Mobile discovery</p>
+        <h1 className="mt-3 text-4xl font-black leading-tight tracking-normal text-slate-950">Find your next round</h1>
         <MobileDiscoverySearch initialQuery={query} suggestions={searchSuggestions} />
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <div className="mt-4 grid grid-cols-3 gap-2">
           <MobileChip active={!when || when === "today"} href="/mobile?when=today" label="Today" />
           <MobileChip active={when === "tomorrow"} href="/mobile?when=tomorrow" label="Tomorrow" />
           <MobileChip active={when === "weekend"} href="/mobile?when=weekend" label="Weekend" />
@@ -482,7 +473,7 @@ function MobileSection({ children, title }: { children: React.ReactNode; title: 
 function MobileSectionHeader({ action, href, title }: { action?: string; href?: string; title: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h2 className="text-2xl font-black tracking-normal text-slate-950">{title}</h2>
+      <h2 className="text-xl font-black tracking-normal text-slate-950">{title}</h2>
       {href && action ? <Link href={href} className="inline-flex items-center gap-1 text-sm font-black text-teal-800">{action}<ChevronRight size={16} aria-hidden /></Link> : null}
     </div>
   );
@@ -500,8 +491,8 @@ function MobileStatCard({ icon, label, value }: { icon: React.ReactNode; label: 
 
 function MobileChip({ active = false, href, label }: { active?: boolean; href: string; label: string }) {
   return (
-    <Link href={href} className={`inline-flex min-h-14 items-center justify-center gap-2 rounded-full px-2 text-center text-sm font-black shadow-[0_10px_24px_rgba(15,23,42,0.08)] ${active ? "bg-teal-700 text-white" : "border border-stone-200 bg-white text-slate-950"}`}>
-      <CalendarCheck size={18} aria-hidden />
+    <Link href={href} className={`inline-flex min-h-12 items-center justify-center gap-1.5 rounded-full px-2 text-center text-xs font-black shadow-[0_10px_24px_rgba(15,23,42,0.08)] ${active ? "bg-teal-700 text-white" : "border border-stone-200 bg-white text-slate-950"}`}>
+      <CalendarCheck size={16} aria-hidden />
       {label}
     </Link>
   );
@@ -510,28 +501,28 @@ function MobileChip({ active = false, href, label }: { active?: boolean; href: s
 function MobileEventCard({ event }: { event: Awaited<ReturnType<typeof getOpenMatRadar>>[number] }) {
   const detailHref = mobileEventHref(event);
   return (
-    <article className="rounded-3xl border border-stone-100 bg-white p-5 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
+    <article className="min-w-0 overflow-hidden rounded-2xl border border-stone-100 bg-white p-4 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="inline-flex rounded-lg bg-teal-50 px-3 py-1 text-sm font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
-          <h3 className="mt-3 text-3xl font-black leading-tight text-slate-950">{event.title}</h3>
-          <p className="mt-3 flex items-start gap-2 text-base font-semibold leading-6 text-stone-600"><MapPin size={18} className="mt-0.5 shrink-0 text-teal-700" aria-hidden />{event.academy.name}</p>
+          <p className="inline-flex rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
+          <h3 className="mt-3 break-words text-2xl font-black leading-tight text-slate-950">{event.title}</h3>
+          <p className="mt-2 flex min-w-0 items-start gap-2 text-sm font-semibold leading-5 text-stone-600"><MapPin size={16} className="mt-0.5 shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words">{event.academy.name}</span></p>
         </div>
-        <Link href={detailHref} className="inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-800" aria-label={`Open ${event.title}`}>
-          <ChevronRight size={25} aria-hidden />
+        <Link href={detailHref} className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-800" aria-label={`Open ${event.title}`}>
+          <ChevronRight size={22} aria-hidden />
         </Link>
       </div>
-      <div className="mt-5 grid grid-cols-3 divide-x divide-stone-200 border-y border-stone-200 py-4 text-center text-base font-semibold text-slate-950">
-        <span className="grid gap-1 px-2"><CalendarCheck className="mx-auto text-teal-700" size={21} aria-hidden />{formatDate(event.eventDate)}</span>
-        <span className="grid gap-1 px-2"><Clock className="mx-auto text-teal-700" size={21} aria-hidden />{event.startTime}-{event.endTime}</span>
-        <span className="grid gap-1 px-2"><UsersRound className="mx-auto text-teal-700" size={21} aria-hidden />{event.giType.replace("_", "-")}</span>
+      <div className="mt-4 grid min-w-0 grid-cols-3 divide-x divide-stone-200 border-y border-stone-200 py-3 text-center text-xs font-black text-slate-950">
+        <span className="grid min-w-0 gap-1 px-1"><CalendarCheck className="mx-auto text-teal-700" size={18} aria-hidden /><span className="whitespace-nowrap">{formatDate(event.eventDate)}</span></span>
+        <span className="grid min-w-0 gap-1 px-1"><Clock className="mx-auto text-teal-700" size={18} aria-hidden /><span className="whitespace-nowrap">{event.startTime}-{event.endTime}</span></span>
+        <span className="grid min-w-0 gap-1 px-1"><UsersRound className="mx-auto text-teal-700" size={18} aria-hidden /><span className="truncate">{event.giType.replace("_", "-")}</span></span>
       </div>
-      <div className="mt-5 flex items-start gap-4">
-        <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-800"><HandHeart size={28} aria-hidden /></span>
-        <p className="text-base font-medium leading-7 text-slate-800">{coursePriceLabel(event)}</p>
+      <div className="mt-4 flex items-start gap-3">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800"><HandHeart size={23} aria-hidden /></span>
+        <p className="min-w-0 break-words text-sm font-medium leading-6 text-slate-800">{coursePriceLabel(event)}</p>
       </div>
-      {event.distanceMiles != null ? <p className="mt-5 flex items-center gap-2 text-base font-bold text-teal-800"><MapPin size={18} aria-hidden />{formatDistanceMiles(event.distanceMiles)}</p> : null}
-      <Button href={detailHref} size="sm" variant="primary" className="mt-5 min-h-14 w-full rounded-xl text-base">View Details</Button>
+      {event.distanceMiles != null ? <p className="mt-4 flex items-center gap-2 text-sm font-bold text-teal-800"><MapPin size={16} aria-hidden />{formatDistanceMiles(event.distanceMiles)}</p> : null}
+      <Button href={detailHref} size="sm" variant="primary" className="mt-4 min-h-12 w-full rounded-xl text-sm">View Details</Button>
     </article>
   );
 }
