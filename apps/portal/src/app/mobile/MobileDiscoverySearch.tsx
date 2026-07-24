@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, SlidersHorizontal } from "lucide-react";
 
 export type MobileSearchSuggestion = {
   description?: string;
@@ -80,8 +80,8 @@ export function MobileDiscoverySearch({ initialQuery, suggestions }: { initialQu
           value={query}
           className="min-w-0 flex-1 bg-transparent px-2 text-base text-slate-950 outline-none placeholder:text-stone-500"
         />
-        <button type="button" className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-[0_14px_32px_rgba(0,121,107,0.22)]" aria-label="Search">
-          <Search size={23} aria-hidden />
+        <button type="button" className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-[0_14px_32px_rgba(0,121,107,0.22)]" aria-label="Search filters">
+          <SlidersHorizontal size={23} aria-hidden />
         </button>
       </div>
       {focused && visibleOptions.length ? (
