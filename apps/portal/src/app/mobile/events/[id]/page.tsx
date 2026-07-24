@@ -411,6 +411,7 @@ function MobileBookingAction({
         <CourseCheckoutForm
           courseId={eventId}
           occurrenceDate={occurrenceDate}
+          mobile
           mode={checkoutMode}
           priceLabel={priceLabel}
           suggestedAmount={suggestedAmount}

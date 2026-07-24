@@ -74,10 +74,11 @@ describe("deployment safety contracts", () => {
     assert.match(promotion, /echo "PRICING_SERVICE_IMAGE_URI=\$\{pricing_service_image\}"/);
   });
 
-  it("deploys every implemented long-running backend API service in the ECS task", () => {
+  it("deploys every enabled long-running backend API service on the EC2 app host", () => {
     const terraform = readSource("infrastructure/terraform/main.tf");
     const variables = readSource("infrastructure/terraform/variables.tf");
     const build = readSource("scripts/cicd/build-go-services.sh");
+    const ec2Deploy = readSource("scripts/cicd/deploy-ec2-app.sh");
     const smoke = readSource("scripts/cicd/smoke.sh");
 
     const taskServices = [
@@ -91,7 +92,6 @@ describe("deployment safety contracts", () => {
       "payments",
       "subscriptions",
       "access-keys",
-      "analytics",
       "notification",
       "wallet",
       "transfer",
@@ -99,24 +99,28 @@ describe("deployment safety contracts", () => {
     ];
 
     for (const service of taskServices) {
-      assert.match(terraform, new RegExp(`name\\s+=\\s+"${service}"`));
+      assert.match(ec2Deploy, new RegExp(`^  ${service}:`, "m"));
     }
 
-    for (const variable of [
-      "access_key_service_image_uri",
-      "wallet_service_image_uri",
-      "transfer_service_image_uri",
-      "pricing_service_image_uri",
-    ]) {
+    const imageVariables = {
+      access_key_service_image_uri: "ACCESS_KEY_SERVICE_IMAGE_URI",
+      wallet_service_image_uri: "WALLET_SERVICE_IMAGE_URI",
+      transfer_service_image_uri: "TRANSFER_SERVICE_IMAGE_URI",
+      pricing_service_image_uri: "PRICING_SERVICE_IMAGE_URI",
+    } as const;
+    for (const [variable, environmentVariable] of Object.entries(imageVariables)) {
       assert.match(variables, new RegExp(`variable\\s+"${variable}"`));
-      assert.match(terraform, new RegExp(`var\\.${variable}`));
+      assert.match(ec2Deploy, new RegExp(environmentVariable));
     }
 
+    assert.match(terraform, /module\s+"ec2_app_host"/);
+    assert.match(terraform, /module\s+"ec2_app_host"\s*\{[\s\S]*count\s+=\s+1/);
     assert.match(build, /ACCESS_KEY_SERVICE_IMAGE_URI/);
     assert.match(build, /WALLET_SERVICE_IMAGE_URI/);
     assert.match(build, /TRANSFER_SERVICE_IMAGE_URI/);
     assert.match(build, /PRICING_SERVICE_IMAGE_URI/);
-    assert.match(smoke, /8091 8092 8093 8094 8095 8096/);
+    assert.match(smoke, /smoke_ports="8080 8081 8082 8083 8084 8085 8086 8087 8090 8091 8093 8094 8095 8096"/);
+    assert.match(smoke, /smoke_ports="\$\{smoke_ports\} 8092"/);
   });
 
   it("runs migrations before rolling the ECS service to the new task definition", () => {
@@ -168,10 +172,10 @@ describe("deployment safety contracts", () => {
     assert.match(appSecretsModule, /type\s+=\s+contains\(var\.secure_value_keys,\s*each\.value\)\s*\?\s*"SecureString"\s*:\s*"String"/);
     assert.doesNotMatch(appSecretsModule, /aws_secretsmanager_secret|aws_secretsmanager_secret_version/);
     assert.match(appSecretsOutputs, /output\s+"arn_by_key"/);
-    assert.match(terraform, /execution_role_secret_arns\s+=\s+\[\]/);
-    assert.match(terraform, /execution_role_parameter_arns\s+=\s+concat\(/);
-    assert.match(terraform, /valueFrom\s+=\s+module\.app_secrets\.arn_by_key\["DATABASE_URL"\]/);
-    assert.doesNotMatch(terraform, /module\.app_secrets\.arn\}:/);
+    assert.match(terraform, /module\s+"ec2_app_host"/);
+    assert.match(terraform, /ssm_parameter_arns\s+=\s+concat\(module\.app_secrets\.arns/);
+    assert.match(terraform, /DATABASE_URL\s+=\s+"postgresql:/);
+    assert.doesNotMatch(terraform, /aws_secretsmanager_secret|aws_secretsmanager_secret_version/);
   });
 
   it("keeps DATABASE_URL compatible with psql and Go libpq clients", () => {

@@ -64,7 +64,7 @@ describe("unified dashboard route contracts", () => {
     const source = readSource("apps/portal/src/app/dashboard/page.tsx");
     const standardSource = source.split(/if\s*\(\s*platformAdminUser\s*\|\|\s*academyAdminUser\s*\)\s*return\s+<AdminDashboardWorkspace[^;]+;/)[1] ?? source;
 
-    assert.match(source, /import\s+\{\s*SidePanelControl,\s*type\s+SidePanelItem\s*\}\s+from\s+"@\/components\/SidePanelControl"/);
+    assert.match(source, /import\s+\{\s*SidePanelControl,\s*type\s+SidePanelItem\s*\}\s+from\s+"@\/app\/_components\/SidePanelControl"/);
     assert.match(source, /const\s+standardNavigationItems:\s*SidePanelItem\[\]\s*=\s*\[/);
     assert.match(standardSource, /<SidePanelControl[\s\S]*navigationItems=\{standardNavigationItems\}/);
     assert.match(standardSource, /supportHref="\/contact"/);
@@ -131,7 +131,7 @@ describe("unified dashboard route contracts", () => {
 
   it("dashboard top account trigger uses the shared account dropdown menu", () => {
     const standardSource = readSource("apps/portal/src/app/dashboard/page.tsx");
-    const adminSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const adminSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const accountMenuSource = readSource("apps/portal/src/app/dashboard/DashboardAccountDropDownMenu.tsx");
 
     for (const source of [standardSource, adminSource]) {
@@ -196,7 +196,7 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("admin dashboard canonical links and pagination stay on direct dashboard routes with complete query strings", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const userActionsSource = readSource("apps/portal/src/app/admin/users/actions.ts");
     const malformedRouteSource = readSource("apps/portal/src/app/dashboard/[malformed]/page.tsx");
 
@@ -215,8 +215,9 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("academy profile analytics summary is reachable for admin roles but not standard users", () => {
-    const adminSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const adminSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const academiesTableSource = readSource("apps/portal/src/app/dashboard/academies/AcademiesTable.tsx");
+    const academyActionMenuSource = readSource("apps/portal/src/app/dashboard/academies/AcademyActionMenu.tsx");
     const standardSource = readSource("apps/portal/src/app/dashboard/page.tsx");
     const academyDetailSource = readSource("apps/portal/src/app/admin/academies/[id]/page.tsx");
 
@@ -225,7 +226,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(adminSource, /function AcademyProfilePanel/);
     assert.match(adminSource, /returnTo="\/dashboard\/academies"/);
     assert.match(adminSource, /updateAcademy\.bind\(null,\s*academy\.id\)/);
-    assert.match(academiesTableSource, /Edit Academy/);
+    assert.match(academyActionMenuSource, /Edit Academy/);
     assert.match(academyDetailSource, /requireAcademyEditor\(id\)/);
     assert.match(academyDetailSource, /isPlatformAdminRole\(currentUser\?\.role\)/);
     assert.match(academyDetailSource, /getAcademyProfileViewCount\(id\)/);
@@ -240,8 +241,9 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("dashboard academy table opens academy details in a dialog instead of leaving the dashboard", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const academiesTableSource = readSource("apps/portal/src/app/dashboard/academies/AcademiesTable.tsx");
+    const academyActionMenuSource = readSource("apps/portal/src/app/dashboard/academies/AcademyActionMenu.tsx");
 
     assert.match(source, /dialog\s*===\s*"view-academy"/);
     assert.match(source, /dialog\s*===\s*"edit-academy"/);
@@ -251,8 +253,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /function\s+EditAcademyDialog/);
     assert.match(source, /<AcademyForm[\s\S]*action=\{updateAcademy\.bind\(null,\s*academy\.id\)\}/);
     assert.match(academiesTableSource, /adminAcademiesHref\(params,\s*\{\s*dialog:\s*"view-academy",\s*academyId:\s*academy\.id\s*\}\)/);
-    assert.match(academiesTableSource, /adminAcademiesHref\(params,\s*\{\s*dialog:\s*"edit-academy",\s*academyId:\s*academy\.id\s*\}\)/);
-    assert.match(academiesTableSource, /Edit Academy/);
+    assert.match(academyActionMenuSource, /adminAcademiesHref\(params,\s*\{\s*dialog:\s*"edit-academy",\s*academyId:\s*academy\.id\s*\}\)/);
+    assert.match(academyActionMenuSource, /Edit Academy/);
     assert.doesNotMatch(academiesTableSource, /const\s+academyHref\s*=\s*`\/admin\/academies\/\$\{academy\.id\}`/);
     assert.doesNotMatch(academiesTableSource, /href=\{`\/admin\/academies\/\$\{academy\.id\}`\}/);
     assert.doesNotMatch(academiesTableSource, /Profile Summary/);
@@ -296,7 +298,7 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("managed user tables request exactly ten users per page", () => {
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const adminUsersSource = readSource("apps/portal/src/app/admin/users/page.tsx");
 
     assert.match(dashboardSource, /const\s+usersPageSize\s*=\s*10/);
@@ -304,7 +306,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardSource, /userQueryParams\.set\("search",\s*search\)/);
     assert.doesNotMatch(dashboardSource, /userQueryParams\.set\("q",\s*search\)/);
     assert.match(dashboardSource, /const\s+currentUserPageSize\s*=\s*managedUsersPage\.pageSize\s*\|\|\s*usersPageSize/);
-    assert.match(dashboardSource, /enrichUsersWithAcademyNames\(managedUsersPage\.users\.map/);
+    assert.match(dashboardSource, /enrichUsersWithAcademyNames\(\s*managedUsersPage\.users\.map/);
     assert.match(dashboardSource, /itemsPerPage=\{currentUserPageSize\}/);
     assert.doesNotMatch(dashboardSource, /academy:\s*null/);
     assert.match(adminUsersSource, /const\s+usersPageSize\s*=\s*10/);
@@ -315,7 +317,7 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("authorisation role and permission boards page from the service and cache loaded pages", () => {
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const actionsSource = readSource("apps/portal/src/app/dashboard/DashboardActions.ts");
     const rolesBoardSource = readSource("apps/portal/src/app/dashboard/users/SystemRolesBoard.tsx");
     const permissionsBoardSource = readSource("apps/portal/src/app/dashboard/users/UserPermissionsBoard.tsx");
@@ -324,7 +326,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(authorisationSource, /listAuthorisationRolesPage/);
     assert.match(authorisationSource, /listAuthorisationPermissionsPage/);
     assert.match(dashboardSource, /listAuthorisationRolesPage\(currentUser,\s*\{\s*limit:\s*pageSize,\s*offset:\s*0\s*\}\)/);
-    assert.match(dashboardSource, /listAuthorisationPermissionsPage\(currentUser,\s*\{\s*limit:\s*pageSize,\s*offset:\s*0\s*\}\)/);
+    assert.match(dashboardSource, /listAuthorisationPermissionsPage\(currentUser,\s*\{\s*limit:\s*pageSize,\s*offset:\s*0,\s*\}\)/);
     assert.match(actionsSource, /loadAuthorisationRolesPage/);
     assert.match(actionsSource, /loadAuthorisationPermissionsPage/);
     assert.match(dashboardSource, /effectivePermissions=\{currentUserEffectivePermissions\}/);
@@ -340,7 +342,7 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("keeps optional organisation lookups from crashing the permissions dashboard", () => {
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
     assert.match(dashboardSource, /listOrganisations\(currentUser\)\.catch\(\(\)\s*=>\s*\[\]\)/);
     assert.match(dashboardSource, /listOrganisationApplications\(currentUser\)\.catch\(\(\)\s*=>\s*\[\]\)/);
@@ -360,7 +362,7 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("admin side-panel service navigation keeps footer-only Map and Settings out of primary navigation", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const navigationSource = source.match(/const adminNavigationItems: SidePanelItem\[\] = \[[\s\S]*?\n  \];/)?.[0] ?? "";
     const mobileNavigationSource = source.match(/const dashboardServiceNavigationItems = adminNavigationItems[\s\S]*?;/)?.[0] ?? "";
 
@@ -380,14 +382,14 @@ describe("unified dashboard route contracts", () => {
     assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Wallet"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
     assert.match(
       source,
-      /\.filter\(\(item\) => item\.href !== "\/dashboard" && item\.href !== "\/dashboard\?panel=maps" && item\.href !== "\/dashboard\?panel=settings"\)/,
+      /\.filter\(\s*\(item\) =>\s*item\.href !== "\/dashboard" &&\s*item\.href !== "\/dashboard\?panel=maps" &&\s*item\.href !== "\/dashboard\?panel=settings",?\s*\)/,
     );
-    assert.match(source, /\.map\(\(item\) => item\.href === "\/dashboard\/academies" \? \{ \.\.\.item, label: "Academies" \} : item\)/);
+    assert.match(source, /\.map\(\(item\) =>\s*item\.href === "\/dashboard\/academies"\s*\?\s*\{ \.\.\.item, label: "Academies" \}\s*:\s*item,\s*\)/);
     assert.match(source, /mobileNavigationItems=\{dashboardServiceNavigationItems\}/);
     assert.match(source, /navigationItems=\{serviceNavigationItems\}/);
     assert.match(source, /footerNavigationItems=\{sidePanelFooterNavigationItems\}/);
-    assert.match(source, /const\s+mapNavigationItem\s*=\s*adminNavigationItems\.find\(\(item\) => item\.href === "\/dashboard\?panel=maps"\)/);
-    assert.match(source, /\.\.\.\(mapNavigationItem \? \[mapNavigationItem\] : \[\]\)[\s\S]*\.\.\.\(settingsNavigationItem && panel !== "settings" \? \[settingsNavigationItem\] : \[\]\)/);
+    assert.match(source, /const\s+mapNavigationItem\s*=\s*adminNavigationItems\.find\(\s*\(item\) => item\.href === "\/dashboard\?panel=maps",?\s*\)/);
+    assert.match(source, /\.\.\.\(mapNavigationItem \? \[mapNavigationItem\] : \[\]\)[\s\S]*\.\.\.\(\s*settingsNavigationItem && panel !== "settings"\s*\?\s*\[settingsNavigationItem\]\s*:\s*\[\],?\s*\)/);
     assert.match(source, /const paymentNavigationSections = \[/);
     assert.match(source, /label:\s*"Overview"/);
     assert.match(source, /label:\s*"Transactions"/);
@@ -396,7 +398,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /label:\s*"Payouts"/);
     assert.doesNotMatch(source, /label:\s*"Payment Settings"/);
     assert.match(source, /children:\s*paymentNavigationSections/);
-    assert.match(source, /selectedPaymentOverviewPeriod\(firstParam\(params\.paymentsPeriod\)\)/);
+    assert.match(source, /selectedPaymentOverviewPeriod\(\s*firstParam\(params\.paymentsPeriod\),?\s*\)/);
     for (const period of ["Daily", "Weekly", "Monthly", "Yearly"]) {
       assert.match(source, new RegExp(`label:\\s*"${period}"`));
     }
@@ -416,7 +418,7 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("admin quick actions use concise analytics and academy review labels", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
     assert.match(source, /id:\s*"analytics"[\s\S]*title:\s*"Analytics"/);
     assert.match(source, /id:\s*"platform-admin-created-academies"[\s\S]*title:\s*"Academy Review"/);
@@ -432,7 +434,7 @@ describe("unified dashboard route contracts", () => {
 
   it("platform admin academy review links are serializable across the server/client table boundary", () => {
     const source = readSource("apps/portal/src/app/dashboard/academies/SuperAdminPlatformAcademiesPanel.tsx");
-    const columnsSource = source.match(/const platformAdminAcademyColumns[\s\S]*?\n\];/)?.[0] ?? "";
+    const columnsSource = readSource("apps/portal/src/app/dashboard/academies/platformAcademyColumns.tsx");
     const panelSource = source.match(/export function SuperAdminPlatformAcademiesPanel[\s\S]*$/)?.[0] ?? "";
 
     assert.notEqual(columnsSource, "", "Expected Platform Admin academy columns source to be present");
@@ -448,15 +450,15 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("admin dashboard stats board is collapsible and collapsed by default", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
-    assert.match(source, /panel === "academies" \? "Academies"/);
-    assert.match(source, /panel === "open-mats" \? "Course\/Events Dashboard"/);
-    assert.match(source, /panel === "bookings" \? "Bookings"/);
-    assert.match(source, /panel === "payments" \? "Payment Dashboard"/);
-    assert.match(source, /panel === "wallet" \? "Wallet Dashboard"/);
-    assert.match(source, /panel === "users" \? "Identity Access Management"/);
-    assert.match(source, /const hideSharedDashboardSections = \["academies", "open-mats", "bookings", "payments", "users", "wallet"\]\.includes\(panel\)/);
+    assert.match(source, /panel === "academies"\s*\?\s*"Academies"/);
+    assert.match(source, /panel === "open-mats"\s*\?\s*"Course\/Events Dashboard"/);
+    assert.match(source, /panel === "bookings"\s*\?\s*"Bookings"/);
+    assert.match(source, /panel === "payments"\s*\?\s*"Payment Dashboard"/);
+    assert.match(source, /panel === "wallet"\s*\?\s*"Wallet Dashboard"/);
+    assert.match(source, /panel === "users"\s*\?\s*"Identity Access Management"/);
+    assert.match(source, /const hideSharedDashboardSections = \[[\s\S]*"academies"[\s\S]*"wallet",[\s\S]*\]\.includes\(panel\)/);
     assert.match(source, /\{!dashboardLanding && !hideSharedDashboardSections \? \(/);
     assert.match(source, /getRowHref=\{\(booking\) => bookingEventHref\(booking\)\}/);
     assert.match(source, /<StatsPanel[\s\S]*title="Stats Board"[\s\S]*collapsible[\s\S]*defaultCollapsed[\s\S]*persistCollapseState/);
@@ -464,12 +466,12 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("admin settings use quick actions to inject one selected settings detail panel", () => {
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
     const legacySettingsSource = readSource("apps/portal/src/app/admin/settings/page.tsx");
     const passwordActionSource = readSource("apps/portal/src/app/dashboard/password/PasswordActions.ts");
 
     for (const source of [dashboardSource, legacySettingsSource]) {
-      assert.match(source, /import\s+\{\s*QuickActionPanel,\s*type\s+QuickActionPanelItem\s*\}\s+from\s+"@\/components\/QuickActionPanel"/);
+      assert.match(source, /import\s+\{\s*QuickActionPanel,\s*type\s+QuickActionPanelItem\s*,?\s*\}\s+from\s+"@\/app\/_components\/QuickActionPanel"/);
       assert.match(source, /const\s+settingsActionItems:\s*QuickActionPanelItem\[\]\s*=\s*\[/);
       assert.match(source, /title:\s*"Change Password"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=change-password"/);
       assert.match(source, /title:\s*"Email Options"[\s\S]*href:\s*"\/(?:dashboard\?panel=settings&|admin\/settings\?)settingsAction=email-options"/);
@@ -488,7 +490,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"edit-profile"\s*&&\s*account[\s\S]*<EditProfileForm/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"email-options"\s*&&\s*elevatedAdmin[\s\S]*<EmailOperationsPanel[\s\S]*activePage=\{[^}]*emailPage[^}]*\}[\s\S]*activeView=\{[^}]*emailOperationsView[^}]*\}/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"recent-audits"\s*&&\s*elevatedAdmin/);
-    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"weekly-activity"\s*&&\s*elevatedAdmin[\s\S]*<PlatformAdminActivitySummaryPanel embedded summary=\{platformAdminActivitySummary\}/);
+    assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"weekly-activity"\s*&&\s*elevatedAdmin[\s\S]*<PlatformAdminActivitySummaryPanel[\s\S]*embedded[\s\S]*summary=\{platformAdminActivitySummary\}/);
     assert.doesNotMatch(dashboardSource, /<PlatformAdminActivitySummaryPanel summary=\{platformAdminActivitySummary\}/);
 
     assert.match(passwordActionSource, /changeDashboardUserPassword/);
@@ -500,11 +502,11 @@ describe("unified dashboard route contracts", () => {
   });
 
   it("academy admin user tables hide visible role columns while elevated admins keep them", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
     assert.match(source, /const\s+canViewRoleColumn\s*=\s*isPlatformAdminRole\(actorRole\)/);
     assert.match(source, /canViewRoleColumn\s*\?\s*<th className="px-5 py-4">Role<\/th>\s*:\s*null/);
-    assert.match(source, /canViewRoleColumn\s*\?\s*<LinkedTableCell href=\{userHref\}><RolePill role=\{user\.role\} \/><\/LinkedTableCell>\s*:\s*null/);
+    assert.match(source, /canViewRoleColumn\s*\?\s*\(\s*<LinkedTableCell href=\{userHref\}>\s*<RolePill role=\{user\.role\} \/>\s*<\/LinkedTableCell>\s*\)\s*:\s*null/);
     assert.match(source, /const\s+emptyColSpan\s*=\s*canViewRoleColumn\s*\?\s*6\s*:\s*5/);
   });
 });

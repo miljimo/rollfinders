@@ -24,11 +24,13 @@ describe("public academy registration login contracts", () => {
     assert.match(loginFormSource, /window\.location\.href/);
 
     assert.match(loginFormSource, /Forgot password\?/);
-    assert.match(loginFormSource, /href=["']\/forgot-password["']/);
+    assert.match(loginFormSource, /forgotPasswordHref\s*=\s*"\/forgot-password"/);
+    assert.match(loginFormSource, /href=\{forgotPasswordHref\}/);
     assert.match(loginFormSource, /Register Your Academy/);
     assert.match(loginFormSource, /href=["']\/register\/academy["']/);
     assert.match(loginFormSource, /Create User Account/);
-    assert.match(loginFormSource, /href=["']\/register["']/);
+    assert.match(loginFormSource, /registerHref\s*=\s*"\/register"/);
+    assert.match(loginFormSource, /href=\{registerHref\}/);
   });
 
   it("keeps the login page success banner and safe redirect handling", () => {

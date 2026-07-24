@@ -16,10 +16,12 @@ import { useState } from "react";
 
 export function LoginForm({
   callbackUrl = "/dashboard",
+  forgotPasswordHref = "/forgot-password",
   registerHref = "/register",
   variant = "default",
 }: {
   callbackUrl?: string;
+  forgotPasswordHref?: string;
   registerHref?: string;
   variant?: "default" | "mobile";
 }) {
@@ -76,7 +78,11 @@ export function LoginForm({
   return (
     <form
       action={handleSubmit}
-      className={`${mobile ? "mt-4" : "mt-7"} grid gap-5 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-6`}
+      className={
+        mobile
+          ? "mt-8 grid gap-7"
+          : "mt-7 grid gap-5 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:p-6"
+      }
     >
       {error ? (
         <p
@@ -86,67 +92,67 @@ export function LoginForm({
           {error}
         </p>
       ) : null}
-      <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+      <label className={`grid ${mobile ? "gap-3 text-xl font-black text-slate-950" : "gap-1.5 text-sm font-semibold text-stone-800"}`}>
         Email
         <span className="relative">
           <Mail
             aria-hidden
-            size={20}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500"
+            size={mobile ? 30 : 20}
+            className={`${mobile ? "left-5" : "left-4"} absolute top-1/2 -translate-y-1/2 text-stone-500`}
           />
           <input
             name="email"
             type="email"
             required
             disabled={isSubmitting}
-            className="min-h-14 w-full rounded-md border border-stone-300 bg-white px-12 text-base font-normal text-stone-950 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 disabled:bg-stone-100 disabled:text-stone-500"
+            className={`${mobile ? "min-h-20 rounded-xl px-20 text-xl" : "min-h-14 rounded-md px-12 text-base"} w-full border border-stone-300 bg-white font-normal text-stone-950 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 disabled:bg-stone-100 disabled:text-stone-500`}
           />
         </span>
       </label>
-      <label className="grid gap-1.5 text-sm font-semibold text-stone-800">
+      <label className={`grid ${mobile ? "gap-3 text-xl font-black text-slate-950" : "gap-1.5 text-sm font-semibold text-stone-800"}`}>
         Password
         <span className="relative">
           <LockKeyhole
             aria-hidden
-            size={20}
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-500"
+            size={mobile ? 30 : 20}
+            className={`${mobile ? "left-5" : "left-4"} absolute top-1/2 -translate-y-1/2 text-stone-500`}
           />
           <input
             name="password"
             type={showPassword ? "text" : "password"}
             required
             disabled={isSubmitting}
-            className="min-h-14 w-full rounded-md border border-stone-300 bg-white px-12 text-base font-normal text-stone-950 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 disabled:bg-stone-100 disabled:text-stone-500"
+            className={`${mobile ? "min-h-20 rounded-xl px-20 text-xl" : "min-h-14 rounded-md px-12 text-base"} w-full border border-stone-300 bg-white font-normal text-stone-950 transition focus:border-teal-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-700/20 disabled:bg-stone-100 disabled:text-stone-500`}
           />
           <button
             type="button"
-            className="absolute inset-y-1 right-1 inline-flex min-h-10 w-10 items-center justify-center rounded-md text-stone-500 transition hover:bg-stone-100 hover:text-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700"
+            className={`${mobile ? "inset-y-2 right-3 min-h-14 w-14 rounded-xl" : "inset-y-1 right-1 min-h-10 w-10 rounded-md"} absolute inline-flex items-center justify-center text-stone-500 transition hover:bg-stone-100 hover:text-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700`}
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
             disabled={isSubmitting}
             onClick={() => setShowPassword((value) => !value)}
           >
             {showPassword ? (
-              <EyeOff size={18} aria-hidden />
+              <EyeOff size={mobile ? 29 : 18} aria-hidden />
             ) : (
-              <Eye size={18} aria-hidden />
+              <Eye size={mobile ? 29 : 18} aria-hidden />
             )}
           </button>
         </span>
       </label>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <label className="inline-flex items-center gap-2 text-sm font-medium text-stone-700">
+      <div className={`flex flex-wrap items-center justify-between gap-3 ${mobile ? "text-lg" : ""}`}>
+        <label className={`${mobile ? "gap-4 text-lg" : "gap-2 text-sm"} inline-flex items-center font-medium text-stone-700`}>
           <input
             name="remember"
             type="checkbox"
-            className="size-4 rounded border-stone-300 text-teal-700 focus:ring-teal-700"
+            className={`${mobile ? "size-7 rounded-md" : "size-4 rounded"} border-stone-300 text-teal-700 focus:ring-teal-700`}
             disabled={isSubmitting}
           />
           Remember me
         </label>
         <Link
-          href="/forgot-password"
-          className="text-sm font-semibold text-teal-800 underline-offset-4 hover:underline"
+          href={forgotPasswordHref}
+          className={`${mobile ? "text-lg" : "text-sm"} font-black text-teal-800 underline-offset-4 hover:underline`}
         >
           Forgot password?
         </Link>
@@ -154,16 +160,16 @@ export function LoginForm({
       <Button
         type="submit"
         variant="primary"
-        className="min-h-14 w-full text-base"
+        className={`${mobile ? "min-h-16 rounded-xl text-xl" : "min-h-14 text-base"} w-full`}
         disabled={isSubmitting}
       >
         {isSubmitting ? "Signing in..." : "Sign In"}
       </Button>
 
       {mobile ? (
-        <Button href={registerHref} variant="secondary" className="min-h-12 w-full">
-          Register Account
-        </Button>
+        <Link href={registerHref} className="flex min-h-16 w-full items-center justify-center rounded-xl border-2 border-teal-700 bg-white px-4 text-xl font-black text-teal-800">
+          Create account
+        </Link>
       ) : (
         <>
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 py-1 text-xs font-semibold uppercase tracking-wide text-stone-500">

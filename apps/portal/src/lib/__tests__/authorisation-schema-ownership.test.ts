@@ -176,7 +176,8 @@ test("Authorisation permission IDs are generated and not semantic permission cod
   );
   assert.match(permissionInsertBlock, /gen_random_bytes\(12\)/);
   assert.doesNotMatch(endpointSources, /newID\("perm"\)/);
-  assert.match(endpointSources, /newID\("permission"\)/);
+  assert.doesNotMatch(endpointSources, /newID\("permission"\)/);
+  assert.match(repository, /SELECT \* FROM permission_create\(\$1, \$2, \$3, \$4, \$5\)/);
 });
 
 test("Authorisation scopes use a resource table for resource identifiers", () => {

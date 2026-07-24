@@ -67,7 +67,7 @@ describe("email operations contracts", () => {
   it("academy claim reminder cooldown is scoped to the current recipient email", () => {
     const source = readSource("apps/portal/src/app/admin/academies/actions.ts");
     const cooldownSource = readSource("apps/portal/src/lib/academy-claim-reminders.ts");
-    const dashboardSource = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
     assert.match(cooldownSource, /claimReminderCooldownDays\s*=\s*7/);
     assert.match(source, /import\s+\{\s*claimReminderCooldownDays\s*\}\s+from\s+"@\/lib\/academy-claim-reminders"/);
@@ -103,7 +103,7 @@ describe("email operations contracts", () => {
     assert.match(migration, /DROP TABLE IF EXISTS "outbound_emails"/);
     assert.match(migration, /DROP TABLE IF EXISTS "invalid_email_addresses"/);
 
-    const dashboards = ["apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx", "apps/portal/src/app/admin/settings/page.tsx"];
+    const dashboards = ["apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx", "apps/portal/src/app/admin/settings/page.tsx"];
     for (const path of dashboards) {
       const source = readSource(path);
       assert.match(source, /getEmailQueueOperationsSummary\(\)/, `${path} must use the shared notification summary adapter`);

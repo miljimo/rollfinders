@@ -126,6 +126,7 @@ export async function startCourseCheckout(
   const payerEmail = String(formData.get("payerEmail") ?? "")
     .trim()
     .toLowerCase();
+  const mobileCheckout = String(formData.get("mobileCheckout") ?? "") === "1";
   const donationAmount = String(formData.get("donationAmount") ?? "").trim();
   const attemptId = checkoutAttemptId(formData.get("checkoutAttemptId"));
   if (!courseId)
@@ -272,6 +273,7 @@ export async function startCourseCheckout(
         academy_name: event.academy.name,
         pricing_type: event.pricingType,
         stripe_destination_account: paymentAccount.providerAccountId ?? "",
+        ...(mobileCheckout ? { mobile_checkout: "1" } : {}),
         ...(event.pricingType === EventPricingType.DONATION
           ? { donation_amount: String(amount) }
           : {}),

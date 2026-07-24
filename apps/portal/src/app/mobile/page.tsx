@@ -3,11 +3,11 @@ import type { Viewport } from "next";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Bookmark, CalendarCheck, ChevronRight, CircleHelp, Clock, ExternalLink, HandHeart, LogIn, MapPin, Search, ShieldCheck, UsersRound, UserRound } from "lucide-react";
+import { Bookmark, CalendarCheck, ChevronRight, Clock, HandHeart, MapPin, Search, UsersRound, UserRound } from "lucide-react";
 import { CourseType } from "@prisma/client";
 import { Button } from "@/app/_components/Button";
-import { LogoutButton } from "@/app/_components/LogoutButton";
 import { isMobileNavigationTab, MobileNavigation, type MobileNavigationTab } from "@/app/_components/MobileNavigation";
+import { ForgotPasswordForm } from "@/app/forgot-password/ForgotPasswordForm";
 import { RegisterAcademySelector } from "@/app/register/RegisterAcademySelector";
 import { registerPractitioner } from "@/app/register/actions";
 import { MobileSignInForm } from "./MobileSignInForm";
@@ -15,7 +15,9 @@ import { getCurrentUser } from "@/lib/admin";
 import { getAcademyFromAcademyService, listAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
 import { coursePriceLabel, courseTypeLabel } from "@/lib/courses";
 import { getOpenMatRadar, searchAcademies } from "@/lib/data";
+import { listBookingsPage } from "@/lib/bookings";
 import { formatDate, formatDistanceMiles } from "@/lib/utils";
+import { MobileAuthenticatedProfile } from "./MobileAuthenticatedProfile";
 import { MobileDiscoverySearch, type MobileSearchSuggestion } from "./MobileDiscoverySearch";
 
 export const dynamic = "force-dynamic";
@@ -66,10 +68,6 @@ function mobileSignInHref() {
   return "/mobile?tab=profile&auth=sign-in";
 }
 
-function webDashboardHref(path = "/dashboard") {
-  return path;
-}
-
 function navActiveTab(tab: MobileNavigationTab) {
   return tab === "profile" ? "profile" : "home";
 }
@@ -105,7 +103,7 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   const location = locationFromParams(params);
   const query = params.q?.trim() ?? "";
   const currentUser = await getCurrentUser();
-  const profileAuth = params.auth === "register" ? "register" : params.auth === "sign-in" ? "sign-in" : null;
+  const profileAuth = params.auth === "register" ? "register" : params.auth === "sign-in" ? "sign-in" : params.auth === "forgot-password" ? "forgot-password" : null;
 
   const [events, academies, mobileAcademyOptions, selectedMobileAcademy] = await Promise.all([
     mobileDataOrEmpty(() => getOpenMatRadar({ q: query, when: params.when, latitude: location?.latitude, longitude: location?.longitude, courseType: CourseType.OPEN_MAT })),
@@ -113,6 +111,14 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
     activeTab === "profile" && profileAuth === "register" ? mobileDataOrEmpty(() => listAcademiesFromAcademyService({ limit: 100 })) : Promise.resolve([]),
     activeTab === "profile" && profileAuth === "register" && params.academyId ? mobileDataOrNull(() => getAcademyFromAcademyService(params.academyId ?? "")) : Promise.resolve(null),
   ]);
+  const [profileAcademy, bookingCount] = currentUser && activeTab === "profile"
+    ? await Promise.all([
+        currentUser.academyId
+          ? mobileDataOrNull(() => getAcademyFromAcademyService(currentUser.academyId ?? "", currentUser))
+          : Promise.resolve(null),
+        mobileBookingCount(currentUser),
+      ])
+    : [null, 0];
 
   return (
     <main className="min-h-dvh w-screen max-w-[100vw] overflow-x-hidden [overflow-x:clip] bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-24 text-stone-950">
@@ -131,11 +137,13 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
           <ProfileView
             academyOptions={academySelectOptions(mobileAcademyOptions)}
             authMode={profileAuth}
+            bookingCount={bookingCount}
             currentUser={currentUser}
             error={params.error}
             registered={params.registered === "1"}
             registeredEmail={params.email}
             selectedAcademy={selectedMobileAcademy}
+            userAcademy={profileAcademy}
             verifyEmail={params.verifyEmail === "1"}
             warning={params.warning}
           />
@@ -145,6 +153,20 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
       <MobileNavigation activeTab={navActiveTab(activeTab)} />
     </main>
   );
+}
+
+async function mobileBookingCount(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>) {
+  try {
+    const result = await listBookingsPage({
+      accessToken: user.accessToken,
+      actorUserId: user.id,
+      customerId: user.id,
+      limit: 1,
+    });
+    return result.pagination.count;
+  } catch {
+    return 0;
+  }
 }
 
 function MobileAuthHome() {
@@ -249,21 +271,25 @@ function AcademiesView({ signedIn }: { signedIn: boolean }) {
 function ProfileView({
   academyOptions,
   authMode,
+  bookingCount,
   currentUser,
   error,
   registered,
   registeredEmail,
   selectedAcademy,
+  userAcademy,
   verifyEmail,
   warning,
 }: {
   academyOptions: ReturnType<typeof academySelectOptions>;
-  authMode: "register" | "sign-in" | null;
+  authMode: "register" | "sign-in" | "forgot-password" | null;
+  bookingCount: number;
   currentUser: Awaited<ReturnType<typeof getCurrentUser>>;
   error?: string;
   registered: boolean;
   registeredEmail?: string;
   selectedAcademy: AcademyServiceRecord | null;
+  userAcademy: AcademyServiceRecord | null;
   verifyEmail: boolean;
   warning?: string;
 }) {
@@ -274,79 +300,37 @@ function ProfileView({
     if (authMode === "register") {
       return <MobileRegisterView academyOptions={academyOptions} error={error} selectedAcademy={selectedAcademy} />;
     }
+    if (authMode === "forgot-password") {
+      return <MobileForgotPasswordView />;
+    }
     return <MobileAuthChoice />;
   }
 
-  const accountName = currentUser.email || "RollFinders user";
-  const initials = accountName
-    .split(/[\s@.]+/)
-    .map((part: string) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
-  return (
-    <div className="grid gap-4">
-      <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-        <div className="flex items-center gap-4">
-          <span className="inline-flex size-16 shrink-0 items-center justify-center rounded-full bg-teal-100 text-xl font-black text-teal-900" aria-hidden>
-            {initials || <UserRound size={24} aria-hidden />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-black text-stone-950">{accountName}</h1>
-            {currentUser.email ? <p className="mt-1 truncate text-sm font-semibold text-stone-600">{currentUser.email}</p> : null}
-            {currentUser.role ? <p className="mt-2 inline-flex rounded-md bg-teal-50 px-2 py-1 text-xs font-black uppercase text-teal-900">{currentUser.role.replaceAll("_", " ")}</p> : null}
-          </div>
-          <ChevronRight size={19} className="text-stone-500" aria-hidden />
-        </div>
-      </section>
-
-      <section className="grid grid-cols-3 gap-2">
-        <MobileStatCard icon={<CalendarCheck size={20} aria-hidden />} value="0" label="Bookings" />
-        <MobileStatCard icon={<Bookmark size={20} aria-hidden />} value="0" label="Saved" />
-        <MobileStatCard icon={<ShieldCheck size={20} aria-hidden />} value={currentUser.academyId ? "1" : "0"} label="Academies" />
-      </section>
-
-      <section>
-        <MobileSectionHeader title="My Activity" />
-        <div className="mt-3 grid gap-1 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-          <MobileLinkRow href="/mobile?tab=bookings" icon={CalendarCheck} label="My Bookings" />
-          <MobileLinkRow href="/mobile?tab=search" icon={Bookmark} label="Saved Open Mats" />
-          <MobileLinkRow href="/academies" icon={ShieldCheck} label="Browse Academies" webPage />
-        </div>
-      </section>
-
-      <section>
-        <MobileSectionHeader title="My Account" />
-        <div className="mt-3 grid gap-1 overflow-hidden rounded-lg border border-stone-200 bg-white shadow-sm">
-          <MobileLinkRow href={webDashboardHref()} icon={ExternalLink} label="Open Web Dashboard" webPage />
-          <MobileLinkRow href="/contact" icon={CircleHelp} label="Help & Support" webPage />
-          <MobileLinkRow href="/privacy-policy" label="Privacy Policy" webPage />
-          <MobileLinkRow href="/terms" label="Terms of Service" webPage />
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-stone-200 bg-white p-2 shadow-sm">
-        <LogoutButton className="min-h-12 w-full justify-center rounded-md px-3 py-2 text-sm font-black text-red-700 hover:bg-red-50">
-          Sign Out
-        </LogoutButton>
-      </section>
-    </div>
-  );
+  const profileName = (currentUser as typeof currentUser & { name?: string | null }).name;
+  return <MobileAuthenticatedProfile academyName={userAcademy?.name} bookingCount={bookingCount} email={currentUser.email} name={profileName} role={currentUser.role} />;
 }
 
 function MobileAuthChoice() {
   return (
-    <ActionView
-      icon={<UserRound size={26} aria-hidden />}
-      title="Profile"
-      body="Sign in or register before using profile, settings, bookings, and saved places on mobile."
-      primaryHref={mobileSignInHref()}
-      primaryLabel="Sign In"
-      secondaryHref={mobileRegisterHref()}
-      secondaryLabel="Register Account"
-    />
+    <section className="grid min-h-[calc(100dvh-13rem)] place-items-center">
+      <div className="w-full max-w-full rounded-[1.45rem] bg-white px-6 py-10 text-center shadow-[0_18px_48px_rgba(15,23,42,0.10)]">
+        <div className="mx-auto flex size-28 items-center justify-center rounded-full bg-teal-50 text-teal-800">
+          <UserRound size={64} strokeWidth={1.8} aria-hidden />
+        </div>
+        <h1 className="mt-8 text-5xl font-black leading-none tracking-normal text-slate-950">Profile</h1>
+        <p className="mx-auto mt-6 max-w-xs text-balance text-xl font-medium leading-9 text-slate-600">
+          Sign in or register before using profile, settings, bookings, and saved places on mobile.
+        </p>
+        <div className="mt-9 grid gap-4">
+          <Link href={mobileSignInHref()} className="flex min-h-16 w-full items-center justify-center rounded-xl bg-teal-700 px-4 text-xl font-black text-white shadow-[0_12px_26px_rgba(0,121,107,0.20)]">
+            Sign In
+          </Link>
+          <Link href={mobileRegisterHref()} className="flex min-h-16 w-full items-center justify-center rounded-xl border-2 border-teal-700 bg-white px-4 text-xl font-black text-teal-800">
+            Register Account
+          </Link>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -362,8 +346,14 @@ function MobileSignInView({
   warning?: string;
 }) {
   return (
-    <section className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
-      <MobileSectionHeader title="Sign in" href={mobileRegisterHref()} action="Register" />
+    <section className="rounded-[1.45rem] bg-white px-6 py-8 shadow-[0_18px_48px_rgba(15,23,42,0.10)]">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <h1 className="shrink-0 whitespace-nowrap text-4xl font-black leading-none tracking-normal text-slate-950">Sign in</h1>
+        <Link href={mobileRegisterHref()} className="inline-flex min-h-12 shrink-0 items-center gap-1 rounded-xl px-1 text-lg font-black text-teal-800">
+          Register
+          <ChevronRight size={24} aria-hidden />
+        </Link>
+      </div>
       {registered ? (
         <p className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm font-semibold leading-6 text-teal-900">
           Account created{registeredEmail ? ` for ${registeredEmail}` : ""}.{" "}
@@ -375,6 +365,16 @@ function MobileSignInView({
         </p>
       ) : null}
       <MobileSignInForm />
+    </section>
+  );
+}
+
+function MobileForgotPasswordView() {
+  return (
+    <section className="pt-6">
+      <h1 className="text-5xl font-black leading-tight tracking-normal text-slate-950">Forgot password</h1>
+      <p className="mt-5 max-w-sm text-xl font-medium leading-9 text-slate-600">Enter your email and we will send a reset link if an account exists.</p>
+      <ForgotPasswordForm loginHref={mobileSignInHref()} variant="mobile" />
     </section>
   );
 }
@@ -475,16 +475,6 @@ function MobileSectionHeader({ action, href, title }: { action?: string; href?: 
     <div className="flex items-center justify-between gap-3">
       <h2 className="text-xl font-black tracking-normal text-slate-950">{title}</h2>
       {href && action ? <Link href={href} className="inline-flex items-center gap-1 text-sm font-black text-teal-800">{action}<ChevronRight size={16} aria-hidden /></Link> : null}
-    </div>
-  );
-}
-
-function MobileStatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-stone-200 bg-white p-4 text-center shadow-sm">
-      <span className="mx-auto flex size-10 items-center justify-center rounded-md bg-teal-50 text-teal-800">{icon}</span>
-      <p className="mt-2 text-2xl font-black text-stone-950">{value}</p>
-      <p className="text-xs font-bold text-stone-600">{label}</p>
     </div>
   );
 }

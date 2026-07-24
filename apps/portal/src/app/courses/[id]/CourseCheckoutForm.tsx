@@ -8,12 +8,14 @@ const courseCheckoutInitialState: CourseCheckoutState = {};
 
 export function CourseCheckoutForm({
   courseId,
+  mobile = false,
   occurrenceDate,
   mode = "fixed",
   priceLabel,
   suggestedAmount,
 }: {
   courseId: string;
+  mobile?: boolean;
   occurrenceDate: string;
   mode?: "fixed" | "donation";
   priceLabel?: string;
@@ -39,6 +41,7 @@ export function CourseCheckoutForm({
       <input type="hidden" name="courseId" value={courseId} />
       <input type="hidden" name="occurrenceDate" value={occurrenceDate} />
       <input type="hidden" name="checkoutAttemptId" value={checkoutAttemptId} />
+      {mobile ? <input type="hidden" name="mobileCheckout" value="1" /> : null}
       {state.error ? (
         <p className="rounded-md border border-red-200 bg-white p-3 text-sm font-semibold text-red-700 sm:col-span-2" role="alert">
           {state.error}

@@ -87,8 +87,9 @@ describe("billing subscription plan journey contracts", () => {
 
     assert.match(serviceClient, /CreateSubscriptionResponse/);
     assert.match(serviceClient, /checkout_required\?: boolean/);
-    assert.match(actions, /result\.checkout_required && result\.subscription\?\.id/);
-    assert.match(actions, /createSubscriptionCheckout\(result\.subscription\.id/);
+    assert.match(actions, /const subscriptions = await subscriptionsForSelectedPlans/);
+    assert.match(actions, /if \(planIds\.length === 1 && subscription\?\.id\)/);
+    assert.match(actions, /createSubscriptionCheckout\(subscription\.id/);
     assert.match(actions, /redirect\(checkoutUrl\)/);
   });
 

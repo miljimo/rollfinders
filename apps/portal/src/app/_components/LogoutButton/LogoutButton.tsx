@@ -9,18 +9,20 @@ type LogoutButtonProps = {
   children?: ReactNode;
   className?: string;
   ariaLabel?: string;
+  callbackUrl?: string;
 };
 
 export function LogoutButton({
   children = "Logout",
   className = "px-3 py-2 text-sm font-medium hover:bg-white",
   ariaLabel,
+  callbackUrl,
 }: LogoutButtonProps) {
   return (
     <Button
       aria-label={ariaLabel}
       type="button"
-      onClick={() => signOut({ callbackUrl: logoutCallbackUrl() })}
+      onClick={() => signOut({ callbackUrl: callbackUrl ?? logoutCallbackUrl() })}
       variant="subtle"
       className={className}
     >

@@ -4,7 +4,10 @@ import { describe, it } from "node:test";
 
 const routeSource = readFileSync("apps/portal/src/app/api/admin/users/[id]/password-reset/route.ts", "utf8");
 const actionSource = readFileSync("apps/portal/src/app/admin/users/actions.ts", "utf8");
-const dashboardSource = readFileSync("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx", "utf8");
+const dashboardSource = [
+  readFileSync("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx", "utf8"),
+  readFileSync("apps/portal/src/app/dashboard/users/UserResultNotice.tsx", "utf8"),
+].join("\n");
 const adminUsersPageSource = readFileSync("apps/portal/src/app/admin/users/page.tsx", "utf8");
 
 describe("admin-triggered password reset contracts", () => {

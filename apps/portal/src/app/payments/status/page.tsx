@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { AlertCircle, CheckCircle2, Clock, XCircle } from "lucide-react";
+import Image from "next/image";
+import { AlertCircle, CheckCircle2, Clock, GraduationCap, Home, ReceiptText, XCircle } from "lucide-react";
 import { Button } from "@/app/_components/Button";
 import { PageShell } from "@/app/_components/Page";
 import { markBookingPaymentReceived } from "@/lib/bookings";
@@ -18,6 +19,8 @@ type SearchParams = {
   resource_type?: string;
   result?: string;
   state?: string;
+  mobile?: string;
+  metadata_mobile_checkout?: string;
   metadata_booking_id?: string;
 };
 
@@ -68,7 +71,7 @@ function statusContent(result?: string, paymentStatus?: string) {
       message: "The payment could not be completed. Please try again or contact support if the issue continues.",
     };
   }
-  if (paymentStatus === "succeeded") {
+  if (result === "success" || ["paid", "succeeded", "completed"].includes(String(paymentStatus ?? "").toLowerCase())) {
     return {
       icon: CheckCircle2,
       title: "Payment received",
@@ -91,6 +94,11 @@ export default async function PaymentStatusPage({ searchParams }: { searchParams
   const bookingPaymentReceived = await markPaidBookingPaymentReceived(params);
   const content = statusContent(params.result, params.payment_status);
   const Icon = content.icon;
+  const mobile = params.mobile === "1" || params.metadata_mobile_checkout === "1";
+
+  if (mobile) {
+    return <MobilePaymentStatus params={params} bookingPaymentReceived={bookingPaymentReceived} content={content} />;
+  }
 
   return (
     <PageShell>
@@ -122,6 +130,83 @@ export default async function PaymentStatusPage({ searchParams }: { searchParams
         </div>
       </section>
     </PageShell>
+  );
+}
+
+function MobilePaymentStatus({
+  bookingPaymentReceived,
+  content,
+  params,
+}: {
+  bookingPaymentReceived: string;
+  content: ReturnType<typeof statusContent>;
+  params: SearchParams;
+}) {
+  const Icon = content.icon;
+  const success = content.title === "Payment received";
+
+  return (
+    <main className="min-h-dvh w-screen max-w-[100vw] overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_36%,#f7faf8_100%)] pb-8 text-slate-950">
+      <header className="border-b border-stone-200 bg-white/85 px-4 py-6">
+        <div className="flex min-w-0 items-center gap-3">
+          <Image src="/logo.png" alt="" width={52} height={52} className="size-12 shrink-0 object-contain" priority />
+          <span className="truncate text-3xl font-black tracking-normal text-slate-950">RollFinders</span>
+        </div>
+      </header>
+
+      <section className="grid gap-5 px-4 py-5">
+        <section className={`flex min-w-0 items-center gap-5 rounded-[1.35rem] border p-5 shadow-[0_14px_34px_rgba(15,23,42,0.08)] ${success ? "border-teal-200 bg-teal-50/60" : content.panel}`}>
+          <span className={`flex size-20 shrink-0 items-center justify-center rounded-full border-4 ${success ? "border-teal-700 text-teal-800" : content.tone}`}>
+            <Icon size={46} strokeWidth={2.5} aria-hidden />
+          </span>
+          <div className="min-w-0">
+            <h1 className="break-words text-3xl font-black leading-tight tracking-normal text-slate-950">{content.title}</h1>
+            <p className="mt-2 text-lg font-medium leading-7 text-slate-600">{content.message}</p>
+          </div>
+        </section>
+
+        <section className="rounded-[1.35rem] bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.10)]">
+          <h2 className="flex items-center gap-3 text-2xl font-black tracking-normal text-slate-950">
+            <ReceiptText size={27} className="text-teal-800" aria-hidden />
+            Payment details
+          </h2>
+          <dl className="mt-5 divide-y divide-stone-200 text-base">
+            <MobilePaymentDetail label="Checkout session" value={params.checkout_session_id} />
+            <MobilePaymentDetail label="Payment" value={params.payment_id} />
+            <MobilePaymentDetail label="Status" value={params.payment_status} pill />
+            <MobilePaymentDetail label="Result" value={params.result} pill />
+            <MobilePaymentDetail label="Resource" value={params.resource_id} />
+            <MobilePaymentDetail label="Resource type" value={params.resource_type} />
+            <MobilePaymentDetail label="Client" value={params.client_id} />
+            <MobilePaymentDetail label="State" value={params.state} />
+            <MobilePaymentDetail label="Booking payment" value={bookingPaymentReceived} />
+          </dl>
+        </section>
+
+        <div className="grid gap-3">
+          <Button href="/mobile" variant="primary" className="min-h-16 justify-center rounded-xl text-xl">
+            <GraduationCap size={25} aria-hidden />
+            View Courses
+          </Button>
+          <Button href="/mobile" variant="secondary" className="min-h-16 justify-center rounded-xl border-2 border-teal-700 bg-white text-xl text-teal-800">
+            <Home size={25} aria-hidden />
+            Back to Home
+          </Button>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function MobilePaymentDetail({ label, pill = false, value }: { label: string; pill?: boolean; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-4 py-3">
+      <dt className="font-black text-slate-950">{label}</dt>
+      <dd className="min-w-0 text-right font-medium text-slate-600">
+        {pill ? <span className="inline-flex rounded-full bg-teal-50 px-3 py-1 text-sm font-semibold text-teal-800">{value}</span> : <span className="break-all">{value}</span>}
+      </dd>
+    </div>
   );
 }
 

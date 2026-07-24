@@ -78,10 +78,7 @@ describe("practitioner academy registration contracts", () => {
     const loginPageSource = readSource("apps/portal/src/app/login/page.tsx");
 
     assert.match(actionSource, /warning:\s*"verification-email"/);
-    assert.match(
-      actionSource,
-      /redirect\(`\/login\?\$\{loginParams\.toString\(\)\}`\)/,
-    );
+    assert.match(actionSource, /mobileAuth \? mobileSignInHref\(Object\.fromEntries\(loginParams\)\) : `\/login\?\$\{loginParams\.toString\(\)\}`/);
     assert.doesNotMatch(
       actionSource,
       /could not send the verification email[\s\S]*failureRedirect/,

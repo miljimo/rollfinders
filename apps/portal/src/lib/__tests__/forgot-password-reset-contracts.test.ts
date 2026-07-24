@@ -18,7 +18,8 @@ describe("forgot password and password reset contracts", () => {
     const loginFormSource = readSource("apps/portal/src/app/login/LoginForm.tsx");
 
     assert.match(loginFormSource, /Forgot password\?/);
-    assert.match(loginFormSource, /href=["']\/forgot-password["']/);
+    assert.match(loginFormSource, /forgotPasswordHref\s*=\s*"\/forgot-password"/);
+    assert.match(loginFormSource, /href=\{forgotPasswordHref\}/);
   });
 
   it("provides a public forgot-password page with a generic success message", () => {

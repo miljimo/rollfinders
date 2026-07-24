@@ -72,7 +72,8 @@ describe("CourseCreationAndManagement rollout contracts", () => {
 
   it("keeps Open Mat discovery and detail routes filtered to OPEN_MAT", (t) => {
     const dataSource = readSource("apps/portal/src/lib/data.ts");
-    const openMatsPageSource = readSource("apps/portal/src/app/open-mats/page.tsx");
+    const openMatsRedirectSource = readSource("apps/portal/src/app/open-mats/page.tsx");
+    const openMatsPageSource = readSource("apps/portal/src/app/page.tsx");
     const openMatDetailSource = readSource("apps/portal/src/app/open-mats/[id]/page.tsx");
     if (!/courseType/.test(dataSource + openMatsPageSource + openMatDetailSource)) {
       t.skip("Course-aware Open Mat filtering has not appeared yet.");
@@ -89,8 +90,9 @@ describe("CourseCreationAndManagement rollout contracts", () => {
     assert.match(dataSource, /getCourseOccurrence/);
     assert.match(openMatsPageSource, /getOpenMatRadar/);
     assert.match(openMatsPageSource, /courseType/);
-    assert.match(openMatsPageSource, /const\s+pageSize\s*=\s*9/);
+    assert.match(openMatsPageSource, /const\s+pageSize\s*=\s*6/);
     assert.match(openMatsPageSource, /open_mat_search_submitted/);
+    assert.match(openMatsRedirectSource, /redirect\(query\.size\s*\?\s*`\/\?\$\{query\.toString\(\)\}`\s*:\s*"\/"\)/);
     assert.match(openMatDetailSource, /open_mat_viewed/);
     assert.doesNotMatch(openMatsPageSource, /getCourses|getCourseRadar|course_search_submitted/);
   });
@@ -151,7 +153,7 @@ describe("CourseCreationAndManagement rollout contracts", () => {
     assert.match(academyProfileSource, /upcomingCoursesPageSize\s*=\s*6/);
     assert.match(academyProfileSource, /pagedCourses\.map/);
     assert.match(academyProfileSource, /coursesPage/);
-    assert.match(academyProfileSource, /@\/components\/pagination/);
+    assert.match(academyProfileSource, /@\/app\/_components\/Pagination/);
     assert.match(academyProfileSource, /\/open-mats\/\$\{[^}]+\.id\}/);
     assert.match(academyProfileSource, /\/courses\/\$\{[^}]+\.id\}/);
   });

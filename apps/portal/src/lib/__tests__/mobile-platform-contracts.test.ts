@@ -19,6 +19,7 @@ test("mobile platform PRD keeps WebView release standards explicit", () => {
 
 test("mobile web route renders a public-only app shell with bottom navigation", () => {
   const source = readSource("apps/portal/src/app/mobile/page.tsx");
+  const profileSource = readSource("apps/portal/src/app/mobile/MobileAuthenticatedProfile.tsx");
   const navigationSource = readSource("apps/portal/src/app/_components/MobileNavigation/MobileNavigation.tsx");
   const signInFormSource = readSource("apps/portal/src/app/mobile/MobileSignInForm.tsx");
 
@@ -30,18 +31,16 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   assert.match(source, /return\s+\[\]/);
   assert.match(source, /MobileNavigation/);
   assert.match(navigationSource, /Mobile app navigation/);
-  assert.match(navigationSource, /h-14/);
+  assert.match(navigationSource, /min-h-16/);
   assert.match(navigationSource, /truncate/);
   assert.match(navigationSource, /Home/);
-  assert.match(navigationSource, /Search/);
-  assert.match(navigationSource, /Map/);
-  assert.match(navigationSource, /E-Bookings/);
   assert.match(navigationSource, /Profile/);
+  assert.doesNotMatch(navigationSource, /label:\s*"Search"|label:\s*"Map"|label:\s*"E-Bookings"/);
   assert.match(source, /Bookings/);
   assert.match(source, /Profile/);
   assert.match(source, /getOpenMatRadar/);
   assert.match(source, /searchAcademies/);
-  assert.match(source, /getMapItems/);
+  assert.doesNotMatch(source, /getMapItems/);
   assert.match(source, /MobileSignInForm/);
   assert.match(source, /RegisterAcademySelector/);
   assert.match(source, /registerPractitioner/);
@@ -52,8 +51,8 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   assert.match(source, /name="mobileAuth" value="1"/);
   assert.doesNotMatch(source, /PageShell/);
   assert.doesNotMatch(source, /href=\{currentUser \? "\/dashboard/);
-  assert.match(source, /Open Web Dashboard/);
-  assert.match(source, /target=\{webPage \? "_blank" : undefined\}/);
+  assert.match(profileSource, /Open Web Dashboard/);
+  assert.match(profileSource, /target=\{web \|\| itemWeb \? "_blank" : undefined\}/);
   assert.doesNotMatch(source, /Payment Methods/);
   assert.doesNotMatch(source, /Claimed Academy/);
 });
@@ -71,7 +70,7 @@ test("native mobile shell can produce Android and iOS build artifacts from Capac
   assert.match(mobilePackage, /@capacitor\/ios/);
   assert.match(mobilePackage, /assembleDebug/);
   assert.match(mobilePackage, /bundleRelease/);
-  assert.match(capacitorConfig, /appId:\s*"com\.rollfinders\.app"/);
+  assert.match(capacitorConfig, /appId:\s*"oepe\.rollfinders"/);
   assert.match(capacitorConfig, /url:\s*"https:\/\/rollfinders\.com\/mobile"/);
   assert.match(mobileReadme, /app-debug\.apk/);
   assert.match(mobileReadme, /app-release\.aab/);
