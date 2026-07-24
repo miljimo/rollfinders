@@ -115,9 +115,9 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   ]);
 
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-28 text-stone-950">
-      <header className="px-4 pb-3 pt-5">
-        <div className="mx-auto flex w-full max-w-sm items-center justify-start gap-3">
+    <main className="min-h-dvh w-screen max-w-[100vw] overflow-x-hidden [overflow-x:clip] bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-24 text-stone-950">
+      <header className="w-full max-w-[100vw] px-3 pb-3 pt-5">
+        <div className="flex w-full min-w-0 items-center justify-start gap-3">
           <Link href="/mobile" className="flex min-h-11 min-w-0 items-center gap-2 rounded-md text-2xl font-black tracking-normal text-stone-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-700 focus-visible:ring-offset-2">
             <Image src="/logo.png" alt="" width={42} height={42} className="size-10 shrink-0 object-contain" priority />
             <span>RollFinders</span>
@@ -125,7 +125,7 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-sm px-4 py-3">
+      <div className="w-full max-w-[100vw] min-w-0 px-3 py-3">
         {activeTab === "home" ? <DiscoverView academies={academies.slice(0, 5)} events={events.slice(0, 6)} query={query} when={params.when} /> : null}
         {activeTab === "profile" ? (
           <ProfileView
@@ -198,12 +198,12 @@ function DiscoverView({
   ];
 
   return (
-    <div className="grid gap-7">
-      <section className="py-3">
+    <div className="grid min-w-0 gap-7">
+      <section className="min-w-0 py-3">
         <p className="text-xs font-black uppercase tracking-[0.2em] text-teal-700">Mobile discovery</p>
-        <h1 className="mt-3 text-4xl font-black leading-tight tracking-normal text-slate-950">Find your next round</h1>
+        <h1 className="mt-3 max-w-full break-words text-3xl font-black leading-tight tracking-normal text-slate-950">Find your next round</h1>
         <MobileDiscoverySearch initialQuery={query} suggestions={searchSuggestions} />
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className="mt-4 grid min-w-0 grid-cols-3 gap-2">
           <MobileChip active={!when || when === "today"} href="/mobile?when=today" label="Today" />
           <MobileChip active={when === "tomorrow"} href="/mobile?when=tomorrow" label="Tomorrow" />
           <MobileChip active={when === "weekend"} href="/mobile?when=weekend" label="Weekend" />
@@ -211,7 +211,7 @@ function DiscoverView({
       </section>
 
       <MobileSectionHeader title="Upcoming" href="/mobile?tab=search" action="See all" />
-      <div className="grid gap-5">
+      <div className="grid min-w-0 gap-5">
         {events.length ? events.map((event) => <MobileEventCard key={event.occurrenceId ?? event.id} event={event} />) : <EmptyPanel text="No upcoming sessions match that search." />}
       </div>
     </div>
@@ -501,25 +501,25 @@ function MobileChip({ active = false, href, label }: { active?: boolean; href: s
 function MobileEventCard({ event }: { event: Awaited<ReturnType<typeof getOpenMatRadar>>[number] }) {
   const detailHref = mobileEventHref(event);
   return (
-    <article className="min-w-0 overflow-hidden rounded-2xl border border-stone-100 bg-white p-4 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
+    <article className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-stone-100 bg-white p-3 shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="inline-flex rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
-          <h3 className="mt-3 break-words text-2xl font-black leading-tight text-slate-950">{event.title}</h3>
-          <p className="mt-2 flex min-w-0 items-start gap-2 text-sm font-semibold leading-5 text-stone-600"><MapPin size={16} className="mt-0.5 shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words">{event.academy.name}</span></p>
+          <h3 className="mt-3 break-words text-xl font-black leading-tight text-slate-950">{event.title}</h3>
+          <p className="mt-2 flex min-w-0 items-start gap-2 text-sm font-semibold leading-5 text-stone-600"><MapPin size={16} className="mt-0.5 shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{event.academy.name}</span></p>
         </div>
         <Link href={detailHref} className="inline-flex size-12 shrink-0 items-center justify-center rounded-full bg-teal-50 text-teal-800" aria-label={`Open ${event.title}`}>
           <ChevronRight size={22} aria-hidden />
         </Link>
       </div>
-      <div className="mt-4 grid min-w-0 grid-cols-3 divide-x divide-stone-200 border-y border-stone-200 py-3 text-center text-xs font-black text-slate-950">
-        <span className="grid min-w-0 gap-1 px-1"><CalendarCheck className="mx-auto text-teal-700" size={18} aria-hidden /><span className="whitespace-nowrap">{formatDate(event.eventDate)}</span></span>
-        <span className="grid min-w-0 gap-1 px-1"><Clock className="mx-auto text-teal-700" size={18} aria-hidden /><span className="whitespace-nowrap">{event.startTime}-{event.endTime}</span></span>
+      <div className="mt-4 grid min-w-0 grid-cols-3 divide-x divide-stone-200 border-y border-stone-200 py-3 text-center text-[0.7rem] font-black leading-tight text-slate-950">
+        <span className="grid min-w-0 gap-1 px-1"><CalendarCheck className="mx-auto text-teal-700" size={18} aria-hidden /><span className="min-w-0 break-words">{formatDate(event.eventDate)}</span></span>
+        <span className="grid min-w-0 gap-1 px-1"><Clock className="mx-auto text-teal-700" size={18} aria-hidden /><span className="min-w-0 break-words">{event.startTime}-{event.endTime}</span></span>
         <span className="grid min-w-0 gap-1 px-1"><UsersRound className="mx-auto text-teal-700" size={18} aria-hidden /><span className="truncate">{event.giType.replace("_", "-")}</span></span>
       </div>
-      <div className="mt-4 flex items-start gap-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800"><HandHeart size={23} aria-hidden /></span>
-        <p className="min-w-0 break-words text-sm font-medium leading-6 text-slate-800">{coursePriceLabel(event)}</p>
+      <div className="mt-4 flex min-w-0 items-start gap-2">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-50 text-teal-800"><HandHeart size={22} aria-hidden /></span>
+        <p className="min-w-0 break-words text-sm font-medium leading-6 text-slate-800 [overflow-wrap:anywhere]">{coursePriceLabel(event)}</p>
       </div>
       {event.distanceMiles != null ? <p className="mt-4 flex items-center gap-2 text-sm font-bold text-teal-800"><MapPin size={16} aria-hidden />{formatDistanceMiles(event.distanceMiles)}</p> : null}
       <Button href={detailHref} size="sm" variant="primary" className="mt-4 min-h-12 w-full rounded-xl text-sm">View Details</Button>

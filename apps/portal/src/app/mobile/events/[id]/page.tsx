@@ -137,8 +137,8 @@ export default async function MobileEventDetailPage({
   }];
 
   return (
-    <main className="min-h-dvh overflow-x-hidden bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_36%,#f7faf8_100%)] px-4 py-5 text-slate-950">
-      <div className="mx-auto grid w-full max-w-sm gap-4 pb-28">
+    <main className="min-h-dvh w-screen max-w-[100vw] overflow-x-hidden [overflow-x:clip] bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_36%,#f7faf8_100%)] px-3 py-5 text-slate-950">
+      <div className="grid w-full max-w-full min-w-0 gap-4 pb-24">
         <Link href={closeHref} className="inline-flex min-h-11 min-w-0 items-center gap-3 rounded-full text-base font-black text-slate-950">
           <ChevronLeft size={23} aria-hidden />
           <span className="truncate">{event.title}</span>
@@ -197,15 +197,15 @@ function MobileEventTabs({ activeTab, hrefFor }: { activeTab: MobileEventTab; hr
   ];
 
   return (
-    <nav className="grid grid-cols-4 gap-1 rounded-xl border border-stone-200 bg-white p-1 shadow-sm" aria-label="Event detail sections">
+    <nav className="grid min-w-0 grid-cols-4 gap-1 rounded-xl border border-stone-200 bg-white p-1 shadow-sm" aria-label="Event detail sections">
       {tabs.map((tab) => (
         <Link
           key={tab.id}
           href={hrefFor(tab.id)}
           aria-current={activeTab === tab.id ? "page" : undefined}
-          className={`flex min-h-10 items-center justify-center rounded-lg px-2 text-xs font-black ${activeTab === tab.id ? "bg-teal-700 text-white" : "text-slate-950"}`}
+          className={`flex min-h-10 min-w-0 items-center justify-center rounded-lg px-1 text-xs font-black ${activeTab === tab.id ? "bg-teal-700 text-white" : "text-slate-950"}`}
         >
-          {tab.label}
+          <span className="truncate">{tab.label}</span>
         </Link>
       ))}
     </nav>
@@ -214,22 +214,22 @@ function MobileEventTabs({ activeTab, hrefFor }: { activeTab: MobileEventTab; hr
 
 function MobileEventSummary({ event, priceLabel, tabHref }: { event: MobileEvent; priceLabel: string; tabHref: (tab: MobileEventTab) => string }) {
   return (
-    <section className="grid gap-4">
+    <section className="grid min-w-0 gap-4">
       <h1 className="text-xl font-black text-slate-950">Available events</h1>
-      <article className="grid gap-4 rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+      <article className="grid min-w-0 gap-4 overflow-hidden rounded-2xl bg-white p-3 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
         <p className="w-fit rounded-lg bg-teal-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
         <div>
-          <h2 className="break-words text-2xl font-black leading-tight text-slate-950">{event.title}</h2>
+          <h2 className="break-words text-xl font-black leading-tight text-slate-950">{event.title}</h2>
           <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-600">
             {event.academy.name}
             <span className="size-3 rounded-full bg-blue-500" aria-hidden />
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-3 border-y border-stone-200 py-3 text-sm font-semibold text-slate-900">
-          <span className="flex items-center gap-2"><CalendarCheck size={17} className="text-teal-700" aria-hidden />{formatDate(event.eventDate)}</span>
-          <span className="flex items-center gap-2"><Clock size={17} className="text-teal-700" aria-hidden />{event.startTime} - {event.endTime}</span>
-          <span className="flex items-center gap-2"><Tag size={17} className="text-teal-700" aria-hidden />{priceLabel}</span>
-          <span className="flex items-center gap-2"><UsersRound size={17} className="text-teal-700" aria-hidden />{event.capacity ? `${event.capacity} spots` : "Check first"}</span>
+        <div className="grid min-w-0 grid-cols-2 gap-3 border-y border-stone-200 py-3 text-sm font-semibold text-slate-900">
+          <span className="flex min-w-0 items-center gap-2"><CalendarCheck size={17} className="shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words">{formatDate(event.eventDate)}</span></span>
+          <span className="flex min-w-0 items-center gap-2"><Clock size={17} className="shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words">{event.startTime} - {event.endTime}</span></span>
+          <span className="flex min-w-0 items-center gap-2"><Tag size={17} className="shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words [overflow-wrap:anywhere]">{priceLabel}</span></span>
+          <span className="flex min-w-0 items-center gap-2"><UsersRound size={17} className="shrink-0 text-teal-700" aria-hidden /><span className="min-w-0 break-words">{event.capacity ? `${event.capacity} spots` : "Check first"}</span></span>
         </div>
         <p className="flex items-start gap-2 rounded-xl bg-teal-50 p-3 text-sm font-semibold leading-5 text-slate-700">
           <Info size={17} className="mt-0.5 shrink-0 text-teal-700" aria-hidden />
@@ -256,13 +256,13 @@ function MobileEventDetails({
   priceLabel: string;
 }) {
   return (
-    <section className="grid gap-4">
+    <section className="grid min-w-0 gap-4">
       <div className="relative min-h-44 overflow-hidden rounded-2xl bg-slate-900 shadow-[0_12px_30px_rgba(15,23,42,0.14)]">
         {coverImage ? <Image src={coverImage} alt="" fill unoptimized className="object-cover" /> : <div className="absolute inset-0 bg-[linear-gradient(135deg,#004f45,#0f172a)]" />}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10" />
         <div className="relative flex min-h-44 flex-col justify-end p-4">
           <p className="mb-4 w-fit rounded-lg bg-white px-3 py-1 text-xs font-black uppercase tracking-wide text-teal-800">{courseTypeLabel(event.courseType)}</p>
-          <h1 className="break-words text-3xl font-black leading-tight text-white">{event.title}</h1>
+          <h1 className="break-words text-2xl font-black leading-tight text-white">{event.title}</h1>
           <p className="mt-2 text-sm font-bold text-white/90">{event.academy.name}</p>
         </div>
       </div>
@@ -275,7 +275,7 @@ function MobileEventDetails({
         </div>
       </section>
 
-      <section className="grid grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+      <section className="grid min-w-0 grid-cols-2 overflow-hidden rounded-2xl bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
         <MobileInfoTile icon={<CalendarCheck size={22} />} label="Date" value={formatDate(event.eventDate)} />
         <MobileInfoTile icon={<Clock size={22} />} label="Time" value={`${event.startTime} - ${event.endTime}`} />
         <MobileInfoTile icon={<Tag size={22} />} label="Cost" value={priceLabel} />
@@ -300,8 +300,8 @@ function MobileEventDetails({
 
 function MobileVenueDetails({ address, event, locationLabel }: { address: string; event: MobileEvent; locationLabel: string }) {
   return (
-    <section className="grid gap-4">
-      <section className="flex items-center gap-4 rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+    <section className="grid min-w-0 gap-4">
+      <section className="flex min-w-0 items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
         <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-stone-100 text-xl font-black text-slate-800">
           {event.academy.logoUrl ? <Image src={event.academy.logoUrl} alt="" width={64} height={64} unoptimized className="size-full object-cover" /> : academyInitials(event.academy.name)}
         </div>
@@ -309,7 +309,7 @@ function MobileVenueDetails({ address, event, locationLabel }: { address: string
           <h1 className="truncate text-xl font-black text-slate-950">{event.academy.name}</h1>
           <p className="mt-1 text-sm text-slate-600">{event.academy.borough ?? event.academy.city}</p>
         </div>
-        <Button href={`/academies/${event.academy.slug}`} variant="secondary" className="min-h-10 shrink-0 rounded-xl px-3 text-xs">
+        <Button href={`/academies/${event.academy.slug}`} variant="secondary" className="min-h-10 shrink-0 rounded-xl px-2 text-xs">
           Academy
         </Button>
       </section>
@@ -348,8 +348,8 @@ function MobileBookPanel({
   unavailableLabel: string;
 }) {
   return (
-    <section className="grid gap-4">
-      <section className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
+    <section className="grid min-w-0 gap-4">
+      <section className="min-w-0 rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.08)]">
         <h1 className="text-xl font-black text-slate-950">Booking summary</h1>
         <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-700">
           <MobileSummaryRow icon={<CalendarCheck size={18} />} label="Date" value={formatDate(event.eventDate)} />
@@ -396,7 +396,7 @@ function MobileBookingAction({
 }) {
   if (canCheckout) {
     return (
-      <section className="rounded-3xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]" aria-label="Book this session">
+      <section className="min-w-0 overflow-hidden rounded-3xl bg-white p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]" aria-label="Book this session">
         <CourseCheckoutForm
           courseId={eventId}
           occurrenceDate={occurrenceDate}
@@ -410,14 +410,14 @@ function MobileBookingAction({
 
   if (canBookFree) {
     return (
-      <section className="rounded-3xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]" aria-label="Book this session">
+      <section className="min-w-0 overflow-hidden rounded-3xl bg-white p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]" aria-label="Book this session">
         <FreeEventBookingButton action={bookFreeCourseOccurrence} courseId={eventId} occurrenceDate={occurrenceDate} priceLabel={priceLabel} className="w-full" />
       </section>
     );
   }
 
   return (
-    <section className="grid gap-3 rounded-3xl bg-white p-5 shadow-[0_12px_32px_rgba(15,23,42,0.08)]" aria-label="Book this session">
+    <section className="grid min-w-0 gap-3 overflow-hidden rounded-3xl bg-white p-4 shadow-[0_12px_32px_rgba(15,23,42,0.08)]" aria-label="Book this session">
       <p className="text-center text-base font-semibold text-slate-700">{unavailableLabel}</p>
       <p className="text-center text-sm font-semibold text-slate-600">{priceLabel}</p>
       <BookEventButton disabled eventKind={eventKind} className="min-h-16 w-full rounded-2xl text-xl" />
@@ -427,11 +427,11 @@ function MobileBookingAction({
 
 function MobileInfoTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="grid min-h-28 grid-cols-[3.5rem_1fr] gap-3 border-b border-r border-stone-100 p-4 last:border-r-0">
-      <span className="flex size-12 items-center justify-center rounded-xl bg-teal-50 text-teal-800">{icon}</span>
+    <div className="grid min-h-28 min-w-0 grid-cols-[2.5rem_minmax(0,1fr)] gap-2 border-b border-r border-stone-100 p-3 last:border-r-0">
+      <span className="flex size-10 items-center justify-center rounded-xl bg-teal-50 text-teal-800">{icon}</span>
       <div className="min-w-0">
         <p className="text-sm font-black uppercase text-teal-800">{label}</p>
-        <p className="mt-1 text-base font-semibold leading-6 text-slate-950">{value}</p>
+        <p className="mt-1 break-words text-sm font-semibold leading-5 text-slate-950">{value}</p>
       </div>
     </div>
   );
@@ -439,13 +439,13 @@ function MobileInfoTile({ icon, label, value }: { icon: React.ReactNode; label: 
 
 function MobileTimelineRow({ label, meta, time }: { label: string; meta?: string; time: string }) {
   return (
-    <div className="grid grid-cols-[4rem_1fr] gap-4">
+    <div className="grid min-w-0 grid-cols-[3.75rem_minmax(0,1fr)] gap-3">
       <div className="relative text-sm font-semibold text-slate-600">
         <span className="absolute left-1 top-2 size-3 rounded-full bg-teal-700" />
         <span className="pl-6">{time}</span>
       </div>
-      <div>
-        <p className="text-sm font-black text-slate-950">{label}</p>
+      <div className="min-w-0">
+        <p className="break-words text-sm font-black text-slate-950">{label}</p>
         {meta ? <p className="text-xs font-bold uppercase text-teal-800">{meta}</p> : null}
       </div>
     </div>
@@ -454,12 +454,12 @@ function MobileTimelineRow({ label, meta, time }: { label: string; meta?: string
 
 function MobileSummaryRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-start justify-between gap-3">
+    <div className="flex min-w-0 items-start justify-between gap-3">
       <span className="flex min-w-0 items-center gap-2 text-slate-600">
         <span className="text-teal-800">{icon}</span>
         {label}
       </span>
-      <span className="max-w-[56%] text-right font-black text-slate-950">{value}</span>
+      <span className="min-w-0 max-w-[56%] break-words text-right font-black text-slate-950">{value}</span>
     </div>
   );
 }

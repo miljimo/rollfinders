@@ -64,9 +64,9 @@ export function MobileDiscoverySearch({ initialQuery, suggestions }: { initialQu
   }
 
   return (
-    <div className="relative mt-5">
-      <div className="flex min-h-16 items-center overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)] focus-within:border-teal-700">
-        <Search className="ml-4 shrink-0 text-teal-800" size={19} aria-hidden />
+    <div className="relative mt-5 min-w-0 max-w-full">
+      <div className="flex min-h-14 min-w-0 items-center overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)] focus-within:border-teal-700">
+        <Search className="ml-3 shrink-0 text-teal-800" size={18} aria-hidden />
         <input
           aria-autocomplete="list"
           aria-label="Search open mats and academies"
@@ -78,10 +78,10 @@ export function MobileDiscoverySearch({ initialQuery, suggestions }: { initialQu
           placeholder="Academy, postcode, gi, no-gi"
           type="search"
           value={query}
-          className="min-w-0 flex-1 bg-transparent px-3 text-lg text-slate-950 outline-none placeholder:text-stone-500"
+          className="min-w-0 flex-1 bg-transparent px-2 text-base text-slate-950 outline-none placeholder:text-stone-500"
         />
-        <button type="button" className="mr-1.5 flex size-12 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-[0_14px_32px_rgba(0,121,107,0.22)]" aria-label="Search">
-          <Search size={25} aria-hidden />
+        <button type="button" className="mr-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-700 text-white shadow-[0_14px_32px_rgba(0,121,107,0.22)]" aria-label="Search">
+          <Search size={23} aria-hidden />
         </button>
       </div>
       {focused && visibleOptions.length ? (
