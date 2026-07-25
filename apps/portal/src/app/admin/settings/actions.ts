@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSuperAdminPage, writeAdminAuditLog } from "@/lib/admin";
-import { queuePasswordChangedEmail } from "@/lib/password-reset";
+import { notifyPasswordChangedBestEffort } from "@/lib/password-reset";
 import { changeUserPassword } from "@/lib/users-service";
 
 export type ChangeSuperAdminPasswordState = {
@@ -48,7 +48,7 @@ export async function changeSuperAdminPassword(
     action: "SUPER_ADMIN_PASSWORD_CHANGED",
     metadata: { changedBy: actor.id },
   });
-  await queuePasswordChangedEmail(actor);
+  await notifyPasswordChangedBestEffort(actor);
 
   revalidatePath("/admin/settings");
   return { success: true, message: "Password changed successfully." };

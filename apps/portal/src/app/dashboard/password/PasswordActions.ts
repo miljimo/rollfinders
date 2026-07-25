@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { writeAdminAuditLog } from "@/lib/admin";
-import { queuePasswordChangedEmail } from "@/lib/password-reset";
+import { notifyPasswordChangedBestEffort } from "@/lib/password-reset";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { changeUserPassword } from "@/lib/users-service";
 
@@ -34,7 +34,7 @@ export async function changeDashboardUserPassword(
     action: "DASHBOARD_PASSWORD_CHANGED",
     metadata: { role: user.role },
   });
-  await queuePasswordChangedEmail(user);
+  await notifyPasswordChangedBestEffort(user);
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/password");

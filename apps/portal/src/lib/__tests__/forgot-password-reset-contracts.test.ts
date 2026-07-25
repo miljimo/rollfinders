@@ -33,6 +33,8 @@ describe("forgot password and password reset contracts", () => {
     assert.match(routeSource, /\brequired\b/);
     assert.match(routeSource, /Send reset link/);
     assert.match(routeSource, /If an account exists for this email, a password reset link has been sent\./);
+    assert.match(actionSource, /try\s*\{[\s\S]*requestPasswordResetForEmail\(email\)[\s\S]*\}\s*catch/);
+    assert.match(actionSource, /console\.error\(/);
   });
 
   it("keeps the forgot-password request route generic for known and unknown accounts", () => {
@@ -42,6 +44,7 @@ describe("forgot password and password reset contracts", () => {
     ]);
 
     assert.match(routeSource, /export\s+async\s+function\s+POST\(/);
+    assert.match(routeSource, /try\s*\{[\s\S]*requestPasswordResetForEmail\(email\)[\s\S]*\}\s*catch/);
     assert.match(routeSource, /NextResponse\.json\(\{\s*success:\s*true\s*\}/);
     assert.doesNotMatch(routeSource, /User not found|Account disabled|Disabled|does not exist/);
   });
@@ -56,6 +59,15 @@ describe("forgot password and password reset contracts", () => {
     assert.match(pageSource, /if\s*\(!resetToken\)\s*notFound\(\)/);
     assert.match(actionSource, /resetPasswordWithToken\(token,\s*password\)/);
     assert.match(formSource, /href=["']\/login["']/);
+
+    const resetSource = readSource("apps/portal/src/lib/password-reset.ts");
+    assert.match(resetSource, /result\s*=\s*await\s+confirmPasswordResetToken\(token,\s*password\)/);
+    assert.match(resetSource, /await\s+notifyPasswordChangedBestEffort\(result\.user\)/);
+    assert.ok(
+      resetSource.indexOf("await notifyPasswordChangedBestEffort(result.user)") >
+        resetSource.indexOf('return { ok: false, message: "This password reset link is invalid or expired." }'),
+      "notification delivery must not determine whether the password reset succeeded",
+    );
   });
 
   it("announces forgot-password and reset-password feedback to assistive technology", () => {

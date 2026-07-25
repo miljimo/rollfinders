@@ -10,6 +10,10 @@ export async function POST(request: Request) {
     email = "";
   }
 
-  await requestPasswordResetForEmail(email);
+  try {
+    await requestPasswordResetForEmail(email);
+  } catch (error) {
+    console.error("[forgot-password] password reset API request failed", error);
+  }
   return NextResponse.json({ success: true });
 }

@@ -123,7 +123,10 @@ function notificationServiceBaseURL() {
 }
 
 function notificationAPIKey() {
-  return process.env.NOTIFICATION_API_KEY ?? "local-notification-api-key";
+  const apiKey = process.env.NOTIFICATION_API_KEY?.trim();
+  if (apiKey) return apiKey;
+  if (process.env.NODE_ENV !== "production") return "local-notification-api-key";
+  throw new Error("NOTIFICATION_API_KEY is required in production.");
 }
 
 function sourceService() {

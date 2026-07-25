@@ -226,6 +226,14 @@ export async function queuePasswordChangedEmail(user: { id: string; email: strin
   return { expiresAt };
 }
 
+export async function notifyPasswordChangedBestEffort(user: { id: string; email: string; name?: string | null }) {
+  try {
+    await queuePasswordChangedEmail(user);
+  } catch (error) {
+    console.error("[password-change] confirmation email failed", error);
+  }
+}
+
 export async function requestPasswordResetForEmail(email: string) {
   const normalizedEmail = email.trim().toLowerCase();
   if (!normalizedEmail || !normalizedEmail.includes("@")) return { success: true };
@@ -254,11 +262,13 @@ export async function getValidPasswordResetToken(token: string) {
 }
 
 export async function resetPasswordWithToken(token: string, password: string) {
+  let result: Awaited<ReturnType<typeof confirmPasswordResetToken>>;
   try {
-    const result = await confirmPasswordResetToken(token, password);
-    await queuePasswordChangedEmail(result.user);
-    return { ok: true, email: result.user.email };
+    result = await confirmPasswordResetToken(token, password);
   } catch {
     return { ok: false, message: "This password reset link is invalid or expired." };
   }
+
+  await notifyPasswordChangedBestEffort(result.user);
+  return { ok: true, email: result.user.email };
 }

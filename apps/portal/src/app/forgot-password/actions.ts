@@ -9,7 +9,11 @@ export type ForgotPasswordState = {
 
 export async function requestPasswordReset(_state: ForgotPasswordState, formData: FormData): Promise<ForgotPasswordState> {
   const email = String(formData.get("email") ?? "");
-  await requestPasswordResetForEmail(email);
+  try {
+    await requestPasswordResetForEmail(email);
+  } catch (error) {
+    console.error("[forgot-password] password reset request failed", error);
+  }
 
   return {
     success: true,

@@ -146,6 +146,11 @@ resource "random_password" "payment_service_api_key" {
   special = false
 }
 
+resource "random_password" "notification_api_key" {
+  length  = 48
+  special = false
+}
+
 module "database" {
   source                  = "./modules/rds_postgres"
   name_prefix             = local.name_prefix
@@ -194,6 +199,7 @@ module "app_secrets" {
     USER_SERVICE_API_KEY    = random_password.user_service_api_key.result
     USER_SERVICE_JWT_SECRET = random_password.user_service_jwt.result
     PAYMENT_SERVICE_API_KEY = random_password.payment_service_api_key.result
+    NOTIFICATION_API_KEY    = random_password.notification_api_key.result
     PAYMENT_GATEWAY_API_KEY = var.payment_gateway_api_key != "" ? var.payment_gateway_api_key : "__UNSET__"
     STRIPE_API_VERSION      = var.stripe_api_version
     STRIPE_CONTEXT          = var.stripe_context != "" ? var.stripe_context : "__UNSET__"
@@ -210,6 +216,7 @@ module "app_secrets" {
     "USER_SERVICE_API_KEY",
     "USER_SERVICE_JWT_SECRET",
     "PAYMENT_SERVICE_API_KEY",
+    "NOTIFICATION_API_KEY",
     "PAYMENT_GATEWAY_API_KEY",
     "STRIPE_CONTEXT"
   ]

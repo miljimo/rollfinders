@@ -35,8 +35,10 @@ describe("email operations contracts", () => {
     assert.match(source, /html:\s*passwordChangedEmailHtml/);
     assert.match(source, /await\s+sendQueuedPasswordEmail\(outboundEmail\.id\)/);
     assert.doesNotMatch(source, /password:\s*password\b|Password:\s*\$\{password\}/);
-    assert.match(dashboardAction, /await\s+queuePasswordChangedEmail\(user\)/);
-    assert.match(adminSettingsAction, /await\s+queuePasswordChangedEmail\(actor\)/);
+    assert.match(source, /export\s+async\s+function\s+notifyPasswordChangedBestEffort/);
+    assert.match(source, /try\s*\{[\s\S]*await\s+queuePasswordChangedEmail\(user\)[\s\S]*\}\s*catch/);
+    assert.match(dashboardAction, /await\s+notifyPasswordChangedBestEffort\(user\)/);
+    assert.match(adminSettingsAction, /await\s+notifyPasswordChangedBestEffort\(actor\)/);
   });
 
   it("academy claim reminder emails are submitted through the notification service adapter", () => {
@@ -151,5 +153,7 @@ describe("email operations contracts", () => {
     assert.match(terraform, /var\.smtp_host\s*!=\s*""\s*\?\s*var\.smtp_host\s*:\s*module\.email\.smtp_host/);
     assert.match(terraform, /SMTP_USERNAME/);
     assert.match(terraform, /SMTP_PASSWORD/);
+    assert.match(terraform, /random_password\.notification_api_key\.result/);
+    assert.match(terraform, /"NOTIFICATION_API_KEY"/);
   });
 });
