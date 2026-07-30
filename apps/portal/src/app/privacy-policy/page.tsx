@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { StaticPageShell } from "@/app/_components/Page";
 
 export const metadata: Metadata = {
@@ -26,6 +27,13 @@ export default function PrivacyPolicyPage() {
         </Section>
         <Section title="Your Rights">
           <p>Users in the UK and EEA may request access, correction, deletion, restriction, portability, or objection to processing of their personal data, subject to legal limits.</p>
+          <p>
+            You can submit and verify an account-deletion request without signing in on the{" "}
+            <Link href="/account-deletion" className="font-bold text-teal-800 underline">
+              RollFinders account deletion page
+            </Link>
+            . We expect to respond to verified requests within one calendar month. Some records may be retained where required by law.
+          </p>
         </Section>
         <Section title="Contact">
           <p>For privacy requests, contact support@rollfinders.com.</p>

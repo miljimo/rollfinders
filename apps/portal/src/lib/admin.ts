@@ -167,7 +167,7 @@ export function canAssignManagedUserRole(
 
 export function canSendManagedUserPasswordReset(
   actor: { id: string; role?: string; academyId?: string | null },
-  target: { id: string; role: Role; email: string; academyId?: string | null; isProtected?: boolean | null },
+  target: { id: string; role: string; email: string; academyId?: string | null; isProtected?: boolean | null },
 ) {
   if (actor.id === target.id || isProtectedSuperAdmin(target)) return false;
   if (isSuperAdminRole(actor.role)) return !isSuperAdminRole(target.role);
@@ -177,6 +177,8 @@ export function canSendManagedUserPasswordReset(
   }
   return false;
 }
+
+export const canSetManagedUserTemporaryPassword = canSendManagedUserPasswordReset;
 
 export function academyScopedAcademyWhere(actor: { role?: string; academyId?: string | null }): Prisma.AcademyWhereInput {
   if (!isAcademyAdminRole(actor.role)) return {};

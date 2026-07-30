@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
 import { GiType, Role, UserStatus, type CourseType, type Prisma } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/app/_components/SidePanelControl";
+import { MobileNavigation } from "@/app/_components/MobileNavigation";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/app/_components/QuickActionPanel";
-import { Table, type TableColumn, type TableRecord } from "@/app/_components/Table";
 import { courseHref, coursePriceLabel } from "@/lib/courses";
 import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
@@ -14,7 +14,10 @@ import { formatDate } from "@/lib/utils";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
 import { EditProfileForm } from "./settings/EditProfileForm";
 import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
+import { AccountDeletionPanel } from "./settings/AccountDeletionPanel";
+import { getCurrentAccountDeletionRequest, type AccountDeletionRequest } from "@/lib/users-service";
 import AdminDashboardWorkspace from "./AdminDashboardWorkspace";
+import { StandardDashboardRollsTable, type StandardDashboardRollRow } from "./StandardDashboardRollsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -29,16 +32,6 @@ type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
 type StandardPanel = "dashboard" | "members" | "profile" | "settings";
 type SettingsAction = "change-password" | "edit-profile";
-
-type RollRow = TableRecord & {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  giType: string;
-  price: string;
-  courseType: CourseType;
-};
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -83,7 +76,7 @@ function standardDashboardHref(searchParams: DashboardSearchParams, overrides: R
   return query ? `/dashboard?${query}` : "/dashboard";
 }
 
-function dashboardCourseHref(course: RollRow, returnTo: string) {
+function dashboardCourseHref(course: Pick<DashboardRoll, "id" | "courseType">, returnTo: string) {
   const href = courseHref(course);
   const [pathname, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
@@ -122,7 +115,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<DashboardSearchParams>;
 }) {
-  const { user, academy } = await requireDashboardUser();
+  const { user, academy, actor } = await requireDashboardUser();
   const params = await searchParams;
   const routePanelRedirects: Record<string, string> = {
     academies: "/dashboard/academies",
@@ -156,6 +149,7 @@ export default async function DashboardPage({
 
   const panel = standardPanel(firstParam(params.panel));
   if (!panel) redirect("/dashboard");
+  const mobileSurface = firstParam(params.surface) === "mobile";
 
   const search = (firstParam(params.search) ?? "").trim();
   const requestedRollsPage = pageFromParams(params, "rollsPage");
@@ -185,48 +179,62 @@ export default async function DashboardPage({
       })
     : [];
   const members = panel === "members" && academy ? await academyMemberProfiles(academy.id, search) : [];
+  const deletionRequest = panel === "settings"
+    ? (await getCurrentAccountDeletionRequest(actor)).request
+    : null;
 
   const initials = (user.name ?? user.email).slice(0, 2).toUpperCase();
   const active = String(user.status) !== UserStatus.DISABLED && !user.disabled;
   const accountLabel = user.name ?? user.email;
   const standardNavigationItems: SidePanelItem[] = [
-    { label: "Dashboard", href: "/dashboard", icon: "dashboard", active: panel === "dashboard" },
-    { label: "Members", href: "/dashboard?panel=members", icon: "users", active: panel === "members" },
-    { label: "Profile", href: "/dashboard?panel=profile", icon: "users", active: panel === "profile" },
-    { label: "Settings", href: "/dashboard?panel=settings", icon: "settings", active: panel === "settings" },
+    { label: "Dashboard", href: standardDashboardHref(params, { panel: "dashboard" }), icon: "dashboard", active: panel === "dashboard" },
+    { label: "Members", href: standardDashboardHref(params, { panel: "members" }), icon: "users", active: panel === "members" },
+    { label: "Profile", href: standardDashboardHref(params, { panel: "profile" }), icon: "users", active: panel === "profile" },
+    { label: "Settings", href: standardDashboardHref(params, { panel: "settings" }), icon: "settings", active: panel === "settings" },
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8faf7] text-slate-900">
-      <SidePanelControl
-        accountLabel={accountLabel}
-        navigationItems={standardNavigationItems}
-        roleLabel={roleLabel(user.role)}
-        supportHref="/contact"
-      />
+    <div className="min-h-dvh max-w-[100vw] overflow-x-hidden bg-[#f8faf7] text-slate-900">
+      {!mobileSurface ? (
+        <SidePanelControl
+          accountLabel={accountLabel}
+          navigationItems={standardNavigationItems}
+          roleLabel={roleLabel(user.role)}
+          supportHref="/contact"
+        />
+      ) : null}
 
-      <main className="transition-[padding] duration-200 lg:pl-[var(--admin-side-panel-width,16rem)]">
-        <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
-          <div className="size-11 lg:hidden" aria-hidden />
+      <main className={`min-w-0 transition-[padding] duration-200 ${mobileSurface ? "pb-24" : "lg:pl-[var(--admin-side-panel-width,16rem)]"}`}>
+        <header className={`flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 ${mobileSurface ? "" : "lg:min-h-24 lg:justify-end"}`}>
+          {mobileSurface ? <Link href="/mobile" className="text-xl font-black text-slate-950">RollFinders</Link> : <div className="size-11 lg:hidden" aria-hidden />}
           <DashboardAccountDropDownMenu
             accountEmail={user.email}
             accountName={accountLabel}
             accountRole={roleLabel(user.role)}
             avatarLabel={initials}
-            profileHref="/dashboard?panel=profile"
-            settingsHref="/dashboard?panel=settings"
+            profileHref={standardDashboardHref(params, { panel: "profile" })}
+            settingsHref={standardDashboardHref(params, { panel: "settings" })}
+            signOutCallbackUrl={mobileSurface ? "/mobile?tab=profile&auth=sign-in" : undefined}
           />
         </header>
 
-        <section className="px-4 py-8 sm:px-8">
+        <section className={`min-w-0 px-4 py-8 sm:px-8 ${mobileSurface ? "mx-auto w-full max-w-3xl" : ""}`}>
           {panel === "dashboard" ? (
             <DashboardPanel academy={academy} rolls={rolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
           ) : null}
           {panel === "members" ? <MembersPanel academy={academy} members={members} search={search} /> : null}
           {panel === "profile" ? <ProfilePanel academy={academy} active={active} user={user} /> : null}
-          {panel === "settings" ? <SettingsPanel academy={academy} searchParams={params} user={user} /> : null}
+          {panel === "settings" ? (
+            <SettingsPanel
+              academy={academy}
+              deletionRequest={deletionRequest}
+              searchParams={params}
+              user={user}
+            />
+          ) : null}
         </section>
       </main>
+      {mobileSurface ? <MobileNavigation activeTab="profile" /> : null}
     </div>
   );
 }
@@ -264,27 +272,16 @@ function DashboardPanel({
   searchParams: DashboardSearchParams;
   totalRollPages: number;
 }) {
-  const rows: RollRow[] = rolls.map((roll) => ({
+  const returnTo = standardDashboardHref(searchParams, { panel: "dashboard" });
+  const rows: StandardDashboardRollRow[] = rolls.map((roll) => ({
     id: roll.id,
     title: roll.title,
     date: formatDate(roll.eventDate),
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
     price: coursePriceLabel(roll),
-    courseType: roll.courseType,
+    href: dashboardCourseHref(roll, returnTo),
   }));
-  const returnTo = standardDashboardHref(searchParams, { panel: "dashboard" });
-  const columns: TableColumn<RollRow>[] = [
-    {
-      key: "title",
-      title: "Roll",
-      render: (value) => <span className="font-black text-slate-950">{String(value)}</span>,
-    },
-    { key: "date", title: "Date" },
-    { key: "time", title: "Time" },
-    { key: "giType", title: "Format" },
-    { key: "price", title: "Price" },
-  ];
 
   return (
     <div>
@@ -318,19 +315,13 @@ function DashboardPanel({
           ) : null}
         </form>
 
-        <Table
-          title="Courses/Events"
-          columns={columns}
-          data={rows}
+        <StandardDashboardRollsTable
+          rows={rows}
           emptyMessage={academy ? "No upcoming courses/events match this academy search." : "No academy is assigned, so no courses/events data can be shown."}
-          getRowHref={(row) => dashboardCourseHref(row, returnTo)}
-          getRowId={(row) => row.id}
-          pagination={{
-            page: rollsPage,
-            totalPages: totalRollPages,
-            previousHref: standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage - 1 }),
-            nextHref: standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage + 1 }),
-          }}
+          page={rollsPage}
+          totalPages={totalRollPages}
+          previousHref={standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage - 1 })}
+          nextHref={standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage + 1 })}
         />
       </section>
     </div>
@@ -451,15 +442,26 @@ function ProfilePanel({ academy, active, user }: { academy: DashboardAcademy; ac
   );
 }
 
-function SettingsPanel({ academy, searchParams, user }: { academy: DashboardAcademy; searchParams: DashboardSearchParams; user: DashboardUser }) {
+function SettingsPanel({
+  academy,
+  deletionRequest,
+  searchParams,
+  user,
+}: {
+  academy: DashboardAcademy;
+  deletionRequest: AccountDeletionRequest | null;
+  searchParams: DashboardSearchParams;
+  user: DashboardUser;
+}) {
   const activeAction = settingsAction(firstParam(searchParams.settingsAction));
+  const settingsHref = (settingsAction?: SettingsAction) => standardDashboardHref(searchParams, { panel: "settings", settingsAction });
   const settingsItems: QuickActionPanelItem[] = [
     {
       active: activeAction === "change-password",
       id: "change-password",
       title: "Change Password",
       description: "Set a new password for your account.",
-      href: "/dashboard?panel=settings&settingsAction=change-password",
+      href: settingsHref("change-password"),
       icon: <KeyRound size={22} aria-hidden />,
     },
     {
@@ -467,7 +469,7 @@ function SettingsPanel({ academy, searchParams, user }: { academy: DashboardAcad
       id: "edit-profile",
       title: "Edit Profile",
       description: "Update your personal display name.",
-      href: "/dashboard?panel=settings&settingsAction=edit-profile",
+      href: settingsHref("edit-profile"),
       icon: <Edit3 size={22} aria-hidden />,
     },
   ];
@@ -486,12 +488,12 @@ function SettingsPanel({ academy, searchParams, user }: { academy: DashboardAcad
           <h2 className="text-xl font-black text-slate-950">{detailTitle}</h2>
         </div>
         {activeAction === "change-password" ? (
-          <ChangePasswordForm cancelHref="/dashboard?panel=settings" embedded />
+          <ChangePasswordForm cancelHref={settingsHref()} embedded />
         ) : null}
         {activeAction === "edit-profile" ? (
           <EditProfileForm
             academyName={academy?.name ?? "No academy assigned"}
-            cancelHref="/dashboard?panel=settings"
+            cancelHref={settingsHref()}
             email={user.email}
             name={user.name}
             roleLabel={roleLabel(user.role)}
@@ -504,6 +506,11 @@ function SettingsPanel({ academy, searchParams, user }: { academy: DashboardAcad
           </p>
         ) : null}
       </section>
+      <AccountDeletionPanel
+        notice={firstParam(searchParams.deletionNotice)}
+        request={deletionRequest}
+        surface={firstParam(searchParams.surface)}
+      />
     </div>
   );
 }

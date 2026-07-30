@@ -148,6 +148,24 @@ export async function authorize(
   if (!actor?.id) return false;
   if (actor.role === "SUPER_ADMIN" || actor.role === "ADMIN") return true;
 
+  return requestAuthorisationDecision(actor, permission, scope, true);
+}
+
+export async function authorizeThroughService(
+  actor: AuthorisationActor | null | undefined,
+  permission: string,
+  scope: AuthorisationScope = {},
+) {
+  if (!actor?.id) return false;
+  return requestAuthorisationDecision(actor, permission, scope, false);
+}
+
+async function requestAuthorisationDecision(
+  actor: AuthorisationActor,
+  permission: string,
+  scope: AuthorisationScope,
+  allowCompatibilityFallback: boolean,
+) {
   try {
     const response = await fetch(`${authorisationServiceUrl()}/authorize`, {
       method: "POST",
@@ -167,7 +185,7 @@ export async function authorize(
     const result = (await parseResponse(response)) as AuthoriseResponse;
     return result.authorized === true && result.decision === "allow";
   } catch (error) {
-    if (!compatibilityFallbackEnabled()) {
+    if (!allowCompatibilityFallback || !compatibilityFallbackEnabled()) {
       if (error instanceof AuthorisationServiceError) return false;
       throw error;
     }

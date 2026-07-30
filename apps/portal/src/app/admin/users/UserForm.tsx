@@ -4,6 +4,7 @@ import { AutoCompleteTextField, type AutoCompleteTextFieldOption } from "@/app/_
 import { canSeeRole, roleLevel } from "@/lib/role-hierarchy";
 import type { AssignableUserFeature } from "@/lib/users-service";
 import { PermissionPanel } from "./PermissionPanel";
+import { TemporaryPasswordPanel } from "./TemporaryPasswordPanel";
 import { UserFormTabs } from "./UserFormTabs";
 
 type UserFormAcademy = {
@@ -30,6 +31,7 @@ export function UserForm({
   cancelHref = "/admin/users",
   mode,
   initialTab = "details",
+  passwordAction,
   returnTo,
   superAdmin,
   user,
@@ -41,7 +43,8 @@ export function UserForm({
   assignableFeatures?: AssignableUserFeature[];
   cancelHref?: string;
   mode: "create" | "edit";
-  initialTab?: "details" | "permissions";
+  initialTab?: "details" | "permissions" | "password";
+  passwordAction?: (formData: FormData) => Promise<void>;
   returnTo?: string;
   superAdmin: boolean;
   user?: UserFormUser;
@@ -150,6 +153,7 @@ export function UserForm({
     <UserFormTabs
       detailsPanel={detailsForm}
       initialTab={initialTab}
+      passwordPanel={passwordAction ? <TemporaryPasswordPanel action={passwordAction} returnTo={returnTo ?? cancelHref} userEmail={user.email} /> : undefined}
       permissionsPanel={<PermissionPanel features={assignableFeatures} userId={user.id} />}
     />
   );

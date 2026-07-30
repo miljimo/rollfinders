@@ -25,6 +25,7 @@ func TestGatewayResourceCatalogIncludesTargetsForAPIPermissions(t *testing.T) {
 		PermissionUserRead:                           UsersUserId,
 		PermissionUserSearch:                         Users,
 		PermissionUserUpdate:                         UsersUserId,
+		PermissionUserPasswordSetTemporary:           UsersUserIdTemporaryPassword,
 		PermissionOrganisationApplicationRead:        ApplicationsApplicationId,
 		PermissionOrganisationApplicationSearch:      Applications,
 		PermissionOrganisationCreate:                 Organisations,

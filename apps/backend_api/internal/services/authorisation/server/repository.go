@@ -421,6 +421,9 @@ func (r *repository) authorize(ctx context.Context, userID, permissionCode strin
 	if _, denied := effective.denied[permission.Code]; denied {
 		return authorizeResponse{Authorized: false, Decision: "deny", Reason: "direct_deny"}, nil
 	}
+	if isSelfAccountRead(userID, permission.Code, scope) {
+		return authorizeResponse{Authorized: true, Decision: "allow"}, nil
+	}
 	superAdmin, err := r.hasSuperAdminRole(ctx, userID)
 	if err != nil {
 		return authorizeResponse{}, err
@@ -432,6 +435,12 @@ func (r *repository) authorize(ctx context.Context, userID, permissionCode strin
 		return authorizeResponse{Authorized: true, Decision: "allow"}, nil
 	}
 	return authorizeResponse{Authorized: false, Decision: "deny", Reason: "missing_permission"}, nil
+}
+
+func isSelfAccountRead(userID, permissionCode string, scope Scope) bool {
+	return permissionCode == "account.read" &&
+		cleanString(userID) != "" &&
+		cleanString(userID) == cleanString(scope.ResourceID)
 }
 
 func (r *repository) hasSuperAdminRole(ctx context.Context, userID string) (bool, error) {

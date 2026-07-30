@@ -10,6 +10,7 @@ SET search_path TO users, public;
 \ir tables/004_user_roles_and_permissions.sql
 \ir tables/005_sessions_and_mfa.sql
 \ir tables/006_admin_audit_logs.sql
+\ir tables/007_account_deletion_requests.sql
 \ir functions/001_user_get.sql
 \ir functions/002_user_get_by_email.sql
 \ir functions/003_user_account_get.sql
@@ -17,6 +18,7 @@ SET search_path TO users, public;
 \ir functions/005_users_list.sql
 \ir functions/008_active_super_user_exists.sql
 \ir functions/012_runtime_queries.sql
+\ir functions/013_account_deletion_requests.sql
 \ir procedures/001_userLastLoginTouch.sql
 \ir procedures/002_userInsert.sql
 \ir procedures/003_userUpdate.sql
@@ -24,6 +26,8 @@ SET search_path TO users, public;
 \ir procedures/005_userDelete.sql
 \ir procedures/006_adminAuditLogInsert.sql
 \ir procedures/008_runtimeMutations.sql
+\ir procedures/009_account_deletion_requests.sql
+\ir procedures/010_adminTemporaryPasswordSet.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_core_schema')
 ON CONFLICT (version) DO NOTHING;

@@ -282,9 +282,11 @@ BEGIN
         ('auth.mfa.verify', 'Verify MFA', 'Allows verifying MFA challenges.'),
         ('auth.credentials.authenticate', 'Authenticate credentials', 'Allows validating credentials through internal authentication APIs.'),
         ('account.read', 'Read accounts', 'Allows reading user account records.'),
+        ('account.update', 'Update account', 'Allows an authenticated user to update their own account lifecycle.'),
         ('user.create', 'Create users', 'Allows creating users.'),
         ('user.read', 'Read users', 'Allows reading user administration data.'),
         ('user.update', 'Update users', 'Allows updating managed users.'),
+        ('user.password.set_temporary', 'Set temporary user passwords', 'Allows an administrator to set a temporary password for a managed user.'),
         ('user.delete', 'Delete users', 'Allows deleting users.'),
         ('user.mutate', 'Run user mutations', 'Allows running named user mutation actions.'),
         ('organisation.create', 'Create organisations', 'Allows creating organisation records.'),
@@ -521,7 +523,7 @@ BEGIN
         'course.read', 'course.search', 'course.activity.read', 'course.type.read',
         'booking.create', 'booking.read', 'booking.view',
         'auth.logout', 'auth.refresh', 'auth.password.change', 'auth.session.read', 'auth.session.revoke', 'auth.mfa.setup', 'auth.mfa.verify',
-        'account.read'
+        'account.read', 'account.update'
     )
     WHERE r.key IN ('USER', 'STANDARD_USER')
     ON CONFLICT DO NOTHING;
@@ -535,7 +537,8 @@ BEGIN
         'academy.claim.view', 'academy.claim.approve', 'academy.verify', 'academy.unverify',
         'academy.suspend', 'academy.activate', 'academy.archive', 'academy.restore',
         'academy.audit.view', 'academy.public.enabled', 'academy.search',
-        'academy.member.read', 'academy.member.add', 'academy.member.assign', 'academy.member.remove', 'academy.membership.read',
+        'academy.member.read', 'academy.member.add', 'academy.member.assign', 'academy.member.remove',
+        'academy.membership.assign', 'academy.membership.read', 'academy.membership.remove',
         'academy.profile.read', 'academy.profile.update', 'academy.social.read', 'academy.social.update',
         'course.create', 'course.read', 'course.search', 'course.update', 'course.delete',
         'course.activity.create', 'course.activity.read', 'course.activity.update', 'course.activity.delete',
@@ -559,7 +562,7 @@ BEGIN
         'usage_limit.read', 'usage_limit.manage',
         'auth.register', 'auth.logout', 'auth.refresh', 'auth.password.change', 'auth.session.read', 'auth.session.revoke',
         'auth.mfa.setup', 'auth.mfa.verify', 'auth.credentials.authenticate',
-        'account.read', 'user.create', 'user.read', 'user.search', 'user.update', 'user.delete', 'user.mutate',
+        'account.read', 'account.update', 'user.create', 'user.read', 'user.search', 'user.update', 'user.password.set_temporary', 'user.delete', 'user.mutate',
         'organisation.create', 'organisation.read', 'organisation.update', 'organisation.application.manage',
         'authorisation.permission.create', 'authorisation.permission.read', 'authorisation.permission.search', 'authorisation.permission.update',
         'authorisation.role.create', 'authorisation.role.read', 'authorisation.role.search', 'authorisation.role.update',
@@ -577,7 +580,8 @@ BEGIN
     JOIN permissions p ON true
     JOIN resources resource ON resource.id = p.resource_id AND resource.name IN (
         'academy.view', 'academy.read', 'academy.search', 'academy.edit', 'academy.update', 'academy.audit.view',
-        'academy.member.read', 'academy.member.add', 'academy.member.assign', 'academy.member.remove', 'academy.membership.read',
+        'academy.member.read', 'academy.member.add', 'academy.member.assign', 'academy.member.remove',
+        'academy.membership.assign', 'academy.membership.read', 'academy.membership.remove',
         'academy.profile.read', 'academy.profile.update', 'academy.social.read', 'academy.social.update',
         'course.create', 'course.read', 'course.search', 'course.update', 'course.delete',
         'course.activity.create', 'course.activity.read', 'course.activity.update', 'course.activity.delete',
@@ -586,8 +590,8 @@ BEGIN
         'booking.payment_received', 'booking.payment_link',
         'booking.participant.create', 'booking.participant.read', 'booking.participant.attendance.record',
         'auth.session.read',
-        'account.read',
-        'user.search',
+        'account.read', 'account.update',
+        'user.create', 'user.read', 'user.search', 'user.update', 'user.password.set_temporary',
         'payment.read', 'payment.search', 'payment.report.revenue.read', 'payment.report.refund.read',
         'payment.refund.read', 'payment.payee.balance.read',
         'payout.request.create', 'payout.request.read', 'payout.request.cancel',

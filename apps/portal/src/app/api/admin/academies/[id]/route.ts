@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AcademyVerificationStatus } from "@prisma/client";
 import { deleteAcademyInAcademyService, getAcademyFromAcademyService, listAcademiesForActorFromAcademyService, updateAcademyInAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole, requireAdminApi, writeAdminAuditLog } from "@/lib/admin";
+import { authorizeThroughService } from "@/lib/authorisation-service";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { academySchema } from "@/lib/validators";
 
@@ -74,6 +75,45 @@ function canAccessAcademy(actor: { role?: string; academyId?: string | null } | 
   return !isAcademyAdminRole(actor?.role) || actor?.academyId === academyId;
 }
 
+function academyScope(actor: { academyId?: string | null }, academyId: string) {
+  return {
+    organisationId: actor.academyId ?? academyId,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    resourceType: "academy",
+    resourceId: academyId,
+  };
+}
+
+async function academyUpdateActor(academyId: string) {
+  const actor = await getCurrentUser();
+  if (!actor) {
+    return {
+      actor: null,
+      response: NextResponse.json({ error: "Sign in to manage academies." }, { status: 401 }),
+    };
+  }
+  const allowed = await authorizeThroughService(actor, "academy.update", academyScope(actor, academyId));
+  return allowed
+    ? { actor, response: null }
+    : {
+        actor: null,
+        response: NextResponse.json(
+          { error: "You are not authorised to update this academy." },
+          { status: 403 },
+        ),
+      };
+}
+
+const locationFields = ["address", "city", "postcode", "borough", "country", "latitude", "longitude"] as const;
+
+function changedLocationFields(
+  existing: Awaited<ReturnType<typeof getAcademyFromAcademyService>>,
+  next: ReturnType<typeof academySchema.parse>,
+) {
+  if (!existing) return [...locationFields];
+  return locationFields.filter((field) => String(existing[field] ?? "") !== String(next[field] ?? ""));
+}
+
 async function canDeleteAcademy(actor: { id: string; role?: string } | null, academyId: string) {
   if (!actor || !isPlatformAdminRole(actor.role)) return false;
   if (isSuperAdminRole(actor.role)) return true;
@@ -95,12 +135,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const forbidden = await requireAdminApi();
-  if (forbidden) return forbidden;
-  const actor = await getCurrentUser();
-
   const { id } = await params;
-  if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
+  const { actor, response } = await academyUpdateActor(id);
+  if (response || !actor) return response;
   const body = await request.json().catch(() => null);
   const parsed = academySchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
@@ -114,21 +151,26 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const existingAcademy = isAcademyAdminRole(actor?.role) ? await getAcademyFromAcademyService(id, actor ?? undefined) : null;
-  const nextVerificationStatus = existingAcademy?.verificationStatus ?? data.verificationStatus;
+  const existingAcademy = await getAcademyFromAcademyService(id, actor);
+  const canManagePlatformFields = await authorizeThroughService(actor, "academy.verify", academyScope(actor, id));
+  const nextVerificationStatus = canManagePlatformFields
+    ? data.verificationStatus
+    : existingAcademy?.verificationStatus ?? data.verificationStatus;
   const academy = await updateAcademyInAcademyService(id, {
     ...academyData(data, socialLinks),
     verificationStatus: nextVerificationStatus,
-    featured: existingAcademy?.featured ?? data.featured,
+    featured: canManagePlatformFields ? data.featured : existingAcademy?.featured ?? data.featured,
     verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
-  }, actor ?? undefined);
-  if (actor) {
-    await writeAdminAuditLog({
-      actorUserId: actor.id,
-      action: "ACADEMY_UPDATED",
-      metadata: { academyId: id, academyName: academy.name },
-    });
-  }
+  }, actor);
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    action: "ACADEMY_UPDATED",
+    metadata: {
+      academyId: id,
+      academyName: academy.name,
+      changedLocationFields: changedLocationFields(existingAcademy, data),
+    },
+  });
 
   return NextResponse.json(academy);
 }
@@ -150,12 +192,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const forbidden = await requireAdminApi();
-  if (forbidden) return forbidden;
-  const actor = await getCurrentUser();
-
   const { id } = await params;
-  if (!canAccessAcademy(actor, id)) return NextResponse.json({ error: "Academy access denied" }, { status: 403 });
   const formData = await request.formData();
 
   if (formData.get("_method") === "DELETE") {
@@ -171,6 +208,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
     return NextResponse.redirect(new URL("/admin?panel=academies", request.url), { status: 303 });
   }
+  const { actor, response } = await academyUpdateActor(id);
+  if (response || !actor) return response;
   const parsed = academySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return NextResponse.json({ error: "Invalid academy" }, { status: 400 });
   const data = parsed.data;
@@ -182,21 +221,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Academy already exists for this name, address, and postcode" }, { status: 409 });
   }
 
-  const existingAcademy = isAcademyAdminRole(actor?.role) ? await getAcademyFromAcademyService(id, actor ?? undefined) : null;
-  const nextVerificationStatus = existingAcademy?.verificationStatus ?? data.verificationStatus;
+  const existingAcademy = await getAcademyFromAcademyService(id, actor);
+  const canManagePlatformFields = await authorizeThroughService(actor, "academy.verify", academyScope(actor, id));
+  const nextVerificationStatus = canManagePlatformFields
+    ? data.verificationStatus
+    : existingAcademy?.verificationStatus ?? data.verificationStatus;
   const academy = await updateAcademyInAcademyService(id, {
     ...academyData(data, socialLinks),
     verificationStatus: nextVerificationStatus,
-    featured: existingAcademy?.featured ?? data.featured,
+    featured: canManagePlatformFields ? data.featured : existingAcademy?.featured ?? data.featured,
     verified: nextVerificationStatus === AcademyVerificationStatus.VERIFIED,
-  }, actor ?? undefined);
-  if (actor) {
-    await writeAdminAuditLog({
-      actorUserId: actor.id,
-      action: "ACADEMY_UPDATED",
-      metadata: { academyId: id, academyName: academy.name },
-    });
-  }
+  }, actor);
+  await writeAdminAuditLog({
+    actorUserId: actor.id,
+    action: "ACADEMY_UPDATED",
+    metadata: {
+      academyId: id,
+      academyName: academy.name,
+      changedLocationFields: changedLocationFields(existingAcademy, data),
+    },
+  });
 
   return NextResponse.redirect(new URL("/admin?panel=academies", request.url), { status: 303 });
 }

@@ -2,9 +2,10 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
 import { PageShell } from "@/app/_components/Page";
-import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { canSetManagedUserTemporaryPassword, getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isProtectedSuperAdmin, isSuperAdminRole, requireAdminPage } from "@/lib/admin";
+import { authorize } from "@/lib/authorisation-service";
 import { getManagedUser, getUserPermissionPanelModel } from "@/lib/users-service";
-import { updateManagedUser } from "../actions";
+import { setTemporaryPassword, updateManagedUser } from "../actions";
 import { UserForm } from "../UserForm";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function EditUserPage({
   await requireAdminPage();
   const { id } = await params;
   const query = await searchParams;
-  const initialTab = query.tab === "permissions" ? "permissions" : "details";
+  const initialTab = query.tab === "permissions" || query.tab === "password" ? query.tab : "details";
   const currentUser = await getCurrentUser();
   const superAdmin = isSuperAdminRole(currentUser?.role);
   const platformAdmin = isPlatformAdminRole(currentUser?.role);
@@ -36,6 +37,11 @@ export default async function EditUserPage({
     organisationId: user.academyId ?? undefined,
     applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
   }).catch(() => []);
+  const canSetTemporaryPassword = canSetManagedUserTemporaryPassword(currentUser, user)
+    && await authorize(currentUser, "user.password.set_temporary", {
+      organisationId: user.academyId ?? undefined,
+      applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    }).catch(() => false);
 
   return (
     <PageShell>
@@ -51,6 +57,7 @@ export default async function EditUserPage({
           actorRole={currentUser.role}
           initialTab={initialTab}
           mode="edit"
+          passwordAction={canSetTemporaryPassword ? setTemporaryPassword.bind(null, user.id) : undefined}
           superAdmin={superAdmin}
           user={{ ...user, role: user.role as Role, status: user.status as UserStatus }}
         />

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { AcademyVerificationStatus, ClaimStatus, InvitationStatus } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, writeAdminAuditLog } from "@/lib/admin";
-import { requireAcademyEditor, requireAcademyOwner } from "@/lib/academy-access";
+import { requireAcademyUpdateCapability, requireAcademyOwner } from "@/lib/academy-access";
 import { AcademyServiceError, addAcademyMemberInAcademyService, createAcademyInAcademyService, getAcademyFromAcademyService, listAcademyMembersFromAcademyService, listAcademiesForActorFromAcademyService, removeAcademyMemberInAcademyService, updateAcademyInAcademyService } from "@/lib/academyService";
 import {
   acceptAcademyInvitationRecord,
@@ -17,7 +17,7 @@ import {
   resendAcademyInvitationRecord,
   updateAcademyInvitationStatus,
 } from "@/lib/academy-domain-data";
-import { replaceUserAuthorisationRole } from "@/lib/authorisation-service";
+import { authorizeThroughService, replaceUserAuthorisationRole } from "@/lib/authorisation-service";
 import { legacySocialUrlsFromLinks, parseAcademySocialLinksJson, socialLinksFromLegacy, type AcademySocialLinkInput } from "@/lib/academy-social-links";
 import { claimReminderCooldownDays } from "@/lib/academy-claim-reminders";
 import { recordAnalyticsEventBestEffort } from "@/lib/analytics/service";
@@ -235,8 +235,7 @@ export async function updateAcademy(
   _state: AcademyFormState,
   formData: FormData,
 ): Promise<AcademyFormState> {
-  await requireAcademyEditor(id);
-  const actor = await getCurrentUser();
+  const actor = await requireAcademyUpdateCapability(id);
 
   const parsed = academySchema.safeParse(getFormValues(formData));
   if (!parsed.success) {
@@ -254,26 +253,49 @@ export async function updateAcademy(
     return duplicateAcademyError(formData);
   }
 
-  const existingAcademy = isAcademyAdminRole(actor?.role)
-    ? await getAcademyFromAcademyService(id, actor ?? undefined)
-    : null;
+  const existingAcademy = await getAcademyFromAcademyService(id, actor);
+  const authorisationScope = {
+    organisationId: actor.academyId ?? id,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    resourceType: "academy",
+    resourceId: id,
+  };
+  const canManagePlatformFields = await authorizeThroughService(
+    actor,
+    "academy.verify",
+    authorisationScope,
+  );
   let academy: { id: string; name: string };
   try {
-    const nextVerificationStatus = existingAcademy?.verificationStatus ?? data.verificationStatus;
+    const nextVerificationStatus = canManagePlatformFields
+      ? data.verificationStatus
+      : existingAcademy?.verificationStatus ?? data.verificationStatus;
     academy = await updateAcademyInAcademyService(id, {
       ...baseAcademyData(data, socialLinks),
       verificationStatus: nextVerificationStatus,
-      featured: existingAcademy?.featured ?? data.featured,
-      publicListingVerified: existingAcademy?.publicListingVerified ?? data.publicListingVerified,
-      bookingVerified: existingAcademy?.bookingVerified ?? data.bookingVerified,
-      paymentsVerified: existingAcademy?.paymentsVerified ?? data.paymentsVerified,
-      verified: existingAcademy?.publicListingVerified ?? data.publicListingVerified,
+      featured: canManagePlatformFields ? data.featured : existingAcademy?.featured ?? data.featured,
+      publicListingVerified: canManagePlatformFields
+        ? data.publicListingVerified
+        : existingAcademy?.publicListingVerified ?? data.publicListingVerified,
+      bookingVerified: canManagePlatformFields
+        ? data.bookingVerified
+        : existingAcademy?.bookingVerified ?? data.bookingVerified,
+      paymentsVerified: canManagePlatformFields
+        ? data.paymentsVerified
+        : existingAcademy?.paymentsVerified ?? data.paymentsVerified,
+      verified: canManagePlatformFields
+        ? data.publicListingVerified
+        : existingAcademy?.publicListingVerified ?? data.publicListingVerified,
     }, actor ?? undefined);
     if (actor) {
       await writeAdminAuditLog({
         actorUserId: actor.id,
         action: "ACADEMY_UPDATED",
-        metadata: { academyId: academy.id, academyName: academy.name },
+        metadata: {
+          academyId: academy.id,
+          academyName: academy.name,
+          changedLocationFields: changedLocationFields(existingAcademy, data),
+        },
       });
     }
   } catch (error) {
@@ -288,7 +310,12 @@ export async function updateAcademy(
 
   const returnTo = String(formData.get("returnTo") ?? "").trim();
   const url = new URL(returnTo.startsWith("/admin?panel=academies") || returnTo.startsWith("/dashboard/academies") || returnTo.startsWith("/dashboard?panel=academies") ? returnTo : "/admin?panel=academies", "http://localhost");
-  if (actor && isPlatformAdminRole(actor.role) && shouldSendClaimInvitation(formData)) {
+  const canSendClaimInvitation = await authorizeThroughService(
+    actor,
+    "academy.claim.approve",
+    authorisationScope,
+  );
+  if (canSendClaimInvitation && shouldSendClaimInvitation(formData)) {
     const outcome = await safeSendReminderForAcademy(actor.id, academy.id);
     url.searchParams.set("claimInvitationResult", outcome.status);
     url.searchParams.set("claimInvitationReason", outcome.status === "queued" ? "queued" : outcome.reason);
@@ -301,6 +328,26 @@ export async function updateAcademy(
   revalidatePath("/dashboard");
   revalidatePath(`/admin/academies/${id}`);
   redirect(`${url.pathname}${url.search}`);
+}
+
+const academyLocationFields = [
+  "address",
+  "city",
+  "postcode",
+  "borough",
+  "country",
+  "latitude",
+  "longitude",
+] as const;
+
+function changedLocationFields(
+  existing: Awaited<ReturnType<typeof getAcademyFromAcademyService>>,
+  next: ReturnType<typeof academySchema.parse>,
+) {
+  if (!existing) return [...academyLocationFields];
+  return academyLocationFields.filter((field) =>
+    String(existing[field] ?? "") !== String(next[field] ?? ""),
+  );
 }
 
 function invitationExpiry() {

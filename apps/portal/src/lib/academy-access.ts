@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { listAcademyMembershipsForUserFromAcademyService } from "./academyService";
 import { getCurrentUser, isAcademyAdminRole, isPlatformAdminRole, isSuperAdminRole } from "./admin";
+import { authorizeThroughService } from "./authorisation-service";
 
 export type AcademyAccess = {
   userId: string;
@@ -38,6 +39,31 @@ export async function requireAcademyEditor(academyId: string) {
   const access = await getAcademyAccess(academyId);
   if (!access) redirect("/login");
   return access;
+}
+
+export async function canUpdateAcademy(academyId: string) {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  return authorizeThroughService(user, "academy.update", {
+    organisationId: user.academyId ?? academyId,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    resourceType: "academy",
+    resourceId: academyId,
+  });
+}
+
+export async function requireAcademyUpdateCapability(academyId: string) {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!(await authorizeThroughService(user, "academy.update", {
+    organisationId: user.academyId ?? academyId,
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    resourceType: "academy",
+    resourceId: academyId,
+  }))) {
+    redirect("/dashboard");
+  }
+  return user;
 }
 
 export async function requireAcademyOpenMatCreator(academyId: string) {

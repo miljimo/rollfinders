@@ -32,9 +32,9 @@ The mobile app should expose only the public side of Rollfinders:
 * My bookings
 * Saved academies or courses
 
-It must not include CRM, admin, subscription, access key, or platform management features.
+It must not include CRM, admin, subscription, access key, or platform management features. Authenticated practitioners may use the shared dashboard profile and account-settings panels through `surface=mobile`; this presentation context does not grant access to any administrative dashboard feature.
 
-If an authenticated admin user follows a dashboard, CRM, subscription, access key, or platform-management URL inside the WebView, the app must not render that feature inside the mobile shell. It should either open the URL in the system browser or send the user to a clear unsupported-in-app state.
+If an authenticated user follows an admin, CRM, subscription, access key, or platform-management URL inside the WebView, the app must not render that feature inside the mobile shell. It should either open the URL in the system browser or send the user to a clear unsupported-in-app state.
 
 ---
 
@@ -88,7 +88,7 @@ Used by WebView apps.
 https://rollfinders.com/dashboard
 ```
 
-Used only for authenticated dashboard shell.
+Used for the authenticated dashboard shell. Mobile practitioners enter only profile and account settings with `surface=mobile`; role checks and data access remain identical to the web dashboard.
 
 ## Auth
 

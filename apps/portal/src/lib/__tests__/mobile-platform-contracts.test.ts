@@ -19,7 +19,7 @@ test("mobile platform PRD keeps WebView release standards explicit", () => {
 
 test("mobile web route renders a public-only app shell with bottom navigation", () => {
   const source = readSource("apps/portal/src/app/mobile/page.tsx");
-  const profileSource = readSource("apps/portal/src/app/mobile/MobileAuthenticatedProfile.tsx");
+  const dashboardSource = readSource("apps/portal/src/app/dashboard/page.tsx");
   const navigationSource = readSource("apps/portal/src/app/_components/MobileNavigation/MobileNavigation.tsx");
   const signInFormSource = readSource("apps/portal/src/app/mobile/MobileSignInForm.tsx");
 
@@ -46,13 +46,14 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   assert.match(source, /registerPractitioner/);
   assert.match(source, /auth === "register"/);
   assert.match(source, /auth === "sign-in"/);
-  assert.match(signInFormSource, /callbackUrl="\/mobile"/);
+  assert.match(signInFormSource, /callbackUrl="\/dashboard\?panel=profile&surface=mobile"/);
   assert.match(signInFormSource, /variant="mobile"/);
   assert.match(source, /name="mobileAuth" value="1"/);
   assert.doesNotMatch(source, /PageShell/);
-  assert.doesNotMatch(source, /href=\{currentUser \? "\/dashboard/);
-  assert.match(profileSource, /Open Web Dashboard/);
-  assert.match(profileSource, /target=\{web \|\| itemWeb \? "_blank" : undefined\}/);
+  assert.match(source, /redirect\("\/dashboard\?panel=profile&surface=mobile"\)/);
+  assert.match(dashboardSource, /firstParam\(params\.surface\) === "mobile"/);
+  assert.match(dashboardSource, /<MobileNavigation activeTab="profile"/);
+  assert.match(dashboardSource, /\/mobile\?tab=profile&auth=sign-in/);
   assert.doesNotMatch(source, /Payment Methods/);
   assert.doesNotMatch(source, /Claimed Academy/);
 });

@@ -24,6 +24,10 @@ CALL "seedAuthorisationCatalog"();
 \ir 017_resource_uuid_ids.sql
 \ir 018_drop_resource_type.sql
 \ir 019_permission_resource_metadata.sql
+\ir 020_seed_academy_wallet_permissions.sql
+\ir 021_seed_account_update_permission.sql
+\ir 022_seed_academy_user_management_permissions.sql
+\ir 023_backfill_missing_standard_user_roles.sql
 
 INSERT INTO schema_migrations(version) VALUES ('001_core_schema')
 ON CONFLICT (version) DO NOTHING;

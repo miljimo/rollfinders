@@ -76,6 +76,14 @@ func TestRollfindersCompatibilityUsesPlatformCourseTypeIds(t *testing.T) {
 	}
 }
 
+func TestRollfindersCompatibilityDeleteUsesOrganisationAndActor(t *testing.T) {
+	source := read(t, repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "rollfinders", "001_publicCourseCompatibilityViews.sql"))
+	expected := `CALL courses."courseDelete"(OLD.id, OLD.academy_id, OLD.created_by_id);`
+	if !strings.Contains(source, expected) {
+		t.Fatalf("expected RollFinders event delete trigger to contain %q", expected)
+	}
+}
+
 func TestFunctionsDoNotPerformBusinessWrites(t *testing.T) {
 	err := filepath.WalkDir(repoPath(t, "apps", "backend_api", "internal", "services", "courses", "migrations", "functions"), func(path string, entry os.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || !strings.HasSuffix(path, ".sql") {

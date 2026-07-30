@@ -12,6 +12,7 @@ type DashboardAccountDropDownMenuProps = {
   helpHref?: string;
   profileHref?: string;
   settingsHref?: string;
+  signOutCallbackUrl?: string;
 };
 
 export function DashboardAccountDropDownMenu({
@@ -22,6 +23,7 @@ export function DashboardAccountDropDownMenu({
   helpHref,
   profileHref,
   settingsHref,
+  signOutCallbackUrl,
 }: DashboardAccountDropDownMenuProps) {
   return (
     <UserAccountDropDownMenu
@@ -30,7 +32,7 @@ export function DashboardAccountDropDownMenu({
       accountRole={accountRole}
       avatarLabel={avatarLabel}
       helpHref={helpHref}
-      onSignOut={() => signOut({ callbackUrl: logoutCallbackUrl() })}
+      onSignOut={() => signOut({ callbackUrl: signOutCallbackUrl ?? logoutCallbackUrl() })}
       profileHref={profileHref}
       settingsHref={settingsHref}
     />

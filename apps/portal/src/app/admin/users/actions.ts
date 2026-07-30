@@ -3,16 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Role, UserStatus } from "@prisma/client";
-import { canAssignManagedUserRole, getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
+import { canAssignManagedUserRole, canSetManagedUserTemporaryPassword, getCurrentUser, isAcademyAdminRole } from "@/lib/admin";
 import { authorize, updateUserAuthorisationPermissions } from "@/lib/authorisation-service";
 import { getEnvVariable } from "@/lib/environments";
 import { managedUsersReturnPath } from "@/lib/managed-user-return-path";
-import { requestPasswordResetForEmail } from "@/lib/password-reset";
+import { notifyAdminPasswordChangedBestEffort, requestPasswordResetForEmail } from "@/lib/password-reset";
 import {
   createManagedUser as createUserInService,
   deleteManagedUser as deleteUserInService,
   getManagedUser,
   mutateManagedUser,
+  setManagedUserTemporaryPassword,
   updateManagedUser as updateUserInService,
 } from "@/lib/users-service";
 
@@ -29,11 +30,11 @@ function normalizeStatus(value: string) {
   return value === UserStatus.DISABLED ? UserStatus.DISABLED : UserStatus.ACTIVE;
 }
 
-async function requireUserManager() {
+async function requireUserManager(permission = "users.admin.access") {
   const actor = await getCurrentUser();
   if (!actor) redirect("/login");
 
-  const allowed = await authorize(actor, "users.admin.access", {
+  const allowed = await authorize(actor, permission, {
     applicationId: getEnvVariable("ROLLFINDERS_APPLICATION_ID", "app_rollfinders"),
     organisationId: actor.academyId ?? undefined,
   });
@@ -70,13 +71,22 @@ function revalidateUserSurfaces() {
 }
 
 export async function createManagedUser(formData: FormData) {
-  const actor = await requireUserManager();
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  let actor;
+  try {
+    actor = await requireUserManager("user.create");
+  } catch (error) {
+    if (isForbiddenUserAction(error)) {
+      redirectWithUserResult(returnTo, "not_authorised");
+    }
+    throw error;
+  }
+
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const password = String(formData.get("password") ?? "rollfinder-user");
   const academyId = String(formData.get("academyId") ?? "").trim() || null;
-  const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = managedUsersReturnPath(returnTo);
 
   if (!email || !email.includes("@")) return;
@@ -87,6 +97,9 @@ export async function createManagedUser(formData: FormData) {
   try {
     await createUserInService(actor, { name, email, password, role, academyId });
   } catch (error) {
+    if (isForbiddenUserAction(error)) {
+      redirectWithUserResult(returnTo, "not_authorised");
+    }
     if (typeof error === "object" && error !== null && "status" in error && error.status === 409) {
       const url = new URL(redirectTo, "http://localhost");
       url.searchParams.set("userResult", "duplicate_email");
@@ -101,14 +114,23 @@ export async function createManagedUser(formData: FormData) {
 }
 
 export async function updateManagedUser(userId: string, formData: FormData) {
-  const actor = await requireUserManager();
+  const returnTo = String(formData.get("returnTo") ?? "").trim();
+  let actor;
+  try {
+    actor = await requireUserManager("user.update");
+  } catch (error) {
+    if (isForbiddenUserAction(error)) {
+      redirectWithUserResult(returnTo, "not_authorised");
+    }
+    throw error;
+  }
+
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const role = normalizeRole(String(formData.get("role") ?? Role.STANDARD_USER));
   const status = normalizeStatus(String(formData.get("status") ?? UserStatus.ACTIVE));
   const academyId = String(formData.get("academyId") ?? "").trim() || null;
-  const returnTo = String(formData.get("returnTo") ?? "").trim();
   const redirectTo = managedUsersReturnPath(returnTo);
 
   if (!email || !email.includes("@")) return;
@@ -119,6 +141,9 @@ export async function updateManagedUser(userId: string, formData: FormData) {
   try {
     await updateUserInService(actor, userId, { name, email, phone, role, status, academyId });
   } catch (error) {
+    if (isForbiddenUserAction(error)) {
+      redirectWithUserResult(returnTo, "not_authorised");
+    }
     if (typeof error === "object" && error !== null && "status" in error && error.status === 409) {
       const url = new URL(redirectTo, "http://localhost");
       url.searchParams.set("userResult", "duplicate_email");
@@ -212,4 +237,38 @@ export async function sendPasswordChangeEmail(userId: string, formData?: FormDat
   url.searchParams.set("userResult", "password_reset_sent");
   url.searchParams.set("email", user.email);
   redirect(`${url.pathname}${url.search}`);
+}
+
+export async function setTemporaryPassword(userId: string, formData: FormData) {
+  const returnTo = String(formData.get("returnTo") ?? "/dashboard/users").trim();
+  let actor;
+  try {
+    actor = await requireUserManager("user.password.set_temporary");
+  } catch (error) {
+    if (isForbiddenUserAction(error)) redirectWithUserResult(returnTo, "not_authorised");
+    throw error;
+  }
+
+  const temporaryPassword = String(formData.get("temporaryPassword") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  if (temporaryPassword.length < 8 || temporaryPassword.length > 128 || temporaryPassword !== confirmPassword || !reason || reason.length > 500) {
+    redirectWithUserResult(returnTo, "temporary_password_invalid");
+  }
+
+  const { user } = await getManagedUser(actor, userId);
+  if (!canSetManagedUserTemporaryPassword(actor, user)) {
+    redirectWithUserResult(returnTo, "not_authorised");
+  }
+
+  try {
+    await setManagedUserTemporaryPassword(actor, userId, { temporaryPassword, reason });
+  } catch (error) {
+    if (isForbiddenUserAction(error)) redirectWithUserResult(returnTo, "not_authorised");
+    throw error;
+  }
+
+  await notifyAdminPasswordChangedBestEffort(user);
+  revalidateUserSurfaces();
+  redirectWithUserResult(returnTo, "temporary_password_changed");
 }

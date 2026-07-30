@@ -254,10 +254,22 @@ describe("RollFinders authorisation client super admin contract", () => {
     assert.ok(
       authorizeFunction.indexOf('actor.role === "SUPER_ADMIN"') <
         authorizeFunction.indexOf(
-          "fetch(`${authorisationServiceUrl()}/authorize`",
+          "requestAuthorisationDecision(actor, permission, scope, true)",
         ),
       "SUPER_ADMIN must be allowed before calling the authorisation service",
     );
+  });
+
+  it("supports strict service-backed decisions for capability-sensitive routes", () => {
+    const source = readSource("apps/portal/src/lib/authorisation-service.ts");
+    const strictFunction =
+      source.match(/export async function authorizeThroughService[\s\S]*?\n}\n/)?.[0] ?? "";
+
+    assert.match(
+      strictFunction,
+      /requestAuthorisationDecision\(actor, permission, scope, false\)/,
+    );
+    assert.doesNotMatch(strictFunction, /SUPER_ADMIN|ADMIN/);
   });
 
   it("uses the direct authorisation service URL for server-side permission checks when configured", () => {
@@ -276,6 +288,33 @@ describe("RollFinders authorisation client super admin contract", () => {
     assert.match(fallbackFunction, /permission\.startsWith\("wallet\."\)/);
     assert.match(fallbackFunction, /role === "ACADEMY_ADMIN"/);
     assert.match(fallbackFunction, /role === "ACADEMY_OWNER"/);
+  });
+
+  it("seeds academy managers with the gateway permissions required to manage academy users", () => {
+    const seed = readSource(
+      "apps/backend_api/internal/services/authorisation/migrations/procedures/001_seedAuthorisationCatalog.sql",
+    );
+    const academyBlockEnd = seed.indexOf(
+      "WHERE r.key IN ('ACADEMY_OWNER', 'ACADEMY_ADMIN')",
+    );
+    const academyBlockStart = seed.lastIndexOf(
+      "INSERT INTO role_permissions",
+      academyBlockEnd,
+    );
+    const academyRolePermissions = seed.slice(
+      academyBlockStart,
+      academyBlockEnd,
+    );
+
+    for (const permission of [
+      "user.create",
+      "user.read",
+      "user.update",
+      "academy.membership.assign",
+      "academy.membership.remove",
+    ]) {
+      assert.match(academyRolePermissions, new RegExp(`'${permission.replace(".", "\\.")}'`));
+    }
   });
 });
 

@@ -60,6 +60,7 @@ import { getFounderAnalyticsReport } from "@/lib/analytics/reporting";
 import {
   academyScopedEventWhere,
   canSendManagedUserPasswordReset,
+  canSetManagedUserTemporaryPassword,
   elevatedAdminPrivacyAuditLogWhere,
   getCurrentUser,
   isAcademyAdminRole,
@@ -205,6 +206,7 @@ import {
   createManagedUser,
   deleteManagedUser,
   toggleManagedUserDisabled,
+  setTemporaryPassword,
   updateManagedUser,
   verifyManagedUserEmail,
 } from "../admin/users/actions";
@@ -445,7 +447,7 @@ function dashboardServiceDescription(label: string, academyAdmin: boolean) {
     "Courses/Events":
       "Create and manage courses, events, seminars, and open mats.",
     "Manage Academies": "Review, verify, and manage academy records.",
-    "Manage Users": "Create users, assign roles, and manage access.",
+    Users: "Create users, assign roles, and manage access.",
     Map: "Inspect academy locations on the platform map.",
     Payments: "Review payment activity, earnings, refunds, and payouts.",
     Settings: "Manage dashboard account and platform settings.",
@@ -1081,6 +1083,17 @@ export default async function AdminDashboardWorkspace({
   ).trim();
   const platformAdmin = isPlatformAdminRole(currentUser.role);
   const elevatedAdmin = !academyAdmin && platformAdmin;
+  const canCreateUser =
+    panel === "users" && usersView === "overview"
+      ? await authorize(currentUser, "user.create", {
+          applicationId:
+            process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+          organisationId: currentUser.academyId ?? undefined,
+        })
+      : false;
+  if (panel === "users" && dialog === "new-user" && !canCreateUser) {
+    redirect("/dashboard/users?userResult=not_authorised");
+  }
   const canCreateCourse =
     panel === "open-mats"
       ? await authorize(currentUser, "course.create", {
@@ -1713,7 +1726,7 @@ export default async function AdminDashboardWorkspace({
       active: panel === "users",
       href: "/dashboard/users",
       icon: "users",
-      label: "Manage Users",
+      label: "Users",
     },
     ...(superAdmin
       ? [
@@ -2543,7 +2556,7 @@ export default async function AdminDashboardWorkspace({
                 {panel === "users" ? (
                   <AdminPanel
                     action={
-                      usersView === "overview" ? (
+                      usersView === "overview" && canCreateUser ? (
                         <Button
                           href="/dashboard/users?dialog=new-user"
                           variant="primary"
@@ -3152,6 +3165,11 @@ async function EditUserDialog({
     organisationId: user.academyId ?? undefined,
     applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
   }).catch(() => []);
+  const canSetTemporaryPassword = canSetManagedUserTemporaryPassword(actor, user)
+    && await authorize(actor, "user.password.set_temporary", {
+      organisationId: user.academyId ?? undefined,
+      applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    }).catch(() => false);
 
   return (
     <DialogShell
@@ -3166,6 +3184,7 @@ async function EditUserDialog({
         assignableFeatures={assignableFeatures}
         cancelHref="/dashboard/users"
         mode="edit"
+        passwordAction={canSetTemporaryPassword ? setTemporaryPassword.bind(null, user.id) : undefined}
         returnTo="/dashboard/users"
         academyAdmin={academyAdmin}
         actorRole={actor.role}

@@ -50,6 +50,11 @@ const (
 	AcademiesAcademyIdMembersUserId                      = gatewayroutes.AcademiesAcademyIdMembersUserId
 	AcademiesAcademyIdSearchHide                         = gatewayroutes.AcademiesAcademyIdSearchHide
 	AccountsAccountId                                    = gatewayroutes.AccountsAccountId
+	AccountDeletionRequestsSelf                          = gatewayroutes.AccountDeletionRequestsSelf
+	AccountDeletionRequestsEmail                         = gatewayroutes.AccountDeletionRequestsEmail
+	AccountDeletionRequestsConfirm                       = gatewayroutes.AccountDeletionRequestsConfirm
+	AccountDeletionRequestsCurrent                       = gatewayroutes.AccountDeletionRequestsCurrent
+	AccountDeletionRequestsCurrentCancel                 = gatewayroutes.AccountDeletionRequestsCurrentCancel
 	ActivitiesActivityId                                 = gatewayroutes.ActivitiesActivityId
 	Applications                                         = gatewayroutes.Applications
 	ApplicationsApplicationId                            = gatewayroutes.ApplicationsApplicationId
@@ -117,6 +122,7 @@ const (
 	Users                                                = gatewayroutes.Users
 	UsersUserId                                          = gatewayroutes.UsersUserId
 	UsersUserIdMutation                                  = gatewayroutes.UsersUserIdMutation
+	UsersUserIdTemporaryPassword                         = gatewayroutes.UsersUserIdTemporaryPassword
 	WebhooksProvider                                     = gatewayroutes.WebhooksProvider
 	SubscriptionProducts                                 = gatewayroutes.SubscriptionProducts
 	SubscriptionProduct                                  = gatewayroutes.SubscriptionProduct
@@ -281,6 +287,7 @@ const (
 	PermissionUserRead                           = gatewayroutes.PermissionUserRead
 	PermissionUserSearch                         = gatewayroutes.PermissionUserSearch
 	PermissionUserUpdate                         = gatewayroutes.PermissionUserUpdate
+	PermissionUserPasswordSetTemporary           = gatewayroutes.PermissionUserPasswordSetTemporary
 )
 
 const (

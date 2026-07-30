@@ -1,6 +1,6 @@
 import { Role, UserStatus } from "@prisma/client";
 import { redirect } from "next/navigation";
-import { getAcademyFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "./academyService";
+import { getAcademyProfileFromAcademyService, listAcademyMembershipsForUserFromAcademyService } from "./academyService";
 import { getCurrentUser, isStandardUserRole } from "./admin";
 import { loginUrl } from "./auth-urls";
 
@@ -8,7 +8,7 @@ type ServiceUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
 export async function getDashboardShadowAccount(user: ServiceUser) {
   const academy = user.academyId
-    ? await getAcademyFromAcademyService(user.academyId, user)
+    ? await getAcademyProfileFromAcademyService(user.academyId, user)
     : null;
   return {
     id: user.id,
@@ -32,9 +32,9 @@ export async function requireDashboardUser() {
   const fallbackMembership = account.academy
     ? null
     : (await listAcademyMembershipsForUserFromAcademyService(account.id, user))[0];
-  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId, user) : null;
+  const fallbackAcademy = fallbackMembership ? await getAcademyProfileFromAcademyService(fallbackMembership.academyId, user) : null;
 
-  return { user: account, academy: account.academy ?? fallbackAcademy };
+  return { user: account, academy: account.academy ?? fallbackAcademy, actor: user };
 }
 
 export async function requireStandardDashboardUser() {
@@ -47,11 +47,11 @@ export async function requireStandardDashboardUser() {
   const fallbackMembership = account.academy
     ? null
     : (await listAcademyMembershipsForUserFromAcademyService(account.id, user))[0];
-  const fallbackAcademy = fallbackMembership ? await getAcademyFromAcademyService(fallbackMembership.academyId, user) : null;
+  const fallbackAcademy = fallbackMembership ? await getAcademyProfileFromAcademyService(fallbackMembership.academyId, user) : null;
   const academy = account.academy ?? fallbackAcademy;
   if (!academy) redirect(loginUrl("/dashboard"));
 
-  return { user: account, academy };
+  return { user: account, academy, actor: user };
 }
 
 export function memberSearchWhere(academyId: string, query: string) {

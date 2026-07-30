@@ -382,6 +382,7 @@ function MultiStepAcademyForm({
       postcode: values.postcode,
       country: values.country,
     });
+    if (academy?.id) params.set("academyId", academy.id);
 
     try {
       const response = await fetch(`${geocodeEndpoint}?${params.toString()}`);

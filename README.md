@@ -9,16 +9,58 @@ RollFinders is a Next.js MVP for finding Brazilian Jiu-Jitsu academies and open 
 - Prisma migrations and seed data
 - NextAuth credentials provider
 
-## Local Setup
+## Start the Application with Docker Compose
 
 ```bash
 cp .env.example .env
-docker compose --profile db up -d
+docker compose --profile app up --build -d --remove-orphans
+```
+
+The `app` profile starts PostgreSQL, applies migrations, and starts the portal,
+API gateway, and backend services. Open http://localhost:3000 after the
+containers become healthy.
+
+Check container status and follow portal logs:
+
+```bash
+docker compose --profile app ps
+docker compose logs -f app
+```
+
+Restart the stack without rebuilding images:
+
+```bash
+docker compose --profile app up -d --remove-orphans
+```
+
+Rebuild after source or dependency changes:
+
+```bash
+docker compose --profile app up --build -d --remove-orphans
+```
+
+Stop the application while retaining local database data:
+
+```bash
+docker compose --profile app down
+```
+
+Do not add `--volumes` unless the local database data should also be deleted.
+If an image build fails while contacting Docker Hub, retry the same build after
+connectivity is restored; already-running containers are not removed by a
+failed build.
+
+## Run the Portal on the Host
+
+Use this workflow when developing the portal while the database and backend
+services continue to run in Compose:
+
+```bash
+docker compose --profile app up -d --remove-orphans
+docker compose stop app
 npm install
 npm run db:generate
-npm run db:dev
-npm run db:seed
-npm run dev
+npm run dev -- --hostname 0.0.0.0 --port 3000
 ```
 
 Open http://localhost:3000.
@@ -69,10 +111,10 @@ docker compose --profile db up -d
 Run the production application container and database:
 
 ```bash
-docker compose --profile app up --build
+docker compose --profile app up --build -d --remove-orphans
 ```
 
-The `app` profile starts Postgres, waits for it to become healthy, runs Prisma migrations, and then starts Next.js at http://localhost:3000.
+The `app` profile starts the complete local service stack described above.
 
 Seed the Docker database when needed:
 

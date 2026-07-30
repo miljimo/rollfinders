@@ -3,6 +3,7 @@ import type { Viewport } from "next";
 import type React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Bookmark, CalendarCheck, ChevronRight, Clock, HandHeart, MapPin, Search, UsersRound, UserRound } from "lucide-react";
 import { CourseType } from "@prisma/client";
 import { Button } from "@/app/_components/Button";
@@ -15,9 +16,7 @@ import { getCurrentUser } from "@/lib/admin";
 import { getAcademyFromAcademyService, listAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
 import { coursePriceLabel, courseTypeLabel } from "@/lib/courses";
 import { getOpenMatRadar, searchAcademies } from "@/lib/data";
-import { listBookingsPage } from "@/lib/bookings";
 import { formatDate, formatDistanceMiles } from "@/lib/utils";
-import { MobileAuthenticatedProfile } from "./MobileAuthenticatedProfile";
 import { MobileDiscoverySearch, type MobileSearchSuggestion } from "./MobileDiscoverySearch";
 
 export const dynamic = "force-dynamic";
@@ -104,6 +103,9 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   const query = params.q?.trim() ?? "";
   const currentUser = await getCurrentUser();
   const profileAuth = params.auth === "register" ? "register" : params.auth === "sign-in" ? "sign-in" : params.auth === "forgot-password" ? "forgot-password" : null;
+  if (currentUser && activeTab === "profile") {
+    redirect("/dashboard?panel=profile&surface=mobile");
+  }
 
   const [events, academies, mobileAcademyOptions, selectedMobileAcademy] = await Promise.all([
     mobileDataOrEmpty(() => getOpenMatRadar({ q: query, when: params.when, latitude: location?.latitude, longitude: location?.longitude, courseType: CourseType.OPEN_MAT })),
@@ -111,15 +113,6 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
     activeTab === "profile" && profileAuth === "register" ? mobileDataOrEmpty(() => listAcademiesFromAcademyService({ limit: 100 })) : Promise.resolve([]),
     activeTab === "profile" && profileAuth === "register" && params.academyId ? mobileDataOrNull(() => getAcademyFromAcademyService(params.academyId ?? "")) : Promise.resolve(null),
   ]);
-  const [profileAcademy, bookingCount] = currentUser && activeTab === "profile"
-    ? await Promise.all([
-        currentUser.academyId
-          ? mobileDataOrNull(() => getAcademyFromAcademyService(currentUser.academyId ?? "", currentUser))
-          : Promise.resolve(null),
-        mobileBookingCount(currentUser),
-      ])
-    : [null, 0];
-
   return (
     <main className="min-h-dvh w-screen max-w-[100vw] overflow-x-hidden [overflow-x:clip] bg-[radial-gradient(circle_at_top_left,#eefaf7_0,#ffffff_34%,#f7faf8_100%)] pb-24 text-stone-950">
       <header className="w-full max-w-[100vw] border-b border-stone-200 bg-white/85 px-4 pb-5 pt-7">
@@ -137,13 +130,11 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
           <ProfileView
             academyOptions={academySelectOptions(mobileAcademyOptions)}
             authMode={profileAuth}
-            bookingCount={bookingCount}
             currentUser={currentUser}
             error={params.error}
             registered={params.registered === "1"}
             registeredEmail={params.email}
             selectedAcademy={selectedMobileAcademy}
-            userAcademy={profileAcademy}
             verifyEmail={params.verifyEmail === "1"}
             warning={params.warning}
           />
@@ -153,20 +144,6 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
       <MobileNavigation activeTab={navActiveTab(activeTab)} />
     </main>
   );
-}
-
-async function mobileBookingCount(user: NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>) {
-  try {
-    const result = await listBookingsPage({
-      accessToken: user.accessToken,
-      actorUserId: user.id,
-      customerId: user.id,
-      limit: 1,
-    });
-    return result.pagination.count;
-  } catch {
-    return 0;
-  }
 }
 
 function MobileAuthHome() {
@@ -271,25 +248,21 @@ function AcademiesView({ signedIn }: { signedIn: boolean }) {
 function ProfileView({
   academyOptions,
   authMode,
-  bookingCount,
   currentUser,
   error,
   registered,
   registeredEmail,
   selectedAcademy,
-  userAcademy,
   verifyEmail,
   warning,
 }: {
   academyOptions: ReturnType<typeof academySelectOptions>;
   authMode: "register" | "sign-in" | "forgot-password" | null;
-  bookingCount: number;
   currentUser: Awaited<ReturnType<typeof getCurrentUser>>;
   error?: string;
   registered: boolean;
   registeredEmail?: string;
   selectedAcademy: AcademyServiceRecord | null;
-  userAcademy: AcademyServiceRecord | null;
   verifyEmail: boolean;
   warning?: string;
 }) {
@@ -306,8 +279,7 @@ function ProfileView({
     return <MobileAuthChoice />;
   }
 
-  const profileName = (currentUser as typeof currentUser & { name?: string | null }).name;
-  return <MobileAuthenticatedProfile academyName={userAcademy?.name} bookingCount={bookingCount} email={currentUser.email} name={profileName} role={currentUser.role} />;
+  redirect("/dashboard?panel=profile&surface=mobile");
 }
 
 function MobileAuthChoice() {

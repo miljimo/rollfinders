@@ -51,6 +51,19 @@ export type AssignableUserFeature = {
   permissions: AssignableUserPermission[];
 };
 
+export type AccountDeletionRequest = {
+  id: string;
+  userId: string;
+  source: "AUTHENTICATED_DASHBOARD" | "VERIFIED_PUBLIC_WEB";
+  status: "PENDING_VERIFICATION" | "PENDING_PROCESSING" | "CANCELLED";
+  requestedAt: string;
+  verifiedAt: string | null;
+  dueAt: string | null;
+  cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type AuthTokens = {
   access_token: string;
   refresh_token?: string;
@@ -236,6 +249,61 @@ export async function validatePasswordResetToken(token: string) {
   return parseResponse(response) as Promise<{ valid: boolean }>;
 }
 
+export async function createSelfAccountDeletionRequest(actor: ActorContext) {
+  const response = await fetch(`${userServiceUrl()}/v1/account-deletion-requests/self`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  return parseResponse(response) as Promise<{ request: AccountDeletionRequest }>;
+}
+
+export async function requestAccountDeletionByEmail(email: string) {
+  const response = await fetch(`${userServiceUrl()}/v1/account-deletion-requests/email`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(),
+    body: JSON.stringify({ email }),
+  });
+  return parseResponse(response) as Promise<{
+    ok: boolean;
+    token?: string;
+    expiresAt?: string;
+    user?: { id: string; email: string; name?: string | null };
+  }>;
+}
+
+export async function confirmAccountDeletionToken(token: string) {
+  const response = await fetch(`${userServiceUrl()}/v1/account-deletion-requests/confirm`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(),
+    body: JSON.stringify({ token }),
+  });
+  return parseResponse(response) as Promise<{
+    request: AccountDeletionRequest;
+    user: { id: string; email: string; name?: string | null };
+  }>;
+}
+
+export async function getCurrentAccountDeletionRequest(actor: ActorContext) {
+  const response = await fetch(`${userServiceUrl()}/v1/account-deletion-requests/current`, {
+    method: "GET",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  return parseResponse(response) as Promise<{ request: AccountDeletionRequest | null }>;
+}
+
+export async function cancelCurrentAccountDeletionRequest(actor: ActorContext) {
+  const response = await fetch(`${userServiceUrl()}/v1/account-deletion-requests/current/cancel`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+  });
+  return parseResponse(response) as Promise<{ request: AccountDeletionRequest }>;
+}
+
 export async function listManagedUsers(actor: ActorContext, query: string) {
   const response = await fetch(`${userServiceUrl()}/v1/users${query ? `?${query}` : ""}`, {
     method: "GET",
@@ -270,6 +338,23 @@ export async function getManagedUser(actor: ActorContext, id: string) {
   });
   const result = await parseResponse(response) as { user: ManagedUser };
   return { user: await enrichManagedUserWithRollfinderProfile(result.user, actor) as ManagedUser };
+}
+
+export async function setManagedUserTemporaryPassword(
+  actor: ActorContext,
+  id: string,
+  input: { temporaryPassword: string; reason: string },
+) {
+  const response = await fetch(`${userServiceUrl()}/v1/users/${encodeURIComponent(id)}/temporary-password`, {
+    method: "POST",
+    cache: "no-store",
+    headers: headers(actor),
+    body: JSON.stringify({
+      temporary_password: input.temporaryPassword,
+      reason: input.reason,
+    }),
+  });
+  return parseResponse(response) as Promise<{ auditId: string; user: ManagedUser }>;
 }
 
 export async function listAssignableUserFeatures(actor: ActorContext, id: string, search = "") {

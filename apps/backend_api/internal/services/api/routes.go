@@ -150,11 +150,17 @@ func serviceDefinitions() []ServiceDefinition {
 		}},
 
 		{Name: UserService, Routes: []RouteDefinitionWithPermission{
+			{Method: http.MethodPost, Path: AccountDeletionRequestsSelf, Permission: PermissionAccountUpdate},
+			{Method: http.MethodPost, Path: AccountDeletionRequestsEmail, Public: true},
+			{Method: http.MethodPost, Path: AccountDeletionRequestsConfirm, Public: true},
+			{Method: http.MethodGet, Path: AccountDeletionRequestsCurrent, Permission: PermissionAccountRead},
+			{Method: http.MethodPost, Path: AccountDeletionRequestsCurrentCancel, Permission: PermissionAccountUpdate},
 			{Method: http.MethodGet, Path: Users, Permission: PermissionUserSearch},
 			{Method: http.MethodPost, Path: Users, Permission: PermissionUserCreate},
 			{Method: http.MethodGet, Path: UsersUserId, Permission: PermissionUserRead, ResourceType: ResourceUser, ResourceIDParam: ParamUserId},
 			{Method: http.MethodPut, Path: UsersUserId, Permission: PermissionUserUpdate, ResourceType: ResourceUser, ResourceIDParam: ParamUserId},
 			{Method: http.MethodDelete, Path: UsersUserId, Permission: PermissionUserDelete, ResourceType: ResourceUser, ResourceIDParam: ParamUserId},
+			{Method: http.MethodPost, Path: UsersUserIdTemporaryPassword, Permission: PermissionUserPasswordSetTemporary, ResourceType: ResourceUser, ResourceIDParam: ParamUserId},
 			{Method: http.MethodPost, Path: UsersUserIdMutation, Permission: PermissionUserUpdate, ResourceType: ResourceUser, ResourceIDParam: ParamUserId},
 			{Method: http.MethodGet, Path: AccountsAccountId, Permission: PermissionAccountRead, ResourceType: ResourceAccount, ResourceIDParam: ParamAccountId},
 			{Method: http.MethodPatch, Path: AccountsAccountId, Permission: PermissionAccountUpdate, ResourceType: ResourceAccount, ResourceIDParam: ParamAccountId},

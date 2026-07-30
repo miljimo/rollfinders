@@ -74,10 +74,10 @@ function passwordResetEmailHtml({ name, resetLink, year }: { name: string; reset
           </tr>
         </table>
 
-        <p style="font-size:12px; color:#6b7280; margin-top:16px;">
+        ${resetLink ? `<p style="font-size:12px; color:#6b7280; margin-top:16px;">
           If the button does not work, copy and paste this link into your browser:<br />
           <span style="color:#0f766e;">${escapedResetLink}</span>
-        </p>
+        </p>` : ""}
       </td>
     </tr>
   </table>
@@ -85,10 +85,10 @@ function passwordResetEmailHtml({ name, resetLink, year }: { name: string; reset
 </html>`;
 }
 
-function passwordChangedEmailHtml({ email, name, resetLink, year }: { email: string; name: string; resetLink: string; year: number }) {
+function passwordChangedEmailHtml({ email, name, resetLink, year }: { email: string; name: string; resetLink?: string; year: number }) {
   const escapedEmail = escapeHtml(email);
   const escapedName = escapeHtml(name);
-  const escapedResetLink = escapeHtml(resetLink);
+  const escapedResetLink = resetLink ? escapeHtml(resetLink) : "";
 
   return `<!DOCTYPE html>
 <html>
@@ -131,7 +131,7 @@ function passwordChangedEmailHtml({ email, name, resetLink, year }: { email: str
                 </tr>
               </table>
 
-              <p style="font-size:16px; line-height:1.6; margin:0 0 24px;">
+              ${resetLink ? `<p style="font-size:16px; line-height:1.6; margin:0 0 24px;">
                 If you forget your password or did not make this change, use the button below to reset it.
               </p>
 
@@ -143,7 +143,9 @@ function passwordChangedEmailHtml({ email, name, resetLink, year }: { email: str
 
               <p style="font-size:14px; line-height:1.6; color:#4b5563; margin:0;">
                 This link will expire in 24 hours.
-              </p>
+              </p>` : `<p style="font-size:16px; line-height:1.6; margin:0;">
+                An administrator changed your password. Your active sessions were signed out. Contact RollFinders support immediately if you did not expect this change.
+              </p>`}
             </td>
           </tr>
 
@@ -231,6 +233,26 @@ export async function notifyPasswordChangedBestEffort(user: { id: string; email:
     await queuePasswordChangedEmail(user);
   } catch (error) {
     console.error("[password-change] confirmation email failed", error);
+  }
+}
+
+export async function notifyAdminPasswordChangedBestEffort(user: { id: string; email: string; name?: string | null }) {
+  try {
+    const recipientName = user.name?.trim() || "there";
+    const outboundEmail = await queueEmail({
+      userId: null,
+      to: user.email,
+      subject: "An administrator changed your RollFinders password",
+      text: `Hi ${recipientName},\n\nAn administrator changed your RollFinders password. Your active sessions were signed out.\n\nUsername: ${user.email}\nPassword: Not sent by email\n\nContact RollFinders support immediately if you did not expect this change.`,
+      html: passwordChangedEmailHtml({
+        email: user.email,
+        name: recipientName,
+        year: new Date().getFullYear(),
+      }),
+    });
+    await sendQueuedPasswordEmail(outboundEmail.id);
+  } catch (error) {
+    console.error("[admin-password-change] confirmation email failed", error);
   }
 }
 

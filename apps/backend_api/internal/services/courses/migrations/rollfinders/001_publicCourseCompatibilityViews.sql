@@ -345,7 +345,7 @@ LANGUAGE plpgsql
 SET search_path = courses, public
 AS $$
 BEGIN
-  CALL courses."courseDelete"(OLD.id, OLD.created_by_id, 'Deleted through RollFinders compatibility view');
+  CALL courses."courseDelete"(OLD.id, OLD.academy_id, OLD.created_by_id);
   RETURN OLD;
 END;
 $$;

@@ -69,9 +69,9 @@ describe("unified dashboard route contracts", () => {
     assert.match(standardSource, /<SidePanelControl[\s\S]*navigationItems=\{standardNavigationItems\}/);
     assert.match(standardSource, /supportHref="\/contact"/);
 
-    assert.match(source, /label:\s*"Dashboard"[\s\S]*href:\s*"\/dashboard"/);
-    assert.match(source, /label:\s*"Profile"[\s\S]*href:\s*"\/dashboard\?panel=profile"/);
-    assert.match(source, /label:\s*"Settings"[\s\S]*href:\s*"\/dashboard\?panel=settings"/);
+    assert.match(source, /label:\s*"Dashboard"[\s\S]*href:\s*standardDashboardHref\(params,\s*\{\s*panel:\s*"dashboard"\s*\}\)/);
+    assert.match(source, /label:\s*"Profile"[\s\S]*href:\s*standardDashboardHref\(params,\s*\{\s*panel:\s*"profile"\s*\}\)/);
+    assert.match(source, /label:\s*"Settings"[\s\S]*href:\s*standardDashboardHref\(params,\s*\{\s*panel:\s*"settings"\s*\}\)/);
     assert.doesNotMatch(standardSource, /My Academy Rolls|Password \/ Account Settings/);
 
     for (const adminLabel of ["Platform Administration", "Academy Administration", "User Administration", "Email Operations", "Academy Claims", "Map Settings", "System Settings"]) {
@@ -81,13 +81,17 @@ describe("unified dashboard route contracts", () => {
 
   it("standard-user dashboard rolls are read-only and scoped to the user's academy", () => {
     const dashboardPage = readSource("apps/portal/src/app/dashboard/page.tsx");
+    const dashboardTable = readSource("apps/portal/src/app/dashboard/StandardDashboardRollsTable.tsx");
     const rollsRoute = readSource("apps/portal/src/app/api/dashboard/rolls/route.ts");
 
     assert.match(dashboardPage, /academyId,\s*\n\s*active:\s*true,\s*\n\s*eventDate:\s*\{\s*gte:\s*startOfToday\(\)\s*\}/);
     assert.match(dashboardPage, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
     assert.match(dashboardPage, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
     assert.match(dashboardPage, /take:\s*standardRollsPageSize/);
-    assert.match(dashboardPage, /getRowHref=\{\(row\) => dashboardCourseHref\(row,\s*returnTo\)\}/);
+    assert.match(dashboardPage, /href:\s*dashboardCourseHref\(roll,\s*returnTo\)/);
+    assert.match(dashboardPage, /<StandardDashboardRollsTable/);
+    assert.match(dashboardTable, /"use client"/);
+    assert.match(dashboardTable, /getRowHref=\{\(row\) => row\.href\}/);
     assert.doesNotMatch(dashboardPage, /dialog=new-open-mat|dialog=edit-user|deleteManagedUser|createOpenMat|updateOpenMat/);
 
     assert.match(rollsRoute, /isStandardUserRole\(user\.role\)/);
@@ -108,8 +112,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardPage, /<QuickActionPanel title="Account Actions"/);
     assert.match(dashboardPage, /title:\s*"Change Password"/);
     assert.match(dashboardPage, /title:\s*"Edit Profile"/);
-    assert.match(dashboardPage, /href:\s*"\/dashboard\?panel=settings&settingsAction=change-password"/);
-    assert.match(dashboardPage, /href:\s*"\/dashboard\?panel=settings&settingsAction=edit-profile"/);
+    assert.match(dashboardPage, /href:\s*settingsHref\("change-password"\)/);
+    assert.match(dashboardPage, /href:\s*settingsHref\("edit-profile"\)/);
     assert.match(dashboardPage, /activeAction\s*===\s*"change-password"[\s\S]*<ChangePasswordForm[\s\S]*embedded/);
     assert.match(dashboardPage, /activeAction\s*===\s*"edit-profile"[\s\S]*<EditProfileForm[\s\S]*email=\{user\.email\}[\s\S]*name=\{user\.name\}/);
     assert.match(dashboardPage, /Choose Change Password or Edit Profile to open the form here/);
@@ -129,6 +133,18 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(standardProfileAction, /data:[\s\S]*\b(role|status|academyId|disabled|isProtected)\b/);
   });
 
+  it("standard dashboard academy lookup does not require academy roster access", () => {
+    const dashboard = readSource("apps/portal/src/lib/standard-dashboard.ts");
+    const academyService = readSource("apps/portal/src/lib/academyService.ts");
+
+    assert.match(dashboard, /getAcademyProfileFromAcademyService/);
+    assert.doesNotMatch(dashboard, /getAcademyFromAcademyService/);
+    assert.match(
+      academyService,
+      /export async function getAcademyProfileFromAcademyService[\s\S]*?return academyFromService\(academy\)/,
+    );
+  });
+
   it("dashboard top account trigger uses the shared account dropdown menu", () => {
     const standardSource = readSource("apps/portal/src/app/dashboard/page.tsx");
     const adminSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
@@ -140,12 +156,12 @@ describe("unified dashboard route contracts", () => {
       assert.doesNotMatch(source, /<LogoutButton/);
     }
 
-    assert.match(standardSource, /profileHref="\/dashboard\?panel=profile"/);
-    assert.match(standardSource, /settingsHref="\/dashboard\?panel=settings"/);
+    assert.match(standardSource, /profileHref=\{standardDashboardHref\(params,\s*\{\s*panel:\s*"profile"\s*\}\)\}/);
+    assert.match(standardSource, /settingsHref=\{standardDashboardHref\(params,\s*\{\s*panel:\s*"settings"\s*\}\)\}/);
     assert.match(adminSource, /profileHref="\/dashboard\?panel=settings&settingsAction=edit-profile"/);
     assert.match(adminSource, /settingsHref="\/dashboard\?panel=settings"/);
     assert.match(accountMenuSource, /<UserAccountDropDownMenu/);
-    assert.match(accountMenuSource, /signOut\(\{ callbackUrl: logoutCallbackUrl\(\) \}\)/);
+    assert.match(accountMenuSource, /signOut\(\{\s*callbackUrl:\s*signOutCallbackUrl\s*\?\?\s*logoutCallbackUrl\(\)\s*\}\)/);
   });
 
   it("standard users are not treated as admin roles for admin APIs or admin page guards", () => {
@@ -288,6 +304,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(userServiceSource, /syncRollfinderUserProfile\(result\.user,\s*academyId(?:,\s*actor)?\)/);
     assert.match(userServiceSource, /replaceUserAuthorisationRole\(actor,\s*result\.user\.id,\s*role,\s*\{ organisationId: academyId \?\? undefined \}\)/);
     assert.match(actionsSource, /canAssignManagedUserRole\(actor,\s*\{ role,\s*academyId \}\)/);
+    assert.match(actionsSource, /requireUserManager\("user\.create"\)/);
+    assert.match(actionsSource, /requireUserManager\("user\.update"\)/);
     assert.match(profileSource, /listUserAuthorisationRoles/);
     assert.doesNotMatch(profileSource, /AcademyMemberRole|memberRole|member_role/);
     assert.doesNotMatch(profileSource, /roleForAcademyMember|profileRole/);
@@ -295,6 +313,14 @@ describe("unified dashboard route contracts", () => {
     assert.match(profileSource, /addAcademyMemberInAcademyService/);
     assert.doesNotMatch(schemaSource, /enum AcademyMemberRole|role\s+AcademyMemberRole/);
     assert.doesNotMatch(schemaSource, /model User \{/);
+  });
+
+  it("gates managed user creation with the gateway user-create permission", () => {
+    const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
+
+    assert.match(dashboardSource, /authorize\(currentUser,\s*"user\.create"/);
+    assert.match(dashboardSource, /dialog === "new-user" && !canCreateUser/);
+    assert.match(dashboardSource, /usersView === "overview" && canCreateUser/);
   });
 
   it("managed user tables request exactly ten users per page", () => {
@@ -368,7 +394,7 @@ describe("unified dashboard route contracts", () => {
 
     assert.notEqual(navigationSource, "", "Expected admin navigation source to be present");
     assert.notEqual(mobileNavigationSource, "", "Expected dashboard service navigation source to be present");
-    for (const label of ["Dashboard", "Manage Users", "Analytics", "Academy Review", "Academy Claims", "Wallet", "Map", "Settings"]) {
+    for (const label of ["Dashboard", "Users", "Analytics", "Academy Review", "Academy Claims", "Wallet", "Map", "Settings"]) {
       assert.match(navigationSource, new RegExp(`label:\\s*"${label}"`));
     }
     assert.match(navigationSource, /label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"/);
@@ -379,7 +405,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(navigationSource, /academyAdmin[\s\S]*href:\s*"\/dashboard\?panel=settings"[\s\S]*label:\s*"Settings"/);
     assert.match(navigationSource, /href:\s*"\/dashboard\/academy-review"/);
     assert.match(navigationSource, /active:\s*!firstParam\(params\.panel\)/);
-    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Manage Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Wallet"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
+    assert.match(navigationSource, /label:\s*"Dashboard"[\s\S]*label:\s*academyAdmin\s*\?\s*"Academy Profile"\s*:\s*"Manage Academies"[\s\S]*label:\s*openMatSessionsLabel[\s\S]*label:\s*"Users"[\s\S]*label:\s*"Analytics"[\s\S]*label:\s*"Academy Review"[\s\S]*label:\s*"Wallet"[\s\S]*label:\s*"Academy Claims"[\s\S]*label:\s*"Map"[\s\S]*label:\s*"Settings"/);
     assert.match(
       source,
       /\.filter\(\s*\(item\) =>\s*item\.href !== "\/dashboard" &&\s*item\.href !== "\/dashboard\?panel=maps" &&\s*item\.href !== "\/dashboard\?panel=settings",?\s*\)/,
@@ -409,7 +435,7 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(mobileNavigationSource, /label:\s*"Settings"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Academies"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Courses\/Sessions"/);
-    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Manage Users"/);
+    assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Users"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Analytics"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Academy Review"/);
     assert.doesNotMatch(navigationSource, /label:\s*"Settings"[\s\S]*label:\s*"Wallet"/);

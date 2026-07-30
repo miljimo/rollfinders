@@ -153,6 +153,9 @@ function serviceHeaders(actor?: ServiceActor) {
     ...(actor?.id
       ? { "X-Actor-User-ID": actor.id, "X-Actor": JSON.stringify(actor) }
       : {}),
+    ...(actor?.academyId
+      ? { "X-Organisation-ID": actor.academyId }
+      : {}),
   };
 }
 
@@ -514,15 +517,30 @@ export function academyClaimPlaceholder(status: ClaimStatus) {
 export async function getAcademyFromAcademyService(
   id: string,
   actor?: ServiceActor,
-) {
+): Promise<AcademyServiceRecord | null> {
+  try {
+    const academy = await getAcademyProfileFromAcademyService(id, actor);
+    if (!academy) return null;
+    const members = await listAcademyMembersFromAcademyService(id, actor);
+    return { ...academy, members };
+  } catch (error) {
+    if (error instanceof AcademyServiceError && error.status === 404)
+      return null;
+    throw error;
+  }
+}
+
+export async function getAcademyProfileFromAcademyService(
+  id: string,
+  actor?: ServiceActor,
+): Promise<AcademyServiceRecord | null> {
   try {
     const academy = (await request(
       `/v1/academies/${encodeURIComponent(id)}`,
       {},
       actor,
     )) as AcademyServiceAcademy;
-    const members = await listAcademyMembersFromAcademyService(id, actor);
-    return academyFromService(academy, members);
+    return academyFromService(academy);
   } catch (error) {
     if (error instanceof AcademyServiceError && error.status === 404)
       return null;

@@ -253,6 +253,7 @@
         "user.read",
         "user.search",
         "user.update",
+        "user.password.set_temporary",
         "user.delete",
         "user.mutate",
         "organisation.create",

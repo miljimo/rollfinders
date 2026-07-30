@@ -74,3 +74,45 @@ func TestAuthorizeChecksExplicitDenyBeforeSuperAdminFallback(t *testing.T) {
 		t.Fatalf("expected super admin fallback to use actor_max_role_level >= 1000")
 	}
 }
+
+func TestSelfAccountReadPolicy(t *testing.T) {
+	t.Parallel()
+
+	if !isSelfAccountRead("user_123", "account.read", Scope{ResourceID: "user_123"}) {
+		t.Fatal("expected users to read their own account")
+	}
+	for _, tc := range []struct {
+		name       string
+		userID     string
+		permission string
+		resourceID string
+	}{
+		{name: "another account", userID: "user_123", permission: "account.read", resourceID: "user_456"},
+		{name: "another permission", userID: "user_123", permission: "account.update", resourceID: "user_123"},
+		{name: "missing subject", permission: "account.read", resourceID: "user_123"},
+		{name: "missing resource", userID: "user_123", permission: "account.read"},
+	} {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if isSelfAccountRead(tc.userID, tc.permission, Scope{ResourceID: tc.resourceID}) {
+				t.Fatalf("unexpected self-account access for %#v", tc)
+			}
+		})
+	}
+}
+
+func TestSelfAccountReadRemainsAfterDirectDeny(t *testing.T) {
+	t.Parallel()
+
+	source, err := os.ReadFile("repository.go")
+	if err != nil {
+		t.Fatalf("read repository source: %v", err)
+	}
+	text := string(source)
+	denyIndex := strings.Index(text, `Reason: "direct_deny"`)
+	selfReadIndex := strings.Index(text, "isSelfAccountRead(userID")
+	if denyIndex < 0 || selfReadIndex < 0 || denyIndex > selfReadIndex {
+		t.Fatal("direct deny must be evaluated before the self-account policy")
+	}
+}

@@ -91,7 +91,7 @@ function UserResult({ params }: { params: UserSearchParams }) {
   const result = firstParam(params.userResult);
   if (!result) return null;
   const email = firstParam(params.email);
-  const success = result === "password_reset_sent" || result === "email_verified";
+  const success = result === "password_reset_sent" || result === "email_verified" || result === "temporary_password_changed";
   const message = result === "duplicate_email"
     ? `A user with ${email ?? "that email address"} already exists.`
     : result === "email_verified"
@@ -100,6 +100,12 @@ function UserResult({ params }: { params: UserSearchParams }) {
       ? `Password reset email sent${email ? ` to ${email}` : ""}.`
       : result === "password_reset_failed"
         ? `Password reset email could not be sent${email ? ` to ${email}` : ""}.`
+        : result === "temporary_password_changed"
+          ? "Temporary password changed. The user was signed out and notified."
+          : result === "temporary_password_invalid"
+            ? "Enter matching passwords of 8 to 128 characters and provide a reason."
+            : result === "not_authorised"
+              ? "You do not have permission to manage that user."
         : null;
   if (!message) return null;
   return (

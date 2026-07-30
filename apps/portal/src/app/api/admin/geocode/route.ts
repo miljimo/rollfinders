@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/admin";
+import { getCurrentUser } from "@/lib/admin";
+import { authorizeThroughService } from "@/lib/authorisation-service";
 import { lookupCoordinates } from "@/lib/geocoding";
 
 function param(url: URL, key: string) {
@@ -7,10 +8,27 @@ function param(url: URL, key: string) {
 }
 
 export async function GET(request: Request) {
-  const forbidden = await requireAdminApi();
-  if (forbidden) return forbidden;
-
   const url = new URL(request.url);
+  const actor = await getCurrentUser();
+  if (!actor) {
+    return NextResponse.json({ error: "Sign in to manage academy locations." }, { status: 401 });
+  }
+
+  const academyId = param(url, "academyId");
+  const permission = academyId ? "academy.update" : "academy.create";
+  const allowed = await authorizeThroughService(actor, permission, {
+    organisationId: actor.academyId ?? (academyId || undefined),
+    applicationId: process.env.ROLLFINDERS_APPLICATION_ID ?? "app_rollfinders",
+    resourceType: academyId ? "academy" : undefined,
+    resourceId: academyId || undefined,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "You are not authorised to manage this academy location." },
+      { status: 403 },
+    );
+  }
+
   const result = await lookupCoordinates({
     address: param(url, "address"),
     city: param(url, "city"),
