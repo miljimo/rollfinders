@@ -23,6 +23,11 @@ output "frontend_url" {
   value       = local.app_base_url
 }
 
+output "github_actions_role_arn" {
+  description = "IAM role assumed by the RollFinders GitHub Actions deployment workflow."
+  value       = local.is_production ? module.github_actions_oidc[0].role_arn : null
+}
+
 output "frontend_domain" {
   description = "Frontend domain."
   value       = local.canonical_domain

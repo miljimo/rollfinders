@@ -5,6 +5,20 @@ data "aws_route53_zone" "public" {
   private_zone = false
 }
 
+module "github_actions_oidc" {
+  count  = local.is_production ? 1 : 0
+  source = "./modules/github_actions_oidc"
+
+  role_name = "${var.project_name}-github-actions-deploy"
+  allowed_subjects = [
+    "repo:miljimo/rollfinders:ref:refs/heads/master",
+    "repo:miljimo/rollfinders:ref:refs/tags/*",
+    "repo:miljimo/rollfinders:environment:production",
+  ]
+  managed_policy_arns = ["arn:aws:iam::aws:policy/AdministratorAccess"]
+  tags                = local.common_tags
+}
+
 module "networking" {
   source             = "./modules/networking"
   environment_name   = var.environment_name
