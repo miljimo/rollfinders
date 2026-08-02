@@ -24,6 +24,7 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   const mobileDashboardSearchSource = readSource("apps/portal/src/app/dashboard/MobileDashboardSearch.tsx");
   const mobileBookingsSource = readSource("apps/portal/src/app/dashboard/MobilePractitionerBookings.tsx");
   const navigationSource = readSource("apps/portal/src/app/_components/MobileNavigation/MobileNavigation.tsx");
+  const proxySource = readSource("apps/portal/src/proxy.ts");
   const signInFormSource = readSource("apps/portal/src/app/mobile/MobileSignInForm.tsx");
 
   assert.match(source, /export const dynamic = "force-dynamic"/);
@@ -55,6 +56,13 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   assert.doesNotMatch(source, /PageShell/);
   assert.match(source, /redirect\("\/dashboard\?surface=mobile"\)/);
   assert.match(dashboardSource, /firstParam\(params\.surface\) === "mobile"/);
+  assert.match(dashboardSource, /!mobileSurface && \(platformAdminUser \|\| academyAdminUser\)/);
+  assert.match(dashboardSource, /mobileSurface && routePanelRedirect/);
+  assert.match(dashboardSource, /mobileSurface && panel === "members"/);
+  assert.match(proxySource, /RollFindersMobile/);
+  assert.match(proxySource, /path\.startsWith\("\/admin"\)/);
+  assert.match(proxySource, /path\.startsWith\("\/dashboard\/"\)/);
+  assert.match(proxySource, /mobileDashboardPanels/);
   assert.match(dashboardSource, /<TabControl/);
   assert.match(dashboardSource, /activeValue=\{mobileView\}/);
   assert.match(dashboardSource, /label: "Courses\/Events"/);
@@ -87,6 +95,7 @@ test("native mobile shell can produce Android and iOS build artifacts from Capac
   assert.match(mobilePackage, /assembleDebug/);
   assert.match(mobilePackage, /bundleRelease/);
   assert.match(capacitorConfig, /appId:\s*"oepe\.rollfinders"/);
+  assert.match(capacitorConfig, /appendUserAgent:\s*"RollFindersMobile"/);
   assert.match(capacitorConfig, /url:\s*"https:\/\/rollfinders\.com\/mobile"/);
   assert.match(mobileReadme, /app-debug\.apk/);
   assert.match(mobileReadme, /app-release\.aab/);

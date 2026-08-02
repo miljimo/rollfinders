@@ -4,6 +4,21 @@ import { loginUrl, publicSiteBaseUrl } from "./lib/auth-urls";
 
 const adminRoles = new Set(["SUPER_ADMIN", "ADMIN", "PLATFORM_ADMIN", "ACADEMY_ADMIN", "ACADEMY_OWNER"]);
 const standardDashboardRoles = new Set(["STANDARD_USER", "USER"]);
+const mobileDashboardPanels = new Set(["dashboard", "profile", "settings"]);
+
+function isMobileAppRequest(request: NextRequest) {
+  return request.headers.get("user-agent")?.includes("RollFindersMobile") ?? false;
+}
+
+function mobileProfileRedirect(request: NextRequest, authenticated: boolean) {
+  const url = new URL(authenticated ? "/dashboard" : "/mobile", request.url);
+  if (authenticated) url.searchParams.set("surface", "mobile");
+  else {
+    url.searchParams.set("tab", "profile");
+    url.searchParams.set("auth", "sign-in");
+  }
+  return NextResponse.redirect(url);
+}
 
 function loginRedirect(request: NextRequest) {
   const publicBaseUrl = publicSiteBaseUrl();
@@ -28,6 +43,21 @@ export async function proxy(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
   const role = typeof token?.role === "string" ? token.role : null;
   const path = request.nextUrl.pathname;
+  const mobileApp = isMobileAppRequest(request);
+  const mobileSurface = request.nextUrl.searchParams.get("surface") === "mobile";
+  const mobileContext = mobileApp || mobileSurface;
+
+  if (mobileContext && (path.startsWith("/admin") || path.startsWith("/dashboard/"))) {
+    return mobileProfileRedirect(request, Boolean(token));
+  }
+
+  if (mobileContext && path === "/dashboard") {
+    const requestedPanel = request.nextUrl.searchParams.get("panel") ?? "dashboard";
+    if (!token) return mobileProfileRedirect(request, false);
+    if (!mobileSurface || !mobileDashboardPanels.has(requestedPanel)) {
+      return mobileProfileRedirect(request, true);
+    }
+  }
 
   if (!token) return NextResponse.next();
 

@@ -124,6 +124,7 @@ export default async function DashboardPage({
 }) {
   const { user, academy, actor } = await requireDashboardUser();
   const params = await searchParams;
+  const mobileSurface = firstParam(params.surface) === "mobile";
   const routePanelRedirects: Record<string, string> = {
     academies: "/dashboard/academies",
     "academy-claims": "/dashboard/academy-claims",
@@ -137,6 +138,7 @@ export default async function DashboardPage({
   };
   const routePanel = firstParam(params.panel);
   const routePanelRedirect = routePanel ? routePanelRedirects[routePanel] : undefined;
+  if (mobileSurface && routePanelRedirect) redirect("/dashboard?surface=mobile");
   if (routePanelRedirect) {
     const nextParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -152,11 +154,14 @@ export default async function DashboardPage({
   }
   const platformAdminUser = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || user.role === Role.PLATFORM_ADMIN;
   const academyAdminUser = user.role === Role.ACADEMY_ADMIN || user.role === Role.ACADEMY_OWNER;
-  if (platformAdminUser || academyAdminUser) return <AdminDashboardWorkspace searchParams={Promise.resolve(params)} />;
+  if (!mobileSurface && (platformAdminUser || academyAdminUser)) {
+    return <AdminDashboardWorkspace searchParams={Promise.resolve(params)} />;
+  }
 
   const panel = standardPanel(firstParam(params.panel));
-  if (!panel) redirect("/dashboard");
-  const mobileSurface = firstParam(params.surface) === "mobile";
+  if (!panel || (mobileSurface && panel === "members")) {
+    redirect(mobileSurface ? "/dashboard?surface=mobile" : "/dashboard");
+  }
   const mobileView = mobileDashboardView(firstParam(params.mobileView));
 
   const search = (firstParam(params.search) ?? "").trim();

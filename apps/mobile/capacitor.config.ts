@@ -3,6 +3,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const config: CapacitorConfig = {
   appId: "oepe.rollfinders",
   appName: "RollFinders",
+  appendUserAgent: "RollFindersMobile",
   webDir: "www",
   server: {
     cleartext: false,

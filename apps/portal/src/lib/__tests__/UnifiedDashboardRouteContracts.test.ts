@@ -43,7 +43,7 @@ describe("unified dashboard route contracts", () => {
     const source = readSource("apps/portal/src/app/dashboard/page.tsx");
 
     assert.match(source, /import\s+AdminDashboardWorkspace\s+from\s+"\.\/AdminDashboardWorkspace"/);
-    assert.match(source, /if\s*\(\s*platformAdminUser\s*\|\|\s*academyAdminUser\s*\)\s*return\s+<AdminDashboardWorkspace/);
+    assert.match(source, /if\s*\(\s*!mobileSurface\s*&&\s*\(platformAdminUser\s*\|\|\s*academyAdminUser\)\s*\)\s*\{\s*return\s+<AdminDashboardWorkspace/);
     assert.doesNotMatch(source, /redirect\("\/admin"\)/);
   });
 
@@ -57,12 +57,13 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /value\s*===\s*"settings"/);
     assert.match(source, /value\s*===\s*"password"/);
     assert.match(source, /return\s+null/);
-    assert.match(source, /if\s*\(\s*!panel\s*\)\s*redirect\("\/dashboard"\)/);
+    assert.match(source, /!panel\s*\|\|\s*\(mobileSurface\s*&&\s*panel\s*===\s*"members"\)/);
+    assert.match(source, /redirect\(mobileSurface\s*\?\s*"\/dashboard\?surface=mobile"\s*:\s*"\/dashboard"\)/);
   });
 
   it("standard dashboard uses the shared side-panel shell pattern with standard-user-only navigation", () => {
     const source = readSource("apps/portal/src/app/dashboard/page.tsx");
-    const standardSource = source.split(/if\s*\(\s*platformAdminUser\s*\|\|\s*academyAdminUser\s*\)\s*return\s+<AdminDashboardWorkspace[^;]+;/)[1] ?? source;
+    const standardSource = source.split(/return\s+<AdminDashboardWorkspace[^;]+;/)[1] ?? source;
 
     assert.match(source, /import\s+\{\s*SidePanelControl,\s*type\s+SidePanelItem\s*\}\s+from\s+"@\/app\/_components\/SidePanelControl"/);
     assert.match(source, /const\s+standardNavigationItems:\s*SidePanelItem\[\]\s*=\s*\[/);
