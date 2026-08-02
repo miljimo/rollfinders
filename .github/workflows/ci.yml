@@ -27,6 +27,10 @@ on:
         description: "Type production to deploy production"
         required: false
         default: ""
+      release_ref:
+        description: "Immutable branch, tag, or commit to build and deploy"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -35,13 +39,15 @@ permissions:
 env:
   AWS_REGION: ${{ vars.AWS_REGION || 'eu-west-2' }}
   ENVIRONMENT_NAME: ${{ inputs.environment || 'dev' }}
-  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAG: ${{ inputs.release_ref || github.sha }}
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_ref || github.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -55,6 +61,8 @@ jobs:
           terraform_version: 1.10.5
           terraform_wrapper: false
       - run: npm ci
+        env:
+          GITHUB_PACKAGE_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
       - run: npm run db:generate
       - run: npm run typecheck
       - run: npm run services:test
@@ -72,6 +80,8 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_ref || github.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -87,6 +97,8 @@ jobs:
       - run: chmod +x scripts/cicd/*.sh
       - run: scripts/cicd/prepare-ecr.sh
       - run: scripts/cicd/build.sh
+        env:
+          GITHUB_PACKAGE_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
       - run: scripts/cicd/build-go-services.sh
         env:
           FORCE_SERVICE_REDEPLOY: ${{ inputs.environment == 'production' && 'true' || 'false' }}
@@ -106,6 +118,8 @@ jobs:
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_ref || github.sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22
