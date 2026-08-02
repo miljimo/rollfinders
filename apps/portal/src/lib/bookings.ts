@@ -133,6 +133,29 @@ export async function listBookings({
   return result.bookings;
 }
 
+export async function listPractitionerBookings({
+  accessToken,
+  email,
+  userId,
+}: {
+  accessToken?: string;
+  email: string;
+  userId: string;
+}) {
+  const actor = { accessToken, actorUserId: userId, limit: 200 };
+  const [customerBookings, guestBookings] = await Promise.all([
+    listBookings({ ...actor, customerId: userId }),
+    listBookings({ ...actor, guestReference: email }),
+  ]);
+  const normalizedEmail = email.trim().toLowerCase();
+  const owned = [...customerBookings, ...guestBookings].filter((booking) => (
+    booking.customerId === userId
+    || booking.guestReference?.trim().toLowerCase() === normalizedEmail
+  ));
+  return Array.from(new Map(owned.map((booking) => [booking.id, booking])).values())
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
 export async function listBookingsPage({
   accessToken,
   actorUserId,

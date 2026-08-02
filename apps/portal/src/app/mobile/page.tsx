@@ -14,7 +14,7 @@ import { registerPractitioner } from "@/app/register/actions";
 import { MobileSignInForm } from "./MobileSignInForm";
 import { getCurrentUser } from "@/lib/admin";
 import { getAcademyFromAcademyService, listAcademiesFromAcademyService, type AcademyServiceRecord } from "@/lib/academyService";
-import { coursePriceLabel, courseTypeLabel } from "@/lib/courses";
+import { coursePriceLabel, courseTypeLabel, mobileCourseHref } from "@/lib/courses";
 import { getOpenMatRadar, searchAcademies } from "@/lib/data";
 import { formatDate, formatDistanceMiles } from "@/lib/utils";
 import { MobileDiscoverySearch, type MobileSearchSuggestion } from "./MobileDiscoverySearch";
@@ -104,7 +104,7 @@ export default async function MobilePage({ searchParams }: { searchParams: Promi
   const currentUser = await getCurrentUser();
   const profileAuth = params.auth === "register" ? "register" : params.auth === "sign-in" ? "sign-in" : params.auth === "forgot-password" ? "forgot-password" : null;
   if (currentUser && activeTab === "profile") {
-    redirect("/dashboard?panel=profile&surface=mobile");
+    redirect("/dashboard?surface=mobile");
   }
 
   const [events, academies, mobileAcademyOptions, selectedMobileAcademy] = await Promise.all([
@@ -279,7 +279,7 @@ function ProfileView({
     return <MobileAuthChoice />;
   }
 
-  redirect("/dashboard?panel=profile&surface=mobile");
+  redirect("/dashboard?surface=mobile");
 }
 
 function MobileAuthChoice() {
@@ -470,7 +470,7 @@ function mobileAcademyInitials(name: string) {
 }
 
 function MobileEventCard({ event }: { event: Awaited<ReturnType<typeof getOpenMatRadar>>[number] }) {
-  const detailHref = mobileEventHref(event);
+  const detailHref = mobileCourseHref(event);
   const logoUrl = (event.academy as { logoUrl?: string | null }).logoUrl?.trim();
   const giLabel = event.giType.replace("_", "-");
   const distanceLabel = event.distanceMiles != null ? formatDistanceMiles(event.distanceMiles) : null;
@@ -531,12 +531,6 @@ function MobileEventCard({ event }: { event: Awaited<ReturnType<typeof getOpenMa
       </Link>
     </article>
   );
-}
-
-function mobileEventHref(event: { id: string; isRecurringOccurrence?: boolean; occurrenceDateParam?: string }) {
-  const params = new URLSearchParams({ returnTo: "/mobile" });
-  if (event.isRecurringOccurrence && event.occurrenceDateParam) params.set("date", event.occurrenceDateParam);
-  return `/mobile/events/${event.id}?${params.toString()}`;
 }
 
 function MobileLinkRow({

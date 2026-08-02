@@ -20,6 +20,9 @@ test("mobile platform PRD keeps WebView release standards explicit", () => {
 test("mobile web route renders a public-only app shell with bottom navigation", () => {
   const source = readSource("apps/portal/src/app/mobile/page.tsx");
   const dashboardSource = readSource("apps/portal/src/app/dashboard/page.tsx");
+  const mobileDashboardSource = readSource("apps/portal/src/app/dashboard/MobileDashboardHeader.tsx");
+  const mobileDashboardSearchSource = readSource("apps/portal/src/app/dashboard/MobileDashboardSearch.tsx");
+  const mobileBookingsSource = readSource("apps/portal/src/app/dashboard/MobilePractitionerBookings.tsx");
   const navigationSource = readSource("apps/portal/src/app/_components/MobileNavigation/MobileNavigation.tsx");
   const signInFormSource = readSource("apps/portal/src/app/mobile/MobileSignInForm.tsx");
 
@@ -46,14 +49,26 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   assert.match(source, /registerPractitioner/);
   assert.match(source, /auth === "register"/);
   assert.match(source, /auth === "sign-in"/);
-  assert.match(signInFormSource, /callbackUrl="\/dashboard\?panel=profile&surface=mobile"/);
+  assert.match(signInFormSource, /callbackUrl="\/dashboard\?surface=mobile"/);
   assert.match(signInFormSource, /variant="mobile"/);
   assert.match(source, /name="mobileAuth" value="1"/);
   assert.doesNotMatch(source, /PageShell/);
-  assert.match(source, /redirect\("\/dashboard\?panel=profile&surface=mobile"\)/);
+  assert.match(source, /redirect\("\/dashboard\?surface=mobile"\)/);
   assert.match(dashboardSource, /firstParam\(params\.surface\) === "mobile"/);
+  assert.match(dashboardSource, /<TabControl/);
+  assert.match(dashboardSource, /activeValue=\{mobileView\}/);
+  assert.match(dashboardSource, /label: "Courses\/Events"/);
+  assert.match(dashboardSource, /label: `My Bookings \(\$\{practitionerBookings\.bookings\.length\}\)`/);
+  assert.match(dashboardSource, /mobileView === "bookings"/);
+  assert.match(dashboardSource, /activeView=\{mobileView\}/);
+  assert.match(dashboardSource, /mobileView === "bookings" \? bookingSearchOptions : courseSearchOptions/);
+  assert.match(mobileDashboardSearchSource, /AutoCompleteTextField/);
+  assert.match(mobileDashboardSearchSource, /params\.set\("search", value\)/);
+  assert.match(mobileDashboardSearchSource, /activeView === "bookings"/);
   assert.match(dashboardSource, /<MobileNavigation activeTab="profile"/);
-  assert.match(dashboardSource, /\/mobile\?tab=profile&auth=sign-in/);
+  assert.match(mobileBookingsSource, /My Bookings/);
+  assert.match(mobileBookingsSource, /mobileCourseHref/);
+  assert.match(mobileDashboardSource, /\/mobile\?tab=profile&auth=sign-in/);
   assert.doesNotMatch(source, /Payment Methods/);
   assert.doesNotMatch(source, /Claimed Academy/);
 });

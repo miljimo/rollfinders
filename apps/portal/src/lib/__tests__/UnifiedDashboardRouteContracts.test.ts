@@ -84,11 +84,19 @@ describe("unified dashboard route contracts", () => {
     const dashboardTable = readSource("apps/portal/src/app/dashboard/StandardDashboardRollsTable.tsx");
     const rollsRoute = readSource("apps/portal/src/app/api/dashboard/rolls/route.ts");
 
-    assert.match(dashboardPage, /academyId,\s*\n\s*active:\s*true,\s*\n\s*eventDate:\s*\{\s*gte:\s*startOfToday\(\)\s*\}/);
-    assert.match(dashboardPage, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
-    assert.match(dashboardPage, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
-    assert.match(dashboardPage, /take:\s*standardRollsPageSize/);
-    assert.match(dashboardPage, /href:\s*dashboardCourseHref\(roll,\s*returnTo\)/);
+    assert.match(dashboardPage, /getAcademyCourseDiscovery\(\{\s*academyId:\s*academy\.id,\s*q:\s*mobileSurface \? undefined : search\s*\}\)/);
+    assert.match(dashboardPage, /academyRolls\.slice\(/);
+    assert.match(dashboardPage, /rollsPage \* standardRollsPageSize/);
+    assert.match(dashboardPage, /href:\s*dashboardCourseHref\(roll,\s*returnTo,\s*mobileSurface\)/);
+    assert.match(dashboardPage, /if\s*\(mobileSurface\)\s*return\s+mobileCourseHref\(course,\s*"\/mobile\?tab=profile"\)/);
+    assert.match(dashboardPage, /listPractitionerBookings\(\{\s*accessToken:\s*actor\.accessToken,\s*email:\s*actor\.email,\s*userId:\s*actor\.id\s*\}\)/);
+    assert.match(dashboardPage, /<TabControl[\s\S]*activeValue=\{mobileView\}/);
+    assert.match(dashboardPage, /mobileView:\s*"courses"/);
+    assert.match(dashboardPage, /mobileView:\s*"bookings"/);
+    assert.match(dashboardPage, /search:\s*undefined/);
+    assert.match(dashboardPage, /<MobileDashboardSearch/);
+    assert.match(dashboardPage, /filteredBookings/);
+    assert.match(dashboardPage, /<MobilePractitionerBookings/);
     assert.match(dashboardPage, /<StandardDashboardRollsTable/);
     assert.match(dashboardTable, /"use client"/);
     assert.match(dashboardTable, /getRowHref=\{\(row\) => row\.href\}/);
@@ -96,10 +104,8 @@ describe("unified dashboard route contracts", () => {
 
     assert.match(rollsRoute, /isStandardUserRole\(user\.role\)/);
     assert.match(rollsRoute, /return\s+NextResponse\.json\(\{\s*rolls:\s*\[\]\s*\}\)/);
-    assert.match(rollsRoute, /academyId,\s*\n\s*active:\s*true,\s*\n\s*eventDate:\s*\{\s*gte:\s*startOfToday\(\)\s*\}/);
-    assert.match(rollsRoute, /title:\s*\{\s*contains:\s*search,\s*mode:\s*"insensitive"\s*\}/);
-    assert.match(rollsRoute, /select:\s*\{/);
-    assert.match(rollsRoute, /orderBy:\s*\[\s*\{\s*eventDate:\s*"asc"\s*\},\s*\{\s*startTime:\s*"asc"\s*\}/);
+    assert.match(rollsRoute, /getAcademyCourseDiscovery\(\{\s*academyId,\s*q\s*\}\)/);
+    assert.match(rollsRoute, /academyRolls\.slice\(/);
     assert.doesNotMatch(rollsRoute, /POST|PUT|PATCH|DELETE|create\(|update\(|delete\(/);
   });
 

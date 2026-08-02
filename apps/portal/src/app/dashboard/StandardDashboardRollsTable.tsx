@@ -42,6 +42,7 @@ export function StandardDashboardRollsTable({
   return (
     <Table
       title="Courses/Events"
+      className="[&_article]:mb-4 [&_article]:rounded-lg [&_article]:border [&_article]:border-stone-200 [&_article]:bg-white [&_article]:shadow-sm"
       columns={columns}
       data={rows}
       emptyMessage={emptyMessage}

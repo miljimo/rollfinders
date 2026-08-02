@@ -2,14 +2,14 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
-import { GiType, Role, UserStatus, type CourseType, type Prisma } from "@prisma/client";
+import { Role, UserStatus } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/app/_components/SidePanelControl";
 import { MobileNavigation } from "@/app/_components/MobileNavigation";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/app/_components/QuickActionPanel";
-import { courseHref, coursePriceLabel } from "@/lib/courses";
+import { TabControl } from "@/app/_components/tab-control";
+import { courseHref, coursePriceLabel, getAcademyCourseDiscovery, mobileCourseHref } from "@/lib/courses";
 import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
-import { prisma } from "@/lib/prisma";
 import { formatDate } from "@/lib/utils";
 import { ChangePasswordForm } from "./password/ChangePasswordForm";
 import { EditProfileForm } from "./settings/EditProfileForm";
@@ -17,7 +17,11 @@ import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 import { AccountDeletionPanel } from "./settings/AccountDeletionPanel";
 import { getCurrentAccountDeletionRequest, type AccountDeletionRequest } from "@/lib/users-service";
 import AdminDashboardWorkspace from "./AdminDashboardWorkspace";
+import { MobileDashboardHeader } from "./MobileDashboardHeader";
+import { MobileDashboardSearch } from "./MobileDashboardSearch";
+import { MobilePractitionerBookings } from "./MobilePractitionerBookings";
 import { StandardDashboardRollsTable, type StandardDashboardRollRow } from "./StandardDashboardRollsTable";
+import { BookingServiceError, listPractitionerBookings, type BookingRecord } from "@/lib/bookings";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +36,7 @@ type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
 type StandardPanel = "dashboard" | "members" | "profile" | "settings";
 type SettingsAction = "change-password" | "edit-profile";
+type MobileDashboardView = "courses" | "bookings";
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -55,6 +60,29 @@ function settingsAction(value: string | undefined): SettingsAction | null {
   return null;
 }
 
+function mobileDashboardView(value: string | undefined): MobileDashboardView {
+  return value === "bookings" ? "bookings" : "courses";
+}
+
+function normalizedSearch(value: unknown) {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+function bookingSearchValue(booking: BookingRecord) {
+  return [
+    booking.reference,
+    booking.status,
+    booking.metadata?.course_title,
+    booking.metadata?.event_title,
+    booking.metadata?.academy_name,
+    booking.metadata?.occurrence_date,
+  ].map(normalizedSearch).join(" ");
+}
+
+function uniqueSearchOptions(options: { id: string; label: string; description?: string; meta?: string }[]) {
+  return Array.from(new Map(options.filter((option) => option.id.trim()).map((option) => [option.id.toLowerCase(), option])).values());
+}
+
 function standardDashboardHref(searchParams: DashboardSearchParams, overrides: Record<string, string | number | undefined>) {
   const params = new URLSearchParams();
   Object.entries(searchParams).forEach(([key, value]) => {
@@ -76,38 +104,17 @@ function standardDashboardHref(searchParams: DashboardSearchParams, overrides: R
   return query ? `/dashboard?${query}` : "/dashboard";
 }
 
-function dashboardCourseHref(course: Pick<DashboardRoll, "id" | "courseType">, returnTo: string) {
+function dashboardCourseHref(
+  course: Pick<DashboardRoll, "id" | "courseType" | "isRecurringOccurrence" | "occurrenceDateParam">,
+  returnTo: string,
+  mobileSurface: boolean,
+) {
+  if (mobileSurface) return mobileCourseHref(course, "/mobile?tab=profile");
   const href = courseHref(course);
   const [pathname, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
   params.set("returnTo", returnTo);
   return `${pathname}?${params.toString()}`;
-}
-
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
-
-function rollSearchWhere(academyId: string, query: string): Prisma.EventWhereInput {
-  const search = query.trim();
-  const giTypeSearch = search.toUpperCase().replaceAll("-", "_").replaceAll(" ", "_");
-  const matchingGiType = Object.values(GiType).includes(giTypeSearch as GiType) ? giTypeSearch as GiType : null;
-  return {
-    academyId,
-    active: true,
-    eventDate: { gte: startOfToday() },
-    ...(search
-      ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-            ...(matchingGiType ? [{ giType: matchingGiType }] : []),
-          ],
-        }
-      : {}),
-  };
 }
 
 export default async function DashboardPage({
@@ -150,34 +157,26 @@ export default async function DashboardPage({
   const panel = standardPanel(firstParam(params.panel));
   if (!panel) redirect("/dashboard");
   const mobileSurface = firstParam(params.surface) === "mobile";
+  const mobileView = mobileDashboardView(firstParam(params.mobileView));
 
   const search = (firstParam(params.search) ?? "").trim();
   const requestedRollsPage = pageFromParams(params, "rollsPage");
-  const rollWhere = academy ? rollSearchWhere(academy.id, search) : null;
-  const rollCount = rollWhere ? await prisma.event.count({ where: rollWhere }) : 0;
+  const [allAcademyRolls, practitionerBookings] = await Promise.all([
+    academy ? getAcademyCourseDiscovery({ academyId: academy.id, q: mobileSurface ? undefined : search }) : Promise.resolve([]),
+    mobileSurface && panel === "dashboard" ? getMobilePractitionerBookings(actor) : Promise.resolve({ bookings: [] }),
+  ]);
+  const normalizedQuery = normalizedSearch(search);
+  const academyRolls = mobileSurface && normalizedQuery
+    ? allAcademyRolls.filter((roll) => [roll.title, roll.description, roll.giType, roll.courseType, roll.instructor]
+      .map(normalizedSearch).join(" ").includes(normalizedQuery))
+    : allAcademyRolls;
+  const rollCount = academyRolls.length;
   const totalRollPages = Math.max(1, Math.ceil(rollCount / standardRollsPageSize));
   const rollsPage = Math.min(requestedRollsPage, totalRollPages);
-  const rolls = rollWhere
-    ? await prisma.event.findMany({
-        where: rollWhere,
-        select: {
-          id: true,
-          title: true,
-          eventDate: true,
-          startTime: true,
-          endTime: true,
-          giType: true,
-          courseType: true,
-          pricingType: true,
-          price: true,
-          donationLabel: true,
-          audience: true,
-        },
-        orderBy: [{ eventDate: "asc" }, { startTime: "asc" }, { title: "asc" }],
-        skip: (rollsPage - 1) * standardRollsPageSize,
-        take: standardRollsPageSize,
-      })
-    : [];
+  const rolls = academyRolls.slice(
+    (rollsPage - 1) * standardRollsPageSize,
+    rollsPage * standardRollsPageSize,
+  );
   const members = panel === "members" && academy ? await academyMemberProfiles(academy.id, search) : [];
   const deletionRequest = panel === "settings"
     ? (await getCurrentAccountDeletionRequest(actor)).request
@@ -205,8 +204,18 @@ export default async function DashboardPage({
       ) : null}
 
       <main className={`min-w-0 transition-[padding] duration-200 ${mobileSurface ? "pb-24" : "lg:pl-[var(--admin-side-panel-width,16rem)]"}`}>
-        <header className={`flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 ${mobileSurface ? "" : "lg:min-h-24 lg:justify-end"}`}>
-          {mobileSurface ? <Link href="/mobile" className="text-xl font-black text-slate-950">RollFinders</Link> : <div className="size-11 lg:hidden" aria-hidden />}
+        {mobileSurface ? (
+          <MobileDashboardHeader
+            accountEmail={user.email}
+            accountName={accountLabel}
+            accountRole={roleLabel(user.role)}
+            avatarLabel={initials}
+            profileHref={standardDashboardHref(params, { panel: "profile" })}
+            settingsHref={standardDashboardHref(params, { panel: "settings" })}
+          />
+        ) : (
+          <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
+            <div className="size-11 lg:hidden" aria-hidden />
           <DashboardAccountDropDownMenu
             accountEmail={user.email}
             accountName={accountLabel}
@@ -214,13 +223,13 @@ export default async function DashboardPage({
             avatarLabel={initials}
             profileHref={standardDashboardHref(params, { panel: "profile" })}
             settingsHref={standardDashboardHref(params, { panel: "settings" })}
-            signOutCallbackUrl={mobileSurface ? "/mobile?tab=profile&auth=sign-in" : undefined}
           />
-        </header>
+          </header>
+        )}
 
         <section className={`min-w-0 px-4 py-8 sm:px-8 ${mobileSurface ? "mx-auto w-full max-w-3xl" : ""}`}>
           {panel === "dashboard" ? (
-            <DashboardPanel academy={academy} rolls={rolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
+            <DashboardPanel academy={academy} mobileSurface={mobileSurface} mobileView={mobileView} practitionerBookings={practitionerBookings} rolls={rolls} searchRolls={allAcademyRolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
           ) : null}
           {panel === "members" ? <MembersPanel academy={academy} members={members} search={search} /> : null}
           {panel === "profile" ? <ProfilePanel academy={academy} active={active} user={user} /> : null}
@@ -241,46 +250,67 @@ export default async function DashboardPage({
 
 type DashboardUser = Awaited<ReturnType<typeof requireDashboardUser>>["user"];
 type DashboardAcademy = Awaited<ReturnType<typeof requireDashboardUser>>["academy"];
-type DashboardRoll = Prisma.EventGetPayload<{
-  select: {
-    id: true;
-    title: true;
-    eventDate: true;
-    startTime: true;
-    endTime: true;
-    giType: true;
-    courseType: true;
-    pricingType: true;
-    price: true;
-    donationLabel: true;
-    audience: true;
-  };
-}>;
+type DashboardRoll = Awaited<ReturnType<typeof getAcademyCourseDiscovery>>[number];
+type PractitionerBookingsResult = { bookings: BookingRecord[]; error?: string };
+
+async function getMobilePractitionerBookings(actor: { id: string; email: string; accessToken?: string }): Promise<PractitionerBookingsResult> {
+  try {
+    return { bookings: await listPractitionerBookings({ accessToken: actor.accessToken, email: actor.email, userId: actor.id }) };
+  } catch (error) {
+    const message = error instanceof BookingServiceError && error.status === 403
+      ? "You do not have permission to view your bookings."
+      : "Your bookings are temporarily unavailable.";
+    return { bookings: [], error: message };
+  }
+}
 
 function DashboardPanel({
   academy,
+  mobileSurface,
+  mobileView,
+  practitionerBookings,
   rolls,
+  searchRolls,
   rollsPage,
   search,
   searchParams,
   totalRollPages,
 }: {
   academy: DashboardAcademy;
+  mobileSurface: boolean;
+  mobileView: MobileDashboardView;
+  practitionerBookings: PractitionerBookingsResult;
   rolls: DashboardRoll[];
+  searchRolls: DashboardRoll[];
   rollsPage: number;
   search: string;
   searchParams: DashboardSearchParams;
   totalRollPages: number;
 }) {
   const returnTo = standardDashboardHref(searchParams, { panel: "dashboard" });
+  const filteredBookings = search
+    ? practitionerBookings.bookings.filter((booking) => bookingSearchValue(booking).includes(normalizedSearch(search)))
+    : practitionerBookings.bookings;
+  const courseSearchOptions = uniqueSearchOptions(searchRolls.map((roll) => ({
+    id: roll.title,
+    label: roll.title,
+    description: `${roll.giType.replace("_", "-")} · ${formatDate(roll.eventDate)}`,
+    meta: `${roll.description ?? ""} ${roll.courseType} ${roll.instructor ?? ""}`,
+  })));
+  const bookingSearchOptions = uniqueSearchOptions(practitionerBookings.bookings.map((booking) => ({
+    id: normalizedSearch(booking.metadata?.course_title ?? booking.metadata?.event_title) || booking.reference,
+    label: String(booking.metadata?.course_title ?? booking.metadata?.event_title ?? "Training session"),
+    description: String(booking.metadata?.academy_name ?? booking.status),
+    meta: bookingSearchValue(booking),
+  })));
   const rows: StandardDashboardRollRow[] = rolls.map((roll) => ({
-    id: roll.id,
+    id: roll.occurrenceId,
     title: roll.title,
     date: formatDate(roll.eventDate),
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
     price: coursePriceLabel(roll),
-    href: dashboardCourseHref(roll, returnTo),
+    href: dashboardCourseHref(roll, returnTo, mobileSurface),
   }));
 
   return (
@@ -295,8 +325,51 @@ function DashboardPanel({
         </div>
       </div>
 
-      <section className="mt-6">
-        <form action="/dashboard" className="mb-4 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+      {mobileSurface ? (
+        <TabControl
+          activeValue={mobileView}
+          ariaLabel="Practitioner dashboard"
+          className="mt-6 [&_[role=tablist]]:!grid-cols-2"
+          items={[
+            {
+              value: "courses",
+              label: "Courses/Events",
+              href: standardDashboardHref(searchParams, {
+                panel: "dashboard",
+                mobileView: "courses",
+                rollsPage: undefined,
+                search: undefined,
+              }),
+            },
+            {
+              value: "bookings",
+              label: `My Bookings (${practitionerBookings.bookings.length})`,
+              href: standardDashboardHref(searchParams, {
+                panel: "dashboard",
+                mobileView: "bookings",
+                rollsPage: undefined,
+                search: undefined,
+              }),
+            },
+          ]}
+        />
+      ) : null}
+
+      {mobileSurface ? (
+        <MobileDashboardSearch
+          key={mobileView}
+          activeView={mobileView}
+          initialQuery={search}
+          options={mobileView === "bookings" ? bookingSearchOptions : courseSearchOptions}
+        />
+      ) : null}
+
+      {mobileSurface && mobileView === "bookings" ? (
+        <MobilePractitionerBookings bookings={filteredBookings} error={practitionerBookings.error} />
+      ) : null}
+
+      {!mobileSurface || mobileView === "courses" ? <section className="mt-6">
+        {!mobileSurface ? <form action="/dashboard" className="mb-4 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
           <input type="hidden" name="panel" value="dashboard" />
           <label className="grid flex-1 gap-1 text-sm font-semibold text-stone-800">
             Search Courses/Events
@@ -309,11 +382,11 @@ function DashboardPanel({
             Search
           </button>
           {search ? (
-            <Link href="/dashboard" className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-5 text-sm font-bold text-stone-800 hover:bg-stone-50">
+            <Link href={standardDashboardHref(searchParams, { panel: "dashboard", search: undefined })} className="inline-flex min-h-11 items-center rounded-md border border-stone-300 px-5 text-sm font-bold text-stone-800 hover:bg-stone-50">
               Clear
             </Link>
           ) : null}
-        </form>
+        </form> : null}
 
         <StandardDashboardRollsTable
           rows={rows}
@@ -323,7 +396,7 @@ function DashboardPanel({
           previousHref={standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage - 1 })}
           nextHref={standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage + 1 })}
         />
-      </section>
+      </section> : null}
     </div>
   );
 }

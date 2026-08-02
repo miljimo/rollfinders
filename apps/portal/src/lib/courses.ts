@@ -41,6 +41,17 @@ export function openMatHref(course: Pick<Event, "id"> & { isRecurringOccurrence?
   return courseHref({ ...course, courseType: CourseType.OPEN_MAT });
 }
 
+export function mobileCourseHref(
+  course: Pick<Event, "id"> & { isRecurringOccurrence?: boolean; occurrenceDateParam?: string },
+  returnTo = "/mobile",
+) {
+  const params = new URLSearchParams({ returnTo });
+  if (course.isRecurringOccurrence && course.occurrenceDateParam) {
+    params.set("date", course.occurrenceDateParam);
+  }
+  return `/mobile/events/${course.id}?${params.toString()}`;
+}
+
 export function courseAddress(course: Pick<Event, "addressOverride"> & { academy: Pick<Academy, "address" | "city" | "postcode"> }) {
   return course.addressOverride?.trim() || `${course.academy.address}, ${course.academy.city} ${course.academy.postcode}`;
 }
@@ -194,6 +205,35 @@ export async function getCourseDiscovery(filters: CourseFilters = {}) {
       distanceMiles: distanceMiles(origin, { latitude: event.academy.latitude, longitude: event.academy.longitude }),
     }))
     .sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime() || a.startTime.localeCompare(b.startTime) || a.distanceMiles - b.distanceMiles);
+}
+
+export async function getAcademyCourseDiscovery(filters: CourseFilters & { academyId: string }) {
+  const q = filters.q?.trim() ?? "";
+  const now = new Date();
+  const from = startOfDay(now);
+  const { courses, activitiesByCourseId } = await hydrateCoursesFromService(filters);
+  const courseType = selectedCourseType(filters.courseType);
+  const gi = selectedGi(q, filters.gi);
+  const filtered = courses.filter((course) => (
+    (!courseType || course.courseType === courseType)
+    && (gi !== "GI" || course.giType === GiType.GI || course.giType === GiType.BOTH)
+    && (gi !== "NO_GI" || course.giType === GiType.NO_GI || course.giType === GiType.BOTH)
+    && courseMatchesSearch(course, activitiesByCourseId.get(course.id) ?? [], q)
+  ));
+
+  return dedupeOccurrences(filtered.flatMap((event) => expandEventOccurrences(
+    event as unknown as Event & { academy: Academy },
+    {
+      from,
+      to: defaultOccurrenceWindowEnd(now),
+      now,
+      publicOnly: false,
+    },
+  ))).sort((a, b) => (
+    a.eventDate.getTime() - b.eventDate.getTime()
+    || a.startTime.localeCompare(b.startTime)
+    || a.title.localeCompare(b.title)
+  ));
 }
 
 export const searchCourses = getCourseDiscovery;

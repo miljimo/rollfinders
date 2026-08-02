@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
-import { GiType, type Prisma } from "@prisma/client";
 import { listAcademyMembershipsForUserFromAcademyService } from "@/lib/academyService";
 import { getCurrentUser, isStandardUserRole } from "@/lib/admin";
-import { prisma } from "@/lib/prisma";
-
-function startOfToday() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return today;
-}
+import { getAcademyCourseDiscovery } from "@/lib/courses";
 
 function pageNumber(value: string | null) {
   const parsed = Number(value ?? "1");
@@ -19,26 +12,6 @@ function pageSizeNumber(value: string | null) {
   const parsed = Number(value ?? "20");
   if (!Number.isFinite(parsed) || parsed <= 0) return 20;
   return Math.min(Math.floor(parsed), 100);
-}
-
-function rollSearchWhere(academyId: string, query: string): Prisma.EventWhereInput {
-  const search = query.trim();
-  const giTypeSearch = search.toUpperCase().replaceAll("-", "_").replaceAll(" ", "_");
-  const matchingGiType = Object.values(GiType).includes(giTypeSearch as GiType) ? giTypeSearch as GiType : null;
-  return {
-    academyId,
-    active: true,
-    eventDate: { gte: startOfToday() },
-    ...(search
-      ? {
-          OR: [
-            { title: { contains: search, mode: "insensitive" } },
-            { description: { contains: search, mode: "insensitive" } },
-            ...(matchingGiType ? [{ giType: matchingGiType }] : []),
-          ],
-        }
-      : {}),
-  };
 }
 
 async function assignedAcademyId(user: { id: string; academyId?: string | null }) {
@@ -60,28 +33,8 @@ export async function GET(request: Request) {
   const q = url.searchParams.get("q") ?? "";
   const page = pageNumber(url.searchParams.get("page"));
   const pageSize = pageSizeNumber(url.searchParams.get("pageSize"));
-  const where = rollSearchWhere(academyId, q);
-  const rolls = await prisma.event.findMany({
-    where,
-    select: {
-      id: true,
-      academyId: true,
-      title: true,
-      description: true,
-      eventDate: true,
-      startTime: true,
-      endTime: true,
-      giType: true,
-      pricingType: true,
-      price: true,
-      donationLabel: true,
-      audience: true,
-      createdAt: true,
-    },
-    orderBy: [{ eventDate: "asc" }, { startTime: "asc" }, { title: "asc" }],
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-  });
+  const academyRolls = await getAcademyCourseDiscovery({ academyId, q });
+  const rolls = academyRolls.slice((page - 1) * pageSize, page * pageSize);
 
-  return NextResponse.json({ rolls });
+  return NextResponse.json({ rolls, total: academyRolls.length });
 }

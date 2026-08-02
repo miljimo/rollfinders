@@ -8,6 +8,7 @@ import {
   courseHref,
   courseTypeLabel,
   isOpenMatCourse,
+  mobileCourseHref,
   openMatHref,
   publicDefaultRecurringCourseOccurrenceLimit,
   selectableCourseTypeOptions,
@@ -24,6 +25,16 @@ test("course hrefs preserve Open Mat URLs and route other courses to planned cou
   assert.equal(openMatHref({ id: "event-1", isRecurringOccurrence: true, occurrenceDateParam: "2026-06-12" }), "/open-mats/event-1?date=2026-06-12");
   assert.equal(courseHref({ id: "event-1", courseType: CourseType.OPEN_MAT }), "/open-mats/event-1");
   assert.equal(courseHref({ id: "event-2", courseType: CourseType.SEMINAR }), "/courses/event-2");
+});
+
+test("mobile course hrefs preserve occurrence and return context", () => {
+  assert.equal(
+    mobileCourseHref(
+      { id: "event-1", isRecurringOccurrence: true, occurrenceDateParam: "2026-08-06" },
+      "/mobile?tab=profile",
+    ),
+    "/mobile/events/event-1?returnTo=%2Fmobile%3Ftab%3Dprofile&date=2026-08-06",
+  );
 });
 
 test("selectable course type options do not include activity types", () => {

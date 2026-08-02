@@ -46,7 +46,7 @@ test("shared dashboard uses mobile presentation without a separate permission mo
   const mobile = source("apps/portal/src/app/mobile/page.tsx");
   const deletionPanel = source("apps/portal/src/app/dashboard/settings/AccountDeletionPanel.tsx");
 
-  assert.match(mobile, /redirect\("\/dashboard\?panel=profile&surface=mobile"\)/);
+  assert.match(mobile, /redirect\("\/dashboard\?surface=mobile"\)/);
   assert.match(dashboard, /mobileSurface = firstParam\(params\.surface\) === "mobile"/);
   assert.match(dashboard, /!mobileSurface \? \(/);
   assert.match(dashboard, /<MobileNavigation activeTab="profile"/);
