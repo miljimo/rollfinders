@@ -1,5 +1,5 @@
 module "vpc" {
-  source           = "../modules/vpc"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/vpc?ref=v1.1.0&depth=1"
   name             = "mock_tquest-vpc"
   environment_name = var.environment_name
   cidr_block       = var.vpc_cidr_block
@@ -56,4 +56,3 @@ resource "aws_route_table_association" "private" {
   subnet_id      = aws_subnet.ecs_subnets[count.index].id
   route_table_id = aws_route_table.ecs_private.id
 }
-

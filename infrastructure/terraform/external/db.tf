@@ -4,7 +4,7 @@
 */
 
 module "tquest_database_server" {
-  source                   = "../modules/ecs"
+  source                   = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/ecs?ref=v1.1.0&depth=1"
   name                     = var.container_db_service_name
   environment              = var.environment_name
   use_default_task_role    = true

@@ -7,7 +7,7 @@ data "aws_route53_zone" "public" {
 
 module "github_actions_oidc" {
   count  = local.is_production ? 1 : 0
-  source = "./modules/github_actions_oidc"
+  source = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/github_actions_oidc?ref=v1.1.0&depth=1"
 
   role_name = "${var.project_name}-github-actions-deploy"
   allowed_subjects = [
@@ -20,7 +20,7 @@ module "github_actions_oidc" {
 }
 
 module "networking" {
-  source             = "./modules/networking"
+  source             = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/networking?ref=v1.1.0&depth=1"
   environment_name   = var.environment_name
   name_prefix        = local.name_prefix
   vpc_cidr_block     = var.vpc_cidr_block
@@ -29,7 +29,7 @@ module "networking" {
 }
 
 module "alb_security_group" {
-  source           = "./modules/security_groups"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/security_groups?ref=v1.1.0&depth=1"
   environment_name = var.environment_name
   name             = "${var.project_name}-alb"
   description      = "Allow public web traffic to the RollFinders ALB"
@@ -63,7 +63,7 @@ module "alb_security_group" {
 
 module "ec2_app_security_group" {
   count            = 1
-  source           = "./modules/security_groups"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/security_groups?ref=v1.1.0&depth=1"
   environment_name = var.environment_name
   name             = "${var.project_name}-ec2-app"
   description      = "Allow ALB traffic to the RollFinders EC2 app host"
@@ -89,7 +89,7 @@ module "ec2_app_security_group" {
 }
 
 module "database_security_group" {
-  source           = "./modules/security_groups"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/security_groups?ref=v1.1.0&depth=1"
   environment_name = var.environment_name
   name             = "${var.project_name}-database"
   description      = "Allow ECS tasks to connect to PostgreSQL"
@@ -107,14 +107,14 @@ module "database_security_group" {
 
 module "certificate" {
   count                     = var.enable_custom_domain ? 1 : 0
-  source                    = "./modules/acm_dns_certificate"
+  source                    = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/acm_dns_certificate?ref=v1.1.0&depth=1"
   canonical_domain          = local.canonical_domain
   subject_alternative_names = local.is_production ? ["*.${var.hosted_zone_name}"] : ["*.${local.canonical_domain}"]
   zone_id                   = data.aws_route53_zone.public.zone_id
 }
 
 module "alb" {
-  source             = "./modules/alb_app"
+  source             = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/alb_app?ref=v1.1.0&depth=1"
   name_prefix        = local.name_prefix
   vpc_id             = module.networking.vpc_id
   security_group_ids = [module.alb_security_group.id]
@@ -126,7 +126,7 @@ module "alb" {
 }
 
 module "ecr" {
-  source = "./modules/ecr_repository"
+  source = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/ecr_repository?ref=v1.1.0&depth=1"
   name   = "${var.project_name}/${var.environment_name}/app"
 }
 
@@ -166,7 +166,7 @@ resource "random_password" "notification_api_key" {
 }
 
 module "database" {
-  source                  = "./modules/rds_postgres"
+  source                  = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/rds_postgres?ref=v1.1.0&depth=1"
   name_prefix             = local.name_prefix
   subnet_ids              = module.networking.database_subnet_ids
   security_group_ids      = [module.database_security_group.id]
@@ -180,7 +180,7 @@ module "database" {
 }
 
 module "email" {
-  source                      = "./modules/smtp_email_dns"
+  source                      = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/smtp_email_dns?ref=v1.1.0&depth=1"
   domain_name                 = var.hosted_zone_name
   zone_id                     = data.aws_route53_zone.public.zone_id
   dmarc_rua_email             = "postmaster@${var.hosted_zone_name}"
@@ -188,7 +188,7 @@ module "email" {
 }
 
 module "app_secrets" {
-  source = "./modules/app_secrets"
+  source = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/app_secrets?ref=v1.1.0&depth=1"
   name   = "${local.name_prefix}/app"
   tags   = local.common_tags
 
@@ -251,7 +251,7 @@ resource "aws_ssm_parameter" "super_admin" {
 
 module "ec2_app_host" {
   count              = 1
-  source             = "./modules/ec2_app_host"
+  source             = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/ec2_app_host?ref=v1.1.0&depth=1"
   name_prefix        = local.name_prefix
   subnet_id          = module.networking.public_subnet_ids[0]
   security_group_ids = [module.ec2_app_security_group[0].id]
@@ -270,7 +270,7 @@ resource "aws_lb_target_group_attachment" "ec2_app_host" {
 }
 
 module "assets_bucket" {
-  source             = "./modules/s3"
+  source             = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/s3?ref=v1.1.0&depth=1"
   environment_name   = var.environment_name
   name               = "assets"
   enabled_versioning = true
@@ -281,20 +281,20 @@ module "assets_bucket" {
 }
 
 module "events" {
-  source           = "./modules/event_bridge"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/event_bridge?ref=v1.1.0&depth=1"
   environment_name = var.environment_name
   name             = "events"
 }
 
 module "assets_cdn" {
-  source                      = "./modules/cloudfront_s3_assets"
+  source                      = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/cloudfront_s3_assets?ref=v1.1.0&depth=1"
   name_prefix                 = local.name_prefix
   bucket_regional_domain_name = module.assets_bucket.bucket_regional_domain_name
 }
 
 module "app_dns_records" {
   count            = var.enable_custom_domain ? 1 : 0
-  source           = "./modules/route53_app_records"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/route53_app_records?ref=v1.1.0&depth=1"
   zone_id          = data.aws_route53_zone.public.zone_id
   canonical_domain = local.canonical_domain
   www_domain       = local.www_domain

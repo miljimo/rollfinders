@@ -1,5 +1,5 @@
 module "terraform_artefact_bucket" {
-  source             = "../modules/s3"
+  source             = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/s3?ref=v1.1.0&depth=1"
   environment_name   = var.project_name
   name               = "terraform-artefact"
   use_actual_name    = false

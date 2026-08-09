@@ -1,5 +1,5 @@
 module "vpc_endpoints_security_group" {
-  source           = "../modules/security_groups"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/security_groups?ref=v1.1.0&depth=1"
   name             = "vpc-endpoint-sg"
   environment_name = var.environment_name
   vpc_id           = module.vpc.id
@@ -29,7 +29,7 @@ module "vpc_endpoints_security_group" {
 
 
 module "elb_security_group" {
-  source           = "../modules/security_groups"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/security_groups?ref=v1.1.0&depth=1"
   name             = "alb-sg"
   description      = "Security group for the ALB"
   vpc_id           = module.vpc.id
@@ -59,7 +59,7 @@ module "elb_security_group" {
 
 // The database security group for testing purposes
 module "ecs_db_service_security_group" {
-  source           = "../modules/security_groups"
+  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/security_groups?ref=v1.1.0&depth=1"
   name             = "ecs-db-sg"
   description      = "Security group for the tQuest DB ECS tasks for testing"
   vpc_id           = module.vpc.id

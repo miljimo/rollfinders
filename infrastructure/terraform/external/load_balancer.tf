@@ -1,7 +1,7 @@
 
 
 module "tquest_load_balancer" {
-  source                  = "../modules/elastic_balancers"
+  source                  = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/elastic_balancers?ref=v1.1.0&depth=1"
   name                    = "tquest-alb"
   default_group_enabled   = true
   security_group_ids      = [module.elb_security_group.id]
