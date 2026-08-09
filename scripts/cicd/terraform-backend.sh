@@ -11,7 +11,7 @@ terraform_backend_bucket() {
     account_id="$(aws sts get-caller-identity --query Account --output text)"
   fi
 
-  # Mirrors terraform/modules/s3 local.unique_name for bootstrap's artefact bucket.
+  # Mirrors the shared s3 module's local.unique_name for bootstrap's artefact bucket.
   echo "${APP_NAME}-${account_id}-terraform-artefact"
 }
 
