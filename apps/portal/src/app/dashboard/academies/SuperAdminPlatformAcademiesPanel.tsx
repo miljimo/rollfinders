@@ -1,3 +1,5 @@
+"use client";
+
 import { Building2 } from "lucide-react";
 import { Button } from "@/app/_components/Button";
 import { StatsPanel, type StatsPanelItem } from "@/app/_components/StatsPanel";

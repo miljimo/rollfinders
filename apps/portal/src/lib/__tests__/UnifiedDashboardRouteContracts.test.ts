@@ -488,6 +488,7 @@ describe("unified dashboard route contracts", () => {
 
     assert.notEqual(columnsSource, "", "Expected Platform Admin academy columns source to be present");
     assert.notEqual(panelSource, "", "Expected Platform Admin academy panel source to be present");
+    assert.match(source, /^"use client";/);
     assert.doesNotMatch(columnsSource, /<Button href=\{String\(value\)\}/);
     assert.match(columnsSource, /<Button href=\{row\.reviewHref\} aria-label=\{row\.reviewLabel\}/);
     assert.match(panelSource, /reviewLabel:\s*`Review \$\{academy\.name\}`/);
@@ -496,6 +497,19 @@ describe("unified dashboard route contracts", () => {
     assert.doesNotMatch(panelSource, /ariaLabel:\s*\(row\)/);
     assert.doesNotMatch(panelSource, /href:\s*\(row\)/);
     assert.doesNotMatch(panelSource, /getRowHref=\{\(row\) => String\(row\.reviewHref\)\}/);
+  });
+
+  it("interactive dashboard table callbacks stay inside client component boundaries", () => {
+    const workspaceSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
+    const analyticsTablesSource = readSource("apps/portal/src/app/dashboard/FounderAnalyticsTables.tsx");
+    const walletsSource = readSource("apps/portal/src/app/dashboard/wallet/WalletsDashboard.tsx");
+    const transactionsSource = readSource("apps/portal/src/app/dashboard/wallet/WalletTransactionsDashboard.tsx");
+
+    assert.match(analyticsTablesSource, /^"use client";/);
+    assert.match(walletsSource, /^"use client";/);
+    assert.match(transactionsSource, /^"use client";/);
+    assert.match(workspaceSource, /<FounderAnalyticsTables dailyVisits=\{dailyVisits\} rows=\{rows\} \/>/);
+    assert.doesNotMatch(workspaceSource, /import\s*\{[^}]*\bTable,[^}]*\}\s*from\s*"@\/app\/_components\/Table"/);
   });
 
   it("admin dashboard stats board is collapsible and collapsed by default", () => {

@@ -1,3 +1,5 @@
+"use client";
+
 import { Plus } from "lucide-react";
 import { Button } from "@/app/_components/Button";
 import { Table } from "@/app/_components/Table";
@@ -36,4 +38,3 @@ export function WalletsDashboard({ pagination, rows, searchParams }: { paginatio
     </section>
   );
 }
-
