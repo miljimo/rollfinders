@@ -39,8 +39,8 @@ output "www_url" {
 }
 
 output "api_url" {
-  description = "Prepared API URL."
-  value       = var.enable_custom_domain ? "https://${local.api_domain}" : ""
+  description = "External backend API URL used by the frontend."
+  value       = local.api_base_url
 }
 
 output "certificate_arn" {

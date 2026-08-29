@@ -1,42 +1,9 @@
-include:
-  - path: ./apps/backend_api/containers/api/compose.yml
-  - path: ./apps/backend_api/containers/payments/compose.yml
-  - path: ./apps/backend_api/containers/booking/compose.yml
-  - path: ./apps/backend_api/containers/notification/compose.yml
-  - path: ./apps/backend_api/containers/analytics/compose.yml
-  - path: ./apps/backend_api/containers/academy/compose.yml
-  - path: ./apps/backend_api/containers/users/compose.yml
-  - path: ./apps/backend_api/containers/courses/compose.yml
-  - path: ./apps/backend_api/containers/authorisation/compose.yml
-  - path: ./apps/backend_api/containers/organisation/compose.yml
-  - path: ./apps/backend_api/containers/subscriptions/compose.yml
-  - path: ./apps/backend_api/containers/wallet/compose.yml
-  - path: ./apps/backend_api/containers/transfer/compose.yml
-  - path: ./apps/backend_api/containers/pricing/compose.yml
-  - path: ./apps/backend_api/containers/usage_limits/compose.yml
-
 services:
   db:
     image: postgres:16-alpine
     env_file:
       - .env
-    profiles:
-      - academy
-      - booking
-      - notification
-      - analytics
-      - courses
-      - db
-      - app
-      - seed
-      - organisation
-      - api
-      - authorisation
-      - subscriptions
-      - wallet
-      - transfer
-      - pricing
-      - usage-limits
+    profiles: [db, app, seed]
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
@@ -45,13 +12,10 @@ services:
       - "${DB_PORT:-54322}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./apps/backend_api/internal/services/payments/migrations:/docker-entrypoint-initdb.d:ro
     networks:
       - app_database
-      - service_database
     healthcheck:
-      test:
-        ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -64,19 +28,7 @@ services:
         - github_package_token
     env_file:
       - .env
-    profiles:
-      - academy
-      - booking
-      - courses
-      - notification
-      - analytics
-      - subscriptions
-      - wallet
-      - transfer
-      - pricing
-      - usage-limits
-      - app
-      - seed
+    profiles: [app, seed]
     environment:
       DB_NAME: ${DB_NAME:-rollfinder}
       DB_USER: ${DB_USER:-postgres}
@@ -97,8 +49,7 @@ services:
         - github_package_token
     env_file:
       - .env
-    profiles:
-      - seed
+    profiles: [seed]
     command: ["npx", "prisma", "db", "seed"]
     environment:
       DB_NAME: ${DB_NAME:-rollfinder}
@@ -123,8 +74,7 @@ services:
         NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
     env_file:
       - .env
-    profiles:
-      - app
+    profiles: [app]
     environment:
       DB_NAME: ${DB_NAME:-rollfinder}
       DB_USER: ${DB_USER:-postgres}
@@ -137,36 +87,20 @@ services:
       GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
       NEXT_PUBLIC_POSTHOG_KEY: ${NEXT_PUBLIC_POSTHOG_KEY:-}
       NEXT_PUBLIC_POSTHOG_HOST: ${NEXT_PUBLIC_POSTHOG_HOST:-https://eu.i.posthog.com}
-      API_PUBLIC_BASE_URL: http://api:8080
-      ACADEMY_PUBLIC_BASE_URL: http://academy:8080
-      BOOKING_PUBLIC_BASE_URL: http://booking:8080
-      PAYMENT_PUBLIC_BASE_URL: http://payments:8080
-      WALLET_INTERNAL_BASE_URL: http://wallet:8080
-      PRICING_INTERNAL_BASE_URL: http://pricing:8080
-      NOTIFICATION_SERVICE_BASE_URL: http://notification:8080
-      NOTIFICATION_API_KEY: ${NOTIFICATION_API_KEY:-local-notification-api-key}
-      ANALYTICS_SERVICE_BASE_URL: http://analytics:8080
-      ANALYTICS_API_KEY: ${ANALYTICS_API_KEY:-local-analytics-api-key}
-      AUTHORISATION_PUBLIC_BASE_URL: http://authorisation-api:8080
+      API_PUBLIC_BASE_URL: ${API_DOCKER_BASE_URL:-http://host.docker.internal:13007}
       AUTHORISATION_COMPATIBILITY_FALLBACK: ${AUTHORISATION_COMPATIBILITY_FALLBACK:-false}
       ROLLFINDERS_APPLICATION_ID: ${ROLLFINDERS_APPLICATION_ID:-app_rollfinders}
       COURSE_SERVICE_REQUIRED: ${COURSE_SERVICE_REQUIRED:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
-      - "3000:3000"
+      - "${APP_PORT:-3000}:3000"
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-      api:
-        condition: service_healthy
-      notification:
-        condition: service_healthy
-      analytics:
-        condition: service_healthy
     networks:
-      - frontend
-      - backend
       - app_database
 
 volumes:
@@ -177,7 +111,4 @@ secrets:
     environment: GITHUB_PACKAGE_TOKEN
 
 networks:
-  frontend:
-  backend:
   app_database:
-  service_database:

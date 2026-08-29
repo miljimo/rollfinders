@@ -56,10 +56,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: apps/backend_api/go.mod
-          cache-dependency-path: apps/backend_api/go.sum
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.10.5
@@ -69,7 +65,7 @@ jobs:
           GITHUB_PACKAGE_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
       - run: npm run db:generate
       - run: npm run typecheck
-      - run: npm run services:test
+      - run: npm test
       - run: npm run build
       - run: terraform fmt -check
         working-directory: infrastructure/terraform
@@ -107,10 +103,6 @@ jobs:
       - run: scripts/cicd/build.sh
         env:
           GITHUB_PACKAGE_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
-      - run: scripts/cicd/build-go-services.sh
-        env:
-          FORCE_SERVICE_REDEPLOY: ${{ inputs.environment == 'production' && 'true' || 'false' }}
-          SERVICE_REDEPLOY_TARGET: all
       - uses: actions/upload-artifact@v4
         with:
           name: image-env-${{ inputs.environment }}

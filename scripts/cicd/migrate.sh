@@ -22,7 +22,7 @@ terraform init "${BACKEND_CONFIG_ARGS[@]}" -reconfigure
 
 EC2_APP_INSTANCE_ID="$(terraform output -raw ec2_app_instance_id 2>/dev/null || true)"
 if [[ -n "${EC2_APP_INSTANCE_ID}" ]]; then
-  "${SCRIPT_DIR}/run-ec2-web-command.sh" "sh scripts/cicd/run-service-sql-migrations.sh && npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"
+  "${SCRIPT_DIR}/run-ec2-web-command.sh" "npx prisma migrate deploy"
   echo "EC2 migration command completed successfully."
   exit 0
 fi
@@ -40,7 +40,7 @@ TASK_ARN="$(aws ecs run-task \
   --launch-type FARGATE \
   --task-definition "${TASK_DEFINITION}" \
   --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS}],securityGroups=[${SECURITY_GROUPS}],assignPublicIp=${ASSIGN_PUBLIC_IP}}" \
-  --overrides '{"containerOverrides":[{"name":"web","command":["sh","-lc","sh scripts/cicd/run-service-sql-migrations.sh && npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"]}]}' \
+  --overrides '{"containerOverrides":[{"name":"web","command":["npx","prisma","migrate","deploy"]}]}' \
   --query 'tasks[0].taskArn' \
   --output text)"
 

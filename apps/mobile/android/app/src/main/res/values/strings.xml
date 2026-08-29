@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">RollFinders</string>
-    <string name="title_activity_main">RollFinders</string>
-    <string name="package_name">oepe.rollfinders</string>
-    <string name="custom_url_scheme">oepe.rollfinders</string>
-</resources>

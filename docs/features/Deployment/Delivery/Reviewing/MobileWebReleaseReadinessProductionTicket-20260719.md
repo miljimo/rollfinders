@@ -88,9 +88,9 @@ The agent must not:
 - WHEN a signed-out user opens Profile, THEN Sign In and Register Account are available inside the mobile shell.
 - WHEN `/mobile?tab=profile&auth=sign-in` is requested, THEN the mobile sign-in form renders and returns users to `/mobile`.
 - WHEN `/mobile?tab=profile&auth=register` is requested, THEN the practitioner registration form renders with academy search and submits through the existing registration action.
-- WHEN native Android output is needed, THEN `npm run mobile:android:apk` targets `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`.
-- WHEN Play Store bundle output is needed, THEN `npm run mobile:android:aab` targets `apps/mobile/android/app/build/outputs/bundle/release/app-release.aab`.
-- WHEN macOS/iOS project work is needed, THEN `npm run mobile:ios:sync` and `npm run mobile:ios:open` are available for Xcode.
+- WHEN native Android output is needed, THEN `npm run android:apk` in the standalone `rollfinder_mobile` repository targets `android/app/build/outputs/apk/debug/app-debug.apk`.
+- WHEN Play Store bundle output is needed, THEN `npm run android:aab` in the standalone `rollfinder_mobile` repository targets `android/app/build/outputs/bundle/release/app-release.aab`.
+- WHEN macOS/iOS project work is needed, THEN `npm run ios:sync` and `npm run ios:open` are available in the standalone repository for Xcode.
 - WHEN academy, support, privacy, terms, or dashboard links are tapped from mobile profile/auth surfaces, THEN they open as normal web pages and not as mobile tabs.
 - WHEN public discovery data is unavailable, THEN the mobile route shows empty mobile states rather than a 500 error.
 - WHEN `/mobile?tab=profile` and `/mobile?tab=map` are requested, THEN both return 200.
@@ -145,10 +145,10 @@ Collected on 2026-07-19:
   - Blocker: Chromium runtime missing `libnspr4.so`.
 - Native shell setup:
   - `npm install` installed Capacitor workspace dependencies.
-  - `npm --workspace @rollfinders/mobile exec cap add android` generated the Android project.
-  - `npm --workspace @rollfinders/mobile exec cap add ios` generated the iOS project.
-  - `npm run mobile:android:apk` synced Android and reached Gradle, then stopped because this WSL host has no Java/JDK.
-  - `npm run mobile:doctor` reports missing `java`, `adb`, and `ANDROID_HOME` on this host.
+  - `npx cap add android` in the standalone `rollfinder_mobile` repository generated the Android project.
+  - `npx cap add ios` in the standalone `rollfinder_mobile` repository generated the iOS project.
+  - `npm run android:apk` synced Android and reached Gradle, then stopped because this WSL host had no Java/JDK at the time.
+  - `npm run doctor` reported missing `java`, `adb`, and `ANDROID_HOME` on that host at the time.
 
 ## Acceptance Criteria
 

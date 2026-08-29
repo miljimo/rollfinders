@@ -131,7 +131,7 @@ Key controls:
 | Name | Target |
 | --- | --- |
 | Frontend domain | ALB alias record |
-| API domain | ALB alias record, `api.rollfinders.com` in production and `api.<env-domain>` elsewhere |
+| API domain | Owned by the backend deployment: `api.rollfinders.com` in production and `dev.api.rollfinders.com` in dev |
 | WWW domain | Production only, ALB alias record with HTTPS listener redirect to canonical domain |
 | Static assets URL | CloudFront default distribution domain |
 

@@ -118,7 +118,8 @@ function notificationServiceBaseURL() {
   return (
     process.env.NOTIFICATION_SERVICE_BASE_URL ??
     process.env.NOTIFICATION_PUBLIC_BASE_URL ??
-    "http://localhost:8080"
+    process.env.API_PUBLIC_BASE_URL ??
+    "http://localhost:13007"
   ).replace(/\/+$/, "");
 }
 

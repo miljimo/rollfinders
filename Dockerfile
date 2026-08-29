@@ -26,28 +26,12 @@ RUN npm run build
 
 FROM node:22-alpine AS migrator
 WORKDIR /app
-RUN apk add --no-cache postgresql-client
 COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY prisma ./prisma
-COPY apps/backend_api/migrations/seed ./apps/backend_api/migrations/seed
-COPY apps/backend_api/internal/services/users/migrations ./apps/backend_api/internal/services/users/migrations
-COPY apps/backend_api/internal/services/payments/migrations ./apps/backend_api/internal/services/payments/migrations
-COPY apps/backend_api/internal/services/courses/migrations ./apps/backend_api/internal/services/courses/migrations
-COPY apps/backend_api/internal/services/booking/migrations ./apps/backend_api/internal/services/booking/migrations
-COPY apps/backend_api/internal/services/academy/migrations ./apps/backend_api/internal/services/academy/migrations
-COPY apps/backend_api/internal/services/authorisation/migrations ./apps/backend_api/internal/services/authorisation/migrations
-COPY apps/backend_api/internal/services/notification/migrations ./apps/backend_api/internal/services/notification/migrations
-COPY apps/backend_api/internal/services/analytics/migrations ./apps/backend_api/internal/services/analytics/migrations
-COPY apps/backend_api/internal/services/subscriptions/migrations ./apps/backend_api/internal/services/subscriptions/migrations
-COPY apps/backend_api/internal/services/wallet/migrations ./apps/backend_api/internal/services/wallet/migrations
-COPY apps/backend_api/internal/services/transfer/migrations ./apps/backend_api/internal/services/transfer/migrations
-COPY apps/backend_api/internal/services/pricing/migrations ./apps/backend_api/internal/services/pricing/migrations
-COPY apps/backend_api/internal/services/usage_limits/migrations ./apps/backend_api/internal/services/usage_limits/migrations
-COPY scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY prisma.config.ts ./
 RUN npx prisma generate
-CMD ["sh", "-c", "npx prisma migrate deploy && sh scripts/cicd/run-service-sql-migrations.sh"]
+CMD ["npx", "prisma", "migrate", "deploy"]
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -56,7 +40,7 @@ ARG NEXT_PUBLIC_POSTHOG_KEY=""
 ARG NEXT_PUBLIC_POSTHOG_HOST="https://eu.i.posthog.com"
 ENV NEXT_PUBLIC_POSTHOG_KEY=${NEXT_PUBLIC_POSTHOG_KEY}
 ENV NEXT_PUBLIC_POSTHOG_HOST=${NEXT_PUBLIC_POSTHOG_HOST}
-RUN apk add --no-cache curl postgresql-client \
+RUN apk add --no-cache curl \
   && addgroup -S nodejs \
   && adduser -S nextjs -G nodejs
 COPY --from=builder /app/apps/portal/public ./apps/portal/public
@@ -65,21 +49,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/portal/.next/static ./apps/p
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --chown=nextjs:nodejs package*.json ./
 COPY --chown=nextjs:nodejs prisma ./prisma
-COPY --chown=nextjs:nodejs apps/backend_api/migrations/seed ./apps/backend_api/migrations/seed
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/users/migrations ./apps/backend_api/internal/services/users/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/payments/migrations ./apps/backend_api/internal/services/payments/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/courses/migrations ./apps/backend_api/internal/services/courses/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/booking/migrations ./apps/backend_api/internal/services/booking/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/academy/migrations ./apps/backend_api/internal/services/academy/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/authorisation/migrations ./apps/backend_api/internal/services/authorisation/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/notification/migrations ./apps/backend_api/internal/services/notification/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/analytics/migrations ./apps/backend_api/internal/services/analytics/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/subscriptions/migrations ./apps/backend_api/internal/services/subscriptions/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/wallet/migrations ./apps/backend_api/internal/services/wallet/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/transfer/migrations ./apps/backend_api/internal/services/transfer/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/pricing/migrations ./apps/backend_api/internal/services/pricing/migrations
-COPY --chown=nextjs:nodejs apps/backend_api/internal/services/usage_limits/migrations ./apps/backend_api/internal/services/usage_limits/migrations
-COPY --chown=nextjs:nodejs scripts/cicd/run-service-sql-migrations.sh ./scripts/cicd/run-service-sql-migrations.sh
 COPY --chown=nextjs:nodejs apps/portal/src/lib/email/templates ./apps/portal/src/lib/email/templates
 COPY --chown=nextjs:nodejs apps/portal/src/lib/prisma-pg-pool.ts ./apps/portal/src/lib/prisma-pg-pool.ts
 COPY --chown=nextjs:nodejs prisma.config.ts ./

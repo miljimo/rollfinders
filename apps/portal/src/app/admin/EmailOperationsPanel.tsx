@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { AlertTriangle, Clock3, Mail, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/app/_components/Button";

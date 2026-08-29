@@ -127,13 +127,7 @@ const academyServiceUrl = apiGatewayUrl;
 
 function directAcademyServiceUrl() {
   const value = getEnvVariable("ACADEMY_PUBLIC_BASE_URL", "");
-  if (!value.trim()) {
-    throw new AcademyServiceError(
-      "Academy service URL is not configured.",
-      503,
-    );
-  }
-  return normalizeBaseUrl(value);
+  return value.trim() ? normalizeBaseUrl(value) : apiGatewayUrl();
 }
 
 type ServiceActor = {

@@ -83,7 +83,8 @@ export class UserServiceError extends Error {
 const userServiceUrl = apiGatewayUrl;
 
 function directUserServiceUrl() {
-  return normalizeBaseUrl(getEnvVariable("USER_PUBLIC_BASE_URL", "http://localhost:3005"));
+  const configuredUrl = getEnvVariable("USER_PUBLIC_BASE_URL", "");
+  return configuredUrl ? normalizeBaseUrl(configuredUrl) : apiGatewayUrl();
 }
 
 function headers(actor?: ActorContext) {

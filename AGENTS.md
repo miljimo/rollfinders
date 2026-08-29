@@ -35,10 +35,10 @@ Do not load every guideline unless the task requires it.
 ## Project Summary
 
 ```txt
-apps/backend_api/  -> Go multi-service monolith backend
 apps/portal/       -> Next.js React TypeScript portal
-apps/mobile/       -> mobile app, if available
 docs/guidelines/   -> project rules
+../rollfinders_api/      -> standalone Go backend repository
+../rollfinder_mobile/    -> standalone Capacitor mobile repository
 ```
 
 ---

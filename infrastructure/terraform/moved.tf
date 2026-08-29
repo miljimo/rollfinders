@@ -134,11 +134,6 @@ moved {
 }
 
 moved {
-  from = module.app_dns_records.aws_route53_record.api
-  to   = module.app_dns_records[0].aws_route53_record.api
-}
-
-moved {
   from = module.app_dns_records.aws_route53_record.www
   to   = module.app_dns_records[0].aws_route53_record.www
 }
@@ -181,9 +176,4 @@ moved {
 moved {
   from = aws_route53_record.www
   to   = module.app_dns_records.aws_route53_record.www
-}
-
-moved {
-  from = aws_route53_record.api
-  to   = module.app_dns_records.aws_route53_record.api
 }

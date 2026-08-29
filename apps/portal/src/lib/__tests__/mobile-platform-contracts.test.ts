@@ -81,23 +81,9 @@ test("mobile web route renders a public-only app shell with bottom navigation", 
   assert.doesNotMatch(source, /Claimed Academy/);
 });
 
-test("native mobile shell can produce Android and iOS build artifacts from Capacitor", () => {
-  const rootPackage = readSource("package.json");
-  const mobilePackage = readSource("apps/mobile/package.json");
-  const capacitorConfig = readSource("apps/mobile/capacitor.config.ts");
-  const mobileReadme = readSource("apps/mobile/README.md");
+test("native mobile shell ownership is documented as a standalone repository", () => {
+  const source = readSource("docs/platform/mobile.md");
 
-  assert.match(rootPackage, /mobile:android:apk/);
-  assert.match(rootPackage, /mobile:android:aab/);
-  assert.match(rootPackage, /mobile:ios:sync/);
-  assert.match(mobilePackage, /@capacitor\/android/);
-  assert.match(mobilePackage, /@capacitor\/ios/);
-  assert.match(mobilePackage, /assembleDebug/);
-  assert.match(mobilePackage, /bundleRelease/);
-  assert.match(capacitorConfig, /appId:\s*"oepe\.rollfinders"/);
-  assert.match(capacitorConfig, /appendUserAgent:\s*"RollFindersMobile"/);
-  assert.match(capacitorConfig, /url:\s*"https:\/\/rollfinders\.com\/mobile"/);
-  assert.match(mobileReadme, /app-debug\.apk/);
-  assert.match(mobileReadme, /app-release\.aab/);
-  assert.match(mobileReadme, /Xcode/);
+  assert.match(source, /github\.com\/miljimo\/rollfinders_mobile/);
+  assert.match(source, /native Capacitor shell is maintained independently/);
 });

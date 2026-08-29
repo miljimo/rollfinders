@@ -56,6 +56,9 @@ https://rollfinders.com
 
 The mobile app wraps the mobile-first web experience inside a native WebView.
 
+The native Capacitor shell is maintained independently in the
+[`rollfinders_mobile`](https://github.com/miljimo/rollfinders_mobile) repository.
+
 ---
 
 # Recommended URL Structure

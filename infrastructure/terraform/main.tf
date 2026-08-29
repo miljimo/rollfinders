@@ -195,6 +195,7 @@ module "app_secrets" {
   secret_values = {
     NEXTAUTH_SECRET         = var.nextauth_secret != "" ? var.nextauth_secret : random_password.nextauth.result
     NEXTAUTH_URL            = local.app_base_url
+    API_PUBLIC_BASE_URL     = local.api_base_url
     DATABASE_URL            = "postgresql://${var.db_username}:${random_password.db.result}@${module.database.address}:5432/${var.db_name}?sslmode=require"
     DB_HOST                 = module.database.address
     DB_PORT                 = "5432"
@@ -294,11 +295,10 @@ module "assets_cdn" {
 
 module "app_dns_records" {
   count            = var.enable_custom_domain ? 1 : 0
-  source           = "git::ssh://git@github.com/miljimo/terraform-modules.git//modules/route53_app_records?ref=v1.1.0&depth=1"
+  source           = "./modules/app_dns_records"
   zone_id          = data.aws_route53_zone.public.zone_id
   canonical_domain = local.canonical_domain
   www_domain       = local.www_domain
-  api_domain       = local.api_domain
   alb_dns_name     = module.alb.dns_name
   alb_zone_id      = module.alb.zone_id
 }

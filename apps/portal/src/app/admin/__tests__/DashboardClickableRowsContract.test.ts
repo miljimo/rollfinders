@@ -16,22 +16,22 @@ describe("dashboard clickable row contracts", () => {
     assert.match(source, /const academyHref = adminAcademiesHref\(params, \{ dialog: "view-academy", academyId: academy\.id \}\);/);
     assert.match(source, /<TableRow key=\{academy\.id\} href=\{academyHref\}>/);
     assert.match(source, /<LinkedTableCell href=\{academyHref\} className="font-bold text-slate-950">\{academy\.name\}<\/LinkedTableCell>/);
-    assert.match(source, /<ActionMenu label=\{`Open actions for \$\{academy\.name\}`\}>/);
+    assert.match(source, /<AcademyActionMenu academy=\{academy\} params=\{params\} \/>/);
     assert.doesNotMatch(source, /href=\{`\/academies\/\$\{academy\.slug\}`\}/);
     assert.match(source, /href=\{academyHref\}/);
     assert.match(source, /aria-label=\{`Select \$\{academy\.name\} for claim reminder`\}/);
   });
 
   it("keeps dashboard open mat and course rows and view actions in the dashboard detail dialog while edit actions stay separate", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
     assert.match(source, /const detailHref = `\/dashboard\/courses\?dialog=view-event&eventId=\$\{event\.id\}`;/);
     assert.match(source, /<TableRow key=\{event\.id\} href=\{detailHref\}>/);
-    assert.match(source, /<LinkedTableCell href=\{detailHref\} className="font-bold text-slate-950">\{event\.title\}<\/LinkedTableCell>/);
+    assert.match(source, /<LinkedTableCell\s+href=\{detailHref\}\s+className="font-bold text-slate-950"\s*>\s*\{event\.title\}\s*<\/LinkedTableCell>/);
     assert.match(source, /<ActionMenu label=\{`Open actions for \$\{event\.title\}`\}>/);
     assert.match(source, /href=\{detailHref\}/);
     assert.doesNotMatch(source, /href=\{publicHref\}/);
-    assert.match(source, /href=\{adminHref\}/);
+    assert.match(source, /href=\{editHref\}/);
     assert.match(source, /const cloneHref = `\/dashboard\/courses\?dialog=create-course&cloneFrom=\$\{event\.id\}`;/);
     assert.match(source, /href=\{cloneHref\}/);
     assert.match(source, /View Course/);
@@ -43,18 +43,16 @@ describe("dashboard clickable row contracts", () => {
   it("routes standard dashboard course rows to the matching public detail page", () => {
     const source = readSource("apps/portal/src/app/dashboard/page.tsx");
 
-    assert.match(source, /import \{ courseHref, coursePriceLabel \} from "@\/lib\/courses";/);
-    assert.match(source, /function dashboardCourseHref\(course: RollRow, returnTo: string\)/);
+    assert.match(source, /import \{ courseHref, coursePriceLabel, getAcademyCourseDiscovery, mobileCourseHref \} from "@\/lib\/courses";/);
+    assert.match(source, /function dashboardCourseHref\(/);
     assert.match(source, /const href = courseHref\(course\);/);
     assert.match(source, /params\.set\("returnTo", returnTo\);/);
-    assert.match(source, /courseType: true,/);
-    assert.match(source, /courseType: roll\.courseType,/);
-    assert.match(source, /getRowHref=\{\(row\) => dashboardCourseHref\(row, returnTo\)\}/);
+    assert.match(source, /href: dashboardCourseHref\(roll, returnTo, mobileSurface\),/);
     assert.doesNotMatch(source, /getRowHref=\{\(row\) => `\/open-mats\/\$\{row\.id\}`\}/);
   });
 
   it("opens dashboard user rows in the user detail dialog", () => {
-    const source = readSource("apps/portal/src/app/dashboard/AdminDashboardWorkspace.tsx");
+    const source = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
 
     assert.match(source, /const userHref = `\/dashboard\/users\?dialog=view-user&userId=\$\{user\.id\}`;/);
     assert.match(source, /<TableRow key=\{user\.id\} href=\{userHref\}>/);

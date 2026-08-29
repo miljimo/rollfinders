@@ -32,12 +32,13 @@ function promotion_write() {
   local wallet_service_image_uri="${WALLET_SERVICE_IMAGE_URI:-}"
   local transfer_service_image_uri="${TRANSFER_SERVICE_IMAGE_URI:-}"
   local pricing_service_image_uri="${PRICING_SERVICE_IMAGE_URI:-}"
+  local usage_limits_service_image_uri="${USAGE_LIMITS_SERVICE_IMAGE_URI:-}"
   local commit="${BITBUCKET_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || true)}"
   local branch="${BITBUCKET_BRANCH:-$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)}"
   local file
   file="$(mktemp)"
 
-  ENV_FOR_PROMOTION="${env}" STATUS_FOR_PROMOTION="${status}" IMAGE_FOR_PROMOTION="${image_uri}" API_SERVICE_IMAGE_FOR_PROMOTION="${api_service_image_uri}" USER_SERVICE_IMAGE_FOR_PROMOTION="${user_service_image_uri}" AUTHORISATION_SERVICE_IMAGE_FOR_PROMOTION="${authorisation_service_image_uri}" ACADEMY_SERVICE_IMAGE_FOR_PROMOTION="${academy_service_image_uri}" ORGANISATION_SERVICE_IMAGE_FOR_PROMOTION="${organisation_service_image_uri}" COURSE_SERVICE_IMAGE_FOR_PROMOTION="${course_service_image_uri}" BOOKING_SERVICE_IMAGE_FOR_PROMOTION="${booking_service_image_uri}" PAYMENT_SERVICE_IMAGE_FOR_PROMOTION="${payment_service_image_uri}" SUBSCRIPTION_SERVICE_IMAGE_FOR_PROMOTION="${subscription_service_image_uri}" NOTIFICATION_SERVICE_IMAGE_FOR_PROMOTION="${notification_service_image_uri}" ANALYTICS_SERVICE_IMAGE_FOR_PROMOTION="${analytics_service_image_uri}" ACCESS_KEY_SERVICE_IMAGE_FOR_PROMOTION="${access_key_service_image_uri}" WALLET_SERVICE_IMAGE_FOR_PROMOTION="${wallet_service_image_uri}" TRANSFER_SERVICE_IMAGE_FOR_PROMOTION="${transfer_service_image_uri}" PRICING_SERVICE_IMAGE_FOR_PROMOTION="${pricing_service_image_uri}" COMMIT_FOR_PROMOTION="${commit}" BRANCH_FOR_PROMOTION="${branch}" python3 -c '
+  ENV_FOR_PROMOTION="${env}" STATUS_FOR_PROMOTION="${status}" IMAGE_FOR_PROMOTION="${image_uri}" API_SERVICE_IMAGE_FOR_PROMOTION="${api_service_image_uri}" USER_SERVICE_IMAGE_FOR_PROMOTION="${user_service_image_uri}" AUTHORISATION_SERVICE_IMAGE_FOR_PROMOTION="${authorisation_service_image_uri}" ACADEMY_SERVICE_IMAGE_FOR_PROMOTION="${academy_service_image_uri}" ORGANISATION_SERVICE_IMAGE_FOR_PROMOTION="${organisation_service_image_uri}" COURSE_SERVICE_IMAGE_FOR_PROMOTION="${course_service_image_uri}" BOOKING_SERVICE_IMAGE_FOR_PROMOTION="${booking_service_image_uri}" PAYMENT_SERVICE_IMAGE_FOR_PROMOTION="${payment_service_image_uri}" SUBSCRIPTION_SERVICE_IMAGE_FOR_PROMOTION="${subscription_service_image_uri}" NOTIFICATION_SERVICE_IMAGE_FOR_PROMOTION="${notification_service_image_uri}" ANALYTICS_SERVICE_IMAGE_FOR_PROMOTION="${analytics_service_image_uri}" ACCESS_KEY_SERVICE_IMAGE_FOR_PROMOTION="${access_key_service_image_uri}" WALLET_SERVICE_IMAGE_FOR_PROMOTION="${wallet_service_image_uri}" TRANSFER_SERVICE_IMAGE_FOR_PROMOTION="${transfer_service_image_uri}" PRICING_SERVICE_IMAGE_FOR_PROMOTION="${pricing_service_image_uri}" USAGE_LIMITS_SERVICE_IMAGE_FOR_PROMOTION="${usage_limits_service_image_uri}" COMMIT_FOR_PROMOTION="${commit}" BRANCH_FOR_PROMOTION="${branch}" python3 -c '
 import json, os, time
 print(json.dumps({
     "environment": os.environ["ENV_FOR_PROMOTION"],
@@ -58,6 +59,7 @@ print(json.dumps({
     "wallet_service_image_uri": os.environ["WALLET_SERVICE_IMAGE_FOR_PROMOTION"],
     "transfer_service_image_uri": os.environ["TRANSFER_SERVICE_IMAGE_FOR_PROMOTION"],
     "pricing_service_image_uri": os.environ["PRICING_SERVICE_IMAGE_FOR_PROMOTION"],
+    "usage_limits_service_image_uri": os.environ["USAGE_LIMITS_SERVICE_IMAGE_FOR_PROMOTION"],
     "commit": os.environ["COMMIT_FOR_PROMOTION"],
     "branch": os.environ["BRANCH_FOR_PROMOTION"],
     "pipeline_uuid": os.environ.get("BITBUCKET_PIPELINE_UUID", ""),
@@ -73,6 +75,57 @@ print(json.dumps({
     --content-type "application/json" >/dev/null
   rm -f "${file}"
   echo "Promotion record written for ${env}."
+}
+
+promotion_load_backend_images() {
+  local env="$1"
+  local file
+  file="$(mktemp)"
+
+  if ! aws s3api get-object \
+    --region "${AWS_REGION}" \
+    --bucket "${PROMOTION_BUCKET}" \
+    --key "$(promotion_key "${env}")" \
+    "${file}" >/dev/null 2>&1; then
+    rm -f "${file}"
+    echo "No successful ${env} deployment record is available to preserve backend images."
+    return 1
+  fi
+
+  local exports_file
+  exports_file="$(mktemp)"
+  python3 - "${file}" >"${exports_file}" <<'PY'
+import json
+import shlex
+import sys
+
+record = json.load(open(sys.argv[1]))
+mapping = {
+    "API_SERVICE_IMAGE_URI": "api_service_image_uri",
+    "USER_SERVICE_IMAGE_URI": "user_service_image_uri",
+    "AUTHORISATION_SERVICE_IMAGE_URI": "authorisation_service_image_uri",
+    "ACADEMY_SERVICE_IMAGE_URI": "academy_service_image_uri",
+    "ORGANISATION_SERVICE_IMAGE_URI": "organisation_service_image_uri",
+    "COURSE_SERVICE_IMAGE_URI": "course_service_image_uri",
+    "BOOKING_SERVICE_IMAGE_URI": "booking_service_image_uri",
+    "PAYMENT_SERVICE_IMAGE_URI": "payment_service_image_uri",
+    "SUBSCRIPTION_SERVICE_IMAGE_URI": "subscription_service_image_uri",
+    "NOTIFICATION_SERVICE_IMAGE_URI": "notification_service_image_uri",
+    "ANALYTICS_SERVICE_IMAGE_URI": "analytics_service_image_uri",
+    "ACCESS_KEY_SERVICE_IMAGE_URI": "access_key_service_image_uri",
+    "WALLET_SERVICE_IMAGE_URI": "wallet_service_image_uri",
+    "TRANSFER_SERVICE_IMAGE_URI": "transfer_service_image_uri",
+    "PRICING_SERVICE_IMAGE_URI": "pricing_service_image_uri",
+    "USAGE_LIMITS_SERVICE_IMAGE_URI": "usage_limits_service_image_uri",
+}
+for environment_name, record_name in mapping.items():
+    value = record.get(record_name, "")
+    if value:
+        print(f"export {environment_name}={shlex.quote(value)}")
+PY
+  # shellcheck disable=SC1090
+  source "${exports_file}"
+  rm -f "${file}" "${exports_file}"
 }
 
 promotion_require() {

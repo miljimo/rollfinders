@@ -516,6 +516,7 @@ describe("unified dashboard route contracts", () => {
 
   it("admin settings use quick actions to inject one selected settings detail panel", () => {
     const dashboardSource = readSource("apps/portal/src/app/dashboard/DashboardWorkspaceShell.tsx");
+    const emailOperationsSource = readSource("apps/portal/src/app/admin/EmailOperationsPanel.tsx");
     const legacySettingsSource = readSource("apps/portal/src/app/admin/settings/page.tsx");
     const passwordActionSource = readSource("apps/portal/src/app/dashboard/password/PasswordActions.ts");
 
@@ -541,6 +542,8 @@ describe("unified dashboard route contracts", () => {
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"recent-audits"\s*&&\s*elevatedAdmin/);
     assert.match(dashboardSource, /effectiveSettingsAction\s*===\s*"weekly-activity"\s*&&\s*elevatedAdmin[\s\S]*<PlatformAdminActivitySummaryPanel[\s\S]*embedded[\s\S]*summary=\{platformAdminActivitySummary\}/);
     assert.doesNotMatch(dashboardSource, /<PlatformAdminActivitySummaryPanel summary=\{platformAdminActivitySummary\}/);
+    assert.match(emailOperationsSource, /^"use client";/);
+    assert.match(emailOperationsSource, /<Table[\s\S]*columns=\{queueColumns\}/);
 
     assert.match(passwordActionSource, /changeDashboardUserPassword/);
     assert.match(passwordActionSource, /changeUserPassword\(user\.id,\s*password\)/);
