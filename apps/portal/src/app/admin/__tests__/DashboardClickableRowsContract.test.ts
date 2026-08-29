@@ -43,11 +43,11 @@ describe("dashboard clickable row contracts", () => {
   it("routes standard dashboard course rows to the matching public detail page", () => {
     const source = readSource("apps/portal/src/app/dashboard/page.tsx");
 
-    assert.match(source, /import \{ courseHref, coursePriceLabel, getAcademyCourseDiscovery, mobileCourseHref \} from "@\/lib\/courses";/);
+    assert.match(source, /import \{ courseHref, coursePriceLabel, getAcademyCourseDiscovery \} from "@\/lib\/courses";/);
     assert.match(source, /function dashboardCourseHref\(/);
     assert.match(source, /const href = courseHref\(course\);/);
     assert.match(source, /params\.set\("returnTo", returnTo\);/);
-    assert.match(source, /href: dashboardCourseHref\(roll, returnTo, mobileSurface\),/);
+    assert.match(source, /href: dashboardCourseHref\(roll, returnTo\),/);
     assert.doesNotMatch(source, /getRowHref=\{\(row\) => `\/open-mats\/\$\{row\.id\}`\}/);
   });
 

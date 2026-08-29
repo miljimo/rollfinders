@@ -43,7 +43,7 @@ describe("unified dashboard route contracts", () => {
     const source = readSource("apps/portal/src/app/dashboard/page.tsx");
 
     assert.match(source, /import\s+AdminDashboardWorkspace\s+from\s+"\.\/AdminDashboardWorkspace"/);
-    assert.match(source, /if\s*\(\s*!mobileSurface\s*&&\s*\(platformAdminUser\s*\|\|\s*academyAdminUser\)\s*\)\s*\{\s*return\s+<AdminDashboardWorkspace/);
+    assert.match(source, /if\s*\(platformAdminUser\s*\|\|\s*academyAdminUser\)\s*\{\s*return\s+<AdminDashboardWorkspace/);
     assert.doesNotMatch(source, /redirect\("\/admin"\)/);
   });
 
@@ -57,8 +57,7 @@ describe("unified dashboard route contracts", () => {
     assert.match(source, /value\s*===\s*"settings"/);
     assert.match(source, /value\s*===\s*"password"/);
     assert.match(source, /return\s+null/);
-    assert.match(source, /!panel\s*\|\|\s*\(mobileSurface\s*&&\s*panel\s*===\s*"members"\)/);
-    assert.match(source, /redirect\(mobileSurface\s*\?\s*"\/dashboard\?surface=mobile"\s*:\s*"\/dashboard"\)/);
+    assert.match(source, /if\s*\(!panel\)\s*redirect\("\/dashboard"\)/);
   });
 
   it("standard dashboard uses the shared side-panel shell pattern with standard-user-only navigation", () => {
@@ -85,22 +84,14 @@ describe("unified dashboard route contracts", () => {
     const dashboardTable = readSource("apps/portal/src/app/dashboard/StandardDashboardRollsTable.tsx");
     const rollsRoute = readSource("apps/portal/src/app/api/dashboard/rolls/route.ts");
 
-    assert.match(dashboardPage, /getAcademyCourseDiscovery\(\{\s*academyId:\s*academy\.id,\s*q:\s*mobileSurface \? undefined : search\s*\}\)/);
+    assert.match(dashboardPage, /getAcademyCourseDiscovery\(\{\s*academyId:\s*academy\.id,\s*q:\s*search\s*\}\)/);
     assert.match(dashboardPage, /academyRolls\.slice\(/);
     assert.match(dashboardPage, /rollsPage \* standardRollsPageSize/);
-    assert.match(dashboardPage, /href:\s*dashboardCourseHref\(roll,\s*returnTo,\s*mobileSurface\)/);
-    assert.match(dashboardPage, /if\s*\(mobileSurface\)\s*return\s+mobileCourseHref\(course,\s*"\/mobile\?tab=profile"\)/);
-    assert.match(dashboardPage, /listPractitionerBookings\(\{\s*accessToken:\s*actor\.accessToken,\s*email:\s*actor\.email,\s*userId:\s*actor\.id\s*\}\)/);
-    assert.match(dashboardPage, /<TabControl[\s\S]*activeValue=\{mobileView\}/);
-    assert.match(dashboardPage, /mobileView:\s*"courses"/);
-    assert.match(dashboardPage, /mobileView:\s*"bookings"/);
-    assert.match(dashboardPage, /search:\s*undefined/);
-    assert.match(dashboardPage, /<MobileDashboardSearch/);
-    assert.match(dashboardPage, /filteredBookings/);
-    assert.match(dashboardPage, /<MobilePractitionerBookings/);
+    assert.match(dashboardPage, /href:\s*dashboardCourseHref\(roll,\s*returnTo\)/);
     assert.match(dashboardPage, /<StandardDashboardRollsTable/);
     assert.match(dashboardTable, /"use client"/);
     assert.match(dashboardTable, /getRowHref=\{\(row\) => row\.href\}/);
+    assert.doesNotMatch(dashboardPage, /mobileSurface|mobileView|MobileNavigation|MobileDashboard/);
     assert.doesNotMatch(dashboardPage, /dialog=new-open-mat|dialog=edit-user|deleteManagedUser|createOpenMat|updateOpenMat/);
 
     assert.match(rollsRoute, /isStandardUserRole\(user\.role\)/);

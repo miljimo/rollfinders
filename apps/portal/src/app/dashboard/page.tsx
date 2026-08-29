@@ -4,10 +4,8 @@ import { redirect } from "next/navigation";
 import { Edit3, KeyRound, MapPin, Search, ShieldCheck, UserRound } from "lucide-react";
 import { Role, UserStatus } from "@prisma/client";
 import { SidePanelControl, type SidePanelItem } from "@/app/_components/SidePanelControl";
-import { MobileNavigation } from "@/app/_components/MobileNavigation";
 import { QuickActionPanel, type QuickActionPanelItem } from "@/app/_components/QuickActionPanel";
-import { TabControl } from "@/app/_components/tab-control";
-import { courseHref, coursePriceLabel, getAcademyCourseDiscovery, mobileCourseHref } from "@/lib/courses";
+import { courseHref, coursePriceLabel, getAcademyCourseDiscovery } from "@/lib/courses";
 import { academyMemberProfiles } from "@/lib/rollfinder-user-profiles";
 import { requireDashboardUser } from "@/lib/standard-dashboard";
 import { formatDate } from "@/lib/utils";
@@ -17,11 +15,7 @@ import { DashboardAccountDropDownMenu } from "./DashboardAccountDropDownMenu";
 import { AccountDeletionPanel } from "./settings/AccountDeletionPanel";
 import { getCurrentAccountDeletionRequest, type AccountDeletionRequest } from "@/lib/users-service";
 import AdminDashboardWorkspace from "./AdminDashboardWorkspace";
-import { MobileDashboardHeader } from "./MobileDashboardHeader";
-import { MobileDashboardSearch } from "./MobileDashboardSearch";
-import { MobilePractitionerBookings } from "./MobilePractitionerBookings";
 import { StandardDashboardRollsTable, type StandardDashboardRollRow } from "./StandardDashboardRollsTable";
-import { BookingServiceError, listPractitionerBookings, type BookingRecord } from "@/lib/bookings";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +30,6 @@ type DashboardSearchParams = Record<string, string | string[] | undefined>;
 
 type StandardPanel = "dashboard" | "members" | "profile" | "settings";
 type SettingsAction = "change-password" | "edit-profile";
-type MobileDashboardView = "courses" | "bookings";
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -58,29 +51,6 @@ function pageFromParams(searchParams: DashboardSearchParams, key: string) {
 function settingsAction(value: string | undefined): SettingsAction | null {
   if (value === "change-password" || value === "edit-profile") return value;
   return null;
-}
-
-function mobileDashboardView(value: string | undefined): MobileDashboardView {
-  return value === "bookings" ? "bookings" : "courses";
-}
-
-function normalizedSearch(value: unknown) {
-  return typeof value === "string" ? value.trim().toLowerCase() : "";
-}
-
-function bookingSearchValue(booking: BookingRecord) {
-  return [
-    booking.reference,
-    booking.status,
-    booking.metadata?.course_title,
-    booking.metadata?.event_title,
-    booking.metadata?.academy_name,
-    booking.metadata?.occurrence_date,
-  ].map(normalizedSearch).join(" ");
-}
-
-function uniqueSearchOptions(options: { id: string; label: string; description?: string; meta?: string }[]) {
-  return Array.from(new Map(options.filter((option) => option.id.trim()).map((option) => [option.id.toLowerCase(), option])).values());
 }
 
 function standardDashboardHref(searchParams: DashboardSearchParams, overrides: Record<string, string | number | undefined>) {
@@ -107,9 +77,7 @@ function standardDashboardHref(searchParams: DashboardSearchParams, overrides: R
 function dashboardCourseHref(
   course: Pick<DashboardRoll, "id" | "courseType" | "isRecurringOccurrence" | "occurrenceDateParam">,
   returnTo: string,
-  mobileSurface: boolean,
 ) {
-  if (mobileSurface) return mobileCourseHref(course, "/mobile?tab=profile");
   const href = courseHref(course);
   const [pathname, query = ""] = href.split("?");
   const params = new URLSearchParams(query);
@@ -124,7 +92,6 @@ export default async function DashboardPage({
 }) {
   const { user, academy, actor } = await requireDashboardUser();
   const params = await searchParams;
-  const mobileSurface = firstParam(params.surface) === "mobile";
   const routePanelRedirects: Record<string, string> = {
     academies: "/dashboard/academies",
     "academy-claims": "/dashboard/academy-claims",
@@ -138,7 +105,6 @@ export default async function DashboardPage({
   };
   const routePanel = firstParam(params.panel);
   const routePanelRedirect = routePanel ? routePanelRedirects[routePanel] : undefined;
-  if (mobileSurface && routePanelRedirect) redirect("/dashboard?surface=mobile");
   if (routePanelRedirect) {
     const nextParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
@@ -154,27 +120,18 @@ export default async function DashboardPage({
   }
   const platformAdminUser = user.role === Role.SUPER_ADMIN || user.role === Role.ADMIN || user.role === Role.PLATFORM_ADMIN;
   const academyAdminUser = user.role === Role.ACADEMY_ADMIN || user.role === Role.ACADEMY_OWNER;
-  if (!mobileSurface && (platformAdminUser || academyAdminUser)) {
+  if (platformAdminUser || academyAdminUser) {
     return <AdminDashboardWorkspace searchParams={Promise.resolve(params)} />;
   }
 
   const panel = standardPanel(firstParam(params.panel));
-  if (!panel || (mobileSurface && panel === "members")) {
-    redirect(mobileSurface ? "/dashboard?surface=mobile" : "/dashboard");
-  }
-  const mobileView = mobileDashboardView(firstParam(params.mobileView));
+  if (!panel) redirect("/dashboard");
 
   const search = (firstParam(params.search) ?? "").trim();
   const requestedRollsPage = pageFromParams(params, "rollsPage");
-  const [allAcademyRolls, practitionerBookings] = await Promise.all([
-    academy ? getAcademyCourseDiscovery({ academyId: academy.id, q: mobileSurface ? undefined : search }) : Promise.resolve([]),
-    mobileSurface && panel === "dashboard" ? getMobilePractitionerBookings(actor) : Promise.resolve({ bookings: [] }),
-  ]);
-  const normalizedQuery = normalizedSearch(search);
-  const academyRolls = mobileSurface && normalizedQuery
-    ? allAcademyRolls.filter((roll) => [roll.title, roll.description, roll.giType, roll.courseType, roll.instructor]
-      .map(normalizedSearch).join(" ").includes(normalizedQuery))
-    : allAcademyRolls;
+  const academyRolls = academy
+    ? await getAcademyCourseDiscovery({ academyId: academy.id, q: search })
+    : [];
   const rollCount = academyRolls.length;
   const totalRollPages = Math.max(1, Math.ceil(rollCount / standardRollsPageSize));
   const rollsPage = Math.min(requestedRollsPage, totalRollPages);
@@ -199,28 +156,16 @@ export default async function DashboardPage({
 
   return (
     <div className="min-h-dvh max-w-[100vw] overflow-x-hidden bg-[#f8faf7] text-slate-900">
-      {!mobileSurface ? (
-        <SidePanelControl
-          accountLabel={accountLabel}
-          navigationItems={standardNavigationItems}
-          roleLabel={roleLabel(user.role)}
-          supportHref="/contact"
-        />
-      ) : null}
+      <SidePanelControl
+        accountLabel={accountLabel}
+        navigationItems={standardNavigationItems}
+        roleLabel={roleLabel(user.role)}
+        supportHref="/contact"
+      />
 
-      <main className={`min-w-0 transition-[padding] duration-200 ${mobileSurface ? "pb-24" : "lg:pl-[var(--admin-side-panel-width,16rem)]"}`}>
-        {mobileSurface ? (
-          <MobileDashboardHeader
-            accountEmail={user.email}
-            accountName={accountLabel}
-            accountRole={roleLabel(user.role)}
-            avatarLabel={initials}
-            profileHref={standardDashboardHref(params, { panel: "profile" })}
-            settingsHref={standardDashboardHref(params, { panel: "settings" })}
-          />
-        ) : (
-          <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
-            <div className="size-11 lg:hidden" aria-hidden />
+      <main className="min-w-0 transition-[padding] duration-200 lg:pl-[var(--admin-side-panel-width,16rem)]">
+        <header className="flex min-h-20 items-center justify-between gap-4 border-b border-stone-200 bg-white px-4 sm:px-8 lg:min-h-24 lg:justify-end">
+          <div className="size-11 lg:hidden" aria-hidden />
           <DashboardAccountDropDownMenu
             accountEmail={user.email}
             accountName={accountLabel}
@@ -229,12 +174,11 @@ export default async function DashboardPage({
             profileHref={standardDashboardHref(params, { panel: "profile" })}
             settingsHref={standardDashboardHref(params, { panel: "settings" })}
           />
-          </header>
-        )}
+        </header>
 
-        <section className={`min-w-0 px-4 py-8 sm:px-8 ${mobileSurface ? "mx-auto w-full max-w-3xl" : ""}`}>
+        <section className="min-w-0 px-4 py-8 sm:px-8">
           {panel === "dashboard" ? (
-            <DashboardPanel academy={academy} mobileSurface={mobileSurface} mobileView={mobileView} practitionerBookings={practitionerBookings} rolls={rolls} searchRolls={allAcademyRolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
+            <DashboardPanel academy={academy} rolls={rolls} rollsPage={rollsPage} search={search} searchParams={params} totalRollPages={totalRollPages} />
           ) : null}
           {panel === "members" ? <MembersPanel academy={academy} members={members} search={search} /> : null}
           {panel === "profile" ? <ProfilePanel academy={academy} active={active} user={user} /> : null}
@@ -248,7 +192,6 @@ export default async function DashboardPage({
           ) : null}
         </section>
       </main>
-      {mobileSurface ? <MobileNavigation activeTab="profile" /> : null}
     </div>
   );
 }
@@ -256,58 +199,23 @@ export default async function DashboardPage({
 type DashboardUser = Awaited<ReturnType<typeof requireDashboardUser>>["user"];
 type DashboardAcademy = Awaited<ReturnType<typeof requireDashboardUser>>["academy"];
 type DashboardRoll = Awaited<ReturnType<typeof getAcademyCourseDiscovery>>[number];
-type PractitionerBookingsResult = { bookings: BookingRecord[]; error?: string };
-
-async function getMobilePractitionerBookings(actor: { id: string; email: string; accessToken?: string }): Promise<PractitionerBookingsResult> {
-  try {
-    return { bookings: await listPractitionerBookings({ accessToken: actor.accessToken, email: actor.email, userId: actor.id }) };
-  } catch (error) {
-    const message = error instanceof BookingServiceError && error.status === 403
-      ? "You do not have permission to view your bookings."
-      : "Your bookings are temporarily unavailable.";
-    return { bookings: [], error: message };
-  }
-}
 
 function DashboardPanel({
   academy,
-  mobileSurface,
-  mobileView,
-  practitionerBookings,
   rolls,
-  searchRolls,
   rollsPage,
   search,
   searchParams,
   totalRollPages,
 }: {
   academy: DashboardAcademy;
-  mobileSurface: boolean;
-  mobileView: MobileDashboardView;
-  practitionerBookings: PractitionerBookingsResult;
   rolls: DashboardRoll[];
-  searchRolls: DashboardRoll[];
   rollsPage: number;
   search: string;
   searchParams: DashboardSearchParams;
   totalRollPages: number;
 }) {
   const returnTo = standardDashboardHref(searchParams, { panel: "dashboard" });
-  const filteredBookings = search
-    ? practitionerBookings.bookings.filter((booking) => bookingSearchValue(booking).includes(normalizedSearch(search)))
-    : practitionerBookings.bookings;
-  const courseSearchOptions = uniqueSearchOptions(searchRolls.map((roll) => ({
-    id: roll.title,
-    label: roll.title,
-    description: `${roll.giType.replace("_", "-")} · ${formatDate(roll.eventDate)}`,
-    meta: `${roll.description ?? ""} ${roll.courseType} ${roll.instructor ?? ""}`,
-  })));
-  const bookingSearchOptions = uniqueSearchOptions(practitionerBookings.bookings.map((booking) => ({
-    id: normalizedSearch(booking.metadata?.course_title ?? booking.metadata?.event_title) || booking.reference,
-    label: String(booking.metadata?.course_title ?? booking.metadata?.event_title ?? "Training session"),
-    description: String(booking.metadata?.academy_name ?? booking.status),
-    meta: bookingSearchValue(booking),
-  })));
   const rows: StandardDashboardRollRow[] = rolls.map((roll) => ({
     id: roll.occurrenceId,
     title: roll.title,
@@ -315,7 +223,7 @@ function DashboardPanel({
     time: `${roll.startTime}-${roll.endTime}`,
     giType: roll.giType.replace("_", "-"),
     price: coursePriceLabel(roll),
-    href: dashboardCourseHref(roll, returnTo, mobileSurface),
+    href: dashboardCourseHref(roll, returnTo),
   }));
 
   return (
@@ -330,51 +238,8 @@ function DashboardPanel({
         </div>
       </div>
 
-      {mobileSurface ? (
-        <TabControl
-          activeValue={mobileView}
-          ariaLabel="Practitioner dashboard"
-          className="mt-6 [&_[role=tablist]]:!grid-cols-2"
-          items={[
-            {
-              value: "courses",
-              label: "Courses/Events",
-              href: standardDashboardHref(searchParams, {
-                panel: "dashboard",
-                mobileView: "courses",
-                rollsPage: undefined,
-                search: undefined,
-              }),
-            },
-            {
-              value: "bookings",
-              label: `My Bookings (${practitionerBookings.bookings.length})`,
-              href: standardDashboardHref(searchParams, {
-                panel: "dashboard",
-                mobileView: "bookings",
-                rollsPage: undefined,
-                search: undefined,
-              }),
-            },
-          ]}
-        />
-      ) : null}
-
-      {mobileSurface ? (
-        <MobileDashboardSearch
-          key={mobileView}
-          activeView={mobileView}
-          initialQuery={search}
-          options={mobileView === "bookings" ? bookingSearchOptions : courseSearchOptions}
-        />
-      ) : null}
-
-      {mobileSurface && mobileView === "bookings" ? (
-        <MobilePractitionerBookings bookings={filteredBookings} error={practitionerBookings.error} />
-      ) : null}
-
-      {!mobileSurface || mobileView === "courses" ? <section className="mt-6">
-        {!mobileSurface ? <form action="/dashboard" className="mb-4 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+      <section className="mt-6">
+        <form action="/dashboard" className="mb-4 flex flex-col gap-3 rounded-lg border border-stone-200 bg-white p-4 shadow-sm sm:flex-row sm:items-end">
           <input type="hidden" name="panel" value="dashboard" />
           <label className="grid flex-1 gap-1 text-sm font-semibold text-stone-800">
             Search Courses/Events
@@ -391,7 +256,7 @@ function DashboardPanel({
               Clear
             </Link>
           ) : null}
-        </form> : null}
+        </form>
 
         <StandardDashboardRollsTable
           rows={rows}
@@ -401,7 +266,7 @@ function DashboardPanel({
           previousHref={standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage - 1 })}
           nextHref={standardDashboardHref(searchParams, { panel: "dashboard", rollsPage: rollsPage + 1 })}
         />
-      </section> : null}
+      </section>
     </div>
   );
 }

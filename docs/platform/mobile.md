@@ -1,5 +1,7 @@
 # PRD: Rollfinders Mobile-First WebView App
 
+> Status: Retired. The portal `/mobile` route and its mobile-only dashboard surface were removed on 2026-08-29. This document is retained as historical product context only; current web journeys use the standard responsive portal routes.
+
 ## Objective
 
 Create a mobile-first Rollfinders experience that can run as:

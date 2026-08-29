@@ -41,17 +41,6 @@ export function openMatHref(course: Pick<Event, "id"> & { isRecurringOccurrence?
   return courseHref({ ...course, courseType: CourseType.OPEN_MAT });
 }
 
-export function mobileCourseHref(
-  course: Pick<Event, "id"> & { isRecurringOccurrence?: boolean; occurrenceDateParam?: string },
-  returnTo = "/mobile",
-) {
-  const params = new URLSearchParams({ returnTo });
-  if (course.isRecurringOccurrence && course.occurrenceDateParam) {
-    params.set("date", course.occurrenceDateParam);
-  }
-  return `/mobile/events/${course.id}?${params.toString()}`;
-}
-
 export function courseAddress(course: Pick<Event, "addressOverride"> & { academy: Pick<Academy, "address" | "city" | "postcode"> }) {
   return course.addressOverride?.trim() || `${course.academy.address}, ${course.academy.city} ${course.academy.postcode}`;
 }

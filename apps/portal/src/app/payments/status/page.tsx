@@ -184,11 +184,11 @@ function MobilePaymentStatus({
         </section>
 
         <div className="grid gap-3">
-          <Button href="/mobile" variant="primary" className="min-h-16 justify-center rounded-xl text-xl">
+          <Button href="/courses" variant="primary" className="min-h-16 justify-center rounded-xl text-xl">
             <GraduationCap size={25} aria-hidden />
             View Courses
           </Button>
-          <Button href="/mobile" variant="secondary" className="min-h-16 justify-center rounded-xl border-2 border-teal-700 bg-white text-xl text-teal-800">
+          <Button href="/" variant="secondary" className="min-h-16 justify-center rounded-xl border-2 border-teal-700 bg-white text-xl text-teal-800">
             <Home size={25} aria-hidden />
             Back to Home
           </Button>

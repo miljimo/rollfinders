@@ -149,13 +149,7 @@ export default async function RegisterPage({
             Sign in and ask your academy admin to add your existing account if
             it is not connected yet.
           </p>
-          <Button
-            href={
-              callbackUrl === "/mobile" ? "/login?redirect=%2Fmobile" : "/login"
-            }
-            variant="secondary"
-            className="mt-4 w-full"
-          >
+          <Button href="/login" variant="secondary" className="mt-4 w-full">
             Sign in
           </Button>
         </aside>

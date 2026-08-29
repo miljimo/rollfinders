@@ -41,15 +41,11 @@ test("public account deletion prevents enumeration and uses queued email", () =>
   assert.match(page, /law requires/i);
 });
 
-test("shared dashboard uses mobile presentation without a separate permission model", () => {
+test("shared dashboard keeps account deletion on the standard web surface", () => {
   const dashboard = source("apps/portal/src/app/dashboard/page.tsx");
-  const mobile = source("apps/portal/src/app/mobile/page.tsx");
   const deletionPanel = source("apps/portal/src/app/dashboard/settings/AccountDeletionPanel.tsx");
 
-  assert.match(mobile, /redirect\("\/dashboard\?surface=mobile"\)/);
-  assert.match(dashboard, /mobileSurface = firstParam\(params\.surface\) === "mobile"/);
-  assert.match(dashboard, /!mobileSurface \? \(/);
-  assert.match(dashboard, /<MobileNavigation activeTab="profile"/);
+  assert.doesNotMatch(dashboard, /mobileSurface|MobileNavigation/);
   assert.match(deletionPanel, /Leaving an academy is a separate action/);
   assert.match(deletionPanel, /cancelOwnAccountDeletion/);
 });

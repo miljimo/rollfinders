@@ -21,24 +21,6 @@ function registerHref(params: Record<string, string>) {
   return `/register?${query.toString()}`;
 }
 
-function mobileRegisterHref(params: Record<string, string>) {
-  const query = new URLSearchParams({
-    ...params,
-    tab: "profile",
-    auth: "register",
-  });
-  return `/mobile?${query.toString()}`;
-}
-
-function mobileSignInHref(params: Record<string, string>) {
-  const query = new URLSearchParams({
-    ...params,
-    tab: "profile",
-    auth: "sign-in",
-  });
-  return `/mobile?${query.toString()}`;
-}
-
 function safeCallbackUrl(value: string) {
   if (!value) return "/dashboard";
   if (!value.startsWith("/") || value.startsWith("//")) return "/dashboard";
@@ -50,13 +32,12 @@ function failureRedirect(
   academyId?: string,
   academySlug?: string,
   callbackUrl = "/dashboard",
-  mobileAuth = false,
 ) {
   const params: Record<string, string> = { error: message };
   if (academyId) params.academyId = academyId;
   if (academySlug) params.academy = academySlug;
   if (callbackUrl !== "/dashboard") params.callbackUrl = callbackUrl;
-  redirect(mobileAuth ? mobileRegisterHref(params) : registerHref(params));
+  redirect(registerHref(params));
 }
 
 export async function registerPractitioner(formData: FormData) {
@@ -68,7 +49,6 @@ export async function registerPractitioner(formData: FormData) {
   const password = textValue(formData, "password");
   const confirmPassword = textValue(formData, "confirmPassword");
   const callbackUrl = safeCallbackUrl(textValue(formData, "callbackUrl"));
-  const mobileAuth = textValue(formData, "mobileAuth") === "1";
 
   if (!academyId)
     failureRedirect(
@@ -76,7 +56,6 @@ export async function registerPractitioner(formData: FormData) {
       academyId,
       academySlug,
       callbackUrl,
-      mobileAuth,
     );
   if (!firstName || !lastName || !email || !password)
     failureRedirect(
@@ -84,7 +63,6 @@ export async function registerPractitioner(formData: FormData) {
       academyId,
       academySlug,
       callbackUrl,
-      mobileAuth,
     );
   if (password.length < 5)
     failureRedirect(
@@ -92,7 +70,6 @@ export async function registerPractitioner(formData: FormData) {
       academyId,
       academySlug,
       callbackUrl,
-      mobileAuth,
     );
   if (password !== confirmPassword)
     failureRedirect(
@@ -100,7 +77,6 @@ export async function registerPractitioner(formData: FormData) {
       academyId,
       academySlug,
       callbackUrl,
-      mobileAuth,
     );
 
   const academy = await getAcademyFromAcademyService(academyId);
@@ -110,7 +86,6 @@ export async function registerPractitioner(formData: FormData) {
       academyId,
       academySlug,
       callbackUrl,
-      mobileAuth,
     );
     return;
   }
@@ -135,7 +110,6 @@ export async function registerPractitioner(formData: FormData) {
           academyId,
           academySlug,
           callbackUrl,
-          mobileAuth,
         );
       }
     } else {
@@ -144,7 +118,6 @@ export async function registerPractitioner(formData: FormData) {
         academyId,
         academySlug,
         callbackUrl,
-        mobileAuth,
       );
     }
   }
@@ -157,7 +130,6 @@ export async function registerPractitioner(formData: FormData) {
       academyId,
       academySlug,
       callbackUrl,
-      mobileAuth,
     );
   }
 
@@ -171,7 +143,7 @@ export async function registerPractitioner(formData: FormData) {
       verifyEmail: "1",
       warning: "verification-email",
     });
-    redirect(mobileAuth ? mobileSignInHref(Object.fromEntries(loginParams)) : `/login?${loginParams.toString()}`);
+    redirect(`/login?${loginParams.toString()}`);
   }
 
   const loginParams = new URLSearchParams({
@@ -180,5 +152,5 @@ export async function registerPractitioner(formData: FormData) {
     callbackUrl,
     verifyEmail: "1",
   });
-  redirect(mobileAuth ? mobileSignInHref(Object.fromEntries(loginParams)) : `/login?${loginParams.toString()}`);
+  redirect(`/login?${loginParams.toString()}`);
 }
