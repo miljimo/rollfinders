@@ -177,3 +177,11 @@ moved {
   from = aws_route53_record.www
   to   = module.app_dns_records.aws_route53_record.www
 }
+
+removed {
+  from = module.app_dns_records[0].aws_route53_record.api
+
+  lifecycle {
+    destroy = false
+  }
+}
