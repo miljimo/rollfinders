@@ -101,7 +101,7 @@ false
 json.dump({"commands": [command]}, open(sys.argv[1], "w"))
 ' "${parameters_file}"
 
-command_id="$(aws ssm send-command --region "${AWS_REGION}" --instance-ids "${INSTANCE_ID}" --document-name AWS-RunShellScript --comment "Deploy RollFinders frontend ${IMAGE_URI}" --parameters "file://${parameters_file}" --query 'Command.CommandId' --output text)"
+command_id="$(aws ssm send-command --region "${AWS_REGION}" --instance-ids "${INSTANCE_ID}" --document-name AWS-RunShellScript --comment "Deploy portal ${IMAGE_URI##*:}" --parameters "file://${parameters_file}" --query 'Command.CommandId' --output text)"
 aws ssm wait command-executed --region "${AWS_REGION}" --command-id "${command_id}" --instance-id "${INSTANCE_ID}" || true
 status="$(aws ssm get-command-invocation --region "${AWS_REGION}" --command-id "${command_id}" --instance-id "${INSTANCE_ID}" --query Status --output text)"
 
