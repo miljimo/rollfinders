@@ -213,3 +213,32 @@ Creating and committing this ticket does not approve production deployment. Appr
 - Config plan: set `API_PUBLIC_BASE_URL=https://api.rollfinders.com` in Terraform-managed SSM configuration.
 - Infrastructure plan: relinquish the portal Terraform API DNS state entry with `destroy = false`; do not mutate the live API record.
 - Rollback plan: restore the captured previous portal image, retain the standalone API URL and compatibility aliases, and do not transfer DNS ownership back without coordinated approval.
+
+## Post-release Dashboard Rendering Incident
+
+Production browser verification on 2026-08-29 reproduced the user-reported generic server error after an authenticated super-admin login:
+
+- `/dashboard/analytics`: HTTP 500, error digest `2132402103`.
+- `/dashboard/academy-review`: HTTP 500, error digest `2521051799`.
+- `/dashboard/wallet`: HTTP 500, error digest `4168834455`.
+- The remaining authenticated dashboard destinations returned HTTP 200 in the same browser session.
+- Container logs identified the cause as table render and row callback functions crossing from server components into the client-only shared table component.
+
+Hotfix source `a00071d30c6343e92bd8326c45c803599f5b76a8` moves the affected callbacks behind explicit client-component boundaries for Analytics, Academy Review, and Wallet. It introduces no database migration, seed data, infrastructure change, or configuration change.
+
+Hotfix readiness evidence:
+
+- `npm run typecheck`: passed.
+- `npm run test:unit`: passed after the regression assertion correction, including 31/31 unified dashboard route-contract tests and the new client-boundary contract.
+- `npm run build`: passed with Next.js 16.2.7.
+- Targeted ESLint for the new and modified client components: passed; the repository-wide lint remains blocked by generated `.next` artifacts and unrelated pre-existing source violations.
+
+### Hotfix Approval Gate
+
+Production hotfix deployment requires explicit approval for:
+
+- Environment: `production`.
+- Source commit: `a00071d30c6343e92bd8326c45c803599f5b76a8`.
+- Migration plan: no new migration or seed data.
+- Configuration and infrastructure plan: no changes.
+- Rollback plan: redeploy production image `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138` with the existing production API URL and DNS ownership unchanged.
