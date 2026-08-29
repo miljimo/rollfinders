@@ -262,3 +262,23 @@ Verification evidence:
 - Local production runtime: `/mobile` returned HTTP 404, `/mobile/events/example` returned HTTP 404, and `/login` returned HTTP 200.
 
 The production approval target is now `e6ea8fe8296c3b512c8c520e04c0dd9f0ee60331`. There are still no database, seed, configuration, or infrastructure changes. The rollback target remains production image `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138`.
+
+## Production Hotfix Release Evidence
+
+Collected on 2026-08-29 after explicit approval of production source `e6ea8fe8296c3b512c8c520e04c0dd9f0ee60331`:
+
+- Immutable production image: `533235209034.dkr.ecr.eu-west-2.amazonaws.com/rollfinder/production/app:e6ea8fe8296c3b512c8c520e04c0dd9f0ee60331`.
+- Image digest: `sha256:adddd15a56b9d3a6c9c3097547ab74151f177218cf8af67d808b4004b2414e94`.
+- The image was built from a detached worktree at the exact approved commit and passed its container health check before upload.
+- The guarded EC2 rollout completed, including Prisma deploy, shallow health, deep database health, and automatic rollback protection.
+- The running web container reports the exact approved immutable image URI.
+- Portal and standalone API ALB target groups both report healthy.
+- Portal `/api/health` and `/api/health?deep=1`: HTTP 200.
+- Standalone API `/healthz` and `/readyz`: HTTP 200.
+- `/login`, `/register`, and `/forgot-password`: HTTP 200.
+- `/mobile` and `/mobile/events/example`: HTTP 404 as required by the route retirement.
+- A real production super-admin credential login was accepted and created a session containing the user ID and access token; credentials and cookies were not logged.
+- All 13 authenticated dashboard destinations returned HTTP 200 without the generic server-error screen, including `/dashboard/analytics`, `/dashboard/academy-review`, and `/dashboard/wallet`.
+- Production container logs contain zero occurrences of the server/client callback serialization error that caused the incident.
+- Academy Review renders successfully but emitted one non-fatal minified React hydration warning during automated browser verification; no route failure or generic error page occurred.
+- The optional analytics service URL remains unconfigured in the portal runtime and continues to emit caught best-effort localhost connection warnings; this does not affect authentication or dashboard route availability and requires a separately approved configuration follow-up.
