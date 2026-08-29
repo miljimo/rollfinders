@@ -59,7 +59,11 @@ rollback() {{
 }}
 trap rollback ERR
 aws ecr get-login-password --region {shlex.quote(os.environ.get("AWS_REGION", "eu-west-2"))} | docker login --username AWS --password-stdin {shlex.quote(os.environ["IMAGE_URI_FOR_COMMAND"].split("/")[0])}
-aws ssm get-parameters-by-path --region {shlex.quote(os.environ.get("AWS_REGION", "eu-west-2"))} --path {shlex.quote(os.environ["SSM_PREFIX_FOR_COMMAND"])} --with-decryption --recursive --query "Parameters[*].[Name,Value]" --output text | awk -F "\\t" "{{ name=\$1; sub(/^.*\\//, \"\", name); print name \"=\" \$2 }}" >.env.tmp
+aws ssm get-parameters-by-path --region {shlex.quote(os.environ.get("AWS_REGION", "eu-west-2"))} --path {shlex.quote(os.environ["SSM_PREFIX_FOR_COMMAND"])} --with-decryption --recursive --query "Parameters[*].[Name,Value]" --output text | while IFS="$(printf "\\t")" read -r name value; do
+  name="${{name##*/}}"
+  printf "%s=%s\\n" "$name" "$value"
+done >.env.tmp
+grep -q "^API_PUBLIC_BASE_URL=https://api.rollfinders.com$" .env.tmp
 mv .env.tmp .env
 cat >docker-compose.yml <<'COMPOSE'
 services:
