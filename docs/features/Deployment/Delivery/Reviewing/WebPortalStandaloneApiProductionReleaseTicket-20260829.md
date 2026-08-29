@@ -10,7 +10,7 @@
 - Test owner: Platform team
 - Dependencies: Production backend healthy at `https://api.rollfinders.com`, source commit pushed, reviewed Terraform plan, and explicit production approval
 - Source PRD: `docs/architecture/aws-deployment-architecture.md`
-- Ticket status: Prepared; blocked on production approval and release-source push
+- Ticket status: Released to production on 2026-08-29
 
 ## Goal
 
@@ -20,7 +20,7 @@ Release the AWS-hosted web portal against the independently deployed production 
 
 The release agent must:
 
-- Deploy the portal-only source from commit `0822312425583394c756649757ec2f8840b18ca5`.
+- Deploy the portal-only source from commit `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138`.
 - Configure `API_PUBLIC_BASE_URL=https://api.rollfinders.com` through the production SSM application parameters.
 - Refresh the EC2 portal `.env` from SSM and run only the `web` container.
 - Keep legacy direct-service environment aliases pointed at the standalone API during rollback compatibility.
@@ -53,7 +53,7 @@ The release agent must not:
 
 - Branch: `master`
 - Base commit: `571940a`
-- Release source commit: `0822312425583394c756649757ec2f8840b18ca5`
+- Release source commit: `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138`
 - Ticket: `RELEASE-20260829`
 - PR: N/A
 
@@ -92,7 +92,7 @@ No secret values may be printed or added to source control. `API_PUBLIC_BASE_URL
 ### Deployment Steps
 
 1. Confirm `https://api.rollfinders.com/healthz` is healthy and the backend team owns its Route53 record and certificate.
-2. Push release source commit `0822312425583394c756649757ec2f8840b18ca5` and this release ticket to `origin/master`.
+2. Push release source commit `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138` and this release ticket to `origin/master`.
 3. Capture the current production portal image URI and promotion record as the rollback target.
 4. Obtain explicit approval naming production, the release source commit, no new database migration, the `API_PUBLIC_BASE_URL` config change, the Terraform state-only DNS handoff, and the rollback plan below.
 5. Run the production workflow validation gates: dependency install, Prisma generation, `npm test`, `npm run build`, Terraform formatting, and Terraform validation.
@@ -178,15 +178,37 @@ Collected locally on 2026-08-29:
 - `terraform validate`: passed.
 - Terraform formatting checks for the changed root and local module files: passed.
 - Bash syntax checks for the changed deployment scripts: passed.
-- Production Terraform plan: pending credentials and explicit approval.
-- Live production smoke tests: pending deployment approval.
+- Production Terraform plan: reviewed; the unsafe full plan was rejected because it included unrelated EC2 replacement and configuration drift.
+- Approved configuration was applied narrowly: the API URL parameter was created and imported into Terraform state, and API DNS state ownership was removed without deleting the live record.
+
+## Production Release Evidence
+
+Collected on 2026-08-29 after explicit production approval:
+
+- Release source `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138` was pushed to `origin/master`.
+- Immutable production image digest: `sha256:ce54f3d9db35b4785afd8af61b71d3ffb63352edbc2c7567d76a32228c5c9e23`.
+- Rollback image: tag `1bd9e53`, digest `sha256:4e2fa91441f751d5296aec5f77a0cb3a46d96a7f1173c14da2de422e0f57e6f6`.
+- GitHub Actions run `33268287632` stopped before build because the stored package token was expired; no deployment occurred from that run.
+- GitHub package authorization was refreshed with `read:packages`, after which the existing local release workflow built, container-health-checked, and pushed the immutable image.
+- EC2 deployment tooling fixes were committed as `8eea0dd`, `e55e363`, and `a3649b1`; failed attempts rolled back to `1bd9e53` before the successful retry.
+- The guarded EC2 deployment completed, including Prisma deploy, shallow portal health, and deep database health checks.
+- `API_PUBLIC_BASE_URL` is managed in production SSM with value `https://api.rollfinders.com`.
+- Portal Terraform no longer manages the `api.rollfinders.com` record; the record remained unchanged and the API ALB target group reported healthy.
+- Portal ALB target health: healthy.
+- `https://rollfinders.com/api/health`: HTTP 200.
+- `https://rollfinders.com/api/health?deep=1`: HTTP 200 with database healthy.
+- `https://rollfinders.com/login`: HTTP 200.
+- `https://rollfinders.com/register`: HTTP 200 after deployment; it returned HTTP 500 before deployment.
+- `https://rollfinders.com/forgot-password`: HTTP 200.
+- `https://api.rollfinders.com/healthz` and `/readyz`: HTTP 200.
+- A real production super-admin credential login returned HTTP 200, was accepted without an authentication error, created a session containing the user ID and access token, and loaded the authenticated dashboard with HTTP 200. Credentials and cookies were not logged.
 
 ## Approval Gate
 
 Creating and committing this ticket does not approve production deployment. Approval must explicitly name:
 
 - Environment: `production`.
-- Source commit: `0822312425583394c756649757ec2f8840b18ca5`.
+- Source commit: `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138`.
 - Migration plan: no new migration or seed data; the existing Prisma deploy command must find no unexpected migration.
 - Config plan: set `API_PUBLIC_BASE_URL=https://api.rollfinders.com` in Terraform-managed SSM configuration.
 - Infrastructure plan: relinquish the portal Terraform API DNS state entry with `destroy = false`; do not mutate the live API record.
