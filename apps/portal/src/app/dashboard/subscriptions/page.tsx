@@ -233,12 +233,10 @@ export default async function SubscriptionsDashboardPage({
     redirect("/dashboard/subscriptions?billingConfirmed=cancelled");
   }
 
-  let error: string | null = actionError || null;
-  const [products, features, featureResult, planResult, subscriptions, currentSubscriptionState, entitlements, usageSummary, organisations, applications, assignableFeatures, billingCycles, roles, paymentTransactionsResult] = await Promise.all([
-    listSubscriptionProducts(actor).catch((err) => {
-      error = serviceErrorMessage(err);
-      return [];
-    }),
+  const [productResult, features, featureResult, planResult, subscriptions, currentSubscriptionState, entitlements, usageSummary, organisations, applications, assignableFeatures, billingCycles, roles, paymentTransactionsResult] = await Promise.all([
+    listSubscriptionProducts(actor)
+      .then((products) => ({ error: null, products }))
+      .catch((err) => ({ error: serviceErrorMessage(err), products: [] })),
     listSubscriptionFeatures(actor).catch(() => []),
     listSubscriptionFeaturesPage(actor, { limit: featuresPageSize, offset: featuresOffset }).catch(() => ({ features: [], pagination: { limit: featuresPageSize, offset: featuresOffset, count: 0, has_more: false } })),
     listSubscriptionPlansPage(actor, { limit: plansPageSize, offset: plansOffset }).catch(() => ({ plans: [], pagination: { limit: plansPageSize, offset: plansOffset, count: 0, has_more: false } })),
@@ -258,6 +256,8 @@ export default async function SubscriptionsDashboardPage({
     listAuthorisationRoles(actor).catch(() => []),
     listPaymentTransactionsPage({ limit: 100 }).catch(() => ({ payments: [], pagination: { limit: 100, offset: 0, count: 0, has_more: false } })),
   ]);
+  const products = productResult.products;
+  const error: string | null = actionError || productResult.error;
   if (!returnedPlanChangeId && billingResult === "success" && currentSubscriptionState.pending_change?.id) {
     await recordSubscriptionPlanChangePaymentResult(currentSubscriptionState.pending_change.id, {
       status: "succeeded",

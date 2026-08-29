@@ -157,6 +157,7 @@ import {
   EventPricingType,
   Role,
   UserStatus,
+  type Event,
   type Prisma,
 } from "@prisma/client";
 import { directionsUrl, formatDate } from "@/lib/utils";
@@ -2854,12 +2855,12 @@ export default async function AdminDashboardWorkspace({
   );
 }
 
-type DashboardEventListItem = Prisma.EventGetPayload<{}> & {
+type DashboardEventListItem = Event & {
   academy: AcademyServiceRecord;
 };
 
 type DashboardAcademyDetail = AcademyServiceRecord & {
-  events: Prisma.EventGetPayload<{}>[];
+  events: Event[];
   eventsTotalCount: number;
 };
 
@@ -6395,7 +6396,7 @@ type AcademyRow = {
 };
 
 type AcademyProfilePanelAcademy = AcademyServiceRecord & {
-  events: Prisma.EventGetPayload<{}>[];
+  events: Event[];
 };
 
 type FounderAnalyticsRow = Record<string, unknown> & {

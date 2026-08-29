@@ -103,7 +103,7 @@ export function UserForm({
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          <span className="text-sm font-medium text-stone-600">Defines the user's primary role in the system.</span>
+          <span className="text-sm font-medium text-stone-600">Defines the user&apos;s primary role in the system.</span>
         </label>
 
         {lockedAcademy ? (
