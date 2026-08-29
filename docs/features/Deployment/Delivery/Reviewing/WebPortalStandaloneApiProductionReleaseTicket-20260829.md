@@ -242,3 +242,23 @@ Production hotfix deployment requires explicit approval for:
 - Migration plan: no new migration or seed data.
 - Configuration and infrastructure plan: no changes.
 - Rollback plan: redeploy production image `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138` with the existing production API URL and DNS ownership unchanged.
+
+## Mobile Web Route Retirement
+
+Release source `e6ea8fe8296c3b512c8c520e04c0dd9f0ee60331` includes the dashboard rendering hotfix from `a00071d30c6343e92bd8326c45c803599f5b76a8` and retires the portal-only mobile web surface:
+
+- Removes `/mobile` and `/mobile/events/[id]` from the Next.js route tree.
+- Removes mobile-only navigation, discovery, authentication, and practitioner dashboard components.
+- Removes mobile proxy redirects and mobile registration/course-link branches.
+- Routes mobile-style payment completion actions to `/courses` and `/`.
+- Keeps the standard responsive `/dashboard`, `/courses`, `/login`, and `/register` journeys.
+
+Verification evidence:
+
+- `npm run typecheck`: passed.
+- `npm run test:unit`: 221 passed, 0 failed.
+- Targeted ESLint: 0 errors; only unrelated existing warnings remain.
+- `npm run build`: passed, and the generated route manifest contains neither `/mobile` nor `/mobile/events/[id]`.
+- Local production runtime: `/mobile` returned HTTP 404, `/mobile/events/example` returned HTTP 404, and `/login` returned HTTP 200.
+
+The production approval target is now `e6ea8fe8296c3b512c8c520e04c0dd9f0ee60331`. There are still no database, seed, configuration, or infrastructure changes. The rollback target remains production image `33740a6e320e5cbddb7cfe8b3f4a85ba85a36138`.
