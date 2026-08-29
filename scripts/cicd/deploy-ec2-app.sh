@@ -48,7 +48,7 @@ import shlex
 import sys
 
 image = shlex.quote(os.environ["IMAGE_URI_FOR_COMMAND"])
-command = f"""set -euo pipefail
+command = rf"""set -euo pipefail
 cd /opt/rollfinder
 previous_image=$(docker inspect --format '{{{{.Config.Image}}}}' rollfinder-web-1 2>/dev/null || true)
 rollback() {{
@@ -65,21 +65,21 @@ aws ssm get-parameters-by-path --region {shlex.quote(os.environ.get("AWS_REGION"
 done >.env.tmp
 grep -q "^API_PUBLIC_BASE_URL=https://api.rollfinders.com$" .env.tmp
 mv .env.tmp .env
-cat >docker-compose.yml <<'COMPOSE'
+cat >docker-compose.yml <<COMPOSE
 services:
   web:
-    image: ${{IMAGE_URI:?IMAGE_URI is required}}
+    image: \${{IMAGE_URI:?IMAGE_URI is required}}
     restart: unless-stopped
     env_file: .env
     environment:
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0
-      USER_PUBLIC_BASE_URL: ${{API_PUBLIC_BASE_URL}}
-      ACADEMY_PUBLIC_BASE_URL: ${{API_PUBLIC_BASE_URL}}
-      NOTIFICATION_SERVICE_BASE_URL: ${{API_PUBLIC_BASE_URL}}
-      WALLET_INTERNAL_BASE_URL: ${{API_PUBLIC_BASE_URL}}
-      PRICING_INTERNAL_BASE_URL: ${{API_PUBLIC_BASE_URL}}
+      USER_PUBLIC_BASE_URL: \${{API_PUBLIC_BASE_URL}}
+      ACADEMY_PUBLIC_BASE_URL: \${{API_PUBLIC_BASE_URL}}
+      NOTIFICATION_SERVICE_BASE_URL: \${{API_PUBLIC_BASE_URL}}
+      WALLET_INTERNAL_BASE_URL: \${{API_PUBLIC_BASE_URL}}
+      PRICING_INTERNAL_BASE_URL: \${{API_PUBLIC_BASE_URL}}
     ports:
       - "3000:3000"
     healthcheck:
