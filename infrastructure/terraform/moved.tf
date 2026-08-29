@@ -179,7 +179,7 @@ moved {
 }
 
 removed {
-  from = module.app_dns_records[0].aws_route53_record.api
+  from = module.app_dns_records.aws_route53_record.api
 
   lifecycle {
     destroy = false
