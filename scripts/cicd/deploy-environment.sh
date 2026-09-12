@@ -8,9 +8,6 @@ export PROJECT_DIR
 TERRAFORM_DIR="${TERRAFORM_DIR:-${PROJECT_DIR}/infrastructure/terraform}"
 TFVARS="${TERRAFORM_DIR}/environments/${ENVIRONMENT_NAME}/common.tfvars"
 
-source "${SCRIPT_DIR}/aws-oidc.sh"
-source "${SCRIPT_DIR}/deployment-lock.sh"
-
 case "${ENVIRONMENT_NAME}" in
   dev|production) ;;
   *)
@@ -20,6 +17,11 @@ case "${ENVIRONMENT_NAME}" in
 esac
 
 if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
+  deployment_branch="${GITHUB_REF_NAME:-${BITBUCKET_BRANCH:-$(git branch --show-current)}}"
+  if [[ "${deployment_branch}" != "master" ]]; then
+    echo "Production deployments must run from the master branch."
+    exit 1
+  fi
   if [[ "${PRODUCTION_APPROVED:-}" != "true" ]]; then
     echo "Production deploy requires PRODUCTION_APPROVED=true."
     exit 1
@@ -29,6 +31,9 @@ if [[ "${ENVIRONMENT_NAME}" == "production" ]]; then
     exit 1
   fi
 fi
+
+source "${SCRIPT_DIR}/aws-oidc.sh"
+source "${SCRIPT_DIR}/deployment-lock.sh"
 
 if [[ ! -f "${PROJECT_DIR}/image.env" ]]; then
   echo "Missing image.env artifact. Run scripts/cicd/build.sh before deployment."

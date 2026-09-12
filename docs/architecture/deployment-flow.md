@@ -48,7 +48,8 @@ flowchart LR
 | `feature/*` | Static validation only | None |
 | `develop` | Static validation only | None |
 | `master` or `main` push | Static validation only | None |
-| Manual GitHub Actions dispatch | Validate, build images, manual environment deploy | selected `dev` or `production` |
+| Manual GitHub Actions dispatch from `master` | Validate, build the workflow commit, and manually deploy | `production` |
+| Manual GitHub Actions dispatch from another branch | Validate and optionally deploy | `dev` only |
 
 ## Promotion Controls
 
@@ -65,6 +66,9 @@ flowchart TD
 Controls implemented by the deployment scripts:
 
 - `scripts/cicd/deploy-environment.sh` validates environment names.
+- Production workflow dispatches must run from `master`; validation,
+  image-building, and deployment jobs independently enforce this source rule.
+- The workflow builds `github.sha` and does not accept an alternate release ref.
 - Production deploys require the GitHub `production` environment approval, `production_confirmation=production`, and `PRODUCTION_APPROVED=true`.
 - Production migrations require `PRODUCTION_MIGRATION_APPROVED=true`.
 - Deployments must hold the global deployment lock before `scripts/cicd/deploy.sh` runs.

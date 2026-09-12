@@ -9,15 +9,20 @@ function source(path: string) {
 
 test("GitHub validates feature branches and keeps production deployment manual", () => {
   const workflow = source(".github/workflows/ci.yml");
+  const deployEnvironment = source("scripts/cicd/deploy-environment.sh");
 
   assert.match(workflow, /- master/);
   assert.match(workflow, /- "feature\/\*\*"/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /github\.event_name == 'workflow_dispatch' && inputs\.deploy/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/master'/);
   assert.match(workflow, /production_confirmation == 'production'/);
+  assert.doesNotMatch(workflow, /release_ref/);
   assert.match(workflow, /packages:\s*read/);
   assert.match(workflow, /GITHUB_PACKAGE_TOKEN:\s*\$\{\{ github\.token \}\}/);
   assert.doesNotMatch(workflow, /PACKAGES_READ_TOKEN/);
+  assert.match(deployEnvironment, /deployment_branch=.*GITHUB_REF_NAME.*BITBUCKET_BRANCH/);
+  assert.match(deployEnvironment, /deployment_branch.*!= "master"/);
 });
 
 test("Bitbucket validates feature branches and deploys only the portal from master", () => {
