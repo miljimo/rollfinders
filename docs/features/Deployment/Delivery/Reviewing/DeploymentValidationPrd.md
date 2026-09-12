@@ -34,10 +34,17 @@ IF a service is updated, WHEN the new task is running, THEN the deployment must 
 
 IF deployment succeeds, WHEN the workflow finishes, THEN it must record the deployed commit, image tag, service revision, and validation result.
 
+### Production Source Branch
+
+IF a production deployment is requested, WHEN the workflow validates its
+source, THEN it must reject every ref except `refs/heads/master` and build the
+workflow commit without accepting an alternate checkout ref.
+
 ## Acceptance Criteria
 
 - A failed build, plan, migration, or health check blocks promotion.
 - The deployed image can be traced to a commit SHA.
 - Post-deployment health checks cover both shallow and dependency-aware health.
 - Deployment output gives enough detail to audit what changed.
-
+- Production deployment jobs cannot build or deploy a branch, tag, or commit
+  selected independently of `master`.
